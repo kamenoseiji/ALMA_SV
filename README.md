@@ -1,4 +1,1 @@
-ALMA_SV
-=======
-
-Python Scripts for ALMA System Verification
+This repository is a set of Python scripts used in ALMA system verificaiton.
