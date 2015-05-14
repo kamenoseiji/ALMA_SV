@@ -246,7 +246,7 @@ def clcomplex_solve(bl_vis, bl_error):
 	#
 	resid  =  np.zeros(2* blnum)
 	niter  = 0
-	correction = np.ones(2* antnum - 1)
+	correction = np.zeros(2* antnum - 1)
 	solution   = np.zeros(2* antnum - 1)
 	#
 	#---- Initial solution
