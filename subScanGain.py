@@ -92,11 +92,32 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
 #
 #----------------------------------------- Procedures
 msfile = wd + prefix + '.ms'
-print('Checking the Array ....')
 #-------- Antenna List
 antList = GetAntName(msfile)
 antNum = len(antList)
 blNum  = antNum* (antNum - 1) / 2
+#----------------------------------------- Tsys
+logfile = open(prefix + '.Tsys.log', 'w')
+pol = ['XX', 'XY', 'YX', 'YY']
+chNum, chWid, freq = GetChNum(msfile, calSPW); Tsysfreq = freq* 1.0e-9 # GHz
+Trx, Tsys = TsysSpec(msfile, pol, calScan, calSPW, logfile, False )
+for ant_index in range(antNum):
+    for pol_index in range(polNum):
+        #-------- Plot. Tsys Spectrum
+        plt.subplot(polNum,  antNum, antNum* pol_index + ant_index + 1)
+        xlim=[np.min(Tsysfreq), np.max(Tsysfreq)]
+        ylim=[0.0, 1.2* np.max(TsysACA[ant_index, pol_index, 4:chNum])]
+        plt.plot(Tsysfreq, Trx[ant_index, pol_index], ls='steps-mid')
+        text_sd = antList[ant_index] + ' SPW=' + `calSPW` + ' Pol=' + pol[pol_index]
+        plt.text(0.9*xlim[0]+0.1*xlim[1], 0.1*ylim[0]+0.9*ylim[1], text_sd, size='x-small')
+        text_sd = 'Trx= %5.1f K Tsys= %5.1f K' % (np.median(Trx[ant_index, pol_index]), np.median(Tsys[ant_index, pol_index]))
+        plt.text(0.9*xlim[0]+0.1*xlim[1], 0.15*ylim[0]+0.85*ylim[1], text_sd, size='x-small')
+        plt.axis([xlim[0], xlim[1], ylim[0], ylim[1]], fontsize=3)
+    #
+#
+logfile.close()
+"""
+print('Checking the Array ....')
 #-------- Reference and Scan Antennas
 refAnt, scanAnt, scanTime, Offset = antRefScan(msfile)
 print('-------- Reference Antennas ----')
@@ -192,9 +213,16 @@ for subScan_index in range(subScanNum):
     subScanAngle = atan2( ScanEl[subScanEndIndex[subScan_index]], ScanAz[subScanEndIndex[subScan_index]])
     cs, sn = cos(subScanAngle), sin(subScanAngle)
     relativeScanPos = cs* ScanAz[timeRange] + sn* ScanEl[timeRange]
-    for ant_index in range(len(refAnt), antNum):
+    for ant_index in range(len(refAnt)):         #-------- Loop in ref ants
+        GainXX[ant_index, timeRange] /= np.mean(GainXX[ant_index, timeRange])
+        GainYY[ant_index, timeRange] /= np.mean(GainYY[ant_index, timeRange])
+        GainXY[ant_index, timeRange] /= np.mean(GainXY[ant_index, timeRange])
+        GainYX[ant_index, timeRange] /= np.mean(GainYX[ant_index, timeRange])
+    #
+    for ant_index in range(len(refAnt), antNum): #-------- Loop in scanning ants
         gaussParamX = simpleGaussFit(relativeScanPos, abs(GainXX[ant_index, timeRange]))
         gaussParamY = simpleGaussFit(relativeScanPos, abs(GainYY[ant_index, timeRange]))
+
         phaseX = np.angle(GainXX[ant_index, beamCenterIndex[subScan_index]])
         phaseY = np.angle(GainYY[ant_index, beamCenterIndex[subScan_index]])
         GainXX[ant_index, timeRange] /= (gaussParamX[0]* exp( (0.0+1.0j)* phaseX))
@@ -206,10 +234,10 @@ for subScan_index in range(subScanNum):
     #
 #
 #-------- Plot
-StokesI = abs(GainXX)**2 + abs(GainYY)**2
-StokesQ = abs(GainXX)**2 - abs(GainYY)**2
-StokesU = GainXY.real + GainYX.real
-StokesV = GainXY.imag - GainYX.imag
+StokesI = 0.5*(abs(GainXX)**2 + abs(GainYY)**2)
+StokesQ = 0.5*(abs(GainXX)**2 - abs(GainYY)**2)
+StokesU = 0.5*(GainXY.real + GainYX.real)
+StokesV = 0.5*(GainYX.imag - GainXY.imag)
 
 
 for index in range(len(refAnt), antNum):
@@ -228,4 +256,4 @@ for index in range(len(refAnt), antNum):
     plt.axis([-2.0*FWHM, 2.0*FWHM, -2.0*FWHM, 2.0*FWHM])
     plt.savefig( prefix + '-' + antList[AntIndex[index]] + '.pdf', form='pdf'); plt.close()
 #
-
+"""
