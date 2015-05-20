@@ -7,6 +7,10 @@ from scipy.interpolate import interp1d
 import scipy.optimize
 import time
 import datetime
+def AzEl2PA(az, el, lat):        # Azimuth, Elevation, Latitude in [rad]
+    cos_lat = math.cos(lat)
+    return atan2( -cos_lat* math.sin(az), (math.sin(lat)* math.cos(el) - cos_lat* math.sin(el)* math.cos(az)) )
+#
 def GetAzEl(msfile):
 	Out = msfile + '/' + 'POINTING'
 	tb.open(Out)
@@ -438,13 +442,13 @@ def delayCalSpec2( Xspec, chRange, sigma ):  # chRange = [startCH:stopCH] specif
 	#   
 	return delay_ant, delay_err, delayCalXspec
 #
-def bpCal(spec, BP): 
+def bpCal(spec, BP0, BP1): 
 	blnum, chNum, timeNum = len(spec), len(spec[0]), len(spec[0,0])
 	bpCalXX = np.zeros([blnum, chNum, timeNum], dtype=complex)
 	BP_bl = np.zeros([blnum, chNum], dtype=complex)
 	for bl_index in range(blnum):
 		ants = Bl2Ant(bl_index); ant1, ant2 = ants[1], ants[0]
-		BP_bl[bl_index] = BP[ant2]* BP[ant1].conjugate()
+		BP_bl[bl_index] = BP1[ant2]* BP0[ant1].conjugate()
 		bpCalXX[bl_index] = (spec[bl_index].T / BP_bl[bl_index]).T
 	return bpCalXX
 
@@ -466,6 +470,16 @@ def gainCal(spec, Gain):
 		Gain_bl = Gain[ant2] *  Gain[ant1].conjugate()
 		gainCalXX[bl_index] = spec[bl_index] / Gain_bl
 	return gainCalXX
+#
+def gainCalVis(vis, Gain0, Gain1):
+    blnum, timeNum = vis.shape[0], vis.shape[1]
+    caledVis = np.zeros([blnum, timeNum], dtype=complex)
+    for bl_index in range(blnum):
+        ants = Bl2Ant(bl_index); ant1, ant2 = ants[1], ants[0]  # e.g. bl_index = 0 -> ant1 = 0, ant2 = 1
+        Gain_bl = Gain1[ant2] *  Gain0[ant1].conjugate()
+        caledVis[bl_index] = vis[bl_index] / Gain_bl
+    #
+    return(caledVis)
 #
 def P2P(vector):
 	return np.max(vector) - np.min(vector)
@@ -742,4 +756,46 @@ def plotAmphi(fig, freq, spec):
 	phsAxis.plot(freq, phase, '.')
 	phsAxis.axis( [min(freq), max(freq), -pi, pi], size='x-small' )
 	return
+#
+#-------- Function to calculate visibilities
+def polariVis( Xspec ):
+    chNum   = Xspec.shape[1]
+    blNum   = Xspec.shape[2]
+    timeNum = Xspec.shape[3]
+    chRange = range( int(chNum*0.05), int(chNum* 0.98))
+    def gainComplex( vis ):
+        return clcomplex_solve( vis, np.ones([len(vis)])* 1.0e-4 )
+    #
+    #-------- Visibilities
+    XX = Xspec[0]     # XX[BL, CH, TIME]
+    XY = Xspec[1]     # XY[BL, CH, TIME]
+    YX = Xspec[2]     # YX[BL, CH, TIME]
+    YY = Xspec[3]     # YY[BL, CH, TIME]
+    #-------- Bandpass table
+    print '--- Making Antenna-based Bandpass Table'
+    BPX = bpPhsAnt(XX)          # BPX[ANT, CH] (phase only)
+    BPY = bpPhsAnt(YY)          # BPY[ANT, CH] (phase only)
+    #-------- Bandpass phase correction
+    print '--- Applying Bandpass Calibration'
+    XXbpcal = bpCal(XX, BPX, BPX)    # XXbpcal[BL, CH, TIME]
+    YYbpcal = bpCal(YY, BPY, BPY)    # YYbpcal[BL, CH, TIME]
+    XYbpcal = bpCal(XY, BPX, BPY)    # XYbpcal[BL, CH, TIME]
+    YXbpcal = bpCal(YX, BPY, BPX)    # YXbpcal[BL, CH, TIME]
+    #-------- channel average
+    print '--- Channel-averaging visibilities'
+    XXchav = np.mean( XXbpcal, axis=1)  # XXchav[BL, TIME]
+    XYchav = np.mean( XYbpcal, axis=1)  # XXchav[BL, TIME]
+    YXchav = np.mean( YXbpcal, axis=1)  # XXchav[BL, TIME]
+    YYchav = np.mean( YYbpcal, axis=1)  # XXchav[BL, TIME]
+    #
+    #-------- Gain Calibration
+    print '--- Solution for antenna-based gain'
+    GainX = np.apply_along_axis( gainComplex, 0, XXchav )
+    GainY = np.apply_along_axis( gainComplex, 0, YYchav )
+    VisXX = np.mean(gainCalVis( XXchav, GainX, GainX ), axis = 0)
+    VisYY = np.mean(gainCalVis( YYchav, GainY, GainY ), axis = 0)
+    VisXY = np.mean(gainCalVis( XYchav, GainX, GainY ), axis = 0)
+    VisYX = np.mean(gainCalVis( YXchav, GainY, GainX ), axis = 0)
+    #
+    return VisXX, VisXY, VisYX, VisYY
 #
