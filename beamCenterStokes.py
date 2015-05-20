@@ -18,9 +18,9 @@ def antRefScan( msfile ):
     return refAntIndex.tolist(), scanAntIndex.tolist(), Time[time_index], Offset[:, time_index]
 #
 #-------- Time-based matching between time tags in visibilities and in scan pattern 
-def AzElMatch( refTime, scanTime, thresh, Offset ):
+def AzElMatch( refTime, scanTime, thresh, Az, El ):
     index = np.where( abs(scanTime - refTime) < thresh)[0]
-    return np.median(Offset[0, index]), np.median(Offset[1, index])
+    return np.median(Az[index]), np.median(El[index])
 #
 #-------- Divide scan into subscans, based on time continuity
 def subScan(scanTime, gapThresh):
@@ -42,19 +42,20 @@ def circlePoints( x, y, radius ):
     return x + radius* np.cos(angle), y + radius* np.sin(angle)
 #
 #-------- Antenna-based time-averated delay
-def delayAnt( spec_BL_CH_TIME, chRange, timeRange ):
-    chNum = spec_BL_CH_TIME.shape[1]
+def delayAnt( spec_BL_CH_TIME, chRange ):
     blNum = spec_BL_CH_TIME.shape[0]
+    chNum = spec_BL_CH_TIME.shape[1]
+    timeNum = spec_BL_CH_TIME.shape[2]
     antNum = Bl2Ant(blNum)[0]
-    delay_bl= np.zeros([blNum])
-    visamp  = np.zeros([blNum])
-    delay_ant = np.zeros([antNum, len(timeRange)])
-    delay_err = np.zeros([antNum, len(timeRange)])
-    for time_index in range(len(timeRange)):
+    delay_bl= np.zeros([blNum, timeNum])
+    visamp  = np.zeros([blNum, timeNum])
+    delay_ant = np.zeros([antNum, timeNum])
+    delay_err = np.zeros([antNum, timeNum])
+    for time_index in range(timeNum)):
         for bl_index in range(blNum):
-            delay_bl[bl_index], visamp[bl_index] = delay_search(XX[bl_index, chRange, timeRange[time_index]])
+            delay_bl[bl_index], visamp[bl_index] = delay_search(XX[bl_index, chRange, time_index])
         #
-        delay_ant[:, time_index], delay_err[:, time_index] = cldelay_solve( delay_bl* (1.0* chNum / len(chRange)), visamp )
+        delay_ant[:, time_index], delay_err[:, time_index] = cldelay_solve( delay_bl* (1.0* chNum / len(chRange)), 1.0/visamp )
     #
     return np.median(delay_ant, axis=1)
 #
@@ -94,28 +95,6 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
 msfile = wd + prefix + '.ms'
 #-------- Antenna List
 antList = GetAntName(msfile)
-antNum = len(antList)
-blNum  = antNum* (antNum - 1) / 2
-#----------------------------------------- Tsys
-#logfile = open(prefix + '.Tsys.log', 'w')
-#pol = ['XX', 'XY', 'YX', 'YY']
-#chNum, chWid, freq = GetChNum(msfile, calSPW); Tsysfreq = freq* 1.0e-9 # GHz
-#Trx, Tsys = TsysSpec(msfile, pol, calScan, calSPW, logfile, False )
-#for ant_index in range(antNum):
-#    for pol_index in range(polNum):
-#        #-------- Plot. Tsys Spectrum
-#        plt.subplot(polNum,  antNum, antNum* pol_index + ant_index + 1)
-#        xlim=[np.min(Tsysfreq), np.max(Tsysfreq)]
-#        ylim=[0.0, 1.2* np.max(TsysACA[ant_index, pol_index, 4:chNum])]
-#        plt.plot(Tsysfreq, Trx[ant_index, pol_index], ls='steps-mid')
-#        text_sd = antList[ant_index] + ' SPW=' + `calSPW` + ' Pol=' + pol[pol_index]
-#        plt.text(0.9*xlim[0]+0.1*xlim[1], 0.1*ylim[0]+0.9*ylim[1], text_sd, size='x-small')
-#        text_sd = 'Trx= %5.1f K Tsys= %5.1f K' % (np.median(Trx[ant_index, pol_index]), np.median(Tsys[ant_index, pol_index]))
-#        plt.text(0.9*xlim[0]+0.1*xlim[1], 0.15*ylim[0]+0.85*ylim[1], text_sd, size='x-small')
-#        plt.axis([xlim[0], xlim[1], ylim[0], ylim[1]], fontsize=3)
-#    #
-##
-#logfile.close()
 print('Checking the Array ....')
 #-------- Reference and Scan Antennas
 refAnt, scanAnt, scanTime, Offset = antRefScan(msfile)
@@ -129,30 +108,25 @@ for ant_index in scanAnt:
     text_sd = 'Scan[%d] / %d: %s ' % (ant_index, len(scanAnt), antList[ant_index])
     print text_sd
 #
-AntIndex = refAnt + scanAnt
+scanTime, AntID, Az, El = GetAzEl(msfile)
+index = np.where( AntID == refAnt[0]); scanTime = scanTime[index]; Az = Az[index]; El = El[index]
+#
+AntIndex = refAnt
+antNum = len(refAnt)
+blNum  = antNum* (antNum - 1) / 2
+antList = antList[AntIndex]
 antWeight = np.ones(antNum)
-antWeight[scanAnt] = 0.5
 #-------- Visibility sampling points
 interval, timeStamp = GetTimerecord(msfile, 0, refAnt[0], scanAnt[0], spw[0], scan[0])
 timeNum = len(timeStamp)
 ScanAz = np.zeros([timeNum]); ScanEl = np.zeros([timeNum])
 for time_index in range(timeNum):
-    ScanAz[time_index], ScanEl[time_index] = AzElMatch( timeStamp[time_index], scanTime, np.median(interval), Offset)
+    ScanAz[time_index], ScanEl[time_index] = AzElMatch( timeStamp[time_index], scanTime, np.median(interval), Az, El)
 #
 #-------- Frequency and Wavelength
 chNum, chWid, Freq = GetChNum(msfile, spw[0])
-wavelength = constants.c / Freq 
+wavelength = constants.c / np.mean(Freq)
 FWHM = 1.13* 180.0* 3600.0* wavelength / (12.0* pi) # Gaussian beam, in unit of arcsec
-#-------- SubScan
-subScanStartIndex, subScanEndIndex = subScan(timeStamp, 1.5*np.median(interval))
-subScanNum = len(subScanStartIndex)
-#
-#-------- Pick central position
-beamCenterIndex = []
-for subScanIndex in range(subScanNum):
-    time_index = range( subScanStartIndex[subScanIndex], subScanEndIndex[subScanIndex]+1 )
-    beamCenterIndex.append( time_index[argmin( ScanAz[time_index]**2 + ScanEl[time_index]**2 )] )
-#
 vis_sigma = np.ones(blNum) / sqrt(2.0e9* np.median(diff(timeStamp)))
 #-- baseline-based weights
 blMap = range(blNum)
@@ -161,34 +135,38 @@ blWeight = np.ones(blNum)
 for bl_index in range(blNum):
     ants = Bl2Ant(bl_index)
     blMap[bl_index], blInv[bl_index] = Ant2BlD( AntIndex[ants[0]], AntIndex[ants[1]])
-    blWeight[bl_index] = antWeight[AntIndex[ants[0]]]* antWeight[AntIndex[ants[1]]]
 #
+blWeight = np.ones([blNum])
 #-------- Need Delay Cal?
-if len(delaySPW) != 0:
+if chNum > 31:
+    chRange = range( int(chNum*0.05), int(chNum* 0.98))
     #-------- Visibilities
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[0], scan[0])
+    timeNum = len(timeStamp); timeRange = range(timeNum)
     XX = Xspec[0, :, blMap]
     XY = Xspec[1, :, blMap]
     YX = Xspec[2, :, blMap]
     YY = Xspec[3, :, blMap]
     #
     #-------- Delay cal at beam center
-    delay_XX = delayAnt(XX, chRange, beamCenterIndex)
-    delay_YY = delayAnt(YY, chRange, beamCenterIndex)
+    delay_XX = np.apply_along_axis( delayAnt, 2, XX[:,chRange])
+    delay_YY = np.apply_along_axis( delayAnt, 2, YY[:,chRange])
+    #delay_YY = delayAnt(YY, chRange, timeRange)
     #
-    delayXY = np.zeros([blNum, len(beamCenterIndex)])
-    delayYX = np.zeros([blNum, len(beamCenterIndex)])
-    delay_XY = np.zeros([blNum])
-    delay_YX = np.zeros([blNum])
-    for bl_index in range(blNum):
-        for time_index in range( len(beamCenterIndex)):
-            delayXY[bl_index, time_index], visamp = delay_search( XY[bl_index, chRange, beamCenterIndex[time_index]])
-            delayYX[bl_index, time_index], visamp = delay_search( YX[bl_index, chRange, beamCenterIndex[time_index]])
-        #
+    #delayXY = np.zeros([blNum, timeRange])
+    #delayYX = np.zeros([blNum, timeRange])
+    #delay_XY = np.zeros([blNum])
+    #delay_YX = np.zeros([blNum])
+    #for bl_index in range(blNum):
+    #    for time_index in range( len(beamCenterIndex)):
+    #        delayXY[bl_index, time_index], visamp = delay_search( XY[bl_index, chRange])
+    #        delayYX[bl_index, time_index], visamp = delay_search( YX[bl_index, chRange])
+    #    #
     #
-    fact = 1.0e9 / (2.0* np.median(abs(chWid))* len(chRange))
-    print '%s  SPW[%d] : XY_delay=%5.3f YX_delay=%5.3f [ns]' % (prefix, spw[0], np.mean(delayXY)* fact, np.mean(delayYX)* fact)
+    #fact = 1.0e9 / (2.0* np.median(abs(chWid))* len(chRange))
+    #print '%s  SPW[%d] : XY_delay=%5.3f YX_delay=%5.3f [ns]' % (prefix, spw[0], np.mean(delayXY)* fact, np.mean(delayYX)* fact)
 #
+"""
 #-------- Visibilities
 timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[0], scan[0])
 XX = Xspec[0,0,blMap]
@@ -254,3 +232,4 @@ for index in range(len(refAnt), antNum):
     plt.axis([-2.0*FWHM, 2.0*FWHM, -2.0*FWHM, 2.0*FWHM])
     plt.savefig( prefix + '-' + antList[AntIndex[index]] + '.pdf', form='pdf'); plt.close()
 #
+"""
