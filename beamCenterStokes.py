@@ -24,6 +24,15 @@ def AzElMatch( refTime, scanTime, thresh, Az, El ):
 #
 #----------------------------------------- Procedures
 fileNum = len(prefix)
+mjdSec = []
+Az     = []
+El     = []
+PA     = []
+visXX  = []
+visXY  = []
+visYX  = []
+visYY  = []
+#
 for file_index in range(fileNum):
     msfile = wd + prefix[file_index] + '.ms'
     #-------- Antenna List
@@ -43,8 +52,8 @@ for file_index in range(fileNum):
             print text_sd
         #
     #
-    scanTime, AntID, Az, El = GetAzEl(msfile)
-    index = np.where( AntID == refAnt[0]); scanTime = scanTime[index]; Az = Az[index]; El = El[index]
+    scanTime, AntID, az, el = GetAzEl(msfile)
+    index = np.where( AntID == refAnt[0]); scanTime = scanTime[index]; az = az[index]; el = el[index]
     #
     AntIndex = refAnt
     antNum = len(refAnt)
@@ -56,7 +65,7 @@ for file_index in range(fileNum):
     timeNum = len(timeStamp)
     ScanAz = np.zeros([timeNum]); ScanEl = np.zeros([timeNum]); ScanPA = np.zeros([timeNum])
     for time_index in range(timeNum):
-        ScanAz[time_index], ScanEl[time_index] = AzElMatch( timeStamp[time_index], scanTime, np.median(interval), Az, El)
+        ScanAz[time_index], ScanEl[time_index] = AzElMatch( timeStamp[time_index], scanTime, np.median(interval), az, el)
         ScanPA[time_index] = AzEl2PA(ScanAz[time_index], ScanEl[time_index], ALMA_lat)
     #
     #-- baseline-based weights
@@ -77,9 +86,16 @@ for file_index in range(fileNum):
         for time_index in range(timeNum):
             print '%d %f %f %f %f %f %f %f %f %f %f %f' % (timeStamp[time_index], ScanAz[time_index], ScanEl[time_index], ScanPA[time_index], VisXX[time_index].real, VisXX[time_index].imag, VisXY[time_index].real, VisXY[time_index].imag, VisYX[time_index].real, VisYX[time_index].imag, VisYY[time_index].real, VisYY[time_index].imag)
         #
-        plt.plot( ScanPA, abs( VisXX ), 'b.',)
-        plt.plot( ScanPA, abs( VisXY ), 'r.',)
-        plt.plot( ScanPA, abs( VisYX ), 'ro',)
-        plt.plot( ScanPA, abs( VisYY ), 'bo',)
     #
+    mjdSec = np.append(mjdSec, timeStamp)
+    Az     = np.append(Az, ScanAz)
+    El     = np.append(El, ScanEl)
+    PA     = np.append(PA, ScanPA)
+    visXX  = np.append(visXX, VisXX)
+    visXY  = np.append(visXY, VisXY)
+    visYX  = np.append(visYX, VisYX)
+    visYY  = np.append(visYY, VisYY)
 #
+np.save(prefix[0] + '.Ant.npy', antList)
+np.save(prefix[0] + '.Azel.npy', np.array([mjdSec, Az, El, PA]))
+np.save(prefix[0] + '.Vis.npy', np.array([visXX, visXY, visYX, visYY]))
