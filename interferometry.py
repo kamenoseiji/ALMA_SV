@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import scipy
 from scipy.fftpack import fft, ifft
 from scipy.interpolate import interp1d
+from scipy.interpolate import UnivariateSpline
 import scipy.optimize
 import time
 import datetime
@@ -594,6 +595,20 @@ def bandpassStability(bpCalXX, segNum):
 			pe_phas[ant_index, seg_index] = PeakExcess(np.angle(segXX[seg_index,ant_index,startCH:stopCH]))
 		#
 	return sd_spec, pp_spec, pe_spec, sd_phas, pp_phas, pe_phas
+#
+#-------- Smoothing complex vector
+def splineComplex( axis, samplePoints, vector ):
+    Samp = np.std( abs( vector ))             # Smoothing factor for amplitude
+    Sphs = Samp / mean(abs(vector))   # Smoothing factor for phase
+    vec_abs = abs( vector )
+    vec_phs = np.angle( vector )
+    vec_real = np.cos(vec_phs)
+    vec_imag = np.sin(vec_phs)
+    SPL_amp = UnivariateSpline(samplePoints, abs(vector), s=0.01*Samp)
+    SPL_real = UnivariateSpline(samplePoints, vector.real, s=0.01*Sphs)
+    SPL_imag = UnivariateSpline(samplePoints, vector.imag, s=0.01*Sphs)
+    smth_phs = np.arctan2( SPL_imag(axis), SPL_real(axis) )
+    return( SPL_amp(axis)* exp(1.0j* smth_phs) )
 #
 #-------- Van Vleck Correction
 def loadVanvQ4( File ):
