@@ -81,7 +81,7 @@ for file_index in range(fileNum):
         vis_sigma = np.ones(blNum) / sqrt(2.0e9* np.median(diff(timeStamp)))
         print '--- Loading visibilities from MS'
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], scan[0])  # Xspec[POL, CH, BL, TIME]
-        VisXX, VisXY, VisYX, VisYY = polariVis( Xspec[:,:,blMap].swapaxes(1,2) )
+        VisXX, VisXY, VisYX, VisYY = polariVis( Xspec[:,:,blMap].swapaxes(1,2) )# VisXX[TIME] --- avaraged in CH and BL
         #
         for time_index in range(timeNum):
             print '%d %f %f %f %f %f %f %f %f %f %f %f' % (timeStamp[time_index], ScanAz[time_index], ScanEl[time_index], ScanPA[time_index], VisXX[time_index].real, VisXX[time_index].imag, VisXY[time_index].real, VisXY[time_index].imag, VisYX[time_index].real, VisYX[time_index].imag, VisYY[time_index].real, VisYY[time_index].imag)

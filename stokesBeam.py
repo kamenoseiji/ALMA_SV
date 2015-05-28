@@ -182,14 +182,22 @@ ScanVisYY = np.mean( VisYY[scanBlIndex], axis=0)
 
 
 ScaleXY = sqrt(abs(refVisXX * refVisYY))
-#ScanI = 0.5*(abs(refVisXX) + abs(refVisYY))
-#ScanQ = 0.5*(  csPA* (abs(refVisXX) - abs(refVisYY)) - snPA* (refVisXY.real + refVisYX.real) )
-#ScanU = 0.5*(  snPA* (abs(refVisXX) - abs(refVisYY)) + csPA* (refVisXY.real + refVisYX.real) )
-#ScanV = 0.5*( refVisXY.imag - refVisYX.imag) 
+refI = 0.5*(abs(refVisXX) + abs(refVisYY))
+refQ = 0.5*(  csPA* (abs(refVisXX) - abs(refVisYY)) - snPA* (refVisXY.real + refVisYX.real) )
+refU = 0.5*(  snPA* (abs(refVisXX) - abs(refVisYY)) + csPA* (refVisXY.real + refVisYX.real) )
+refV = 0.5*( refVisXY.imag - refVisYX.imag) 
 ScanI = 0.5*(abs(ScanVisXX) + abs(ScanVisYY))
 ScanQ = 0.5*(  csPA* (abs(ScanVisXX) - abs(ScanVisYY)) - snPA* (ScanVisXY.real + ScanVisYX.real) )
 ScanU = 0.5*(  snPA* (abs(ScanVisXX) - abs(ScanVisYY)) + csPA* (ScanVisXY.real + ScanVisYX.real) )
 ScanV = 0.5*( ScanVisXY.imag - ScanVisYX.imag) 
+logfile = open(prefix + '_Stokes.log', 'w')
+text_sd = 'mjdSec       dAz    dEl   PA      I       Q       U       V'
+logfile.write(text_sd + '\n')
+for time_index in range(timeNum):
+    text_sd = '%d %6.1f %6.1f %6.4f %7.4f %7.4f %7.4f %7.4f' % (timeStamp[time_index], ScanAz[time_index], ScanEl[time_index], PA(timeStamp[time_index]), ScanI[time_index], ScanQ[time_index], ScanU[time_index], ScanV[time_index])
+    logfile.write(text_sd + '\n')
+#
+logfile.close()
 #-------- SubScan
 subScanStartIndex, subScanEndIndex = subScan(timeStamp, 1.5*np.median(interval))
 subScanNum = len(subScanStartIndex)
