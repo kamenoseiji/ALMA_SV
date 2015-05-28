@@ -17,6 +17,25 @@ def antRefScan( msfile ):
     time_index = np.where( AntID == scanAntIndex[0] )[0].tolist()
     return refAntIndex.tolist(), scanAntIndex.tolist(), Time[time_index], Offset[:, time_index]
 #
+#-------- Read Grid Points
+def readGrid( file ):
+    file_ptr = open( file, 'r')
+    #labels = file_ptr
+    index = 0
+    Az = []
+    El = []
+    for line in open( file ):
+        items = line.split()
+        if index == 0:
+            label = items
+        else:
+            Az.append( float(items[1]))
+            El.append( float(items[2]))
+        #
+        index = index + 1
+    #
+    return Az, El
+#
 #-------- Time-based matching between time tags in visibilities and in scan pattern 
 def AzElMatch( refTime, scanTime, thresh, Offset ):
     index = np.where( abs(scanTime - refTime) < thresh)[0]
@@ -243,6 +262,23 @@ plt.axis([-2.0*FWHM, 2.0*FWHM, -2.0*FWHM, 2.0*FWHM])
 plt.savefig( prefix + '-StokesMap.pdf', form='pdf'); plt.close()
 plt.close()
 #
+#--------- Gridding for 11x11 sampling points
+az, el = readGrid(gridFile)
+logfile = open(prefix + '_StokesGrid.log', 'w')
+text_sd = 'No. dAz      dEl        I        Q        U         V'
+logfile.write(text_sd + '\n')
+xi, yi = np.mgrid[ min(az):max(az):11j, max(el):min(el):11j]
+Imap = GridData( ScanI, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
+Qmap = GridData( ScanQ, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
+Umap = GridData( ScanU, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
+Vmap = GridData( ScanV, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
+for x_index in range(11):
+    for y_index in range(11):
+        text_sd = '%d %f %f %f %f %f %f' % (x_index*11 + y_index + 1, xi[x_index, y_index], yi[x_index, y_index], Imap[x_index, y_index], Qmap[x_index, y_index], Umap[x_index, y_index], Vmap[x_index, y_index])
+        logfile.write(text_sd + '\n')
+    #
+#
+logfile.close()
 #-------- Plot within 2xFWHM
 timeIndex = np.where( ScanAz**2 + ScanEl**2 < FWHM**2 )[0]
 xi, yi = np.mgrid[ -floor(FWHM):floor(FWHM):128j, -floor(FWHM):floor(FWHM):128j]
