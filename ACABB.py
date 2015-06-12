@@ -1,8 +1,5 @@
 #-------- Script to compare ACA power and BB power
-execfile('/users/skameno/Scripts/interferometry.py')
-VanvQ4 = loadVanvQ4('/users/skameno/Scripts/VanvQ4.data')	# 4-bit Van Vleck
-coeff  = loadAcorrCoeff('/users/skameno/Scripts/ACAVanvCoeff.data')
-
+execfile( SCR + 'interferometry.py')
 #-------- Script to compare ACA power and BB power
 def BB_filter(timeBB, dataBB):
 	index = np.where( abs(dataBB[0]) > 0.0)[0]

@@ -1,7 +1,5 @@
 #-------- Script to compare ACA power and BB power
-execfile('/users/skameno/Scripts/interferometry.py')
-VanvQ4 = loadVanvQ4('/users/skameno/Scripts/VanvQ4.data')	# 4-bit Van Vleck
-coeff  = loadAcorrCoeff('/users/skameno/Scripts/ACAVanvCoeff.data')
+execfile('/Users/kameno/Programs/ALMA_SV/interferometry.py')
 
 #-------- Script to compare ACA power and BB power
 def BB_filter(timeBB, dataBB):
@@ -39,7 +37,7 @@ for spw_index in range(spwNum):
 				calSpec[:, index] = dataXY[:, index].real
 			#
 			powerACA = abs(np.mean(calSpec, axis=0))
-			edge = np.where( diff(dataBB) > 1000.0 )[0]
+			edge = np.where( diff(dataBB) > 0.1*min(dataBB) )[0]
 			skyRange = range(0, edge[0])
 			ambRange = range(edge[0]+1, edge[1])
 			hotRange = range(edge[1]+1, len(timeBB))

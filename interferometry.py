@@ -9,9 +9,59 @@ import scipy.optimize
 import time
 import datetime
 def AzEl2PA(az, el, lat):        # Azimuth, Elevation, Latitude in [rad]
-    cos_lat = math.cos(lat)
+    cos_lat = np.cos(lat)
     # return atan2( -cos_lat* math.sin(az), (math.sin(lat)* math.cos(el) - cos_lat* math.sin(el)* math.cos(az)) )
-    return atan( -cos_lat* math.sin(az) / (math.sin(lat)* math.cos(el) - cos_lat* math.sin(el)* math.cos(az)) )
+    return np.arctan( -cos_lat* np.sin(az) / (np.sin(lat)* np.cos(el) - cos_lat* np.sin(el)* np.cos(az)) )
+#
+#-------- Greenwidge Mean Sidereal Time
+def mjd2gmst( mjd, ut1utc ):        # mjd in [day], ut1utc in [sec]
+    FACT = [24110.54841, 8640184.812866, 0.093104, 0.0000062]
+    MJD_EPOCH = 51544.5             # MJD at 2000 1/1 12:00:00 UT
+    TU_UNIT   = 36525.0
+    SEC_PER_DAY = 86400.0
+    tu = (mjd - MJD_EPOCH) / TU_UNIT
+    ut1 = modf(mjd)[0]* SEC_PER_DAY + ut1utc
+    gmst = (ut1 + FACT[0] + ((FACT[3]* tu + FACT[2])* tu + FACT[1])* tu) / SEC_PER_DAY
+    return 2.0* pi* modf(gmst)[0]
+#
+def gst2lst( gst, longitude ):      # gst, lambda in [rad]
+    return( gst + longitude)
+#
+def azel2radec( az, el, lst, latitude):
+    dec = np.arcsin( np.sin(el)* np.sin(latitude) + np.cos(el)* np.cos(latitude)* np.cos(az) )
+    ha  = np.arctan2( -np.sin(az)* np.cos(el)/np.cos(dec), (np.sin(el) - np.sin(dec)* np.sin(latitude))/(np.cos(dec)* np.cos(latitude)) )
+    ra  = lst - ha
+    return ra, dec
+#
+def gst2ha( gst, longitude, ra ):      # gst, lambda, ra in [rad]
+    lst = gst + longitude
+    ha  = lst - ra
+    return 2.0* pi* modf((ha + pi)/ (2.0* pi))[0] - pi
+#
+def radec2ecliptic( ra, dec, mjd ):          # J2000 -> ecliptic, mjd in [day]
+    MJD_EPOCH = 51544.5             # MJD at 2000 1/1 12:00:00 UT
+    TU_UNIT   = 36525.0             # Julian Century
+    tu = (mjd - MJD_EPOCH) / TU_UNIT    # Julian Century from J2000.0
+    inclination = 0.4090926006005829 + ((((-2.104091376015386e-13* tu - 2.792526803190927e-12)* tu + 9.712757287348442e-09)* tu - 8.876938501115603e-10)* tu - 1.9833368961184175e-06)* tu
+    cs, sn = cos(inclination), sin(inclination)
+    Xa, Ya, Za = np.cos(dec)* np.cos(ra), np.cos(dec)* np.sin(ra), np.sin(dec)
+    Xb, Yb, Zb = Xa, cs* Ya + sn* Za, -sn* Ya + cs* Za
+    return np.arctan2(Yb, Xb), np.arcsin(Zb)
+#
+def ecliptic2radec( longitude, latitude, mjd ):          # ecliptic -> J2000, mjd in [day]
+    MJD_EPOCH = 51544.5             # MJD at 2000 1/1 12:00:00 UT
+    TU_UNIT   = 36525.0             # Julian Century
+    tu = (mjd - MJD_EPOCH) / TU_UNIT    # Julian Century from J2000.0
+    inclination = 0.4090926006005829 + ((((-2.104091376015386e-13* tu - 2.792526803190927e-12)* tu + 9.712757287348442e-09)* tu - 8.876938501115603e-10)* tu - 1.9833368961184175e-06)* tu
+    cs, sn = cos(inclination), sin(inclination)
+    Xa, Ya, Za = np.cos(latitude)* np.cos(longitude), np.cos(latitude)* np.sin(longitude), np.sin(latitude)
+    Xb, Yb, Zb = Xa, cs* Ya - sn* Za, sn* Ya + cs* Za
+    return np.arctan2(Yb, Xb), np.arcsin(Zb)
+#
+#-------- Time-based matching between time tags in visibilities and in scan pattern 
+def AzElMatch( refTime, scanTime, thresh, Az, El ):
+    index = np.where( abs(scanTime - refTime) < thresh)[0]
+    return np.median(Az[index]), np.median(El[index])
 #
 def GetAzEl(msfile):
 	Out = msfile + '/' + 'POINTING'
@@ -21,7 +71,7 @@ def GetAzEl(msfile):
 	AntID    = tb.getcol("ANTENNA_ID")
 	tb.close()
 	return Time, AntID, Direction[0,0], Direction[1,0]
-
+#
 def GetAzOffset(msfile):
 	Out = msfile + '/' + 'POINTING'
 	tb.open(Out)
@@ -30,7 +80,7 @@ def GetAzOffset(msfile):
 	AntID    = tb.getcol("ANTENNA_ID")
 	tb.close()
 	return Time, AntID, Offset[:,0]*180*3600/pi
-
+#
 def TimeExtract(AntID, scanTime, keyTime):		# Find index in scanTime with the keyTime
 	time_index = range(len(keyTime))
 	for scan_index in time_index:

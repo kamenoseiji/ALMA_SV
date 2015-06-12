@@ -1,7 +1,5 @@
 #-------- Script to compare ACA power and BB power
-execfile('/users/skameno/Scripts/interferometry.py')
-#VanvQ4 = loadVanvQ4('/users/skameno/Scripts/VanvQ4.data')	# 4-bit Van Vleck
-#coeff  = loadAcorrCoeff('/users/skameno/Scripts/ACAVanvCoeff.data')
+execfile(SCR + 'interferometry.py')
 
 #-------- Scan Time in ACA data
 def timeMatch( timeBB, timeACA ):

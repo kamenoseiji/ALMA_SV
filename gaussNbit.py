@@ -6,7 +6,7 @@ import math
 
 #-------- erf(x/sqrt(2))
 def erf2(x):
-	return scipy.special.erf(x / sqrt(2.0))
+	return scipy.special.erf(x / math.sqrt(2.0))
 
 #-------- probabilities among uniformly-spaced threshold voltages
 def probNbit(param, levelNum):
@@ -27,7 +27,7 @@ def initGaussNbit( prob, levelNum ):
 	Vweight = np.linspace(-levelNum/2 + 0.5, levelNum/2 - 0.5, levelNum)	# Voltage for each level
 	Pweight = Vweight**2													# Power of each level
 	Average = np.dot(Vweight, prob)
-	SD		= sqrt(np.dot(Pweight, prob) - Average**2)
+	SD		= math.sqrt(np.dot(Pweight, prob) - Average**2)
 	return 1.0/SD, Average/SD
 
 #-------- Gaussian parameters derermined by bit distribution
@@ -53,7 +53,7 @@ def gaussNbit( Nsample, levelNum ):
 	prob = Nsample[0:levelNum]/totalSample		# Measured probability in each state
 	weight = Nsample[0:levelNum] / (1.0 - prob)**2	# Weight following biniminal distribution
 	W = np.diag( weight )							# Weight matrix
-	SqPi2 = 1.0 / sqrt(2.0* pi)
+	SqPi2 = 1.0 / math.sqrt(2.0* math.pi)
 	a = initGaussNbit(prob, levelNum)			# Initial parameters
 	#
 	#-------- Loop for iteration
@@ -94,7 +94,7 @@ def gaussNbitThresh( Nsample, levelNum, thresh ):
 	prob = Nsample[0:levelNum]/totalSample		# Measured probability in each state
 	weight = Nsample[0:levelNum] / (1.0 - prob)**2	# Weight following biniminal distribution
 	W = np.diag( weight )							# Weight matrix
-	SqPi2 = 1.0 / sqrt(2.0* pi)
+	SqPi2 = 1.0 / math.sqrt(2.0* math.pi)
 	a = initGaussNbit(prob, levelNum)			# Initial parameters
 	#
 	#-------- Loop for iteration

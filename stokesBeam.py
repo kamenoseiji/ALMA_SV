@@ -182,7 +182,7 @@ def gainComplex( vis ):
     return clcomplex_solve( vis, vis_sigma/blWeight )
 #
 GainX = np.apply_along_axis( gainComplex, 0, XX )/ sqrt(1.0 + XX_YY)
-GainY = np.apply_along_axis( gainComplex, 0, YY )/ sqrt(1.0 - XX_YY)
+GainY = np.apply_along_axis( gainComplex, 0, YY )* exp( 1.0j* XYphs) / sqrt(1.0 - XX_YY)
 
 VisXX = gainCalVis( XX, GainX, GainX)
 VisXY = gainCalVis( XY, GainX, GainY)
@@ -190,25 +190,27 @@ VisYX = gainCalVis( YX, GainY, GainX)
 VisYY = gainCalVis( YY, GainY, GainY)
 
 refVisXX  = np.mean( VisXX[refBlIndex], axis=0)
-refVisXY  = (np.mean( VisXY[refBlIndex], axis=0) - Dxy)* exp(-1.0j* XYphs)
-refVisYX  = (np.mean( VisYX[refBlIndex], axis=0) + Dxy)* exp( 1.0j* XYphs)
+#refVisXY  = (np.mean( VisXY[refBlIndex], axis=0) - Dxy)* exp(-1.0j* XYphs)
+#refVisYX  = (np.mean( VisYX[refBlIndex], axis=0) + Dxy)* exp( 1.0j* XYphs)
+refVisXY  = (np.mean( VisXY[refBlIndex], axis=0) - Dxy)
+refVisYX  = (np.mean( VisYX[refBlIndex], axis=0) + Dxy)
 refVisYY  = np.mean( VisYY[refBlIndex], axis=0)
 
 ScanVisXX = np.mean( VisXX[scanBlIndex], axis=0)
-ScanVisXY = (np.mean( VisXY[scanBlIndex], axis=0) -Dxy)* exp(-1.0j* XYphs)
-ScanVisYX = (np.mean( VisYX[scanBlIndex], axis=0) +Dxy)* exp( 1.0j* XYphs)
+#ScanVisXY = (np.mean( VisXY[scanBlIndex], axis=0) - Dxy)* exp(-1.0j* XYphs)
+#ScanVisYX = (np.mean( VisYX[scanBlIndex], axis=0) + Dxy)* exp( 1.0j* XYphs)
+ScanVisXY = (np.mean( VisXY[scanBlIndex], axis=0) - Dxy)
+ScanVisYX = (np.mean( VisYX[scanBlIndex], axis=0) + Dxy)
 ScanVisYY = np.mean( VisYY[scanBlIndex], axis=0)
 
-
-ScaleXY = sqrt(abs(refVisXX * refVisYY))
-refI = 0.5*(abs(refVisXX) + abs(refVisYY))
-refQ = 0.5*(  csPA* (abs(refVisXX) - abs(refVisYY)) - snPA* (refVisXY.real + refVisYX.real) )
-refU = 0.5*(  snPA* (abs(refVisXX) - abs(refVisYY)) + csPA* (refVisXY.real + refVisYX.real) )
-refV = 0.5*( refVisXY.imag - refVisYX.imag) 
-ScanI = 0.5*(abs(ScanVisXX) + abs(ScanVisYY))
-ScanQ = 0.5*(  csPA* (abs(ScanVisXX) - abs(ScanVisYY)) - snPA* (ScanVisXY.real + ScanVisYX.real) )
-ScanU = 0.5*(  snPA* (abs(ScanVisXX) - abs(ScanVisYY)) + csPA* (ScanVisXY.real + ScanVisYX.real) )
-ScanV = 0.5*( ScanVisXY.imag - ScanVisYX.imag) 
+refI = 0.5*(refVisXX + refVisYY).real
+refQ = 0.5*(  csPA* (refVisXX - refVisYY).real - snPA* (refVisXY + refVisYX).real )
+refU = 0.5*(  snPA* (refVisXX - refVisYY).real + csPA* (refVisXY + refVisYX).real )
+refV = 0.5*( refVisXY - refVisYX).imag 
+ScanI = 0.5*(ScanVisXX + ScanVisYY).real
+ScanQ = 0.5*(  csPA* (ScanVisXX - ScanVisYY).real - snPA* (ScanVisXY + ScanVisYX).real )
+ScanU = 0.5*(  snPA* (ScanVisXX - ScanVisYY).real + csPA* (ScanVisXY + ScanVisYX).real )
+ScanV = 0.5*( ScanVisXY - ScanVisYX).imag 
 logfile = open(prefix + '_Stokes.log', 'w')
 text_sd = 'mjdSec       dAz    dEl   PA      I       Q       U       V'
 logfile.write(text_sd + '\n')
