@@ -5,6 +5,7 @@ import scipy
 from scipy.fftpack import fft, ifft
 from scipy.interpolate import interp1d
 from scipy.interpolate import UnivariateSpline
+from scipy.interpolate import LSQUnivariateSpline
 import scipy.optimize
 import time
 import datetime
@@ -713,6 +714,16 @@ def fitGauss( x, y, yerr ):
 	param = [np.max(y), 0.0, 0.2*np.max(x), np.median(y), (y[len(y)-1] - y[0])/(x[len(x)-1] - x[0]) ]
 	result = scipy.optimize.leastsq( residGauss, param, args=(x, y, yerr), full_output=True)
 	return result[0], np.sqrt([result[1][0,0], result[1][1,1], result[1][2,2], result[1][3,3], result[1][4,4]])
+#
+#-------- 2-D Gauss fit
+def resid2DGauss(param, z, x, y):
+    argGauss = ((x - param[1])/param[3])**2 + ((y - param[2])/param[4])**2
+    return z - param[0]* np.exp( -0.5* argGauss )
+#
+def simple2DGaussFit( z, x, y ):
+    param = [np.max(y), 0.0, 0.0, np.std(x), np.std(y)]
+    result = scipy.optimize.leastsq(resid2DGauss, param, args=(z, x, y))
+    return result[0]
 #
 #-------- ACD edge pattern
 def ACDedge( timeXY ):

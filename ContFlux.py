@@ -38,30 +38,37 @@ def tsysSpec(prefix, TsysScan, TsysSPW):
     antList = GetAntName(msfile)
     antNum  = len(antList)
     polNum  = len(pol)
-    chNum, chWid, freq = GetChNum(msfile, TsysSPW); Tsysfreq = freq* 1.0e-9 # GHz
-    TrxSpec = np.zeros([antNum, polNum, chNum]); TsysSpec = np.zeros([antNum, polNum, chNum])
-    #
-    #-------- Get Physical Temperature of loads
-    for ant_index in range(antNum):
-        tempAmb, tempHot = GetLoadTemp(msfile, ant_index, TsysSPW)
+    spwNum  = len(TsysSPW)
+    TrxList = []
+    TsysList = []
+    for spw_index in range(spwNum):
+        chNum, chWid, freq = GetChNum(msfile, TsysSPW[spw_index]); Tsysfreq = freq* 1.0e-9 # GHz
+        TrxSpec = np.zeros([antNum, polNum, chNum]); TsysSpec = np.zeros([antNum, polNum, chNum])
         #
-        for pol_index in range(polNum):
-            timeXY, dataXY = GetVisibility(msfile, ant_index, ant_index, pol_index, TsysSPW, TsysScan)
+        #-------- Get Physical Temperature of loads
+        for ant_index in range(antNum):
+            tempAmb, tempHot = GetLoadTemp(msfile, ant_index, TsysSPW[spw_index])
             #
-            #-------- Time range of Sky/Amb/Hot
-            edge = np.where( diff(timeXY) > 1.0 )[0]
-            skyRange = range(0, edge[0])
-            ambRange = range(edge[0]+1, edge[1])
-            hotRange = range(edge[1]+1, len(timeXY))
+            for pol_index in range(polNum):
+                timeXY, dataXY = GetVisibility(msfile, ant_index, ant_index, pol_index, TsysSPW[spw_index], TsysScan)
+                #
+                #-------- Time range of Sky/Amb/Hot
+                edge = np.where( diff(timeXY) > 1.0 )[0]
+                skyRange = range(0, edge[0])
+                ambRange = range(edge[0]+1, edge[1])
+                hotRange = range(edge[1]+1, len(timeXY))
+                #
+                #-------- Calc. Tsys Spectrum
+                Psky, Pamb, Phot = np.mean(dataXY[:,skyRange].real, 1), np.mean(dataXY[:,ambRange].real, 1), np.mean(dataXY[:,hotRange].real, 1)
+                TrxSpec[ant_index, pol_index]  = (tempHot* Pamb - Phot* tempAmb) / (Phot - Pamb)
+                TsysSpec[ant_index, pol_index] = (Psky* tempAmb) / (Pamb - Psky)
+                print '%s SPW=%d pol=%s: Trx=%5.1f Tsys=%5.1f' % (antList[ant_index], TsysSPW[spw_index], pol[pol_index], np.median(TrxSpec[ant_index, pol_index]), np.median(TsysSpec[ant_index, pol_index]))
             #
-            #-------- Calc. Tsys Spectrum
-            Psky, Pamb, Phot = np.mean(dataXY[:,skyRange].real, 1), np.mean(dataXY[:,ambRange].real, 1), np.mean(dataXY[:,hotRange].real, 1)
-            TrxSpec[ant_index, pol_index]  = (tempHot* Pamb - Phot* tempAmb) / (Phot - Pamb)
-            TsysSpec[ant_index, pol_index] = (Psky* tempAmb) / (Pamb - Psky)
-            print '%s SPW=%d pol=%s: Trx=%5.1f Tsys=%5.1f' % (antList[ant_index], TsysSPW, pol[pol_index], np.median(TrxSpec[ant_index, pol_index]), np.median(TsysSpec[ant_index, pol_index]))
         #
+        TrxList.append(TrxSpec)
+        TsysList.append(TsysSpec)
     #
-    return TrxSpec, TsysSpec
+    return TrxList, TsysList
 #
 #-------- GridPoint
 def GridPoint( value, samp_x, samp_y, point_x, point_y, kernel ):
@@ -98,14 +105,13 @@ scanNum  = len(scan)
 spwNum  = len(spw_ACA)
 logfile = open(prefix + '_BBLOG.log', 'w')
 #-------- Tsys spectrum for specified antennas
-chNum, chWid, Freq = GetChNum(msfile, TsysSPW)
+chNum, chWid, Freq = GetChNum(msfile, TsysSPW[0])
 wavelength = constants.c / np.median(Freq)
 FWHM = 1.13* 180.0* 3600.0* wavelength / (12.0* pi) # Gaussian beam for 12-m antenna, in unit of arcsec 
 Freq = Freq* 1.0e-9  # [GHz]
-Trx, Tsys = tsysSpec( prefix, TsysScan, TsysSPW )   # Trx[antNum, polNum, chNum], Tsys[antNum, polNum, chNum]
+TrxList, TsysList = tsysSpec( prefix, TsysScan, TsysSPW )   # List of Trx[antNum, polNum, chNum], Tsys[antNum, polNum, chNum]
 antListInACA = antIndex(prefix, antList)
 chRange = range( int(chNum* 0.04), int(chNum* 0.98))
-TsysACA  = np.median(Tsys[antListInACA], axis=2)
 #-------- Az, El scan pattern
 scanTime, AntID, az, el = GetAzEl(msfile)
 interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw_ACA[0], scan[0])
@@ -119,7 +125,11 @@ ScanRA, ScanDEC = azel2radec( ScanAz, ScanEl, LST, ALMA_lat)
 #-------- SubScan Pattern
 ST_index, ED_index = scanPattern(timeStamp, 1.5* np.median(interval))
 SSnum = len(ST_index)
-OffIndex = []; OnIndex = []
+OffIndex = []; OnIndex = []; knots = []
+for ss_index in range(SSnum):
+    knots.append( 0.5*( timeStamp[ST_index[ss_index]] + timeStamp[ST_index[ss_index] + 1]) )
+    knots.append( 0.5*( timeStamp[ED_index[ss_index]] + timeStamp[ED_index[ss_index] - 1]) )
+#
 for ss_index in range(0, SSnum, 2):
     OffIndex = OffIndex + range(ST_index[ss_index], ED_index[ss_index])
 #
@@ -130,57 +140,85 @@ refRA, refDEC = mean(ScanRA[OnIndex]), mean(ScanDEC[OnIndex])
 ScanRA  = 202164.8*(ScanRA  - refRA)*cos(refDEC); ScanDEC = 202164.8*(ScanDEC - refDEC)
 OffIndex = np.where( ScanRA**2 + ScanDEC**2 > (2.0*FWHM)**2)[0]
 interp1d( timeStamp[OffIndex], ScanAz[OffIndex], kind='cubic')
-#-------- SourceScan
+#
+#-------- SourceMapping
 for scan_index in range(scanNum):
     print 'SCAN=%d' % scan[scan_index]
-    print 'ANT POL SPW SS  TaACA'
+    text_sd = 'ANT POL SPW peak-peak   TaBB  Ta%s Err' % (corrLabel)
+    print text_sd; logfile.write(text_sd + '\n')
     for spw_index in range(spwNum):
-        figBeam  = plt.figure(figsize = (8, 11))
-        #figPower = plt.figure(figsize = (8, 11))
-        #figPower.text(0.05, 0.45, 'Total Power [scaled by Tsys]', rotation=90)
-        #figPower.text(0.45, 0.05, 'Scan Relative Time [sec]')
         text_sd = '%s Scan=%d SPW=%d' % (prefix, scan[scan_index], spw_ACA[spw_index])
         for ant_index in range(antNum):
             for pol_index in range(polNum):
+                fig  = plt.figure(figsize = (8, 11))
                 timeACA, dataACA = GetVisibility(msfile, ant_index, ant_index, pol_index, spw_ACA[spw_index], scan[scan_index])
                 #-------- BB detector
                 timeBB, dataBB = GetVisibility(msfile, ant_index, ant_index, pol_index, spw_BB[spw_index], scan[scan_index])
                 timeMatchedBB = np.zeros(timeNum)
-                plotBB = abs(dataBB[0])/ mean(abs(dataBB[0]))* mean(Tsys[ant_index, pol_index, chRange])
+                plotBB = abs(dataBB[0])/ mean(abs(dataBB[0]))
                 for index in range(timeNum):
-                    indexRange = timeRange(timeACA[index], timeBB, 0.14)
+                    indexRange = timeRange(timeACA[index], timeBB, 0.144)
                     if( len(indexRange) > 0):
                         timeMatchedBB[index] = np.mean(plotBB[indexRange])
                     #
                 #
                 indexAvail = np.where( timeMatchedBB > 0.0)[0]
-                plotACA = np.mean( dataACA[chRange].real, axis=0) / mean( dataACA[chRange].real)* mean(Tsys[ant_index, pol_index, chRange] )
-                skyBB  = UnivariateSpline( timeStamp[OffIndex], timeMatchedBB[OffIndex], s=0.03*np.std(timeMatchedBB[OffIndex]))
-                skyACA = UnivariateSpline( timeStamp[OffIndex], plotACA[OffIndex], s=0.03*np.std(plotACA[OffIndex]))
+                plotACA = np.mean( dataACA[chRange].real, axis=0) / mean( dataACA[chRange].real)
+                skyBB  = LSQUnivariateSpline(timeStamp[OffIndex], timeMatchedBB[OffIndex], t=knots)
+                skyACA = LSQUnivariateSpline(timeStamp[OffIndex], plotACA[OffIndex], t=knots)
+                ACA_BB_ratio = plotACA[indexAvail]/timeMatchedBB[indexAvail]
                 #
-                #ACA_BB_ratio = plotACA[indexAvail]/timeMatchedBB[indexAvail]
-                fig_beam = plt.subplot(antNum, polNum, ant_index* polNum + pol_index+1)
-                #plt.plot(timeACA[indexAvail], plotACA[indexAvail], ls='steps-mid', label="ACA power")
-                #plt.plot(timeACA[indexAvail], timeMatchedBB[indexAvail], '.', label="BB power")
-                #plt.plot(timeACA[indexAvail], ACA_BB_ratio, ls='steps-mid', label="ACA/BB ratio")
-                #plt.text(0.6*np.max(timeACA)+0.4*np.min(timeACA), 0.9*np.max(plotBB) + 0.1*np.min(plotBB), 'Ant=' + antList[ant_index] + ', Pol=' + pol[pol_index], size='x-small')
-                #print '%s, %s, %d, %5.3f, %5.3f' % (antList[ant_index], pol[pol_index], spw_ACA[spw_index], np.max(ACA_BB_ratio-1.0)*100.0, np.min(ACA_BB_ratio-1.0)*100.0)
-                #plt.xlabel('Time', fontsize=9)
-                #plt.ylabel('Scaled Power [a.u.]', fontsize=9)
-                #plt.suptitle('Ant=' + antList[ant_index] + ', Pol=' + pol[pol_index])
+                #-------- Plot BB and ACA ratio
+                plt.subplot(2, 2, 1)
+                plt.plot(timeACA[indexAvail], plotACA[indexAvail], ls='steps-mid', label=corrLabel)
+                plt.plot(timeACA[indexAvail], timeMatchedBB[indexAvail], '.', label="BB")
+                plt.plot(timeACA[indexAvail], ACA_BB_ratio, ls='steps-mid', label="Ratio")
+                plt.text(0.8*np.max(timeACA)+0.2*np.min(timeACA), 0.9*np.max(plotBB) + 0.1*np.min(plotBB), 'Pol=' + pol[pol_index], size='x-small')
+                plt.title('Time-Power')
+                text_sd = '%s %s %d %5.3f %5.3f' % (antList[ant_index], pol[pol_index], spw_ACA[spw_index], np.max(ACA_BB_ratio-1.0)*100.0, np.min(ACA_BB_ratio-1.0)*100.0)
+                print text_sd,
+                logfile.write(text_sd)
+                plt.xlabel('Time', fontsize=9)
+                if pol_index == 0 :
+                    plt.ylabel('Scaled Power [a.u.]', fontsize=9)
+                #
+                plt.legend(loc = 'lower left', prop={'size':9})
+                #-------- Plot BB and ACA Comparison
+                plt.subplot(2, 2, 2, aspect=1)
+                plt.plot(timeMatchedBB[indexAvail], plotACA[indexAvail], '.')
+                plt.plot( np.array([min(timeMatchedBB[indexAvail]), max(timeMatchedBB[indexAvail])]), np.array([min(timeMatchedBB[indexAvail]), max(timeMatchedBB[indexAvail])]) )
+                plt.xlabel('BB Power'); plt.ylabel('ACA power')
+
+                #-------- Plot Uranus BB Map
+                plt.subplot(2, 2, 3, aspect=1)
                 GridWidth = max(ScanRA[OnIndex])
                 xi, yi = np.mgrid[ -GridWidth:GridWidth:128j, -GridWidth:GridWidth:128j]
-                TABB  = GridData( timeMatchedBB[OnIndex] - skyBB(timeStamp[OnIndex]), ScanRA[OnIndex], ScanDEC[OnIndex], xi.reshape(xi.size), yi.reshape(xi.size), 3 ).reshape(len(xi), len(xi))
-                TAACA = GridData( plotACA[OnIndex] - skyACA(timeStamp[OnIndex]), ScanRA[OnIndex], ScanDEC[OnIndex], xi.reshape(xi.size), yi.reshape(xi.size), 3 ).reshape(len(xi), len(xi))
-                fig_beam.contourf(xi, yi, TAACA, np.linspace(-0.2, 2.0, 23, endpoint=True))
-                #plt.colorbar()
-                #fig_beam.axes().set_aspect('equal' )
-                #plt.contourf(xi, yi, TAACA - TABB, 25, cmap=plt.cm.jet); plt.colorbar()
+                TABB  = mean(TsysList[spw_index][ant_index, pol_index])* GridData( timeMatchedBB[OnIndex] - skyBB(timeStamp[OnIndex]), ScanRA[OnIndex], ScanDEC[OnIndex], xi.reshape(xi.size), yi.reshape(xi.size), 3 ).reshape(len(xi), len(xi))
+                TAACA = mean(TsysList[spw_index][ant_index, pol_index])* GridData( plotACA[OnIndex] - skyACA(timeStamp[OnIndex]), ScanRA[OnIndex], ScanDEC[OnIndex], xi.reshape(xi.size), yi.reshape(xi.size), 3 ).reshape(len(xi), len(xi))
+                GaussBB = simple2DGaussFit((timeMatchedBB[OnIndex] - skyBB(timeStamp[OnIndex])), ScanRA[OnIndex], ScanDEC[OnIndex] )
+                text_sd = 'BB: Ta* = %5.3f K' % (GaussBB[0]*  mean(TsysList[spw_index][ant_index, pol_index]))
+                plt.contourf(xi, yi, TABB, np.linspace(-0.2, 1.8, 21, endpoint=True)); plt.colorbar()
+                plt.text(0, 0.8*GridWidth, text_sd, size='x-small', color='yellow')
+                plt.title('Uranus BB Pol=' + pol[pol_index])
+                text_sd = '%5.3f' % (GaussBB[0]*  mean(TsysList[spw_index][ant_index, pol_index])); print text_sd,
+                logfile.write(text_sd)
+
+                #-------- Plot Uranus ACA Map
+                plt.subplot(2, 2, 4, aspect=1)
+                plt.contourf(xi, yi, TAACA, np.linspace(-0.2, 1.8, 21, endpoint=True)); plt.colorbar()
+                GaussACA = simple2DGaussFit((plotACA[OnIndex] - skyACA(timeStamp[OnIndex])), ScanRA[OnIndex], ScanDEC[OnIndex] )
+                text_sd = '%s: Ta* = %5.3f K' % (corrLabel, GaussACA[0]*  mean(TsysList[spw_index][ant_index, pol_index]))
+                plt.text(0, 0.8*GridWidth, text_sd, size='x-small', color='yellow')
+                plt.title('Uranus ' + corrLabel + ' Pol=' + pol[pol_index])
+                text_sd = '%5.3f' % (GaussACA[0]*  mean(TsysList[spw_index][ant_index, pol_index])); print text_sd,
+                logfile.write(text_sd)
+                text_sd = '%6.3f' % (100.0 * (GaussACA[0]/GaussBB[0] - 1.0)); print text_sd
+                logfile.write(text_sd + '\n')
+                plt.suptitle(prefix + ' ' + antList[ant_index] + ' Pol=' + pol[pol_index] + ' Spw=' + `spw_ACA[spw_index]`)
+                plt.savefig(prefix + '.' + antList[ant_index] + '.Pol' + pol[pol_index] + '.SPW' + `spw_ACA[spw_index]` + '.pdf', form='pdf')
+                plt.close(fig)
             #
         #
-        figBeam.suptitle(prefix + 'Scan=' + `scan[scan_index]` + 'Spw=' + `spw_ACA[spw_index]`)
-        figBeam.savefig(prefix + '.Scan' + `scan[scan_index]` + '.SPW' + `spw_ACA[spw_index]` + '.raw.pdf', form='pdf')
-        plt.close(figBeam)
     #
 #
 logfile.close()
