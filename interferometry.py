@@ -504,7 +504,7 @@ def bpCal(spec, BP0, BP1):
 		BP_bl[bl_index] = BP1[ant2]* BP0[ant1].conjugate()
 		bpCalXX[bl_index] = (spec[bl_index].T / BP_bl[bl_index]).T
 	return bpCalXX
-
+#
 def phaseCal(spec, Gain):
 	blnum, chNum, timeNum = spec.shape[0], spec.shape[1], spec.shape[2]
 	gainCalXX = np.zeros([blnum, chNum, timeNum], dtype=complex)

@@ -33,6 +33,7 @@ for index in range(10):
 plt.plot(AzEl[3], Vis[1].real, 'b.')
 plt.plot(AzEl[3], Vis[1].imag, 'g.')
 PArange = np.arange(min(AzEl[3]), max(AzEl[3]), 0.01)
+solution[2] = np.arctan2( np.sin(solution[2]), np.cos(solution[2]) )
 plt.plot(PArange, np.cos(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[3], 'b-')
 plt.plot(PArange, np.sin(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[4], 'g-')
 plt.xlabel('PA [rad]'); plt.ylabel('XY (real and imaginary)'); plt.title(prefix)

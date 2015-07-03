@@ -175,7 +175,7 @@ for scan_index in range(scanNum):
                 plt.plot(timeACA[indexAvail], ACA_BB_ratio, ls='steps-mid', label="Ratio")
                 plt.text(0.8*np.max(timeACA)+0.2*np.min(timeACA), 0.9*np.max(plotBB) + 0.1*np.min(plotBB), 'Pol=' + pol[pol_index], size='x-small')
                 plt.title('Time-Power')
-                text_sd = '%s %s %d %5.3f %5.3f' % (antList[ant_index], pol[pol_index], spw_ACA[spw_index], np.max(ACA_BB_ratio-1.0)*100.0, np.min(ACA_BB_ratio-1.0)*100.0)
+                text_sd = '%s %s %d %5.3f %5.3f ' % (antList[ant_index], pol[pol_index], spw_ACA[spw_index], np.max(ACA_BB_ratio-1.0)*100.0, np.min(ACA_BB_ratio-1.0)*100.0)
                 print text_sd,
                 logfile.write(text_sd)
                 plt.xlabel('Time', fontsize=9)
@@ -200,7 +200,7 @@ for scan_index in range(scanNum):
                 plt.contourf(xi, yi, TABB, np.linspace(-0.2, 1.8, 21, endpoint=True)); plt.colorbar()
                 plt.text(0, 0.8*GridWidth, text_sd, size='x-small', color='yellow')
                 plt.title('Uranus BB Pol=' + pol[pol_index])
-                text_sd = '%5.3f' % (GaussBB[0]*  mean(TsysList[spw_index][ant_index, pol_index])); print text_sd,
+                text_sd = ' %5.3f ' % (GaussBB[0]*  mean(TsysList[spw_index][ant_index, pol_index])); print text_sd,
                 logfile.write(text_sd)
 
                 #-------- Plot Uranus ACA Map
@@ -210,9 +210,9 @@ for scan_index in range(scanNum):
                 text_sd = '%s: Ta* = %5.3f K' % (corrLabel, GaussACA[0]*  mean(TsysList[spw_index][ant_index, pol_index]))
                 plt.text(0, 0.8*GridWidth, text_sd, size='x-small', color='yellow')
                 plt.title('Uranus ' + corrLabel + ' Pol=' + pol[pol_index])
-                text_sd = '%5.3f' % (GaussACA[0]*  mean(TsysList[spw_index][ant_index, pol_index])); print text_sd,
+                text_sd = ' %5.3f ' % (GaussACA[0]*  mean(TsysList[spw_index][ant_index, pol_index])); print text_sd,
                 logfile.write(text_sd)
-                text_sd = '%6.3f' % (100.0 * (GaussACA[0]/GaussBB[0] - 1.0)); print text_sd
+                text_sd = ' %6.3f ' % (100.0 * (GaussACA[0]/GaussBB[0] - 1.0)); print text_sd
                 logfile.write(text_sd + '\n')
                 plt.suptitle(prefix + ' ' + antList[ant_index] + ' Pol=' + pol[pol_index] + ' Spw=' + `spw_ACA[spw_index]`)
                 plt.savefig(prefix + '.' + antList[ant_index] + '.Pol' + pol[pol_index] + '.SPW' + `spw_ACA[spw_index]` + '.pdf', form='pdf')
