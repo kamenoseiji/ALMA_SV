@@ -197,25 +197,25 @@ for scan_index in range(scanNum):
                 TAACA = mean(TsysList[spw_index][ant_index, pol_index])* GridData( plotACA[OnIndex] - skyACA(timeStamp[OnIndex]), ScanRA[OnIndex], ScanDEC[OnIndex], xi.reshape(xi.size), yi.reshape(xi.size), 3 ).reshape(len(xi), len(xi))
                 GaussBB = simple2DGaussFit((timeMatchedBB[OnIndex] - skyBB(timeStamp[OnIndex])), ScanRA[OnIndex], ScanDEC[OnIndex] )
                 text_sd = 'BB: Ta* = %5.3f K' % (GaussBB[0]*  mean(TsysList[spw_index][ant_index, pol_index]))
-                plt.contourf(xi, yi, TABB, np.linspace(-0.2, 1.8, 21, endpoint=True)); plt.colorbar()
+                plt.contourf(xi, yi, TABB, np.linspace(-3, 57, 16, endpoint=True)); plt.colorbar()
                 plt.text(0, 0.8*GridWidth, text_sd, size='x-small', color='yellow')
-                plt.title('Uranus BB Pol=' + pol[pol_index])
+                plt.title('Saturn BB Pol=' + pol[pol_index])
                 text_sd = ' %5.3f ' % (GaussBB[0]*  mean(TsysList[spw_index][ant_index, pol_index])); print text_sd,
                 logfile.write(text_sd)
 
                 #-------- Plot Uranus ACA Map
                 plt.subplot(2, 2, 4, aspect=1)
-                plt.contourf(xi, yi, TAACA, np.linspace(-0.2, 1.8, 21, endpoint=True)); plt.colorbar()
+                plt.contourf(xi, yi, TAACA, np.linspace(-2, 46, 17, endpoint=True)); plt.colorbar()
                 GaussACA = simple2DGaussFit((plotACA[OnIndex] - skyACA(timeStamp[OnIndex])), ScanRA[OnIndex], ScanDEC[OnIndex] )
                 text_sd = '%s: Ta* = %5.3f K' % (corrLabel, GaussACA[0]*  mean(TsysList[spw_index][ant_index, pol_index]))
                 plt.text(0, 0.8*GridWidth, text_sd, size='x-small', color='yellow')
-                plt.title('Uranus ' + corrLabel + ' Pol=' + pol[pol_index])
+                plt.title('Saturn ' + corrLabel + ' Pol=' + pol[pol_index])
                 text_sd = ' %5.3f ' % (GaussACA[0]*  mean(TsysList[spw_index][ant_index, pol_index])); print text_sd,
                 logfile.write(text_sd)
                 text_sd = ' %6.3f ' % (100.0 * (GaussACA[0]/GaussBB[0] - 1.0)); print text_sd
                 logfile.write(text_sd + '\n')
                 plt.suptitle(prefix + ' ' + antList[ant_index] + ' Pol=' + pol[pol_index] + ' Spw=' + `spw_ACA[spw_index]`)
-                plt.savefig(prefix + '.' + antList[ant_index] + '.Pol' + pol[pol_index] + '.SPW' + `spw_ACA[spw_index]` + '.pdf', form='pdf')
+                plt.savefig( 'TP_' +prefix + '_' + antList[ant_index] + '_Pol' + pol[pol_index] + '_SPW' + `spw_ACA[spw_index]` + '.pdf', form='pdf')
                 plt.close(fig)
             #
         #

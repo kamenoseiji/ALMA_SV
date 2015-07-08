@@ -4,16 +4,9 @@ import matplotlib.pyplot as plt
 execfile(SCR_DIR + 'interferometry.py')
 
 #Real and Imaginary Solution
-def antBP(Xspec):
-	blNum, chNum = Xspec.shape[0], Xspec.shape[1]
-	antNum =  Bl2Ant(blNum)[0]
-	#
-	BP_ant = np.zeros([antNum, chNum], dtype=complex)
-	bl_err = np.std(np.angle(Xspec[:, 1:(chNum-1)]), axis=1) 
-	for ch_index in range(chNum):
-		BP_ant[:, ch_index] = clcomplex_solve(Xspec[:, ch_index], bl_err)
-	#
-	return BP_ant
+def gainComplex( vis ):
+    return(clcomplex_solve(vis, 1.0e-8/abs(vis)))
+#  
 #-------- Definitions
 antNum = len(refant)
 blNum = antNum* (antNum - 1) / 2 
@@ -36,7 +29,7 @@ timeNum = len(timeStamp)
 #
 #-------- Prepare Plots
 for ant_index in range(antNum):
-    figAnt = plt.figure(ant_index, figsize = (8, 11))
+    figAnt = plt.figure(ant_index, figsize = (11, 8))
     figAnt.suptitle(prefix + ' ' + antList[ant_index] + ' Scan = ' + `BPscan`)
     figAnt.text(0.45, 0.05, 'Frequency [GHz]')
     figAnt.text(0.03, 0.45, 'Bandpass Amplitude and Phase', rotation=90)
@@ -53,45 +46,47 @@ for spw_index in range(spwNum):
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], BPscan)
     Xspec = Xspec[pol]; Xspec = Xspec[:,:,blMap]
     #-------- Baseline-based cross power spectra
-    for bl_index in range(blNum):
-        if blInv[bl_index]:
-            Xspec[:,:,bl_index,:] = Xspec[:,:,bl_index,:].conjugate()
-        #
-    #
-    #-------- Delay Determination and calibration
+    Ximag = Xspec.transpose(0,1,3,2).imag * (-2.0* np.array(blInv) + 1.0)   # Inversed baseline vector
+    Xspec.imag = Ximag.transpose(0,1,3,2)
     tempVis = np.mean(Xspec, axis=3)    # tempVis[pol, ch, bl]
+    #-------- Antenna-based bandpass spectra
     for pol_index in range(polNum):
+        #-------- Delay Determination and calibration
         if DELAYCAL :
             Delay_ant[:, spw_index, pol_index], delayCalXspec = delayCalSpec(tempVis[pol_index].T, chRange )
         else :
             delayCalXspec = tempVis[pol_index].T
         #
-        BP_ant[:,spw_index, pol_index] = antBP(delayCalXspec)
+        #-------- Solution (BL -> Ant)
+        BP_ant[:,spw_index, pol_index] = np.apply_along_axis(gainComplex, 0, delayCalXspec)
     #
 #
-plotMax = np.max(abs(BP_ant))
+if plotMax == 0.0:
+    plotMax = np.max(abs(BP_ant))
+#
 #-------- Plot BP
-for spw_index in range(spwNum):
-    for pol_index in range(polNum):
-        for ant_index in range(antNum):
-            plotBP = BP_ant[ant_index, spw_index, pol_index]
-            figAnt = plt.figure(ant_index)
-            BPampPL = figAnt.add_subplot( 4, spwNum, spwNum* (2* pol_index    ) + spw_index + 1 )
-            BPampPL.plot( Freq, abs(plotBP), ls='steps-mid', label = 'Amp: SPW=' + `spw[spw_index]`)
-            BPampPL.legend(loc = 'lower left', prop={'size' :7}, numpoints = 1)
-            BPampPL.set_ylim(0.0, 1.5* plotMax )
-            BPphsPL = figAnt.add_subplot( 4, spwNum, spwNum* (2* pol_index + 1) + spw_index + 1 )
-            BPphsPL.plot( Freq, np.angle(plotBP), '.', label = 'Phase: SPW=' + `spw[spw_index]`)
-            BPphsPL.set_ylim(-math.pi, math.pi)
-            BPphsPL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
-        #
-    #
-#
 for ant_index in range(antNum):
     figAnt = plt.figure(ant_index)
-    figAnt.savefig(prefix + '_' + antList[ant_index] + '.pdf')
+    for spw_index in range(spwNum):
+        chNum, chWid, Freq = GetChNum(msfile, spw[spw_index]); Freq = 1.0e-9* Freq  # GHz
+        BPampPL = figAnt.add_subplot( 2, 4, spw_index + 1 )
+        BPphsPL = figAnt.add_subplot( 2, 4, spw_index + 5 )
+        for pol_index in range(polNum):
+            plotBP = BP_ant[ant_index, spw_index, pol_index]
+            BPampPL.plot( Freq, abs(plotBP), ls='steps-mid', label = 'Pol=' + polName[pol_index])
+            BPampPL.set_ylim(0.0, 1.25* plotMax )
+            BPphsPL.plot( Freq, np.angle(plotBP), '.', label = 'Pol=' + polName[pol_index])
+            BPphsPL.set_ylim(-math.pi, math.pi)
+        #
+        BPampPL.legend(loc = 'lower left', prop={'size' :7}, numpoints = 1)
+        BPphsPL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
+        BPampPL.text( np.min(Freq), 1.1* plotMax, 'SPW=' + `spw[spw_index]` + ' Amp')
+        BPphsPL.text( np.min(Freq), 2.5, 'SPW=' + `spw[spw_index]` + ' Phase')
+    #
+    figAnt.savefig('BP_' + prefix + '_' + antList[ant_index] + '.pdf')
 #
-plt.close('all')
+#-------- Save CalTables
 np.save(prefix + '.BPant.npy', BP_ant) 
 np.save(prefix + '.Ant.npy', antList) 
 np.save(prefix + '.Delay.npy', Delay_ant) 
+plt.close('all')

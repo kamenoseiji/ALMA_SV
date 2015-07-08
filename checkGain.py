@@ -2,7 +2,17 @@
 from scipy import stats
 import matplotlib.pyplot as plt
 execfile(SCR_DIR + 'interferometry.py')
-
+#-------- Load BP and Delay
+if BPCAL:
+    try: 
+        BP_ant = np.load( wd + BPprefix + '.BPant.npy' )
+    except:
+        BPCAL = False
+    #
+#
+def gainComplex( vis ):
+    return(clcomplex_solve(vis, 1.0e-8/abs(vis)))
+#
 #-------- Definitions
 antNum = len(refant)
 blNum = antNum* (antNum - 1) / 2 
@@ -24,62 +34,62 @@ interval, timeStamp = GetTimerecord(msfile, 0, 0, pol[0], spw[0], TGscan)
 timeNum = len(timeStamp)
 #
 #-------- Prepare Plots
-"""
 for ant_index in range(antNum):
     figAnt = plt.figure(ant_index, figsize = (8, 11))
     figAnt.suptitle(prefix + ' ' + antList[ant_index] + ' Scan = ' + `TGscan`)
-    figAnt.text(0.45, 0.05, 'Frequency [GHz]')
-    figAnt.text(0.03, 0.45, 'Bandpass Amplitude and Phase', rotation=90)
+    figAnt.text(0.45, 0.05, 'MJD [sec]')
+    figAnt.text(0.03, 0.45, 'Gain Amplitude and Phase', rotation=90)
 #
-"""
 Gain_ant = np.ones([antNum, spwNum, polNum, timeNum], dtype=complex)
+#-------- Baseline-based bandpass
+if BPCAL:
+    BP_bl = np.ones([spwNum, polNum, chNum, blNum], dtype=complex)
+    for bl_index in range(blNum):
+        ants = Bl2Ant(bl_index)
+        BP_bl[:,:,:,bl_index] = BP_ant[ants[0]]* BP_ant[ants[1]].conjugate()
+    #
+#
 #-------- Loop for SPW
 for spw_index in range(spwNum):
     print ' Loading SPW = ' + `spw[spw_index]`
     chNum, chWid, Freq = GetChNum(msfile, spw[spw_index]); Freq = 1.0e-9* Freq  # GHz
     chRange = range(int(round(chNum/chBunch * 0.05)), int(round(chNum/chBunch * 0.95)))
-    vis_err = np.ones([blNum])/np.sqrt( 2.0* abs(np.median(chWid)* np.median(interval)) )
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], TGscan)
     Xspec = Xspec[pol]; Xspec = Xspec[:,:,blMap]
     #-------- Baseline-based cross power spectra
-    for bl_index in range(blNum):
-        if blInv[bl_index]:
-            Xspec[:,:,bl_index,:] = Xspec[:,:,bl_index,:].conjugate()
-        #
-    #
+    Ximag = Xspec.transpose(0,1,3,2).imag * (-2.0* np.array(blInv) + 1.0)
+    Xspec.imag = Ximag.transpose(0,1,3,2)
     #-------- Delay Determination and calibration
-    tempVis = np.mean(Xspec, axis=1)    # tempVis[pol, ch, bl]
+    if BPCAL:
+        tempVis = np.mean( Xspec.transpose(3,0,1,2) / BP_bl[spw_index], axis=2).transpose(1,2,0)
+    else:
+        tempVis = np.mean(Xspec, axis=1)    # tempVis[pol, ch, bl]
+    #
     for pol_index in range(polNum):
-        for time_index in range(timeNum):
-            vis_bl  = tempVis[pol_index, :, time_index]
-            Gain_ant[:, spw_index, pol_index, time_index] = clcomplex_solve(vis_bl, vis_err)
-        #
+        vis_bl  = tempVis[pol_index]
+        Gain_ant[:, spw_index, pol_index] = np.apply_along_axis(gainComplex, 0, vis_bl )
     #
 #
-"""
-#-------- Plot BP
-for spw_index in range(spwNum):
-    for pol_index in range(polNum):
-        for ant_index in range(antNum):
-            plotBP = BP_ant[ant_index, spw_index, pol_index]
-            figAnt = plt.figure(ant_index)
-            BPampPL = figAnt.add_subplot( 4, spwNum, spwNum* (2* pol_index    ) + spw_index + 1 )
-            BPampPL.plot( Freq, abs(plotBP), ls='steps-mid', label = 'Amp: SPW=' + `spw[spw_index]`)
-            BPampPL.legend(loc = 'lower left', prop={'size' :7}, numpoints = 1)
-            BPampPL.set_ylim(0.0, 1.5* plotMax )
-            BPphsPL = figAnt.add_subplot( 4, spwNum, spwNum* (2* pol_index + 1) + spw_index + 1 )
-            BPphsPL.plot( Freq, np.angle(plotBP), '.', label = 'Phase: SPW=' + `spw[spw_index]`)
-            BPphsPL.set_ylim(-math.pi, math.pi)
-            BPphsPL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
-        #
-    #
-#
+plotMax = np.max(abs(Gain_ant))
+#-------- Plot Gain
 for ant_index in range(antNum):
     figAnt = plt.figure(ant_index)
-    figAnt.savefig(prefix + '_' + antList[ant_index] + '.pdf')
+    for pol_index in range(polNum):
+        GAampPL = figAnt.add_subplot( 4, 1, 2* pol_index + 1 )
+        GAphsPL = figAnt.add_subplot( 4, 1, 2* pol_index + 2 )
+        for spw_index in range(spwNum):
+            plotGA = Gain_ant[ant_index, spw_index, pol_index]
+            GAampPL.plot( timeStamp, abs(plotGA), ls='steps-mid', label = 'SPW=' + `spw[spw_index]`)
+            GAphsPL.plot( timeStamp, np.angle(plotGA), '.', label = 'SPW=' + `spw[spw_index]`)
+        #
+        GAampPL.set_ylim(0.0, 1.25* plotMax )
+        GAphsPL.set_ylim(-math.pi, math.pi)
+        GAampPL.legend(loc = 'upper right', prop={'size' :7}, numpoints = 1)
+        GAphsPL.legend(loc = 'upper right', prop={'size' :7}, numpoints = 1)
+        GAampPL.text( np.min(timeStamp), 1.1* plotMax, polName[pol_index] + ' Amp')
+        GAphsPL.text( np.min(timeStamp), 2.5, polName[pol_index] + ' Phase')
+    #
+    figAnt.savefig('GA_' + prefix + '_' + antList[ant_index] + '.pdf')
 #
+np.save(prefix + '.GA.npy', Gain_ant) 
 plt.close('all')
-np.save(prefix + '.BPant.npy', BP_ant) 
-np.save(prefix + '.Ant.npy', antList) 
-np.save(prefix + '.Delay.npy', Delay_ant) 
-"""
