@@ -70,7 +70,7 @@ for spw_index in range(spwNum):
         Gain_ant[:, spw_index, pol_index] = np.apply_along_axis(gainComplex, 0, vis_bl )
     #
 #
-plotMax = np.max(abs(Gain_ant))
+plotMax = 1.5* np.median(abs(Gain_ant))
 #-------- Plot Gain
 for ant_index in range(antNum):
     figAnt = plt.figure(ant_index)
@@ -89,7 +89,7 @@ for ant_index in range(antNum):
         GAampPL.text( np.min(timeStamp), 1.1* plotMax, polName[pol_index] + ' Amp')
         GAphsPL.text( np.min(timeStamp), 2.5, polName[pol_index] + ' Phase')
     #
-    figAnt.savefig('GA_' + prefix + '_' + antList[ant_index] + '.pdf')
+    figAnt.savefig('GA_' + prefix + '_' + antList[ant_index] + '_Scan' + `TGscan` + '.pdf')
 #
 np.save(prefix + '.GA.npy', Gain_ant) 
 plt.close('all')

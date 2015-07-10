@@ -1,6 +1,7 @@
 #---- Script for Band-3 Astroholograpy Data
 from scipy import stats
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ptick
 execfile(SCR_DIR + 'interferometry.py')
 
 #Real and Imaginary Solution
@@ -62,7 +63,7 @@ for spw_index in range(spwNum):
     #
 #
 if plotMax == 0.0:
-    plotMax = np.max(abs(BP_ant))
+    plotMax = 1.5* np.median(abs(BP_ant))
 #
 #-------- Plot BP
 for ant_index in range(antNum):
@@ -74,16 +75,20 @@ for ant_index in range(antNum):
         for pol_index in range(polNum):
             plotBP = BP_ant[ant_index, spw_index, pol_index]
             BPampPL.plot( Freq, abs(plotBP), ls='steps-mid', label = 'Pol=' + polName[pol_index])
-            BPampPL.set_ylim(0.0, 1.25* plotMax )
+            BPampPL.axis([np.min(Freq), np.max(Freq), 0.0, 1.25* plotMax])
+            BPampPL.yaxis.set_major_formatter(ptick.ScalarFormatter(useMathText=True))
+            BPampPL.yaxis.offsetText.set_fontsize(10)
+            BPampPL.ticklabel_format(style='sci',axis='y',scilimits=(0,0))
             BPphsPL.plot( Freq, np.angle(plotBP), '.', label = 'Pol=' + polName[pol_index])
-            BPphsPL.set_ylim(-math.pi, math.pi)
+            BPphsPL.axis([np.min(Freq), np.max(Freq), -math.pi, math.pi])
         #
         BPampPL.legend(loc = 'lower left', prop={'size' :7}, numpoints = 1)
         BPphsPL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
         BPampPL.text( np.min(Freq), 1.1* plotMax, 'SPW=' + `spw[spw_index]` + ' Amp')
         BPphsPL.text( np.min(Freq), 2.5, 'SPW=' + `spw[spw_index]` + ' Phase')
     #
-    figAnt.savefig('BP_' + prefix + '_' + antList[ant_index] + '.pdf')
+    #figAnt.savefig('BP_' + prefix + '_' + antList[ant_index] + '_Scan' + `BPscan` + '.pdf')
+    figAnt.savefig('BP_' + prefix + '_' + antList[ant_index] + '_Scan' + `BPscan` + '.png')
 #
 #-------- Save CalTables
 np.save(prefix + '.BPant.npy', BP_ant) 
