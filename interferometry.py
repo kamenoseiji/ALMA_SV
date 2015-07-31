@@ -169,7 +169,28 @@ def GetVisAllBL(msfile, spwID, scanID):
 	Pspec = dataXY.reshape(polNum, chNum, corrNum, timeNum)[:,:,acorr_index,:]
 	Xspec = dataXY.reshape(polNum, chNum, corrNum, timeNum)[:,:,xcorr_index,:]
 	return timeStamp, Pspec, Xspec
-
+#
+def GetUVW(msfile, spwID, scanID):
+    antNum = len(GetAntName(msfile))
+    corrNum= antNum* (antNum + 1)/2		# Number of correlations (with autocorr)
+    blNum  = corrNum - antNum
+    #
+    Out='DATA_DESC_ID == '+`spwID` + ' && SCAN_NUMBER == ' + `scanID`
+    tb.open(msfile)
+    antXantYspw = tb.query(Out, sortlist='noduplicates ANTENNA1, ANTENNA2, TIME')
+    timeXY = antXantYspw.getcol('TIME')
+    timeNum = len(timeXY) / corrNum
+    uvw = antXantYspw.getcol('UVW')
+    tb.close()
+    timeStamp = timeXY.reshape(corrNum, timeNum)[0]
+    xcorr_index = range(blNum)
+    for bl_index in range(blNum):
+        ant1, ant0 = Bl2Ant(bl_index)
+        xcorr_index[bl_index] = Ant2Bla_RevLex(ant0, ant1, antNum)
+    #
+    UVW = uvw.reshape(3, corrNum, timeNum)[:,xcorr_index,:]
+    return timeStamp, UVW
+#
 def GetVisibility(msfile, ant1, ant2, pol, spwID, scanID):
 	nameList = GetAntName(msfile)
 	NumAnt   = len(nameList)
@@ -746,7 +767,7 @@ def Vanv3bitCorr( dataXY, refRange, Qeff ):
 #
 #
 #-------- Tsys from ACD
-def TsysSpec(msfile, pol, TsysScan, TsysSPW, logfile, vanvSW):
+def TsysSpec(msfile, pol, TsysScan, TsysSPW, vanvSW):
     #if vanvSW:
     #	VanvQ3, Qeff = loadVanvQ3('/users/skameno/Scripts/ACAPowerCoeff.data')  # 3-bit Van Vleck
     #
@@ -758,14 +779,15 @@ def TsysSpec(msfile, pol, TsysScan, TsysSPW, logfile, vanvSW):
 	chRange = range(int(0.1*chNum), int(0.9*chNum))
 	#
 	text_sd =  '%s SPW=%d SCAN=%d' % (msfile, TsysSPW, TsysScan)
-	print text_sd; logfile.write(text_sd + '\n')
+	print text_sd
+    # logfile.write(text_sd + '\n')
 	#-------- Loop for Antenna
 	for ant_index in range(antNum):
 		#-------- Get Physical Temperature of loads
 		tempAmb, tempHot = GetLoadTemp(msfile, ant_index, TsysSPW)
 		#
 		for pol_index in range(polNum):
-			timeXY, dataXY = GetVisibility(msfile, ant_index, ant_index, pol_index, TsysSPW, TsysScan)
+			timeXY, dataXY = GetVisibility(msfile, ant_index, ant_index, pol[pol_index], TsysSPW, TsysScan)
 			#
 			#-------- Time range of Sky/Amb/Hot
 			skyRange, ambRange, hotRange = ACDedge(timeXY)
