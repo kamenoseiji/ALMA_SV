@@ -138,13 +138,13 @@ for ss_index in range(1, SSnum, 2):
 #
 refRA, refDEC = mean(ScanRA[OnIndex]), mean(ScanDEC[OnIndex])
 ScanRA  = 202164.8*(ScanRA  - refRA)*cos(refDEC); ScanDEC = 202164.8*(ScanDEC - refDEC)
-OffIndex = np.where( ScanRA**2 + ScanDEC**2 > (2.0*FWHM)**2)[0]
+OffIndex = np.where( ScanRA**2 + ScanDEC**2 > (1.8*FWHM)**2)[0]
 interp1d( timeStamp[OffIndex], ScanAz[OffIndex], kind='cubic')
 #
 #-------- SourceMapping
 for scan_index in range(scanNum):
     print 'SCAN=%d' % scan[scan_index]
-    text_sd = 'ANT POL SPW peak-peak   TaBB  Ta%s Err' % (corrLabel)
+    text_sd = 'ANT POL SPW peak-peak   TaBB  Ta%s Err%%' % (corrLabel)
     print text_sd; logfile.write(text_sd + '\n')
     for spw_index in range(spwNum):
         text_sd = '%s Scan=%d SPW=%d' % (prefix, scan[scan_index], spw_ACA[spw_index])
@@ -198,22 +198,22 @@ for scan_index in range(scanNum):
                 GaussBB = simple2DGaussFit((timeMatchedBB[OnIndex] - skyBB(timeStamp[OnIndex])), ScanRA[OnIndex], ScanDEC[OnIndex] )
                 text_sd = 'BB: Ta* = %5.3f K' % (GaussBB[0]*  mean(TsysList[spw_index][ant_index, pol_index]))
                 #plt.contourf(xi, yi, TABB, np.linspace(-3, 57, 16, endpoint=True)); plt.colorbar()
-                plt.contourf(xi, yi, TABB, np.linspace(-0.2, 1.5, 18, endpoint=True)); plt.colorbar()
+                plt.contourf(xi, yi, TABB, np.linspace(-0.1*imageMax, imageMax, 12, endpoint=True)); plt.colorbar()
                 plt.text(0, 0.8*GridWidth, text_sd, size='x-small', color='yellow')
                 #plt.title('Saturn BB Pol=' + pol[pol_index])
-                plt.title('Uranus BB Pol=' + pol[pol_index])
+                plt.title(srcName +' BB Pol=' + pol[pol_index])
                 text_sd = ' %5.3f ' % (GaussBB[0]*  mean(TsysList[spw_index][ant_index, pol_index])); print text_sd,
                 logfile.write(text_sd)
 
                 #-------- Plot Uranus ACA Map
                 plt.subplot(2, 2, 4, aspect=1)
                 #plt.contourf(xi, yi, TAACA, np.linspace(-2, 46, 17, endpoint=True)); plt.colorbar()
-                plt.contourf(xi, yi, TAACA, np.linspace(-0.2, 1.5, 18, endpoint=True)); plt.colorbar()
+                plt.contourf(xi, yi, TAACA, np.linspace(-0.1*imageMax, imageMax, 12, endpoint=True)); plt.colorbar()
                 GaussACA = simple2DGaussFit((plotACA[OnIndex] - skyACA(timeStamp[OnIndex])), ScanRA[OnIndex], ScanDEC[OnIndex] )
                 text_sd = '%s: Ta* = %5.3f K' % (corrLabel, GaussACA[0]*  mean(TsysList[spw_index][ant_index, pol_index]))
                 plt.text(0, 0.8*GridWidth, text_sd, size='x-small', color='yellow')
                 #plt.title('Saturn ' + corrLabel + ' Pol=' + pol[pol_index])
-                plt.title('Uranus ' + corrLabel + ' Pol=' + pol[pol_index])
+                plt.title(srcName + ' ' + corrLabel + ' Pol=' + pol[pol_index])
                 text_sd = ' %5.3f ' % (GaussACA[0]*  mean(TsysList[spw_index][ant_index, pol_index])); print text_sd,
                 logfile.write(text_sd)
                 text_sd = ' %6.3f ' % (100.0 * (GaussACA[0]/GaussBB[0] - 1.0)); print text_sd
