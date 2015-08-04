@@ -25,7 +25,8 @@ timeNum = len(timeStamp)
 #
 #-------- Prepare Plots
 for spw_index in range(spwNum):
-    figSPW = plt.figure(spw_index, figsize = (25, 25))
+    #figSPW = plt.figure(spw_index, figsize = (64, 64))
+    figSPW = plt.figure(spw_index, figsize = (11, 11))
     figSPW.suptitle(prefix + ' SPW = ' + `spw[spw_index]` + ' Scan = ' + `BPscan`)
     figSPW.text(0.45, 0.05, 'Frequency [GHz]')
     figSPW.text(0.05, 0.5, 'Phase', rotation=90)
@@ -42,7 +43,7 @@ for spw_index in range(spwNum):
     tempVis = np.mean(Xspec, axis=3)    # tempVis[pol, ch, bl]
     tempAC  = np.mean(Pspec, axis=3)    # tempVis[pol, ch, bl]
     if plotMax == 0.0:
-        pMax = 1.5* np.median(abs(tempVis))
+        pMax = 2.0* np.median(abs(tempVis))
     else:
         pMax = plotMax
     #

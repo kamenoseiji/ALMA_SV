@@ -62,6 +62,8 @@ for spw_index in range(spwNum):
     #-------- Delay Determination and calibration
     if BPCAL:
         tempVis = np.mean( Xspec.transpose(3,0,1,2) / BP_bl[spw_index], axis=2).transpose(1,2,0)
+    elif chNum == 1:
+        tempVis = Xspec[:,0,:,:]
     else:
         tempVis = np.mean(Xspec, axis=1)    # tempVis[pol, ch, bl]
     #
