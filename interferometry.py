@@ -64,6 +64,11 @@ def AzElMatch( refTime, scanTime, thresh, Az, El ):
     index = np.where( abs(scanTime - refTime) < thresh)[0]
     return np.median(Az[index]), np.median(El[index])
 #
+def GetFWHM(msfile, spw, antD ):    # antD is the antenna diameter [m]
+    Num, chWid, Freq = GetChNum(msfile, spw)
+    wavelength = constants.c / np.median(Freq)
+    return 1.13* 180.0* 3600.0* wavelength / (antD* pi) # Gaussian beam, in unit of arcsec
+#
 def GetAzEl(msfile):
 	Out = msfile + '/' + 'POINTING'
 	tb.open(Out)
@@ -858,7 +863,7 @@ def plotAmphi(fig, freq, spec):
 	return
 #
 #-------- Function to calculate visibilities
-def polariVis( Xspec ):
+def polariVis( Xspec ):     # Xspec[polNum, blNum, chNum, timeNum]
     blNum, chNum, timeNum   = Xspec.shape[1], Xspec.shape[2], Xspec.shape[3]
     chRange = range( int(chNum*0.06), int(chNum* 0.96))
     def gainComplex( vis ):
@@ -882,10 +887,16 @@ def polariVis( Xspec ):
     YXbpcal = bpCal(YX, BPY, BPX)    # YXbpcal[BL, CH, TIME]
     #-------- channel average
     print '--- Channel-averaging visibilities'
-    XXchav = np.mean( XXbpcal[:,chRange], axis=1)  # XXchav[BL, TIME]
-    XYchav = np.mean( XYbpcal[:,chRange], axis=1)  # XXchav[BL, TIME]
-    YXchav = np.mean( YXbpcal[:,chRange], axis=1)  # XXchav[BL, TIME]
-    YYchav = np.mean( YYbpcal[:,chRange], axis=1)  # XXchav[BL, TIME]
+    if len(chRange) == 0:
+        XXchav = XXbpcal[:,0]
+        XYchav = XYbpcal[:,0]
+        YXchav = YXbpcal[:,0]
+        YYchav = YYbpcal[:,0]
+    else:
+        XXchav = np.mean( XXbpcal[:,chRange], axis=1)  # XXchav[BL, TIME]
+        XYchav = np.mean( XYbpcal[:,chRange], axis=1)  # XXchav[BL, TIME]
+        YXchav = np.mean( YXbpcal[:,chRange], axis=1)  # XXchav[BL, TIME]
+        YYchav = np.mean( YYbpcal[:,chRange], axis=1)  # XXchav[BL, TIME]
     #
     #-------- Gain Calibration
     print '--- Solution for antenna-based gain'
