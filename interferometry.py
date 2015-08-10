@@ -64,6 +64,13 @@ def AzElMatch( refTime, scanTime, thresh, Az, El ):
     index = np.where( abs(scanTime - refTime) < thresh)[0]
     return np.median(Az[index]), np.median(El[index])
 #
+def GetAntD(antName):
+    antD = 12.0
+    if antName.find('C') > -1:
+        antD = 7.0
+    #
+    return(antD)
+#
 def GetFWHM(msfile, spw, antD ):    # antD is the antenna diameter [m]
     Num, chWid, Freq = GetChNum(msfile, spw)
     wavelength = constants.c / np.median(Freq)
@@ -867,7 +874,6 @@ def polariVis( Xspec ):     # Xspec[polNum, blNum, chNum, timeNum]
     blNum, chNum, timeNum   = Xspec.shape[1], Xspec.shape[2], Xspec.shape[3]
     chRange = range( int(chNum*0.06), int(chNum* 0.96))
     def gainComplex( vis ):
-        #return clcomplex_solve( vis, np.ones([len(vis)])* 1.0e-4 )
         return clcomplex_solve( vis, 1.0e-8/abs(vis) )
     #
     #-------- Visibilities
@@ -907,5 +913,57 @@ def polariVis( Xspec ):     # Xspec[polNum, blNum, chNum, timeNum]
     VisXY = np.mean(gainCalVis( XYchav, GainX, GainY ), axis = 0)
     VisYX = np.mean(gainCalVis( YXchav, GainY, GainX ), axis = 0)
     #
-    return VisXX, VisXY, VisYX, VisYY
+    return GainX, GainY, VisXX, VisXY, VisYX, VisYY
+#
+#-------- Determine antenna-based gain with polarized source
+def polariGain( XX, YY, PA, StokesQ, StokesU):
+    blNum, timeNum = XX.shape[0], XX.shape[1]
+    csPA = np.cos(2.0* PA)
+    snPA = np.sin(2.0* PA)
+    Xscale = 1.0 / (1.0 + StokesQ* csPA + StokesU* snPA)
+    Yscale = 1.0 / (1.0 - StokesQ* csPA - StokesU* snPA)
+    #for time_index in range(timeNum):
+    #    XX[:,time_index] = XX[:,time_index]* Xscale[time_index]
+    #    YY[:,time_index] = YY[:,time_index]* Yscale[time_index]
+    #
+    def gainComplex( vis ):
+        return clcomplex_solve( vis, 1.0e-8/abs(vis) )
+    #
+    GainX = np.apply_along_axis( gainComplex, 0, XX* Xscale)
+    GainY = np.apply_along_axis( gainComplex, 0, YY* Yscale)
+    return GainX, GainY
+#
+def XY2Stokes(PA, VisXY, VisYX):
+    #-------- Least-Square fit for polarizatino parameters (Q, U, XYphase, Dx, Dy)
+    timeNum = len(VisXY)
+    sinPA2 = np.sin(2.0*PA)
+    cosPA2 = np.cos(2.0*PA)
+    P = np.zeros([7, 4* timeNum])
+    solution = np.array([0.1, 0.1, np.angle( np.mean(Vis[1])), 0.0, 0.0, 0.0, 0.0])   # Initial parameters : StokesQ, StokesU, XYphase, Re(Dx+Dy*), Im(Dx+Dy*)
+    #-------- Iteration loop
+    for index in range(10):
+        sinPhi = np.sin(solution[2])
+        cosPhi = np.cos(solution[2])
+        UcosPA_minus_QsinPA = -sinPA2* solution[0] + cosPA2* solution[1]
+        modelVis = np.r_[
+             cosPhi* UcosPA_minus_QsinPA + solution[3],
+             sinPhi* UcosPA_minus_QsinPA + solution[4],
+             cosPhi* UcosPA_minus_QsinPA + solution[5],
+            -sinPhi* UcosPA_minus_QsinPA + solution[6] ]
+        #-------- Partial matrix
+        P[0] = np.r_[-sinPA2* cosPhi, -sinPA2* sinPhi, -sinPA2* cosPhi,  sinPA2* sinPhi]
+        P[1] = np.r_[ cosPA2* cosPhi,  cosPA2* sinPhi,  cosPA2* cosPhi, -cosPA2* sinPhi]
+        P[2] = np.r_[-sinPhi* UcosPA_minus_QsinPA, cosPhi* UcosPA_minus_QsinPA, -sinPhi* UcosPA_minus_QsinPA, -cosPhi* UcosPA_minus_QsinPA]
+        P[3] = np.r_[np.ones([timeNum]),  np.zeros([timeNum]), np.zeros([timeNum]), np.zeros([timeNum])]
+        P[4] = np.r_[np.zeros([timeNum]), np.ones([timeNum]),  np.zeros([timeNum]), np.zeros([timeNum])]
+        P[5] = np.r_[np.zeros([timeNum]), np.zeros([timeNum]), np.ones([timeNum]),  np.zeros([timeNum])]
+        P[6] = np.r_[np.zeros([timeNum]), np.zeros([timeNum]), np.zeros([timeNum]), np.ones([timeNum])]
+        PTP_inv = scipy.linalg.inv(np.dot(P, P.T))
+        vecVis = np.r_[ VisXY.real, VisXY.imag, VisYX.real, VisYX.imag ]
+        residual = vecVis - modelVis
+        correction = np.dot( PTP_inv, np.dot (P, residual))
+        solution   = solution + correction
+    #
+    solution[2] = np.arctan2( np.sin(solution[2]), np.cos(solution[2]) )    # Remove 2pi ambiguity
+    return(solution)
 #

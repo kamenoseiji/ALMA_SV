@@ -2,6 +2,7 @@ execfile(SCR_DIR + 'interferometry.py')
 from scipy.constants import constants
 from scipy.interpolate import UnivariateSpline
 from scipy.interpolate import griddata
+ALMA_lat = -23.029/180.0*pi     # ALMA AOS Latitude
 #-------- Read (dAz, dEl) offsets from MS file and return them
 def antRefScan( msfile ):
     antList = GetAntName(msfile)
@@ -48,6 +49,18 @@ def subScan(scanTime, gapThresh):
     subScanStartIndex = np.append( array([0]),  gapIndex + 1).tolist()
     subScanEndIndex   = np.append( gapIndex, array([len(scanTime)-1])).tolist()
     return subScanStartIndex, subScanEndIndex
+#
+#-------- Scanning Offset < threshold
+def scanThresh( msfile, ant_index, thresh ):
+    Time, AntID, Offset = GetAzOffset(msfile)
+    time_index = np.where( AntID == ant_index )[0]
+    onAxisIndex = np.where( Offset[0, time_index]**2 + Offset[1, time_index]**2 < thresh**2 )[0]
+    return time_index[onAxisIndex].tolist()
+#
+#-------- Time-based matching
+def timeMatch( refTime, scanTime, thresh):
+    match = np.where( abs(scanTime - refTime) < thresh)[0].tolist()
+    return len(match)
 #
 #-------- SmoothGain
 def smoothGain( timeValue, complexValue ):
@@ -111,15 +124,20 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
 #
 #----------------------------------------- Procedures
 msfile = wd + prefix + '.ms'
-solution = np.load(wd + QUXY + 'QUXY.npy')
+solution = np.load(wd + QUXY + '.QUXY.npy')
 AzEl = np.load(wd + QUXY + '.Azel.npy')
 PA = UnivariateSpline(AzEl[0], AzEl[3], s=1.0e-5)
 CalQ, CalU, XYphs = solution[0], solution[1], solution[2]
 Dxy = solution[3] + (1.0j)* solution[4]
+Dyx = solution[5] + (1.0j)* solution[6]
 #-------- Antenna List
 antList = GetAntName(msfile)
 antNum = len(antList)
 blNum  = antNum* (antNum - 1) / 2
+AntD = np.zeros([antNum])
+for ant_index in range(antNum):
+    AntD[ant_index] = GetAntD(antList[ant_index])
+#
 print('Checking the Array ....')
 #-------- Reference and Scan Antennas
 refAnt, scanAnt, scanTime, Offset = antRefScan(msfile)
@@ -146,10 +164,20 @@ for time_index in range(timeNum):
 #
 #-------- Frequency and Wavelength
 chNum, chWid, Freq = GetChNum(msfile, spw[0])
-wavelength = constants.c / np.median(Freq)
-#FWHM = 1.13* 180.0* 3600.0* wavelength / (12.0* pi) # Gaussian beam, in unit of arcsec
-FWHM = 1.13* 180.0* 3600.0* wavelength / (7.0* pi) # Gaussian beam, in unit of arcsec
-#-------- Gain Calibration for Refants
+FWHM = GetFWHM(msfile, spw[0], AntD)
+if chNum > 1:
+    chRange = range( int(0.05*chNum), int(0.95*chNum))
+#
+#-------- Center position of scanning antennas
+scanTime, AntID, az, el = GetAzEl(msfile)
+index = scanThresh(msfile, scanAnt[0], FWHM[scanAnt[0]]/20)
+scanTime = scanTime[index]
+matchNum = np.zeros([timeNum])
+for time_index in range(timeNum):
+    matchNum[time_index] = timeMatch( timeStamp[time_index], scanTime, np.median(interval))
+#
+onAxisIndex = np.where( matchNum > 0 )[0].tolist()
+#-------- Load Visibilities
 BlMap  = range(blNum)
 BlInv = [False]* blNum      # True -> inverted baseline
 blWeight = np.ones([blNum])
@@ -161,6 +189,30 @@ for bl_index in range(blNum):
 refBlIndex  = np.where(blWeight == 1.0)[0].tolist()
 scanBlIndex = np.where(blWeight == 0.5)[0].tolist()
 timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[0], scan[0])
+if chNum == 1:
+    temp = Xspec[:,0]
+else:
+    temp = np.mean(Xspec[:,chRange], axis=1)
+#
+XX = temp[0,BlMap]
+XY = temp[1,BlMap]
+YX = temp[2,BlMap]
+YY = temp[3,BlMap]
+for bl_index in range(blNum):
+    if BlInv[bl_index]:
+        XX[bl_index] = XX[bl_index].conjugate()
+        XY[bl_index] = XY[bl_index].conjugate()
+        YX[bl_index] = YX[bl_index].conjugate()
+        YY[bl_index] = YY[bl_index].conjugate()
+    #
+#
+GainX, GainY = polariGain(XX, YY, PA(timeStamp), solution[0], solution[1])
+VisXX = gainCalVis( XX, GainX, GainX )
+VisYY = gainCalVis( YY, GainY, GainY )
+VisXY = gainCalVis( XY, GainX, GainY )
+VisYX = gainCalVis( YX, GainY, GainX )
+
+"""
 #-------- PA and Phase
 csPA = np.cos(2.0* PA(timeStamp))
 snPA = np.sin(2.0* PA(timeStamp))
@@ -169,6 +221,10 @@ XX_YY = CalQ* csPA + CalU* snPA     # (XX - YY)/2
 XX = Xspec[0,0,BlMap]
 XY = Xspec[1,0,BlMap]
 YX = Xspec[2,0,BlMap]
+        XX[bl_index] = XX[bl_index].conjugate()
+        XY[bl_index] = XY[bl_index].conjugate()
+        YX[bl_index] = YX[bl_index].conjugate()
+        YY[bl_index] = YY[bl_index].conjugate()
 YY = Xspec[3,0,BlMap]
 for bl_index in range(blNum):
     if BlInv[bl_index]:
@@ -305,3 +361,4 @@ circle_x, circle_y = circlePoints(0, 0, FWHM/2); plt.plot( circle_x, circle_y )
 circle_x, circle_y = circlePoints(0, 0, FWHM/sqrt(2));   plt.plot( circle_x, circle_y )
 plt.savefig( prefix + '-StokesErr.pdf', form='pdf'); plt.close()
 plt.close()
+"""

@@ -34,16 +34,16 @@ def timeMatch( refTime, scanTime, thresh):
     match = np.where( abs(scanTime - refTime) < thresh)[0].tolist()
     return len(match)
 #
+#-------- Antenna-based Gain solution
+def gainComplex( vis ):
+   return clcomplex_solve( vis, 1.0e-8/abs(vis) )
+#
 #----------------------------------------- Procedures
 fileNum = len(prefix)
 mjdSec = []
 Az     = []
 El     = []
 PA     = []
-visXX  = []
-visXY  = []
-visYX  = []
-visYY  = []
 #
 for file_index in range(fileNum):
     msfile = wd + prefix[file_index] + '.ms'
@@ -100,7 +100,6 @@ for file_index in range(fileNum):
         matchNum[time_index] = timeMatch( timeStamp[time_index], scanTime, np.median(interval))
     #
     onAxisIndex = np.where( matchNum > 0 )[0].tolist()
-    #for time_index in range(timeNum):
     for time_index in onAxisIndex:
         ScanAz[time_index], ScanEl[time_index] = AzElMatch( timeStamp[time_index], scanTime, np.median(interval), az, el)
         ScanPA[time_index] = AzEl2PA(ScanAz[time_index], ScanEl[time_index], ALMA_lat)
@@ -112,28 +111,59 @@ for file_index in range(fileNum):
         ants = Bl2Ant(bl_index)
         blMap[bl_index], blInv[bl_index] = Ant2BlD( AntIndex[ants[0]], AntIndex[ants[1]])
     #
-    #-------- StokesParams
-    for spw_index in range(len(spw)):
-        chNum, chWid, Freq = GetChNum(msfile, spw[spw_index])
-        vis_sigma = np.ones(blNum) / sqrt(2.0e9* np.median(diff(timeStamp)))
-        print '--- Loading visibilities from MS'
-        timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], scan[0])  # Xspec[POL, CH, BL, TIME]
-        VisXX, VisXY, VisYX, VisYY = polariVis( Xspec[:,:,blMap].swapaxes(1,2) )# VisXX[TIME] --- avaraged in CH and BL
-        #
-        #for time_index in range(timeNum):
-        for time_index in onAxisIndex:
-            print '%d %f %f %f %f %f %f %f %f %f %f %f' % (timeStamp[time_index], ScanAz[time_index], ScanEl[time_index], ScanPA[time_index], VisXX[time_index].real, VisXX[time_index].imag, VisXY[time_index].real, VisXY[time_index].imag, VisYX[time_index].real, VisYX[time_index].imag, VisYY[time_index].real, VisYY[time_index].imag)
-        #
+    #-------- Cross products (XX, YY, XY, YX)
+    spw_index = 0
+    chNum, chWid, Freq = GetChNum(msfile, spw[spw_index])
+    if chNum > 1:
+        chRange = range( int(0.05*chNum), int(0.95*chNum))
+    #
+    print '--- Loading visibilities from MS'
+    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], scan[0])  # Xspec[POL, CH, BL, TIME]
+    if chNum == 1:
+        temp = Xspec[:,0]
+    else:
+        temp = np.mean(Xspec[:,chRange])
+    #
+    if file_index == 0:
+        XX = temp[0, blMap]
+        XY = temp[1, blMap]
+        YX = temp[2, blMap]
+        YY = temp[3, blMap]
+    else:
+        XX = hstack([XX, temp[0, blMap]])
+        XY = hstack([XY, temp[1, blMap]])
+        YX = hstack([YX, temp[2, blMap]])
+        YY = hstack([YY, temp[3, blMap]])
     #
     mjdSec = np.append(mjdSec, timeStamp[onAxisIndex])
     Az     = np.append(Az, ScanAz[onAxisIndex])
     El     = np.append(El, ScanEl[onAxisIndex])
     PA     = np.append(PA, ScanPA[onAxisIndex])
-    visXX  = np.append(visXX, VisXX[onAxisIndex])
-    visXY  = np.append(visXY, VisXY[onAxisIndex])
-    visYX  = np.append(visYX, VisYX[onAxisIndex])
-    visYY  = np.append(visYY, VisYY[onAxisIndex])
 #
+solution = np.zeros([7])
+for iter_index in range(5):
+    print '---- Iteration ' + `iter_index` + ' for Stokes (Q, U) and Gain ----'
+    GainX, GainY = polariGain(XX, YY, PA, solution[0], solution[1])
+    VisXX = np.mean(gainCalVis( XX, GainX, GainX ), axis = 0)
+    VisYY = np.mean(gainCalVis( YY, GainY, GainY ), axis = 0)
+    VisXY = np.mean(gainCalVis( XY, GainX, GainY ), axis = 0)
+    VisYX = np.mean(gainCalVis( YX, GainY, GainX ), axis = 0)
+    solution = XY2Stokes(PA, VisXY, VisYX)
+    print `solution`
+#
+plt.plot(PA, VisXY.real, '.', label = 'ReXY', color='cyan')
+plt.plot(PA, VisXY.imag, '.', label = 'ImXY', color='darkblue')
+plt.plot(PA, VisYX.real, '.', label = 'ReYX', color='magenta')
+plt.plot(PA, VisYX.imag, '.', label = 'ImYX', color='darkred')
+PArange = np.arange(min(PA), max(PA), 0.01)
+plt.plot(PArange,  np.cos(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[3], '-', color='cyan')
+plt.plot(PArange,  np.sin(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[4], '-', color='darkblue')
+plt.plot(PArange,  np.cos(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[5], '-', color='magenta')
+plt.plot(PArange, -np.sin(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[6], '-', color='darkred')
+plt.xlabel('PA [rad]'); plt.ylabel('XY, YX (real and imaginary)')
+plt.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
+text_sd = 'Q/I = %6.3f   U/I = %6.3f   XY_phase = %6.3f rad (RefAnt : %s)' % (solution[0], solution[1], solution[2], antList[0]); plt.text(min(PA), min(VisXY.real), text_sd, size='x-small')
+#-------- Save Results
 np.save(prefix[0] + '.Ant.npy', antList)
 np.save(prefix[0] + '.Azel.npy', np.array([mjdSec, Az, El, PA]))
-np.save(prefix[0] + '.Vis.npy', np.array([visXX, visXY, visYX, visYY]))
+np.save(prefix[0] + '.QUXY.npy', solution )
