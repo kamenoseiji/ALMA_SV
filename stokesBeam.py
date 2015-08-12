@@ -183,8 +183,10 @@ BlInv = [False]* blNum      # True -> inverted baseline
 blWeight = np.ones([blNum])
 for bl_index in range(blNum):
     ants = Bl2Ant(bl_index)
-    BlMap[bl_index], BlInv[bl_index] = Ant2BlD( AntIndex[ants[0]], AntIndex[ants[1]])
-    blWeight[bl_index] = antWeight[AntIndex[ants[0]]]* antWeight[AntIndex[ants[1]]]
+    BlMap[bl_index], BlInv[bl_index] = Ant2BlD(ants[0], ants[1])
+    blWeight[bl_index] = antWeight[ants[0]]* antWeight[ants[1]]
+    #BlMap[bl_index], BlInv[bl_index] = Ant2BlD( AntIndex[ants[0]], AntIndex[ants[1]])
+    #blWeight[bl_index] = antWeight[AntIndex[ants[0]]]* antWeight[AntIndex[ants[1]]]
 #
 refBlIndex  = np.where(blWeight == 1.0)[0].tolist()
 scanBlIndex = np.where(blWeight == 0.5)[0].tolist()
@@ -207,12 +209,92 @@ for bl_index in range(blNum):
     #
 #
 GainX, GainY = polariGain(XX, YY, PA(timeStamp), solution[0], solution[1])
+Ucos_Qsin = solution[1]* np.cos(2.0*PA(timeStamp)) - solution[0]* np.sin(2.0*PA(timeStamp))
+Qcos_Usin = solution[0]* np.cos(2.0*PA(timeStamp)) + solution[1]* np.sin(2.0*PA(timeStamp))
 VisXX = gainCalVis( XX, GainX, GainX )
 VisYY = gainCalVis( YY, GainY, GainY )
-VisXY = gainCalVis( XY, GainX, GainY )
-VisYX = gainCalVis( YX, GainY, GainX )
+VisXY = gainCalVis( XY, GainX, GainY )* np.exp(0.0 - solution[2]*1.0j)
+VisYX = gainCalVis( YX, GainY, GainX )* np.exp(0.0 + solution[2]*1.0j)
+DxDx = VisXX - 1.0 - Qcos_Usin
+DxDy = VisXY - Ucos_Qsin
+DyDx = VisYX - Ucos_Qsin
+DyDy = VisYY - 1.0 + Qcos_Usin
+
+print('-------- Determining Antenna-based D-terms ----')
+Pre = np.zeros([4*blNum, 2*antNum]) # [ReXX, ReXY, ReYX, ReYY] x [ReDx, ReDy]
+Pim = np.zeros([4*blNum, 2*antNum]) # [ReXX, ReXY, ReYX, ReYY] x [ReDx, ReDy]
+Dx = np.zeros([antNum, timeNum], dtype=complex)
+Dy = np.zeros([antNum, timeNum], dtype=complex)
+#
+blGain = np.ones([blNum])
+GainScaleX = 0.5 / np.max(abs(GainX))
+#GainScaleY = 0.2 / np.max(abs(GainY))
+for time_index in range(timeNum):
+    for bl_index in range(blNum):
+        ants = Bl2Ant(bl_index)
+        #blGain[bl_index] = GainScaleX* abs(GainX[ants[1], time_index])* abs(GainX[ants[0], time_index]) + GainScaleY* abs(GainY[ants[1], time_index])* abs(GainY[ants[0], time_index])
+        blGain[bl_index] = GainScaleX* abs(GainX[ants[1], time_index])* abs(GainX[ants[0], time_index])
+    #
+    W  = np.diag(np.r_[blGain, blGain, blGain, blGain])
+    #---- Real Part
+    Pre[        0:   blNum ,      0:   antNum ] = Ucos_Qsin[time_index]* BlAmpMatrix(antNum)
+    Pre[   blNum :(2*blNum),      0:   antNum ] = (1.0 - Qcos_Usin[time_index])* DxMatrix(antNum)
+    Pre[   blNum :(2*blNum), antNum:(2*antNum)] = (1.0 + Qcos_Usin[time_index])* DyMatrix(antNum)
+    Pre[(2*blNum):(3*blNum),      0:   antNum ] = (1.0 - Qcos_Usin[time_index])* DyMatrix(antNum)
+    Pre[(2*blNum):(3*blNum), antNum:(2*antNum)] = (1.0 + Qcos_Usin[time_index])* DxMatrix(antNum)
+    Pre[(3*blNum):(4*blNum), antNum:(2*antNum)] = Ucos_Qsin[time_index]* BlAmpMatrix(antNum)
+    #---- Imag Part
+    Pim[        0:   blNum ,      0:   antNum ] = Ucos_Qsin[time_index]* (DxMatrix(antNum) - DyMatrix(antNum))
+    Pim[   blNum :(2*blNum),      0:   antNum ] = (1.0 - Qcos_Usin[time_index])* DxMatrix(antNum)
+    Pim[   blNum :(2*blNum), antNum:(2*antNum)] = (1.0 - Qcos_Usin[time_index])* DyMatrix(antNum)
+    Pim[(2*blNum):(3*blNum),      0:   antNum ] = (1.0 + Qcos_Usin[time_index])* DyMatrix(antNum)
+    Pim[(2*blNum):(3*blNum), antNum:(2*antNum)] = (1.0 + Qcos_Usin[time_index])* DxMatrix(antNum)
+    Pim[(3*blNum):(4*blNum), antNum:(2*antNum)] = Ucos_Qsin[time_index]* (DyMatrix(antNum) - DxMatrix(antNum))
+    #
+    PreWPre = np.dot( Pre.T, np.dot(W, Pre))
+    PimWPim = np.dot( Pim.T, np.dot(W, Pim))
+    DetPre = np.linalg.det( PreWPre )
+    DetPim = np.linalg.det( PimWPim )
+    ReXXYY = np.dot(W, np.r_[ DxDx[:,time_index].real, DxDy[:,time_index].real, DyDx[:,time_index].real, DyDy[:,time_index].real ])
+    ImXXYY = np.dot(W, np.r_[ DxDx[:,time_index].imag, DxDy[:,time_index].imag, DyDx[:,time_index].imag, DyDy[:,time_index].imag ])
+    print( `time_index` + '  det(PTP_real) = ' + `DetPre` + '  det(PTP_imag) = ' + `DetPim` )
+    ReD = np.dot( np.linalg.inv( PreWPre ), np.dot( Pre.T, ReXXYY) )
+    if DetPim != 0.0:
+        ImD = np.dot( np.linalg.inv( PimWPim ), np.dot( Pim.T, ImXXYY) )
+    else:
+        ImD = np.dot( np.diag(1.0 / np.diag(PimWPim)), np.dot( Pim.T, ImXXYY) )
+    #
+    Dx[:, time_index] = ReD[0:antNum] + 1.0j* ImD[0:antNum]
+    Dy[:, time_index] = ReD[antNum:(2*antNum)] + 1.0j* ImD[antNum:(2*antNum)]
+#
+"""
+for bl_index in range(blNum):
+    ants = Bl2Ant(bl_index)
+    p[          bl_index,            ants[1]] =  1.0      # ReXY / ReDx
+    p[  blNum + bl_index,   antNum + ants[1]] =  1.0      # ImXY / ImDx
+    p[2*blNum + bl_index, 2*antNum + ants[1]] =  1.0      # ReYX / ReDy
+    p[3*blNum + bl_index, 3*antNum + ants[1]] =  1.0      # ImYX / ImDy
+    #
+    p[          bl_index, 2*antNum + ants[0]] =  1.0      # ReXY / ReDy
+    p[  blNum + bl_index, 3*antNum + ants[0]] = -1.0      # ImXY / ImDy
+    p[2*blNum + bl_index,            ants[0]] =  1.0      # ReYX / ReDx
+    p[3*blNum + bl_index,   antNum + ants[0]] = -1.0      # ImYX / ImDx
+#
+"""
+"""
+Dx = np.zeros([antNum, timeNum], dtype=complex)
+Dy = np.zeros([antNum, timeNum], dtype=complex)
+for time_index in range(timeNum):
+    temp = np.r_[ DxDy[:,time_index].real, DxDy[:,time_index].imag, DyDx[:,time_index].real, DyDx[:,time_index].imag ]
+    D = np.dot( np.linalg.inv(np.dot( p.T, p ) - np.diag(0.1*np.ones([4*antNum]))), np.dot( p.T, temp) )
+    Dx[:,time_index] = D[0:antNum] + 1.0j* D[antNum:(2*antNum)]
+    Dy[:,time_index] = D[(2*antNum):(3*antNum)] + 1.0j* D[(3*antNum):(4*antNum)]
+#
+"""
+
 
 """
+
 #-------- PA and Phase
 csPA = np.cos(2.0* PA(timeStamp))
 snPA = np.sin(2.0* PA(timeStamp))
@@ -221,10 +303,6 @@ XX_YY = CalQ* csPA + CalU* snPA     # (XX - YY)/2
 XX = Xspec[0,0,BlMap]
 XY = Xspec[1,0,BlMap]
 YX = Xspec[2,0,BlMap]
-        XX[bl_index] = XX[bl_index].conjugate()
-        XY[bl_index] = XY[bl_index].conjugate()
-        YX[bl_index] = YX[bl_index].conjugate()
-        YY[bl_index] = YY[bl_index].conjugate()
 YY = Xspec[3,0,BlMap]
 for bl_index in range(blNum):
     if BlInv[bl_index]:
@@ -234,9 +312,9 @@ for bl_index in range(blNum):
         YY[bl_index] = YY[bl_index].conjugate()
     #
 #
-def gainComplex( vis ):
-    #return clcomplex_solve( vis, 1.0e-8/abs(vis) )
-    return clcomplex_solve( vis, vis_sigma/blWeight )
+#def gainComplex( vis ):
+#    #return clcomplex_solve( vis, 1.0e-8/abs(vis) )
+#    return clcomplex_solve( vis, vis_sigma/blWeight )
 #
 GainX = np.apply_along_axis( gainComplex, 0, XX )/ sqrt(1.0 + XX_YY)
 GainY = np.apply_along_axis( gainComplex, 0, YY )* exp( 1.0j* XYphs) / sqrt(1.0 - XX_YY)

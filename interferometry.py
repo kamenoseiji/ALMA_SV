@@ -252,35 +252,53 @@ def Bl2Ant(baseline):
 	while( (ant1* (ant1 + 1)/2 ) > baseline):
 		ant1 -= 1
 	return [(ant1+1), int(baseline - ant1*(ant1 + 1)/2)]
-
+#
 def Ant2Bla_RevLex(ant0, ant1, antNum):		# Reverse Lexical, with autcorr
 	antenna0 = min(ant0, ant1); antenna1 = max(ant0, ant1)
 	kernel = antNum* antenna0 - antenna0* (antenna0 - 1)/2
 	return kernel + antenna1 - antenna0
-
+#
 def Ant2Bl_RevLex(ant1, ant2, antnum):
 	antenna1 = max(ant1, ant2); antenna2 = min(ant1, ant2)
 	return int(antnum* antenna2 - (antenna2 + 1)* (antenna2 + 2) / 2  + antenna1)
-
-def BlAmpMatrix(num_ant):
-	num_bl = num_ant* (num_ant - 1) / 2
-	blamp_matrix = np.zeros((num_bl, num_ant))
-	for bl_index in range(num_bl):
-		ants = Bl2Ant(bl_index)
-		blamp_matrix[bl_index, ants[0]] = 1
-		blamp_matrix[bl_index, ants[1]] = 1
-	return blamp_matrix
-
-def BlPhaseMatrix(num_ant):
-	num_bl = num_ant* (num_ant - 1) / 2
-	blphs_matrix = np.zeros((num_bl, (num_ant - 1)))
-	for bl_index in range(num_bl):
-		ants = Bl2Ant(bl_index)
-		blphs_matrix[bl_index, (ants[0] - 1)] = 1
-		if(ants[1] > 0):
-			blphs_matrix[bl_index, (ants[1] - 1)] = -1
-	return blphs_matrix
-
+#
+def BlAmpMatrix(antNum):
+    blNum = antNum* (antNum - 1) / 2
+    blamp_matrix = np.zeros([blNum, antNum])
+    for bl_index in range(blNum):
+        ants = Bl2Ant(bl_index)
+        blamp_matrix[bl_index, ants[0]] = 1
+        blamp_matrix[bl_index, ants[1]] = 1
+    return blamp_matrix
+#
+def BlPhaseMatrix(antNum):
+    blNum = antNum* (antNum - 1) / 2
+    blphs_matrix = np.zeros([blNum, (antNum - 1)])
+    for bl_index in range(blNum):
+        ants = Bl2Ant(bl_index)
+        blphs_matrix[bl_index, (ants[0] - 1)] = 1
+        if(ants[1] > 0):
+            blphs_matrix[bl_index, (ants[1] - 1)] = -1
+    return blphs_matrix
+#
+def DxMatrix(antNum):
+    blNum = antNum* (antNum - 1) /2
+    Dx_matrix = np.zeros([blNum, antNum])
+    for bl_index in range(blNum):
+        ants = Bl2Ant(bl_index)
+        Dx_matrix[bl_index, ants[1]] = 1
+    #
+    return Dx_matrix
+#
+def DyMatrix(antNum):
+    blNum = antNum* (antNum - 1) /2
+    Dy_matrix = np.zeros([blNum, antNum])
+    for bl_index in range(blNum):
+        ants = Bl2Ant(bl_index)
+        Dy_matrix[bl_index, ants[0]] = 1
+    #
+    return Dy_matrix
+#
 def ant2blphs( ant_phase, antphs_error ):
 	antnum = len(ant_phase)					# Number of antennas
 	blnum  = antnum* (antnum - 1) / 2		# Number of baselines
@@ -291,8 +309,7 @@ def ant2blphs( ant_phase, antphs_error ):
 		bl_phase_err[bl_index] = sqrt( antphs_error[ants[0]]* antphs_error[ants[0]] + antphs_error[ants[0]] * antphs_error[ants[0]])
 
 	return arctan2(sin(bl_phase), cos(bl_phase)), bl_phase_err
-
-
+#
 def ant2blamp(ant_amp, antamp_error):
 	antnum = len(ant_amp)				# Number of antennas
 	blnum  = antnum* (antnum - 1) / 2		# Number of baselines
@@ -566,7 +583,7 @@ def gainCalVis(vis, Gain0, Gain1):
             Gain_bl[bl_index, time_index] = Gain1[ant2, time_index] *  Gain0[ant1, time_index].conjugate()
         #
     #
-    return( vis / Gain_bl )
+    return( 2.0* vis / Gain_bl )
 #
 def P2P(vector):
 	return np.max(vector) - np.min(vector)
@@ -869,13 +886,13 @@ def plotAmphi(fig, freq, spec):
 	phsAxis.axis( [min(freq), max(freq), -pi, pi], size='x-small' )
 	return
 #
+def gainComplex( vis ):
+    return clcomplex_solve( vis, 1.0e-8/abs(vis) )
+#
 #-------- Function to calculate visibilities
 def polariVis( Xspec ):     # Xspec[polNum, blNum, chNum, timeNum]
     blNum, chNum, timeNum   = Xspec.shape[1], Xspec.shape[2], Xspec.shape[3]
     chRange = range( int(chNum*0.06), int(chNum* 0.96))
-    def gainComplex( vis ):
-        return clcomplex_solve( vis, 1.0e-8/abs(vis) )
-    #
     #-------- Visibilities
     XX = Xspec[0]     # XX[BL, CH, TIME]
     XY = Xspec[1]     # XY[BL, CH, TIME]
@@ -920,17 +937,14 @@ def polariGain( XX, YY, PA, StokesQ, StokesU):
     blNum, timeNum = XX.shape[0], XX.shape[1]
     csPA = np.cos(2.0* PA)
     snPA = np.sin(2.0* PA)
-    Xscale = 1.0 / (1.0 + StokesQ* csPA + StokesU* snPA)
-    Yscale = 1.0 / (1.0 - StokesQ* csPA - StokesU* snPA)
-    #for time_index in range(timeNum):
-    #    XX[:,time_index] = XX[:,time_index]* Xscale[time_index]
-    #    YY[:,time_index] = YY[:,time_index]* Yscale[time_index]
+    Xscale = 2.0 / (1.0 + StokesQ* csPA + StokesU* snPA)
+    Yscale = 2.0 / (1.0 - StokesQ* csPA - StokesU* snPA)
     #
-    def gainComplex( vis ):
-        return clcomplex_solve( vis, 1.0e-8/abs(vis) )
+    ScaleXX = np.dot(XX, np.diag(Xscale))
+    ScaleYY = np.dot(YY, np.diag(Yscale))
     #
-    GainX = np.apply_along_axis( gainComplex, 0, XX* Xscale)
-    GainY = np.apply_along_axis( gainComplex, 0, YY* Yscale)
+    GainX = np.apply_along_axis( gainComplex, 0, ScaleXX)
+    GainY = np.apply_along_axis( gainComplex, 0, ScaleYY)
     return GainX, GainY
 #
 def XY2Stokes(PA, VisXY, VisYX):
@@ -939,7 +953,7 @@ def XY2Stokes(PA, VisXY, VisYX):
     sinPA2 = np.sin(2.0*PA)
     cosPA2 = np.cos(2.0*PA)
     P = np.zeros([7, 4* timeNum])
-    solution = np.array([0.1, 0.1, np.angle( np.mean(Vis[1])), 0.0, 0.0, 0.0, 0.0])   # Initial parameters : StokesQ, StokesU, XYphase, Re(Dx+Dy*), Im(Dx+Dy*)
+    solution = np.array([0.1, 0.1, np.angle( np.mean(VisXY[1])), 0.0, 0.0, 0.0, 0.0])   # Initial parameters : StokesQ, StokesU, XYphase, Re(Dx+Dy*), Im(Dx+Dy*)
     #-------- Iteration loop
     for index in range(10):
         sinPhi = np.sin(solution[2])

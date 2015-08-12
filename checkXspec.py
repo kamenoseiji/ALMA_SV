@@ -25,8 +25,8 @@ timeNum = len(timeStamp)
 #
 #-------- Prepare Plots
 for spw_index in range(spwNum):
-    #figSPW = plt.figure(spw_index, figsize = (64, 64))
-    figSPW = plt.figure(spw_index, figsize = (11, 11))
+    figSPW = plt.figure(spw_index, figsize = (64, 64))
+    #figSPW = plt.figure(spw_index, figsize = (11, 11))
     figSPW.suptitle(prefix + ' SPW = ' + `spw[spw_index]` + ' Scan = ' + `BPscan`)
     figSPW.text(0.45, 0.05, 'Frequency [GHz]')
     figSPW.text(0.05, 0.5, 'Phase', rotation=90)

@@ -34,10 +34,6 @@ def timeMatch( refTime, scanTime, thresh):
     match = np.where( abs(scanTime - refTime) < thresh)[0].tolist()
     return len(match)
 #
-#-------- Antenna-based Gain solution
-def gainComplex( vis ):
-   return clcomplex_solve( vis, 1.0e-8/abs(vis) )
-#
 #----------------------------------------- Procedures
 fileNum = len(prefix)
 mjdSec = []
