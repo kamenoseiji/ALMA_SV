@@ -3,6 +3,21 @@ from scipy.constants import constants
 from scipy.interpolate import UnivariateSpline
 from scipy.interpolate import griddata
 ALMA_lat = -23.029/180.0*pi     # ALMA AOS Latitude
+#-------- For Plot
+def circlePoints( x, y, radius ):
+    angle = np.arange(-pi, (130/128)*pi, pi/128)
+    return x + radius* np.cos(angle), y + radius* np.sin(angle)
+#
+#-------- BL 2 Ant mapping
+ANT0 = []
+ANT1 = []
+for bl_index in range(2016):
+    ants = Bl2Ant(bl_index)
+    ANT0.append(ants[0])
+    ANT1.append(ants[1])
+#
+ANT0 = np.array(ANT0)
+ANT1 = np.array(ANT1)
 #-------- Read (dAz, dEl) offsets from MS file and return them
 def antRefScan( msfile ):
     antList = GetAntName(msfile)
@@ -125,8 +140,8 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
 #----------------------------------------- Procedures
 msfile = wd + prefix + '.ms'
 solution = np.load(wd + QUXY + '.QUXY.npy')
-AzEl = np.load(wd + QUXY + '.Azel.npy')
-PA = UnivariateSpline(AzEl[0], AzEl[3], s=1.0e-5)
+#AzEl = np.load(wd + QUXY + '.Azel.npy')
+#PA = UnivariateSpline(AzEl[0], AzEl[3], s=1.0e-5)
 CalQ, CalU, XYphs = solution[0], solution[1], solution[2]
 Dxy = solution[3] + (1.0j)* solution[4]
 Dyx = solution[5] + (1.0j)* solution[6]
@@ -141,6 +156,8 @@ for ant_index in range(antNum):
 print('Checking the Array ....')
 #-------- Reference and Scan Antennas
 refAnt, scanAnt, scanTime, Offset = antRefScan(msfile)
+refAntNum  = len(refAnt)
+scanAntNum = len(scanAnt)
 print('-------- Reference Antennas ----')
 for ant_index in refAnt:
     text_sd = 'Ref[%d]  / %d: %s ' % (ant_index, len(refAnt), antList[ant_index])
@@ -169,14 +186,27 @@ if chNum > 1:
     chRange = range( int(0.05*chNum), int(0.95*chNum))
 #
 #-------- Center position of scanning antennas
+AZ = np.zeros([timeNum])
+EL = np.zeros([timeNum])
+PA = np.zeros([timeNum])
 scanTime, AntID, az, el = GetAzEl(msfile)
-index = scanThresh(msfile, scanAnt[0], FWHM[scanAnt[0]]/20)
-scanTime = scanTime[index]
-matchNum = np.zeros([timeNum])
+index = np.where( AntID == refAnt[0])[0].tolist()
+azel = np.r_[az[index], el[index]].reshape(2, len(index))
 for time_index in range(timeNum):
-    matchNum[time_index] = timeMatch( timeStamp[time_index], scanTime, np.median(interval))
+    AZ[time_index], EL[time_index] = AzElMatch( timeStamp[time_index], scanTime[index], np.median(interval), azel)
+    PA[time_index] = AzEl2PA(AZ[time_index], EL[time_index], ALMA_lat)    #
 #
-onAxisIndex = np.where( matchNum > 0 )[0].tolist()
+#index = scanThresh(msfile, refAnt[0], FWHM[scanAnt[0]]/20)
+#index = scanThresh(msfile, scanAnt[0], FWHM[scanAnt[0]]/20)
+#--------
+#index = scanThresh(msfile, scanAnt[0], FWHM[scanAnt[0]]/20)
+#scanTime = scanTime[index]
+#matchNum = np.zeros([timeNum])
+#for time_index in range(timeNum):
+#    matchNum[time_index] = timeMatch( timeStamp[time_index], scanTime, np.median(interval))
+##
+#onAxisIndex = np.where( matchNum > 0 )[0].tolist()
+#
 #-------- Load Visibilities
 BlMap  = range(blNum)
 BlInv = [False]* blNum      # True -> inverted baseline
@@ -188,8 +218,8 @@ for bl_index in range(blNum):
     #BlMap[bl_index], BlInv[bl_index] = Ant2BlD( AntIndex[ants[0]], AntIndex[ants[1]])
     #blWeight[bl_index] = antWeight[AntIndex[ants[0]]]* antWeight[AntIndex[ants[1]]]
 #
-refBlIndex  = np.where(blWeight == 1.0)[0].tolist()
-scanBlIndex = np.where(blWeight == 0.5)[0].tolist()
+refBlIndex  = np.where(blWeight == 1.0)[0].tolist(); refBlNum  = len(refBlIndex)
+scanBlIndex = np.where(blWeight == 0.5)[0].tolist(); scanBlNum = len(scanBlIndex)
 timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[0], scan[0])
 if chNum == 1:
     temp = Xspec[:,0]
@@ -203,14 +233,139 @@ YY = temp[3,BlMap]
 for bl_index in range(blNum):
     if BlInv[bl_index]:
         XX[bl_index] = XX[bl_index].conjugate()
-        XY[bl_index] = XY[bl_index].conjugate()
-        YX[bl_index] = YX[bl_index].conjugate()
+        XY[bl_index] = YX[bl_index].conjugate()     # Baseline inversion -> swap(X, Y)
+        YX[bl_index] = XY[bl_index].conjugate()     # Baseline inversion -> swap(X, Y)
         YY[bl_index] = YY[bl_index].conjugate()
     #
 #
-GainX, GainY = polariGain(XX, YY, PA(timeStamp), solution[0], solution[1])
-Ucos_Qsin = solution[1]* np.cos(2.0*PA(timeStamp)) - solution[0]* np.sin(2.0*PA(timeStamp))
-Qcos_Usin = solution[0]* np.cos(2.0*PA(timeStamp)) + solution[1]* np.sin(2.0*PA(timeStamp))
+GainX, GainY = polariGain(XX, YY, PA, solution[0], solution[1])
+Ucos_Qsin = solution[1]* np.cos(2.0*PA) - solution[0]* np.sin(2.0*PA)
+Qcos_Usin = solution[0]* np.cos(2.0*PA) + solution[1]* np.sin(2.0*PA)
+#
+#-------- RefAnt D-term
+RefGainX = GainX[refAnt]
+RefGainY = GainY[refAnt]
+blGain = np.ones([refBlNum])
+VisXX = gainCalVis( XX[refBlIndex], RefGainX, RefGainX )
+VisYY = gainCalVis( YY[refBlIndex], RefGainY, RefGainY )
+VisXY = gainCalVis( XY[refBlIndex], RefGainX, RefGainY )* np.exp(0.0 - solution[2]*1.0j)
+VisYX = gainCalVis( YX[refBlIndex], RefGainY, RefGainX )* np.exp(0.0 + solution[2]*1.0j)
+DxDx = VisXX - 1.0 - Qcos_Usin
+DxDy = VisXY - Ucos_Qsin
+DyDx = VisYX - Ucos_Qsin
+DyDy = VisYY - 1.0 + Qcos_Usin
+print('-------- Determining Antenna-based D-terms (refants) ----')
+phsNum = refAntNum - 1     # Number of phase solutions (excluding refant)
+Pre = np.zeros([4*refBlNum, 2*refAntNum])  # [ReXX, ReXY, ReYX, ReYY] x [ReDx, ReDy]
+Pim = np.zeros([4*refBlNum, 2*(phsNum)])   # [ReXX, ReXY, ReYX, ReYY] x [ReDx, ReDy], no refant component
+refDx = np.zeros([refAntNum, timeNum], dtype=complex)
+refDy = np.zeros([refAntNum, timeNum], dtype=complex)
+for time_index in range(timeNum):
+    for bl_index in range(refBlNum):
+        ants = Bl2Ant(bl_index)
+        blGain[bl_index] = abs(RefGainX[ants[1], time_index])* abs(RefGainX[ants[0], time_index]) + abs(RefGainY[ants[1], time_index])* abs(RefGainY[ants[0], time_index])
+    #
+    W  = np.diag(np.r_[blGain, blGain, blGain, blGain])
+    #---- Real Part
+    Pre[           0:   refBlNum ,         0:   refAntNum ] = Ucos_Qsin[time_index]* BlAmpMatrix(refAntNum)
+    Pre[   refBlNum :(2*refBlNum),         0:   refAntNum ] = (1.0 - Qcos_Usin[time_index])* DxMatrix(refAntNum)
+    Pre[   refBlNum :(2*refBlNum), refAntNum:(2*refAntNum)] = (1.0 + Qcos_Usin[time_index])* DyMatrix(refAntNum)
+    Pre[(2*refBlNum):(3*refBlNum),         0:   refAntNum ] = (1.0 - Qcos_Usin[time_index])* DyMatrix(refAntNum)
+    Pre[(2*refBlNum):(3*refBlNum), refAntNum:(2*refAntNum)] = (1.0 + Qcos_Usin[time_index])* DxMatrix(refAntNum)
+    Pre[(3*refBlNum):(4*refBlNum), refAntNum:(2*refAntNum)] = Ucos_Qsin[time_index]* BlAmpMatrix(refAntNum)
+    #---- Imag Part, Dim of refant is definately 0
+    Pim[           0:   refBlNum ,      0:   phsNum ] = -Ucos_Qsin[time_index]* BlPhaseMatrix(refAntNum)
+    Pim[   refBlNum :(2*refBlNum),      0:   phsNum ] = (1.0 - Qcos_Usin[time_index])* DxImMatrix(refAntNum)
+    Pim[   refBlNum :(2*refBlNum), phsNum:(2*phsNum)] = (1.0 - Qcos_Usin[time_index])* DyImMatrix(refAntNum)
+    Pim[(2*refBlNum):(3*refBlNum),      0:   phsNum ] = (1.0 + Qcos_Usin[time_index])* DyImMatrix(refAntNum)
+    Pim[(2*refBlNum):(3*refBlNum), phsNum:(2*phsNum)] = (1.0 + Qcos_Usin[time_index])* DxImMatrix(refAntNum)
+    Pim[(3*refBlNum):(4*refBlNum), phsNum:(2*phsNum)] = Ucos_Qsin[time_index]* BlPhaseMatrix(refAntNum)
+    #
+    PreWPre = np.dot( Pre.T, np.dot(W, Pre))
+    PimWPim = np.dot( Pim.T, np.dot(W, Pim))
+    DetPre = np.linalg.det( PreWPre )
+    DetPim = np.linalg.det( PimWPim )
+    ReXXYY = np.dot(W, np.r_[ DxDx[:,time_index].real, DxDy[:,time_index].real, DyDx[:,time_index].real, DyDy[:,time_index].real ])
+    ImXXYY = np.dot(W, np.r_[ DxDx[:,time_index].imag, DxDy[:,time_index].imag, DyDx[:,time_index].imag, DyDy[:,time_index].imag ])
+    # print( `time_index` + '  det(PTP_real) = ' + `DetPre` + '  det(PTP_imag) = ' + `DetPim` )
+    ReD = np.dot( np.linalg.inv( PreWPre ), np.dot( Pre.T, ReXXYY) )
+    ImD = np.dot( np.linalg.inv( PimWPim ), np.dot( Pim.T, ImXXYY) )
+    refDx[:, time_index] = ReD[0:refAntNum]             + 1.0j* np.r_[0, ImD[0:phsNum]]
+    refDy[:, time_index] = ReD[refAntNum:(2*refAntNum)] + 1.0j* np.r_[0, ImD[phsNum:(2*phsNum)]]
+#
+RefDx = np.mean(refDx, axis=1)
+RefDy = np.mean(refDy, axis=1)
+#
+VisXX = np.zeros([refAntNum, timeNum], dtype=complex)
+VisXY = np.zeros([refAntNum, timeNum], dtype=complex)
+VisYX = np.zeros([refAntNum, timeNum], dtype=complex)
+VisYY = np.zeros([refAntNum, timeNum], dtype=complex)
+scnDx = np.zeros([scanAntNum, timeNum], dtype=complex)
+scnDy = np.zeros([scanAntNum, timeNum], dtype=complex)
+print('-------- Determining Antenna-based D-terms (scan ants) ----')
+for ant_index in range(scanAntNum):
+    antID = scanAnt[ant_index]
+    blWithScanAnt = np.array(scanBlIndex)[np.where( ANT0[scanBlIndex] == antID )[0].tolist() + np.where( ANT1[scanBlIndex] == antID )[0].tolist()].tolist()
+    for bl_index in range(refAntNum):
+        blID = blWithScanAnt[bl_index]
+        ants = Bl2Ant(blID)
+        if ants[0] == antID:        # Baseline Inversed
+            VisXX[bl_index] = XX[blID].conjugate() / (GainX[ants[1]]* GainX[antID].conjugate())
+            VisXY[bl_index] = YX[blID].conjugate() / (GainY[ants[1]]* GainX[antID].conjugate()) # Baseline inversion -> swap(X,Y)
+            VisYX[bl_index] = XY[blID].conjugate() / (GainX[ants[1]]* GainY[antID].conjugate()) # Baseline inversion -> swap(X,Y)
+            VisYY[bl_index] = YY[blID].conjugate() / (GainY[ants[1]]* GainY[antID].conjugate())
+        else:
+            VisXX[bl_index] = XX[blID] / (GainX[ants[0]]* GainX[antID].conjugate())
+            VisXY[bl_index] = XY[blID] / (GainY[ants[0]]* GainX[antID].conjugate())
+            VisYX[bl_index] = YX[blID] / (GainX[ants[0]]* GainY[antID].conjugate())
+            VisYY[bl_index] = YY[blID] / (GainY[ants[0]]* GainY[antID].conjugate())
+        #
+        VisXX[bl_index] = 2.0* VisXX[bl_index] - 1.0 - Qcos_Usin + RefDx[bl_index]* Ucos_Qsin
+        VisXY[bl_index] = 2.0* VisXY[bl_index] - Ucos_Qsin + RefDx[bl_index]* (1.0 + Qcos_Usin)
+        VisYX[bl_index] = 2.0* VisYX[bl_index] - Ucos_Qsin - RefDy[bl_index]* (1.0 + Qcos_Usin)
+        VisYY[bl_index] = 2.0* VisYY[bl_index] - 1.0 + Qcos_Usin - RefDy[bl_index]* Ucos_Qsin
+        #
+    #
+    scnDx[ant_index] = (np.mean( VisYX, axis=0 ) / (1.0 - Qcos_Usin)).conjugate()
+    scnDy[ant_index] = (np.mean( VisXY, axis=0 ) / (1.0 + Qcos_Usin)).conjugate()
+    StokesI[ant_index] = 0.5*(np.mean( VisXX, axis=0 ) + np.mean( VisYY, axis=0 ) + (scnDy[ant_index] - scnDx[ant_index]).conjugate()* Ucos_Qsin )
+    StokesI[ant_index] = 0.5*(np.mean( VisXX, axis=0 ) + np.mean( VisYY, axis=0 ) + (scnDy[ant_index] - scnDx[ant_index]).conjugate()* Ucos_Qsin )
+#
+print('-------- Plot D-term Maps for scan ants ----')
+for ant_index in range(scanAntNum):
+    antID = scanAnt[ant_index]
+    #-------- Plot
+    fig = plt.figure( figsize = (10,10))
+    fig.suptitle(prefix + ' ' + antList[antID] + ' SPW=' + `spw[0]` + ' Scan=' + `scan[0]`)
+    fig.text(0.45, 0.05, 'Az Offset [arcsec]')
+    fig.text(0.05, 0.45, 'El Offset [arcsec]', rotation=90)
+    #
+    xi, yi = np.mgrid[ -floor(2.0*FWHM[antID]):floor(2.0*FWHM[antID]):128j, -floor(2.0*FWHM[antID]):floor(2.0*FWHM[antID]):128j]
+    ReDxmap = GridData( scnDx[ant_index].real, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
+    ImDxmap = GridData( scnDx[ant_index].imag, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
+    ReDymap = GridData( scnDy[ant_index].real, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
+    ImDymap = GridData( scnDy[ant_index].imag, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
+    plt.subplot( 2, 2, 1, aspect=1); plt.contourf(xi, yi, ReDxmap, np.linspace(-0.1, 0.1, 21), cmap=plt.cm.jet); plt.colorbar(); plt.title('Re(Dx)')
+    circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/2); plt.plot( circle_x, circle_y )
+    circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/sqrt(2)); plt.plot( circle_x, circle_y )
+    plt.subplot( 2, 2, 2, aspect=1); plt.contourf(xi, yi, ImDxmap, np.linspace(-0.1, 0.1, 21), cmap=plt.cm.jet); plt.colorbar(); plt.title('Im(Dx)')
+    circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/2); plt.plot( circle_x, circle_y )
+    circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/sqrt(2)); plt.plot( circle_x, circle_y )
+    plt.subplot( 2, 2, 3, aspect=1); plt.contourf(xi, yi, ReDymap, np.linspace(-0.1, 0.1, 21), cmap=plt.cm.jet); plt.colorbar(); plt.title('Re(Dy)')
+    circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/2); plt.plot( circle_x, circle_y )
+    circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/sqrt(2)); plt.plot( circle_x, circle_y )
+    plt.subplot( 2, 2, 4, aspect=1); plt.contourf(xi, yi, ImDymap, np.linspace(-0.1, 0.1, 21), cmap=plt.cm.jet); plt.colorbar(); plt.title('Im(Dy)')
+    circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/2); plt.plot( circle_x, circle_y )
+    circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/sqrt(2)); plt.plot( circle_x, circle_y )
+    plt.plot( ScanAz, ScanEl, '.', color='k', alpha=0.1)
+    plt.axis([-2.0*FWHM[antID], 2.0*FWHM[antID], -2.0*FWHM[antID], 2.0*FWHM[antID]])
+    plt.savefig( prefix + '-' + antList[antID] + '-SPW' + `spw[0]` + '-DtermMap.pdf', form='pdf'); plt.close()
+    plt.close()
+#
+#
+print('-------- D-term-corrected Stokes parameters ----')
+
+"""
 VisXX = gainCalVis( XX, GainX, GainX )
 VisYY = gainCalVis( YY, GainY, GainY )
 VisXY = gainCalVis( XY, GainX, GainY )* np.exp(0.0 - solution[2]*1.0j)
@@ -221,19 +376,19 @@ DyDx = VisYX - Ucos_Qsin
 DyDy = VisYY - 1.0 + Qcos_Usin
 
 print('-------- Determining Antenna-based D-terms ----')
-Pre = np.zeros([4*blNum, 2*antNum]) # [ReXX, ReXY, ReYX, ReYY] x [ReDx, ReDy]
-Pim = np.zeros([4*blNum, 2*antNum]) # [ReXX, ReXY, ReYX, ReYY] x [ReDx, ReDy]
+Pre = np.zeros([4*blNum, 2*antNum])         # [ReXX, ReXY, ReYX, ReYY] x [ReDx, ReDy]
+Pim = np.zeros([4*blNum, 2*(antNum - 1)])   # [ReXX, ReXY, ReYX, ReYY] x [ReDx, ReDy], no refant component
 Dx = np.zeros([antNum, timeNum], dtype=complex)
 Dy = np.zeros([antNum, timeNum], dtype=complex)
 #
 blGain = np.ones([blNum])
-GainScaleX = 0.5 / np.max(abs(GainX))
-#GainScaleY = 0.2 / np.max(abs(GainY))
+GainScaleX = 0.2 / np.max(abs(GainX))
+GainScaleY = 0.2 / np.max(abs(GainY))
+phsNum = antNum - 1     # Number of phase solutions (excluding refant)
 for time_index in range(timeNum):
     for bl_index in range(blNum):
         ants = Bl2Ant(bl_index)
-        #blGain[bl_index] = GainScaleX* abs(GainX[ants[1], time_index])* abs(GainX[ants[0], time_index]) + GainScaleY* abs(GainY[ants[1], time_index])* abs(GainY[ants[0], time_index])
-        blGain[bl_index] = GainScaleX* abs(GainX[ants[1], time_index])* abs(GainX[ants[0], time_index])
+        blGain[bl_index] = GainScaleX* abs(GainX[ants[1], time_index])* abs(GainX[ants[0], time_index]) + GainScaleY* abs(GainY[ants[1], time_index])* abs(GainY[ants[0], time_index])
     #
     W  = np.diag(np.r_[blGain, blGain, blGain, blGain])
     #---- Real Part
@@ -243,13 +398,13 @@ for time_index in range(timeNum):
     Pre[(2*blNum):(3*blNum),      0:   antNum ] = (1.0 - Qcos_Usin[time_index])* DyMatrix(antNum)
     Pre[(2*blNum):(3*blNum), antNum:(2*antNum)] = (1.0 + Qcos_Usin[time_index])* DxMatrix(antNum)
     Pre[(3*blNum):(4*blNum), antNum:(2*antNum)] = Ucos_Qsin[time_index]* BlAmpMatrix(antNum)
-    #---- Imag Part
-    Pim[        0:   blNum ,      0:   antNum ] = Ucos_Qsin[time_index]* (DxMatrix(antNum) - DyMatrix(antNum))
-    Pim[   blNum :(2*blNum),      0:   antNum ] = (1.0 - Qcos_Usin[time_index])* DxMatrix(antNum)
-    Pim[   blNum :(2*blNum), antNum:(2*antNum)] = (1.0 - Qcos_Usin[time_index])* DyMatrix(antNum)
-    Pim[(2*blNum):(3*blNum),      0:   antNum ] = (1.0 + Qcos_Usin[time_index])* DyMatrix(antNum)
-    Pim[(2*blNum):(3*blNum), antNum:(2*antNum)] = (1.0 + Qcos_Usin[time_index])* DxMatrix(antNum)
-    Pim[(3*blNum):(4*blNum), antNum:(2*antNum)] = Ucos_Qsin[time_index]* (DyMatrix(antNum) - DxMatrix(antNum))
+    #---- Imag Part, Dim of refant is definately 0
+    Pim[        0:   blNum ,      0:   phsNum ] = -Ucos_Qsin[time_index]* BlPhaseMatrix(antNum)
+    Pim[   blNum :(2*blNum),      0:   phsNum ] = (1.0 - Qcos_Usin[time_index])* DxImMatrix(antNum)
+    Pim[   blNum :(2*blNum), phsNum:(2*phsNum)] = (1.0 - Qcos_Usin[time_index])* DyImMatrix(antNum)
+    Pim[(2*blNum):(3*blNum),      0:   phsNum ] = (1.0 + Qcos_Usin[time_index])* DyImMatrix(antNum)
+    Pim[(2*blNum):(3*blNum), phsNum:(2*phsNum)] = (1.0 + Qcos_Usin[time_index])* DxImMatrix(antNum)
+    Pim[(3*blNum):(4*blNum), phsNum:(2*phsNum)] = Ucos_Qsin[time_index]* BlPhaseMatrix(antNum)
     #
     PreWPre = np.dot( Pre.T, np.dot(W, Pre))
     PimWPim = np.dot( Pim.T, np.dot(W, Pim))
@@ -259,14 +414,12 @@ for time_index in range(timeNum):
     ImXXYY = np.dot(W, np.r_[ DxDx[:,time_index].imag, DxDy[:,time_index].imag, DyDx[:,time_index].imag, DyDy[:,time_index].imag ])
     print( `time_index` + '  det(PTP_real) = ' + `DetPre` + '  det(PTP_imag) = ' + `DetPim` )
     ReD = np.dot( np.linalg.inv( PreWPre ), np.dot( Pre.T, ReXXYY) )
-    if DetPim != 0.0:
-        ImD = np.dot( np.linalg.inv( PimWPim ), np.dot( Pim.T, ImXXYY) )
-    else:
-        ImD = np.dot( np.diag(1.0 / np.diag(PimWPim)), np.dot( Pim.T, ImXXYY) )
-    #
-    Dx[:, time_index] = ReD[0:antNum] + 1.0j* ImD[0:antNum]
-    Dy[:, time_index] = ReD[antNum:(2*antNum)] + 1.0j* ImD[antNum:(2*antNum)]
+    ImD = np.dot( np.linalg.inv( PimWPim ), np.dot( Pim.T, ImXXYY) )
+    Dx[:, time_index] = ReD[0:antNum]          + 1.0j* np.r_[0, ImD[0:phsNum]]
+    Dy[:, time_index] = ReD[antNum:(2*antNum)] + 1.0j* np.r_[0, ImD[phsNum:(2*phsNum)]]
 #
+"""
+
 """
 for bl_index in range(blNum):
     ants = Bl2Ant(bl_index)

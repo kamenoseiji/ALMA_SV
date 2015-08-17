@@ -299,6 +299,23 @@ def DyMatrix(antNum):
     #
     return Dy_matrix
 #
+def DxImMatrix(antNum):
+    blNum = antNum* (antNum - 1) / 2
+    blphs_matrix = np.zeros([blNum, (antNum - 1)])
+    for bl_index in range(blNum):
+        ants = Bl2Ant(bl_index)
+        if(ants[1] > 0):
+            blphs_matrix[bl_index, (ants[1] - 1)] = 1
+    return blphs_matrix
+#
+def DyImMatrix(antNum):
+    blNum = antNum* (antNum - 1) / 2
+    blphs_matrix = np.zeros([blNum, (antNum - 1)])
+    for bl_index in range(blNum):
+        ants = Bl2Ant(bl_index)
+        blphs_matrix[bl_index, (ants[0] - 1)] = 1
+    return blphs_matrix
+#
 def ant2blphs( ant_phase, antphs_error ):
 	antnum = len(ant_phase)					# Number of antennas
 	blnum  = antnum* (antnum - 1) / 2		# Number of baselines
