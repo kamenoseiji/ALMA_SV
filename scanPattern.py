@@ -48,8 +48,8 @@ for time_index in range(timeNum):
 #
 #-------- Frequency and Wavelength
 chNum, chWid, Freq = GetChNum(msfile, spw[0])
-wavelength = constants.c / Freq 
-FWHM = 1.13* 180.0* 3600.0* wavelength / (12.0* pi) # Gaussian beam, in unit of arcsec
+wavelength = constants.c / np.median(Freq)
+FWHM = 1.13* 180.0* 3600.0* wavelength / (GetAntD(antList[0])* pi) # Gaussian beam, in unit of arcsec
 #-------- SubScan
 subScanStartIndex, subScanEndIndex = subScan(timeStamp, 1.5*np.median(interval))
 subScanNum = len(subScanStartIndex)

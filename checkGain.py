@@ -11,7 +11,7 @@ if BPCAL:
     #
 #
 def gainComplex( vis ):
-    return(clcomplex_solve(vis, 1.0e-8/abs(vis)))
+    return(clcomplex_solve(vis, 1.0e-8/(abs(vis) + 1.0e-8)))
 #
 #-------- Definitions
 antNum = len(refant)
@@ -72,7 +72,7 @@ for spw_index in range(spwNum):
         Gain_ant[:, spw_index, pol_index] = np.apply_along_axis(gainComplex, 0, vis_bl )
     #
 #
-plotMax = 1.5* np.median(abs(Gain_ant))
+plotMax = 2.0* np.median(abs(Gain_ant))
 #-------- Plot Gain
 for ant_index in range(antNum):
     figAnt = plt.figure(ant_index)
@@ -88,8 +88,8 @@ for ant_index in range(antNum):
         GAphsPL.set_ylim(-math.pi, math.pi)
         GAampPL.legend(loc = 'upper right', prop={'size' :7}, numpoints = 1)
         GAphsPL.legend(loc = 'upper right', prop={'size' :7}, numpoints = 1)
-        GAampPL.text( np.min(timeStamp), 1.1* plotMax, polName[pol_index] + ' Amp')
-        GAphsPL.text( np.min(timeStamp), 2.5, polName[pol_index] + ' Phase')
+        GAampPL.text( np.min(timeStamp), 1.1* plotMax, polName[pol[pol_index]] + ' Amp')
+        GAphsPL.text( np.min(timeStamp), 2.5, polName[pol[pol_index]] + ' Phase')
     #
     figAnt.savefig('GA_' + prefix + '_' + antList[ant_index] + '_Scan' + `TGscan` + '.pdf')
 #

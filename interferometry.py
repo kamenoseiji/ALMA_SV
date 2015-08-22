@@ -375,6 +375,7 @@ def clcomplex_solve(bl_vis, bl_error):
 	#
 	#---- Initial solution
 	solution[0] = sqrt(abs(bl_vis[0]))		# Refant has only real part
+	#solution[0] = sqrt(np.median(abs(bl_vis)))		# Refant has only real part
 	for ant_index in range(1, antnum) :
 		solution[ant_index]			= bl_vis[Ant2Bl(0, ant_index )].real / solution[0]
 		solution[antnum + ant_index - 1]= bl_vis[Ant2Bl(0, ant_index )].imag / solution[0]
