@@ -9,6 +9,47 @@ from scipy.interpolate import LSQUnivariateSpline
 import scipy.optimize
 import time
 import datetime
+#-------- Muller Matrix
+def MullerMatrix(Dx0, Dy0, Dx1, Dy1):
+    return np.array([
+        [1.0, Dx1.conjugate(), Dx0, Dx0* Dx1.conjugate()],
+        [Dy1.conjugate(), 1.0, Dx0* Dy1.conjugate(), Dx0],
+        [Dy0, Dy0* Dx1.conjugate(), 1.0, Dx1.conjugate()],
+        [Dy0* Dy1.conjugate(), Dy0, Dy1.conjugate(), 1.0]])
+    #    [1.0, Dy1.conjugate(), Dy0, Dy0* Dy1.conjugate()],
+    #    [Dx1.conjugate(), 1.0, Dy0* Dx1.conjugate(), Dy0],
+    #    [Dx0, Dx0* Dy1.conjugate(), 1.0, Dy1.conjugate()],
+    #    [Dx0* Dx1.conjugate(), Dx0, Dx1.conjugate(), 1.0]])
+#
+def InvMullerMatrix(Dx0, Dy0, Dx1, Dy1):
+    return np.array([
+        [1.0, -Dx1.conjugate(), -Dx0, Dx0* Dx1.conjugate()],
+        [-Dy1.conjugate(), 1.0, Dx0* Dy1.conjugate(), -Dx0],
+        [-Dy0, Dy0* Dx1.conjugate(), 1.0, -Dx1.conjugate()],
+        [Dy0* Dy1.conjugate(), -Dy0, -Dy1.conjugate(), 1.0]]) / ((1.0 - Dx0* Dy0)*(1.0 - Dx1.conjugate()* Dy1.conjugate()))
+    #    [1.0, -Dy1.conjugate(), -Dy0, Dy0* Dy1.conjugate()],
+    #    [-Dx1.conjugate(), 1.0, Dy0* Dx1.conjugate(), -Dy0],
+    #    [-Dx0, Dx0* Dy1.conjugate(), 1.0, -Dy1.conjugate()],
+    #    [Dx0* Dx1.conjugate(), -Dx0, -Dx1.conjugate(), 1.0]]) / ((1.0 - Dx0* Dy0)*(1.0 - Dx1.conjugate()* Dy1.conjugate()))
+#
+def PAMatrix(PA):
+    cs = math.cos(2.0* PA)
+    sn = math.sin(2.0* PA)
+    return np.array([
+        [1.0,  cs,  sn,  0.0],
+        [0.0, -sn,  cs,  1.0j],
+        [0.0, -sn,  cs, -1.0j],
+        [1.0, -cs, -sn,  0.0]])
+#
+def InvPAMatrix(PA):
+    cs = math.cos(2.0* PA)
+    sn = math.sin(2.0* PA)
+    return 0.5* np.array([
+        [1.0, 0.0, 0.0, 1.0],
+        [ cs, -sn, -sn, -cs],
+        [ sn,  cs,  cs, -sn],
+        [0.0,-1.0j,1.0j, 0.0]])
+#
 def AzEl2PA(az, el, lat):        # Azimuth, Elevation, Latitude in [rad]
     cos_lat = np.cos(lat)
     # return atan2( -cos_lat* math.sin(az), (math.sin(lat)* math.cos(el) - cos_lat* math.sin(el)* math.cos(az)) )

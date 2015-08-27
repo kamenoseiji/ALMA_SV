@@ -103,12 +103,12 @@ antNum  = len(antList)
 polNum  = len(pol)
 scanNum  = len(scan)
 spwNum  = len(spw_ACA)
-logfile = open(prefixBLC + '_BBLOG.log', 'w')
+logfile = open(prefixBLC + '-' + `spw_ACA[0]` + '-BBLOG.log', 'w')
 #-------- Tsys spectrum for specified antennas
 chNum, chWid, Freq = GetChNum(msBLC, BLCTsysSPW[0])
 BLCchWid = np.median(chWid)* 1.0e-6
 wavelength = constants.c / np.median(Freq)
-FWHM = 1.13* 180.0* 3600.0* wavelength / (7.0* pi) # Gaussian beam for 12-m antenna, in unit of arcsec 
+FWHM = 1.13* 180.0* 3600.0* wavelength / (GetAntD(antList[0])* pi) # Gaussian beam for 12-m antenna, in unit of arcsec 
 BLCFreq = Freq* 1.0e-9  # [GHz]
 BLCTrxList, BLCTsysList = tsysSpec( prefixBLC, TsysScan, BLCTsysSPW )   # List of Trx[antNum, polNum, chNum], Tsys[antNum, polNum, chNum]
 antListInBLC = antIndex(prefixBLC, antList)
@@ -154,7 +154,7 @@ for scan_index in range(scanNum):
     for spw_index in range(spwNum):
         text_sd = '%s Scan=%d SPW=%d' % (prefixBLC, scan[scan_index], spw_BLC[spw_index])
         for ant_index in range(antNum):
-            fig  = plt.figure(figsize = (8, 8))
+            fig  = plt.figure(figsize = (8, 11))
             for pol_index in range(polNum):
                 timeBLC, dataBLC = GetVisibility(msBLC, antListInBLC[ant_index], antListInBLC[ant_index], pol_index, spw_BLC[spw_index], scan[scan_index])
                 timeACA, dataACA = GetVisibility(msACA, antListInACA[ant_index], antListInACA[ant_index], pol_index, spw_ACA[spw_index], scan[scan_index])
@@ -164,26 +164,38 @@ for scan_index in range(scanNum):
                 #--------
                 skyBLC = np.mean( BPCaledBLC[BLCfreeCH,:].real, axis=0 )
                 skyACA = np.mean( BPCaledACA[ACAfreeCH,:].real, axis=0 )
-                plotBLC = BLCchWid* mean(BLCTsysList[spw_index][antListInBLC[ant_index], pol_index])* np.mean(BPCaledBLC[BLClineCH,:].real - skyBLC, axis=0) / skyBLC
-                plotACA = ACAchWid* mean(ACATsysList[spw_index][antListInACA[ant_index], pol_index])* np.mean(BPCaledACA[ACAlineCH,:].real - skyACA, axis=0) / skyACA
-                TABLC = GridData( plotBLC[OnIndex], ScanRA[OnIndex], ScanDEC[OnIndex], xi.reshape(xi.size), yi.reshape(xi.size), FWHM/12 ).reshape(len(xi), len(xi))
-                TAACA = GridData( plotACA[OnIndex], ScanRA[OnIndex], ScanDEC[OnIndex], xi.reshape(xi.size), yi.reshape(xi.size), FWHM/12 ).reshape(len(xi), len(xi))
+                plotBLC = BLCchWid* mean(BLCTsysList[spw_index][antListInBLC[ant_index], pol_index])* np.sum(BPCaledBLC[BLClineCH,:].real - skyBLC, axis=0) / skyBLC
+                plotACA = ACAchWid* mean(ACATsysList[spw_index][antListInACA[ant_index], pol_index])* np.sum(BPCaledACA[ACAlineCH,:].real - skyACA, axis=0) / skyACA
+                TABLC = GridData( plotBLC[OnIndex], ScanRA[OnIndex], ScanDEC[OnIndex], xi.reshape(xi.size), yi.reshape(xi.size), FWHM/8 ).reshape(len(xi), len(xi))
+                TAACA = GridData( plotACA[OnIndex], ScanRA[OnIndex], ScanDEC[OnIndex], xi.reshape(xi.size), yi.reshape(xi.size), FWHM/8 ).reshape(len(xi), len(xi))
                 #
                 #-------- Plot BLC Map
-                plt.subplot(2, 2, pol_index + 1, aspect=1)
+                plt.subplot(3, 2, pol_index + 1, aspect=1)
                 plt.contourf(xi, yi, TABLC, cntrRange); plt.colorbar()
+                plt.axis([GridWidth, -GridWidth, -GridWidth, GridWidth])
                 GaussBLC = simple2DGaussFit(plotBLC[OnIndex], ScanRA[OnIndex], ScanDEC[OnIndex] )
                 text_sd = '%s: Ta* = %5.1f K MHz' % (corrLabelBLC, GaussBLC[0])
-                plt.text(0, 0.8*GridWidth, text_sd, size='x-small', color='yellow')
+                plt.text(0, 0.8*GridWidth, text_sd, size='x-small', color='black')
                 plt.title(srcName + ' ' + corrLabelBLC + ' Pol=' + pol[pol_index])
-                #-------- Plot Uranus ACA Map
-                plt.subplot(2, 2, pol_index + 3, aspect=1)
+                #-------- Plot ACA Map
+                plt.subplot(3, 2, pol_index + 3, aspect=1)
                 plt.contourf(xi, yi, TAACA, cntrRange); plt.colorbar()
+                plt.axis([GridWidth, -GridWidth, -GridWidth, GridWidth])
                 GaussACA = simple2DGaussFit(plotACA[OnIndex], ScanRA[OnIndex], ScanDEC[OnIndex] )
                 text_sd = '%s: Ta* = %5.1f K MHz' % (corrLabelACA, GaussACA[0])
-                plt.text(0, 0.8*GridWidth, text_sd, size='x-small', color='yellow')
+                plt.text(0, 0.8*GridWidth, text_sd, size='x-small', color='black')
                 plt.title(srcName + ' ' + corrLabelACA + ' Pol=' + pol[pol_index])
-                text_sd = '%s %s %d  %5.1f  %5.1f  %5.2f' % (antList[ant_index], pol[pol_index], spw_BLC[spw_index], GaussBLC[0], GaussACA[0], 100.0*(GaussACA[0]/GaussBLC[0] - 1.0) ); print text_sd
+                #
+                #-------- Plot Ratiop
+                plt.subplot(3, 2, pol_index + 5, aspect=1)
+                plt.plot(plotBLC, plotACA, '.')
+                plt.plot( np.array([min(plotBLC), max(plotBLC)]), np.array([min(plotBLC), max(plotBLC)]) )
+                slope = np.dot(plotBLC, plotACA) / np.dot(plotBLC, plotBLC)
+                text_sd = 'Slope = %5.3f' % ( slope )
+                plt.text(0, 0.8*max(plotBLC), text_sd, size='small', color='black')
+                #
+                #text_sd = '%s %s %d  %5.1f  %5.1f  %5.2f' % (antList[ant_index], pol[pol_index], spw_BLC[spw_index], GaussBLC[0], GaussACA[0], 100.0*(GaussACA[0]/GaussBLC[0] - 1.0) ); print text_sd
+                text_sd = '%s %s %d  %5.1f  %5.1f  %5.2f' % (antList[ant_index], pol[pol_index], spw_BLC[spw_index], GaussBLC[0], GaussACA[0], 100.0*(slope - 1.0) ); print text_sd
                 logfile.write(text_sd + '\n')
             #
             plt.suptitle(prefixBLC + ' ' + antList[ant_index] + ' Spw=' + `spw_BLC[spw_index]`)
