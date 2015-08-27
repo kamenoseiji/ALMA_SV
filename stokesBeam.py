@@ -424,14 +424,14 @@ text_sd = 'I at Center   = %5.3f' % ( np.mean(ScnI[IndexCenter]) ); plt.text(-0.
 text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( np.max(ScnI[Index3dB]), np.min(ScnI[Index3dB]) ); plt.text(-0.8*FWHM, -0.85*FWHM, text_sd, size='x-small')
 text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(ScnI[Index6dB]), np.min(ScnI[Index6dB]) ); plt.text(-0.8*FWHM, -0.95*FWHM, text_sd, size='x-small')
 #---- Plot Q map
-plt.subplot( 2, 2, 2); plt.contourf(xi, yi, Qmap, np.linspace(-0.05, 0.05, 21), cmap=plt.cm.jet); plt.colorbar(); plt.title(prefix + '-StokesQ')
+plt.subplot( 2, 2, 2); plt.contourf(xi, yi, Qmap, np.linspace(0.01*(floor(RefQ* 100)+5), 0.01*(floor(RefQ* 100)-5), 21), cmap=plt.cm.jet); plt.colorbar(); plt.title(prefix + '-StokesQ')
 circle_x, circle_y = circlePoints(0, 0, FWHM/2); plt.plot( circle_x, circle_y )
 circle_x, circle_y = circlePoints(0, 0, FWHM/sqrt(2));   plt.plot( circle_x, circle_y )
 text_sd = 'Q at Center   = %5.3f' % ( np.mean(ScnQ[IndexCenter]) ); plt.text(-0.8*FWHM, -0.75*FWHM, text_sd, size='x-small')
 text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( np.max(ScnQ[Index3dB]), np.min(ScnQ[Index3dB]) ); plt.text(-0.8*FWHM, -0.85*FWHM, text_sd, size='x-small')
 text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(ScnQ[Index6dB]), np.min(ScnQ[Index6dB]) ); plt.text(-0.8*FWHM, -0.95*FWHM, text_sd, size='x-small')
 #---- Plot U map
-plt.subplot( 2, 2, 3); plt.contourf(xi, yi, Umap, np.linspace(-0.15, -0.05, 21), cmap=plt.cm.jet); plt.colorbar(); plt.title(prefix + '-StokesU')
+plt.subplot( 2, 2, 3); plt.contourf(xi, yi, Umap, np.linspace(0.01*(floor(RefU* 100)+5), 0.01*(floor(RefU* 100)-5), 21), cmap=plt.cm.jet); plt.colorbar(); plt.title(prefix + '-StokesU')
 circle_x, circle_y = circlePoints(0, 0, FWHM/2); plt.plot( circle_x, circle_y )
 circle_x, circle_y = circlePoints(0, 0, FWHM/sqrt(2));   plt.plot( circle_x, circle_y )
 text_sd = 'U at Center   = %5.3f' % ( np.mean(ScnU[IndexCenter]) ); plt.text(-0.8*FWHM, -0.75*FWHM, text_sd, size='x-small')
