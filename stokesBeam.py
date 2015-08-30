@@ -141,7 +141,7 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
 #----------------------------------------- Procedures
 msfile = wd + prefix + '.ms'
 solution = np.load(wd + QUXY + '.QUXY.npy')
-CalQ, CalU, XYphs = solution[0], solution[1], solution[2]
+CalQ, CalU, GYphs = solution[0], solution[1], solution[2]
 #-------- Antenna List
 antList = GetAntName(msfile)
 antNum = len(antList)
@@ -151,10 +151,32 @@ for ant_index in range(antNum):
     AntD[ant_index] = GetAntD(antList[ant_index])
 #
 print('Checking the Array ....')
-#-------- Reference and Scan Antennas
-refAnt, scanAnt, scanTime, Offset = antRefScan(msfile)
-refAntNum  = len(refAnt)
-scanAntNum = len(scanAnt)
+#-------- Tracking and Scanning Antennas
+trkAnt, scnAnt, scanTime, Offset = antRefScan(msfile)
+trkAntNum = len(trkAnt)
+scnAntNum = len(scnAnt)
+if refantName not in antList[trkAnt]:
+   print refantName + ' does not exist in the tracking antenna list this MS.'
+#
+#-------- Antenna and BL Grouping
+refAntIndex = np.where( antList == refantName )[0].tolist()       # Ref ant in all AntList
+trkAnt.pop( trkAnt.index(refAntIndex[0])); trkAnt = refAntIndex + trkAnt
+AntIndex = trkAnt + scnAnt     # Antenna List, refants are prior
+antWeight = np.ones(antNum)
+antWeight[scnAnt] = 0.5
+#-- BL within tracking antennas
+BlMap  = range(blNum)
+BlInv = [False]* blNum      # True -> inverted baseline
+blWeight = np.ones([blNum])
+for bl_index in range(blNum):
+    ants = Bl2Ant(bl_index)
+    BlMap[bl_index], BlInv[bl_index] = Ant2BlD(ants[0], ants[1])
+    blWeight[bl_index] = antWeight[ants[0]]* antWeight[ants[1]]
+#
+trkBlIndex  = np.where(blWeight == 1.0)[0].tolist(); trkBlNum  = len(trkBlIndex)        # Ref-Ref baselines
+ScTrBlIndex = np.where(blWeight == 0.5)[0].tolist(); ScTrBlNum = len(ScTrBlIndex)       # Ref-Scan baselines
+ScScBlIndex = np.where(blWeight == 0.25)[0].tolist(); ScScBlNum = len(ScScBlIndex)      # Scan-Scan baselines
+"""
 print('-------- Reference Antennas ----')
 for ant_index in refAnt:
     text_sd = 'Ref[%d]  / %d: %s ' % (ant_index, len(refAnt), antList[ant_index])
@@ -514,3 +536,4 @@ text_sd = 'Max EVPAerr (-3dB beam) = %4.1f deg' % ( max(abs(AerrScn[Index3dB])) 
 text_sd = 'Max EVPAerr (-6dB beam) = %4.1f deg' % ( max(abs(AerrScn[Index6dB])) ); plt.text(-0.8*FWHM, -0.95*FWHM, text_sd, size='x-small')
 plt.savefig( prefix + '-StokesErr.pdf', form='pdf'); plt.close()
 plt.close()
+"""
