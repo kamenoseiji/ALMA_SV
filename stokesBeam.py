@@ -294,8 +294,8 @@ for ant_index in range(scnAntNum):
     antID = trkAntNum + ant_index
     blWithScnAnt = np.array(ScTrBlIndex)[np.where( ANT0[ScTrBlIndex] == antID )[0].tolist() + np.where( ANT1[ScTrBlIndex] == antID )[0].tolist()].tolist()
     trkAnt_index = range(trkAntNum)
-    Dx[scnAnt[ant_index]] = (np.mean( 2.0* VisYX[blWithScnAnt] - Ucos_Qsin - Dy[trkAnt]* (1.0 + Qcos_Usin), axis=0 ) / (1.0 - Qcos_Usin)).conjugate()
-    Dy[scnAnt[ant_index]] = (np.mean( 2.0* VisXY[blWithScnAnt] - Ucos_Qsin + Dx[trkAnt]* (1.0 - Qcos_Usin), axis=0 ) / (1.0 + Qcos_Usin)).conjugate()
+    Dx[scnAnt[ant_index]] = (np.mean( VisYX[blWithScnAnt] - Ucos_Qsin - np.outer(TrkDy, (1.0 + Qcos_Usin)), axis=0 ) / (1.0 - Qcos_Usin)).conjugate()
+    Dy[scnAnt[ant_index]] = (np.mean( VisXY[blWithScnAnt] - Ucos_Qsin + np.outer(TrkDx, (1.0 - Qcos_Usin)), axis=0 ) / (1.0 + Qcos_Usin)).conjugate()
 #
 #-------- Determination of D-terms in scanning antennas
 print('-------- Plot D-term Maps for scan ants ----')

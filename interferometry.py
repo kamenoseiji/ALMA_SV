@@ -16,10 +16,6 @@ def MullerMatrix(Dx0, Dy0, Dx1, Dy1):
         [Dy1.conjugate(), 1.0, Dx0* Dy1.conjugate(), Dx0],
         [Dy0, Dy0* Dx1.conjugate(), 1.0, Dx1.conjugate()],
         [Dy0* Dy1.conjugate(), Dy0, Dy1.conjugate(), 1.0]])
-    #    [1.0, Dy1.conjugate(), Dy0, Dy0* Dy1.conjugate()],
-    #    [Dx1.conjugate(), 1.0, Dy0* Dx1.conjugate(), Dy0],
-    #    [Dx0, Dx0* Dy1.conjugate(), 1.0, Dy1.conjugate()],
-    #    [Dx0* Dx1.conjugate(), Dx0, Dx1.conjugate(), 1.0]])
 #
 def InvMullerMatrix(Dx0, Dy0, Dx1, Dy1):
     return np.array([
@@ -27,15 +23,11 @@ def InvMullerMatrix(Dx0, Dy0, Dx1, Dy1):
         [-Dy1.conjugate(), 1.0, Dx0* Dy1.conjugate(), -Dx0],
         [-Dy0, Dy0* Dx1.conjugate(), 1.0, -Dx1.conjugate()],
         [Dy0* Dy1.conjugate(), -Dy0, -Dy1.conjugate(), 1.0]]) / ((1.0 - Dx0* Dy0)*(1.0 - Dx1.conjugate()* Dy1.conjugate()))
-    #    [1.0, -Dy1.conjugate(), -Dy0, Dy0* Dy1.conjugate()],
-    #    [-Dx1.conjugate(), 1.0, Dy0* Dx1.conjugate(), -Dy0],
-    #    [-Dx0, Dx0* Dy1.conjugate(), 1.0, -Dy1.conjugate()],
-    #    [Dx0* Dx1.conjugate(), -Dx0, -Dx1.conjugate(), 1.0]]) / ((1.0 - Dx0* Dy0)*(1.0 - Dx1.conjugate()* Dy1.conjugate()))
 #
 def PAMatrix(PA):
     cs = math.cos(2.0* PA)
     sn = math.sin(2.0* PA)
-    return np.array([
+    return 0.5*np.array([
         [1.0,  cs,  sn,  0.0],
         [0.0, -sn,  cs,  1.0j],
         [0.0, -sn,  cs, -1.0j],
@@ -44,7 +36,7 @@ def PAMatrix(PA):
 def InvPAMatrix(PA):
     cs = math.cos(2.0* PA)
     sn = math.sin(2.0* PA)
-    return 0.5* np.array([
+    return 0.5*np.array([
         [1.0, 0.0, 0.0, 1.0],
         [ cs, -sn, -sn, -cs],
         [ sn,  cs,  cs, -sn],
@@ -653,7 +645,7 @@ def gainCalVis(vis, Gain0, Gain1):
             Gain_bl[bl_index, time_index] = Gain1[ant2, time_index] *  Gain0[ant1, time_index].conjugate()
         #
     #
-    return( 2.0* vis / Gain_bl )
+    return( vis / Gain_bl )
 #
 def P2P(vector):
 	return np.max(vector) - np.min(vector)
@@ -1007,8 +999,8 @@ def polariGain( XX, YY, PA, StokesQ, StokesU):
     blNum, timeNum = XX.shape[0], XX.shape[1]
     csPA = np.cos(2.0* PA)
     snPA = np.sin(2.0* PA)
-    Xscale = 2.0 / (1.0 + StokesQ* csPA + StokesU* snPA)
-    Yscale = 2.0 / (1.0 - StokesQ* csPA - StokesU* snPA)
+    Xscale = 1.0 / (1.0 + StokesQ* csPA + StokesU* snPA)
+    Yscale = 1.0 / (1.0 - StokesQ* csPA - StokesU* snPA)
     #
     ScaleXX = np.dot(XX, np.diag(Xscale))
     ScaleYY = np.dot(YY, np.diag(Yscale))
@@ -1048,7 +1040,7 @@ def XY2Stokes(PA, VisXY, VisYX):
         vecVis = np.r_[ VisXY.real, VisXY.imag, VisYX.real, VisYX.imag ]
         residual = vecVis - modelVis
         correction = np.dot( PTP_inv, np.dot (P, residual))
-        print 'Iteration %d : correction = %e' % (index, np.dot(correction,correction))
+        # print 'Iteration %d : correction = %e' % (index, np.dot(correction,correction))
         solution   = solution + correction
         if np.dot(correction,correction) < 1.0e-15:
             break
