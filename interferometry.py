@@ -271,7 +271,19 @@ def GetPSpec(msfile, ant, pol, spwID):
         dataXY = antXantYspw.getcol('DATA')[pol]
     tb.close()
     return timeXY, dataXY
-
+#
+#-------- Mapping antList in refList
+def antIndex(refList, antList): 
+    antMap = []
+    for ant_index in range(len(antList)):
+        if antList[ant_index] in refList:
+            antMap.append(refList.index(antList[ant_index]))
+        else:
+            antMap.append( -1 )
+        #
+    #
+    return antMap
+#
 def GetChNum(msfile, spwID):
 	tb.open(msfile + '/' + 'SPECTRAL_WINDOW')
 	chNum = tb.getcell("NUM_CHAN", spwID)
@@ -572,18 +584,18 @@ def bpPhsAnt(spec):			# Determine phase-only antenna-based BP
 	return BP_ant
 #
 def delayCalSpec( Xspec, chRange ):     # chRange = [startCH:stopCH] specifies channels to determine delay 
-	blNum, chNum = Xspec.shape[0], Xspec.shape[1]
-	delay_bl, amp_bl = np.zeros(blNum), np.zeros(blNum)
-	delayCalXspec = np.zeros([blNum, chNum], dtype=complex)
-	for bl_index in range(blNum):
-		delay_bl[bl_index], amp_bl[bl_index] = delay_search(Xspec[bl_index, chRange])
-	#
-	delay_ant = cldelay_solve(delay_bl, 1.0/amp_bl)[0]
-	for bl_index in range(blNum):
-		ants = Bl2Ant(bl_index); ant1, ant2 = ants[1], ants[0]
-		delayCalXspec[bl_index] = delay_cal(Xspec[bl_index], delay_ant[ant2] - delay_ant[ant1])
-	#   
-	return delay_ant, delayCalXspec
+    blNum, chNum = Xspec.shape[0], Xspec.shape[1]
+    delay_bl = np.zeros(blNum)
+    delayCalXspec = np.zeros([blNum, chNum], dtype=complex)
+    delayResults = np.apply_along_axis( delay_search, 1, Xspec[:, chRange] )    # BL delays in delayResults[:,0], Amps in delayResults[:,1]
+    #
+    delay_ant = cldelay_solve(delayResults[:,0], 1.0/delayResults[:,1])[0]
+    for bl_index in range(blNum):
+        ants = Bl2Ant(bl_index)
+        delay_bl[bl_index] = delay_ant[ants[0]] - delay_ant[ants[1]]
+    #
+    delayCalXspec = np.apply_along_axis( delay_cal, 0, Xspec, delay_bl)
+    return delay_ant, delayCalXspec
 #
 def delayCalSpec2( Xspec, chRange, sigma ):  # chRange = [startCH:stopCH] specifies channels to determine delay 
 	blNum, chNum = Xspec.shape[0], Xspec.shape[1]

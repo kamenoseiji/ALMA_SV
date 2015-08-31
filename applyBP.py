@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ptick
 execfile(SCR_DIR + 'interferometry.py')
 #
+#-------- Load BP table
+BP_ant = np.load(prefix + '.BPant.npy')     # BP_ant[ANT, SPW, POL, CH]
+AntListBP = np.load(prefix + '.Ant.npy').tolist()
 #-------- Definitions
 antNum = len(refant)
 blNum = antNum* (antNum - 1) / 2 
@@ -13,16 +16,54 @@ polNum  = len(pol)
 #
 #-------- Procedures
 msfile = wd + prefix + '.ms'
-antList = GetAntName(msfile)[refant]
+antList = GetAntName(msfile)[refant].tolist()
+BPantMap  = antIndex(AntListBP, antList)
 blMap = range(blNum)
 blInv = [False]* blNum		# True -> inverted baseline
+basAntBL = []
+endAntBL = []
 for bl_index in range(blNum):
-	ants = Bl2Ant(bl_index)
-	blMap[bl_index], blInv[bl_index]  = Ant2BlD(refant[ants[0]], refant[ants[1]])
+    ants = Bl2Ant(bl_index)
+    blMap[bl_index], blInv[bl_index]  = Ant2BlD(refant[ants[0]], refant[ants[1]])
+    basAntBL.append(ants[1])
+    endAntBL.append(ants[0])
 #
-#-------- Procedures
-interval, timeStamp = GetTimerecord(msfile, 0, 0, pol[0], spw[0], BPscan)
-timeNum = len(timeStamp)
+#-------- Each SPW
+for ant_index in range(antNum - 1):
+    BLwithBaseAnt = np.where( array(basAntBL) == ant_index)[0].tolist() # BL index that have ant_index as the base antenna
+#
+for ant_index in range(1,antNum):
+    BLwithEndAnt = np.where( array(endAntBL) == ant_index)[0].tolist() # BL index that have ant_index as the end antenna
+#
+for spw_index in range(spwNum):
+    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], scan)   # Xspec[pol, ch, bl, time]
+    Xspec = Xspec[:,:,blMap]                                              # select BL
+    #-------- Baseline-based cross power spectra
+    Ximag = Xspec.transpose(0,1,3,2).imag * (-2.0* np.array(blInv) + 1.0)   # Complex conjugate for
+    Xspec.imag = Ximag.transpose(0,1,3,2)                                   # inversed baselines
+    tempSpec = Xspec.transpose(0,3,2,1)
+#
+    #-------- BP calibration for base antenna
+    for ant_index in range(antNum - 1):
+        antID = BPantMap[ant_index]
+        BLwithBaseAnt = np.where( array(basAntBL) == ant_index)[0].tolist() # BL index that have ant_index as the base antenna
+        tempSpec[0,:,BLwithBaseAnt] /= BP_ant[antID, spw_index, 0].conjugate()      # Pol XX  / BP X
+        tempSpec[1,:,BLwithBaseAnt] /= BP_ant[antID, spw_index, 0].conjugate()      # Pol XY  / BP X
+        tempSpec[2,:,BLwithBaseAnt] /= BP_ant[antID, spw_index, 1].conjugate()      # Pol YX  / BP Y
+        tempSpec[3,:,BLwithBaseAnt] /= BP_ant[antID, spw_index, 1].conjugate()      # Pol YY  / BP Y
+    #
+    #-------- BP calibration for end antenna
+    for ant_index in range(1,antNum):
+        antID = BPantMap[ant_index]
+        BLwithEndAnt = np.where( array(endAntBL) == ant_index)[0].tolist() # BL index that have ant_index as the end antenna
+        tempSpec[0,:,BLwithEndAnt] /= BP_ant[antID, spw_index, 0]      # Pol XX  / BP X
+        tempSpec[1,:,BLwithEndAnt] /= BP_ant[antID, spw_index, 1]      # Pol XY  / BP Y
+        tempSpec[2,:,BLwithEndAnt] /= BP_ant[antID, spw_index, 0]      # Pol YX  / BP X
+        tempSpec[3,:,BLwithEndAnt] /= BP_ant[antID, spw_index, 1]      # Pol YY  / BP Y
+    #
+#
+"""
+#
 #
 #-------- Prepare BP and Delay to store
 chNum, chWid, Freq = GetChNum(msfile, spw[0])
@@ -98,3 +139,4 @@ if BPPLOT:
     np.save(prefix + '.Delay.npy', Delay_ant) 
     plt.close('all')
 #
+"""
