@@ -462,7 +462,6 @@ def clcomplex_solve(bl_vis, bl_error):
 				complex_matrix[blnum + bl_index, 0]		= solution[antnum + ants[0] - 1]
 				complex_matrix[blnum + bl_index, antnum + ants[0] - 1]= solution[0]
 		#
-		
 		ptwp = np.dot( complex_matrix.T, np.dot(np.diag(weight), complex_matrix))
 		ptwp_inv   = scipy.linalg.inv(ptwp)
 		correction = np.dot(ptwp_inv,  np.dot(complex_matrix.T, np.dot(np.diag(weight), resid)))
@@ -1014,7 +1013,9 @@ def polariGain( XX, YY, PA, StokesQ, StokesU):
     ScaleXX = np.dot(XX, np.diag(Xscale))
     ScaleYY = np.dot(YY, np.diag(Yscale))
     #
+    print '-- GainX solution ---'
     GainX = np.apply_along_axis( gainComplex, 0, ScaleXX)
+    print '-- GainY solution ---'
     GainY = np.apply_along_axis( gainComplex, 0, ScaleYY)
     return GainX, GainY
 #
@@ -1023,22 +1024,22 @@ def XY2Stokes(PA, VisXY, VisYX):
     timeNum = len(VisXY)
     sinPA2 = np.sin(2.0*PA)
     cosPA2 = np.cos(2.0*PA)
-    P = np.zeros([7, 4* timeNum])
+    P = np.zeros([7, 4* timeNum])       # 7 parameters to solve, 4 (ReXY, ImXY, ReYX, ImYX) * timeNum measurements
     solution = np.array([0.1, 0.1, np.angle( np.mean(VisXY[1])), 0.0, 0.0, 0.0, 0.0])   # Initial parameters : StokesQ, StokesU, XYphase, Re(Dx+Dy*), Im(Dx+Dy*)
     #-------- Iteration loop
     for index in range(10):
         sinPhi = np.sin(solution[2])
         cosPhi = np.cos(solution[2])
-        UcosPA_minus_QsinPA = -sinPA2* solution[0] + cosPA2* solution[1]
+        UC_QS = cosPA2* solution[1] - sinPA2* solution[0]   # U cosPA2 - Q sinPA2
         modelVis = np.r_[
-             cosPhi* UcosPA_minus_QsinPA + solution[3],
-             sinPhi* UcosPA_minus_QsinPA + solution[4],
-             cosPhi* UcosPA_minus_QsinPA + solution[5],
-            -sinPhi* UcosPA_minus_QsinPA + solution[6] ]
+             cosPhi* UC_QS + solution[3],       # Re XY*
+             sinPhi* UC_QS + solution[4],       # Im XY*
+             cosPhi* UC_QS + solution[5],       # Re YX*
+            -sinPhi* UC_QS + solution[6] ]      # Im YX*
         #-------- Partial matrix
         P[0] = np.r_[-sinPA2* cosPhi, -sinPA2* sinPhi, -sinPA2* cosPhi,  sinPA2* sinPhi]
         P[1] = np.r_[ cosPA2* cosPhi,  cosPA2* sinPhi,  cosPA2* cosPhi, -cosPA2* sinPhi]
-        P[2] = np.r_[-sinPhi* UcosPA_minus_QsinPA, cosPhi* UcosPA_minus_QsinPA, -sinPhi* UcosPA_minus_QsinPA, -cosPhi* UcosPA_minus_QsinPA]
+        P[2] = np.r_[-sinPhi* UC_QS, cosPhi* UC_QS, -sinPhi* UC_QS, -cosPhi* UC_QS]
         P[3] = np.r_[np.ones([timeNum]),  np.zeros([timeNum]), np.zeros([timeNum]), np.zeros([timeNum])]
         P[4] = np.r_[np.zeros([timeNum]), np.ones([timeNum]),  np.zeros([timeNum]), np.zeros([timeNum])]
         P[5] = np.r_[np.zeros([timeNum]), np.zeros([timeNum]), np.ones([timeNum]),  np.zeros([timeNum])]
@@ -1047,7 +1048,11 @@ def XY2Stokes(PA, VisXY, VisYX):
         vecVis = np.r_[ VisXY.real, VisXY.imag, VisYX.real, VisYX.imag ]
         residual = vecVis - modelVis
         correction = np.dot( PTP_inv, np.dot (P, residual))
+        print 'Iteration %d : correction = %e' % (index, np.dot(correction,correction))
         solution   = solution + correction
+        if np.dot(correction,correction) < 1.0e-15:
+            break
+        #
     #
     solution[2] = np.arctan2( np.sin(solution[2]), np.cos(solution[2]) )    # Remove 2pi ambiguity
     return(solution)
