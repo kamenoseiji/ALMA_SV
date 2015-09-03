@@ -2,10 +2,12 @@ import numpy as np
 from numpy import *
 import matplotlib.pyplot as plt
 import scipy
+from scipy import constants
 from scipy.fftpack import fft, ifft
 from scipy.interpolate import interp1d
 from scipy.interpolate import UnivariateSpline
 from scipy.interpolate import LSQUnivariateSpline
+from scipy.interpolate import griddata
 import scipy.optimize
 import time
 import datetime
@@ -569,6 +571,18 @@ def Vis2solveD(Vis, Dtrk, PS ):
         P[stokesIndex, 0] += DeltaP.real
         P[4*trkAntNum + stokesIndex, 0] += DeltaP.imag
 #
+def beamF(disk2FWHMratio):     # diskR / FWHM ratio
+    disk2sigma = disk2FWHMratio * 2.3548200450309493   # FWHM / (2.0* sqrt(2.0* log(2.0)))
+    return( 2.0* (1.0 - exp(-0.5* (disk2sigma)**2)) / (disk2sigma**2) )
+#
+def Tb2Flux(Tb, Freq, diskR):   # Tb [K], Freq [GHz], diskR [arcsec]
+    c = 299792458               # m/s
+    hPlanck = 6.62606957e-7     # scaled by 1e27
+    h_over_kb = 0.04799243      # scaled by 1e9
+    solidAngle = 7.384135e15* diskR**2  # scaled by 1e26
+    intensity = 2.0* hPlanck* Freq**3 / ( c**2 * (exp(h_over_kb* Freq / Tb) - 1.0))
+    return(intensity* solidAngle)   # Jy
+#
 def corr2spec( corr ):
 	nspec = len(corr)/2
 	spec  = fft(corr)[1:nspec]
@@ -932,28 +946,26 @@ def Vanv3bitCorr( dataXY, refRange, Qeff ):
 #
 #
 #-------- Tsys from ACD
-def TsysSpec(msfile, pol, TsysScan, TsysSPW, vanvSW):
+def TsysSpec(msfile, pol, TsysScan, spw, vanvSW):
     #if vanvSW:
     #	VanvQ3, Qeff = loadVanvQ3('/users/skameno/Scripts/ACAPowerCoeff.data')  # 3-bit Van Vleck
     #
 	antList = GetAntName(msfile)
 	antNum  = len(antList)
 	polNum  = len(pol)
-	chNum, chWid, freq = GetChNum(msfile, TsysSPW)
+	chNum, chWid, freq = GetChNum(msfile, spw)
 	TrxSp = np.zeros([antNum, polNum, chNum]); TsysSp = np.zeros([antNum, polNum, chNum])
 	chRange = range(int(0.1*chNum), int(0.9*chNum))
 	#
-	text_sd =  '%s SPW=%d SCAN=%d' % (msfile, TsysSPW, TsysScan)
+	text_sd =  '%s SPW=%d SCAN=%d' % (msfile, spw, TsysScan)
 	print text_sd
-    # logfile.write(text_sd + '\n')
 	#-------- Loop for Antenna
 	for ant_index in range(antNum):
 		#-------- Get Physical Temperature of loads
-		tempAmb, tempHot = GetLoadTemp(msfile, ant_index, TsysSPW)
+		tempAmb, tempHot = GetLoadTemp(msfile, ant_index, spw)
 		#
 		for pol_index in range(polNum):
-			timeXY, dataXY = GetVisibility(msfile, ant_index, ant_index, pol[pol_index], TsysSPW, TsysScan)
-			#
+			timeXY, dataXY = GetVisibility(msfile, ant_index, ant_index, pol[pol_index], spw, TsysScan)
 			#-------- Time range of Sky/Amb/Hot
 			skyRange, ambRange, hotRange = ACDedge(timeXY)
 			#-------- Van Vleck Correction
@@ -964,13 +976,12 @@ def TsysSpec(msfile, pol, TsysScan, TsysSPW, vanvSW):
 			Psky, Pamb, Phot = np.mean(dataXY[:,skyRange].real, 1), np.mean(dataXY[:,ambRange].real, 1), np.mean(dataXY[:,hotRange].real, 1)
 			TrxSp[ant_index, pol_index]  = (tempHot* Pamb - Phot* tempAmb) / (Phot - Pamb)
 			TsysSp[ant_index, pol_index] = (Psky* tempAmb) / (Pamb - Psky)
-			text_sd = '%s %s: %5.1f %5.1f' % (antList[ant_index], pol[pol_index], np.median(TrxSp[ant_index, pol_index]), np.median(TsysSp[ant_index, pol_index]))
+			text_sd = '%s PL%s %5.1f %5.1f' % (antList[ant_index], pol[pol_index], np.median(TrxSp[ant_index, pol_index]), np.median(TsysSp[ant_index, pol_index]))
 			print text_sd
 			# logfile.write(text_sd + '\n')
 		#
 	#
 	return TrxSp, TsysSp
-#
 #
 #-------- Power Spectra
 def PowerSpec(msfile, pol, TsysScan, TsysSPW, vanvSW):
@@ -1023,7 +1034,7 @@ def plotAmphi(fig, freq, spec):
 	return
 #
 def gainComplex( vis ):
-    return clcomplex_solve( vis, 1.0e-8/abs(vis) )
+    return(clcomplex_solve(vis, 1.0e-8/(abs(vis) + 1.0e-8)))
 #
 #-------- Function to calculate visibilities
 def polariVis( Xspec ):     # Xspec[polNum, blNum, chNum, timeNum]
@@ -1122,4 +1133,31 @@ def XY2Stokes(PA, VisXY, VisYX):
     #
     solution[2] = np.arctan2( np.sin(solution[2]), np.cos(solution[2]) )    # Remove 2pi ambiguity
     return(solution)
+#
+#-------- GridPoint
+def GridPoint( value, samp_x, samp_y, point_x, point_y, kernel ):
+    #---- Check NaN and replace with 0
+    nan_index = np.where( value != value )[0]
+    value[nan_index] = 0.0
+    #---- Distance from gridding points
+    dist_sq = (samp_x - point_x)**2 + (samp_y - point_y)**2
+    dist_thresh = 9.0 * kernel**2
+    index = np.where( dist_sq < dist_thresh)[0]
+    wt = exp( -0.5* dist_sq[index] / kernel**2 )
+    nan_index = np.where( value[index] != value[index] )[0]
+    wt[nan_index] = 0.0
+    sumWt = np.sum(wt)
+    if sumWt < 1.0e-3:
+        return 0.0
+    #
+    return np.sum(value[index]* wt) / sumWt
+#
+#-------- GridData
+def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
+    gridNum = len(grid_x)
+    results = np.zeros(gridNum)
+    for index in range(gridNum):
+     results[index] = GridPoint( value, samp_x, samp_y, grid_x[index], grid_y[index], kernel)
+    #
+    return results
 #

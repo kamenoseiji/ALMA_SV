@@ -10,9 +10,6 @@ if BPCAL:
         BPCAL = False
     #
 #
-def gainComplex( vis ):
-    return(clcomplex_solve(vis, 1.0e-8/(abs(vis) + 1.0e-8)))
-#
 #-------- Definitions
 antNum = len(refant)
 blNum = antNum* (antNum - 1) / 2 
@@ -20,7 +17,6 @@ spwNum  = len(spw)
 polNum  = len(pol)
 #
 #-------- Procedures
-timeRange = np.zeros([2])	# Start and End time period 
 msfile = wd + prefix + '.ms'
 antList = GetAntName(msfile)[refant]
 blMap = range(blNum)
@@ -50,6 +46,7 @@ if BPCAL:
     #
 #
 #-------- Loop for SPW
+CaledVis = np.zeros([polNum, spwNum, blNum, timeNum], dtype=complex)
 for spw_index in range(spwNum):
     print ' Loading SPW = ' + `spw[spw_index]`
     chNum, chWid, Freq = GetChNum(msfile, spw[spw_index]); Freq = 1.0e-9* Freq  # GHz
@@ -59,6 +56,18 @@ for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
     Ximag = Xspec.transpose(0,1,3,2).imag * (-2.0* np.array(blInv) + 1.0)
     Xspec.imag = Ximag.transpose(0,1,3,2)
+    #-------- Tsys calibration
+    if TSYSCAL:
+        TrxSP, TsysSP = TsysSpec(msfile, pol, TsysScan, spw[spw_index], F)
+        TsysBL = np.ones([polNum, chNum, blNum])
+        for bl_index in range(blNum):
+            ants = Bl2Ant(bl_index)
+            TsysBL[:,:,bl_index] = sqrt( TsysSP[ants[0]]* TsysSP[ants[1]] )
+        #
+        for time_index in range(timeNum):
+            Xspec[:,:,:,time_index] *= TsysBL
+        #
+    #
     #-------- Delay Determination and calibration
     if BPCAL:
         tempVis = np.mean( Xspec.transpose(3,0,1,2) / BP_bl[spw_index], axis=2).transpose(1,2,0)
@@ -67,9 +76,26 @@ for spw_index in range(spwNum):
     else:
         tempVis = np.mean(Xspec, axis=1)    # tempVis[pol, ch, bl]
     #
+    #
+    #-------- Source Model
+    if not PointSource:
+        lambdaInv = np.mean(Freq)*1.0e9/constants.c     # 1/wavelength [m^-1]
+        timeStamp, UVW = GetUVW(msfile, spw[spw_index], TGscan)
+        UVD = np.sqrt(UVW[0]**2 + UVW[1]**2)*lambdaInv  # [BL, Time], in unit of wavelength
+        for bl_index in range(blNum):
+            ants = Bl2Ant(bl_index)
+            antD = sqrt(GetAntD(antList[ants[0]])* GetAntD(antList[ants[1]]))
+            FWHM = GetFWHM(msfile, spw[spw_index], antD)
+            zeroSpFlux = beamF( diskR / FWHM )* Tb2Flux(SourceTemp, np.mean(Freq), diskR)
+            PiUD = 1.5230870989335429e-05 * UVD[bl_index]* diskR       # pi* u * D,
+            VisJy = PiUD / (2.0* scipy.special.jv(1,PiUD)) 
+            tempVis[:, bl_index] *= VisJy
+        #
+    #
     for pol_index in range(polNum):
         vis_bl  = tempVis[pol_index]
         Gain_ant[:, spw_index, pol_index] = np.apply_along_axis(gainComplex, 0, vis_bl )
+        CaledVis[pol_index, spw_index] = gainCalVis(vis_bl, Gain_ant[:, spw_index, pol_index], Gain_ant[:, spw_index, pol_index])
     #
 #
 plotMax = 2.0* np.median(abs(Gain_ant))
@@ -83,6 +109,8 @@ for ant_index in range(antNum):
             plotGA = Gain_ant[ant_index, spw_index, pol_index]
             GAampPL.plot( timeStamp, abs(plotGA), ls='steps-mid', label = 'SPW=' + `spw[spw_index]`)
             GAphsPL.plot( timeStamp, np.angle(plotGA), '.', label = 'SPW=' + `spw[spw_index]`)
+            text_sd = '%s %s %02d : %5.2f' % (antList[ant_index], polName[pol_index], spw[spw_index], 100.0* np.max(abs(Gain_ant[ant_index, spw_index, pol_index])**2))
+            print text_sd
         #
         GAampPL.set_ylim(0.0, 1.25* plotMax )
         GAphsPL.set_ylim(-math.pi, math.pi)
@@ -93,5 +121,6 @@ for ant_index in range(antNum):
     #
     figAnt.savefig('GA_' + prefix + '_' + antList[ant_index] + '_Scan' + `TGscan` + '.pdf')
 #
-np.save(prefix + '.GA.npy', Gain_ant) 
+np.save(prefix + '.Ant.npy', antList) 
+np.save(prefix + 'Scn' + `TGscan` + '.GA.npy', Gain_ant) 
 plt.close('all')

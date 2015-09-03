@@ -1,7 +1,6 @@
 execfile(SCR_DIR + 'interferometry.py')
 from scipy.constants import constants
 from scipy.interpolate import UnivariateSpline
-from scipy.interpolate import griddata
 ALMA_lat = -23.029/180.0*pi     # ALMA AOS Latitude
 #
 #-------- For Plot
@@ -113,6 +112,7 @@ def XYdel( spec_BL_CH_TIME, chRange, timeRange, delay_ant_XX, delay_ant_YY ):
     antNum = Bl2Ant(blNum)[0]
 #
 #-------- GridPoint
+"""
 def GridPoint( value, samp_x, samp_y, point_x, point_y, kernel ):
     #---- Check NaN and replace with 0
     nan_index = np.where( value != value )[0]
@@ -138,6 +138,7 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
     #
     return results
 #
+"""
 #----------------------------------------- Procedures
 msfile = wd + prefix + '.ms'
 solution = np.load(wd + QUXY + '.QUXY.npy')
