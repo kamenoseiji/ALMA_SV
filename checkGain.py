@@ -98,7 +98,8 @@ for spw_index in range(spwNum):
         CaledVis[pol_index, spw_index] = gainCalVis(vis_bl, Gain_ant[:, spw_index, pol_index], Gain_ant[:, spw_index, pol_index])
     #
 #
-plotMax = 2.0* np.median(abs(Gain_ant))
+#plotMax = 2.0* np.median(abs(Gain_ant))
+plotMax = 1.2* np.median(abs(Gain_ant))
 #-------- Plot Gain
 for ant_index in range(antNum):
     figAnt = plt.figure(ant_index)

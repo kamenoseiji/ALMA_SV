@@ -227,24 +227,18 @@ VisYX = gainCalVis( YX, GainY, GainX )
 VisYY = gainCalVis( YY, GainY, GainY )
 #-------- RefAnt D-term
 print('-------- Determining Antenna-based D-terms (refants) ----')
-phsNum = trkAntNum - 1     # Number of phase solutions (excluding refant)
-Pre = np.zeros([4*trkBlNum, 2*trkAntNum])  # [ReXX, ReXY, ReYX, ReYY] x [ReDx, ReDy]
-Pim = np.zeros([4*trkBlNum, 2*(phsNum)])   # [ReXX, ReXY, ReYX, ReYY] x [ReDx, ReDy], no refant component
 Dx = np.zeros([antNum, timeNum], dtype=complex)
 Dy = np.zeros([antNum, timeNum], dtype=complex)
-BlGain = abs(np.mean(VisXX[trkBlIndex,:], axis=1)) + abs(np.mean(VisYY[trkBlIndex,:], axis=1))
-W  = np.r_[BlGain, BlGain, BlGain, BlGain]
-#for time_index in range(15,16):
 for time_index in range(timeNum):
-    tempD = np.zeros([2* trkAntNum], dtype=complex)
     PS = np.dot(PAMatrix(PA[time_index]), np.array([1.0, solution[0], solution[1], 0.0])).real
     VisTime = np.r_[VisXX[trkBlIndex,time_index], VisXY[trkBlIndex,time_index], VisYX[trkBlIndex,time_index], VisYY[trkBlIndex,time_index]]
-    tempD.real = Vis2solveReD(VisTime, W, tempD, PS)
-    tempD.imag = np.r_[0, Vis2solveImD(VisTime, W, tempD, PS)]
-    Dx[range(trkAntNum), time_index] = tempD[range(trkAntNum)]
-    Dy[range(trkAntNum), time_index] = tempD[trkAntNum:(2*trkAntNum)]
+    Dx[range(trkAntNum), time_index], Dy[range(trkAntNum), time_index] = Vis2solveDD( VisTime, PS )
 #
 TrkDx = np.mean(Dx[0:trkAntNum], axis=1); TrkDy = np.mean(Dy[0:trkAntNum], axis=1)
+for ant_index in range(trkAntNum):
+    Dx[ant_index] = TrkDx[ant_index]
+    Dy[ant_index] = TrkDy[ant_index]
+#
 #-------- Stokes Parameters measured by tracking antennas
 StokesVis = np.zeros([trkBlNum, timeNum, 4], dtype=complex) 
 for time_index in range(timeNum):
@@ -267,24 +261,20 @@ QCpUS = TrkQ* np.cos(2.0*PA) + TrkU* np.sin(2.0*PA)   # Q cos + U sin
 print('-------- Determining Antenna-based D-terms (scan ants) ----')
 for ant_index in range(scnAntNum):
     antID = trkAntNum + ant_index
-    blWithScnAnt = np.array(ScTrBlIndex)[np.where( ANT0[ScTrBlIndex] == antID )[0].tolist() + np.where( ANT1[ScTrBlIndex] == antID )[0].tolist()].tolist()
     trkAnt_index = range(trkAntNum)
+    TrkScnBL = range(antID* (antID - 1) / 2, antID* (antID - 1) / 2 + trkAntNum)
     for time_index in range(timeNum):
         PS = np.dot(PAMatrix(PA[time_index]), np.array([1.0, TrkQ, TrkU, 0.0])).real
-        VisTime = np.r_[VisXX[blWithScnAnt, time_index], VisXY[blWithScnAnt, time_index], VisYX[blWithScnAnt, time_index], VisYY[blWithScnAnt, time_index]]
-        Vis2solveD( VisTime, np.r_[TrkDx, TrkDy], PS )
-
-
-
-    #Dx[scnAnt[ant_index]] = (np.mean( VisYX[blWithScnAnt] - Ucos_Qsin - np.outer(TrkDy, (1.0 + Qcos_Usin)), axis=0 ) / (1.0 - Qcos_Usin)).conjugate()
-    #Dy[scnAnt[ant_index]] = (np.mean( VisXY[blWithScnAnt] - Ucos_Qsin + np.outer(TrkDx, (1.0 - Qcos_Usin)), axis=0 ) / (1.0 + Qcos_Usin)).conjugate()
-    #Dx[scnAnt[ant_index]] = (np.mean( VisYX[blWithScnAnt] - Ucos_Qsin - np.outer(TrkDy.conjugate(), (1.0 + Qcos_Usin)), axis=0 ) / (1.0 - Qcos_Usin))
-    #Dy[scnAnt[ant_index]] = (np.mean( VisXY[blWithScnAnt] - Ucos_Qsin + np.outer(TrkDx.conjugate(), (1.0 - Qcos_Usin)), axis=0 ) / (1.0 + Qcos_Usin))
+        VisTime = np.r_[VisXX[TrkScnBL, time_index], VisXY[TrkScnBL, time_index], VisYX[TrkScnBL, time_index], VisYY[TrkScnBL, time_index]]
+        Dx[antID, time_index], Dy[antID, time_index] = Vis2solveD( VisTime, np.r_[TrkDx, TrkDy], PS )
+    #
 #
-#-------- Determination of D-terms in scanning antennas
+
+#-------- Plot D-terms of scanning antennas
 print('-------- Plot D-term Maps for scan ants ----')
 for ant_index in range(scnAntNum):
     antID = scnAnt[ant_index]
+    DantID = trkAntNum + ant_index
     #-------- Plot
     fig = plt.figure( figsize = (10,10))
     fig.suptitle(prefix + ' ' + antList[antID] + ' SPW=' + `spw[0]` + ' Scan=' + `scan[0]`)
@@ -295,44 +285,43 @@ for ant_index in range(scnAntNum):
     IndexCenter = np.where( ScanAz**2 + ScanEl**2 < 0.005* FWHM[antID]**2 )[0]
     Index3dB = np.where( ScanAz**2 + ScanEl**2 < 0.25* FWHM[antID]**2 )[0]
     Index6dB = np.where( ScanAz**2 + ScanEl**2 < 0.5* FWHM[antID]**2 )[0]
-    ReDxmap = GridData( Dx[antID].real, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
-    ImDxmap = GridData( Dx[antID].imag, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
-    ReDymap = GridData( Dy[antID].real, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
-    ImDymap = GridData( Dy[antID].imag, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
+    ReDxmap = GridData( Dx[DantID].real, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
+    ImDxmap = GridData( Dx[DantID].imag, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
+    ReDymap = GridData( Dy[DantID].real, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
+    ImDymap = GridData( Dy[DantID].imag, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
     #---- plot Re(Dx)
-    plt.subplot( 2, 2, 1, aspect=1); plt.contourf(xi, yi, ReDxmap, np.linspace(-0.1, 0.1, 21)); plt.colorbar(); plt.title('Re(Dx)')
+    plt.subplot( 2, 2, 1, aspect=1); plt.contourf(xi, yi, ReDxmap, np.linspace(-0.10, 0.10, 11)); plt.colorbar(); plt.title('Re(Dx)')
     circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/2); plt.plot( circle_x, circle_y )
     circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/sqrt(2)); plt.plot( circle_x, circle_y )
-    text_sd = 'Re(Dx) at Center = %5.3f' % ( np.mean(Dx[antID, IndexCenter].real) ); plt.text(-1.6*FWHM[antID], -1.5*FWHM[antID], text_sd, size='x-small')
-    text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( np.max(Dx[antID, Index3dB].real), np.min(Dx[antID, Index3dB].real) ); plt.text(-1.6*FWHM[antID], -1.7*FWHM[antID], text_sd, size='x-small')
-    text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(Dx[antID, Index6dB].real), np.min(Dx[antID, Index6dB].real) ); plt.text(-1.6*FWHM[antID], -1.9*FWHM[antID], text_sd, size='x-small')
+    text_sd = 'Re(Dx) at Center = %5.3f' % ( np.mean(Dx[DantID, IndexCenter].real) ); plt.text(-1.6*FWHM[antID], -1.5*FWHM[antID], text_sd, size='x-small')
+    text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( np.max(Dx[DantID, Index3dB].real), np.min(Dx[DantID, Index3dB].real) ); plt.text(-1.6*FWHM[antID], -1.7*FWHM[antID], text_sd, size='x-small')
+    text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(Dx[DantID, Index6dB].real), np.min(Dx[DantID, Index6dB].real) ); plt.text(-1.6*FWHM[antID], -1.9*FWHM[antID], text_sd, size='x-small')
     #---- plot Im(Dx)
-    plt.subplot( 2, 2, 2, aspect=1); plt.contourf(xi, yi, ImDxmap, np.linspace(-0.1, 0.1, 21)); plt.colorbar(); plt.title('Im(Dx)')
+    plt.subplot( 2, 2, 2, aspect=1); plt.contourf(xi, yi, ImDxmap, np.linspace(-0.10, 0.10, 11)); plt.colorbar(); plt.title('Im(Dx)')
     circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/2); plt.plot( circle_x, circle_y )
     circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/sqrt(2)); plt.plot( circle_x, circle_y )
-    text_sd = 'Im(Dx) at Center = %5.3f' % ( np.mean(Dx[antID, IndexCenter].imag) ); plt.text(-1.6*FWHM[antID], -1.5*FWHM[antID], text_sd, size='x-small')
-    text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( np.max(Dx[antID, Index3dB].imag), np.min(Dx[antID, Index3dB].imag) ); plt.text(-1.6*FWHM[antID], -1.7*FWHM[antID], text_sd, size='x-small')
-    text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(Dx[antID, Index6dB].imag), np.min(Dx[antID, Index6dB].imag) ); plt.text(-1.6*FWHM[antID], -1.9*FWHM[antID], text_sd, size='x-small')
+    text_sd = 'Im(Dx) at Center = %5.3f' % ( np.mean(Dx[DantID, IndexCenter].imag) ); plt.text(-1.6*FWHM[antID], -1.5*FWHM[antID], text_sd, size='x-small')
+    text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( np.max(Dx[DantID, Index3dB].imag), np.min(Dx[DantID, Index3dB].imag) ); plt.text(-1.6*FWHM[antID], -1.7*FWHM[antID], text_sd, size='x-small')
+    text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(Dx[DantID, Index6dB].imag), np.min(Dx[DantID, Index6dB].imag) ); plt.text(-1.6*FWHM[antID], -1.9*FWHM[antID], text_sd, size='x-small')
     #---- plot Re(Dy)
-    plt.subplot( 2, 2, 3, aspect=1); plt.contourf(xi, yi, ReDymap, np.linspace(-0.1, 0.1, 21)); plt.colorbar(); plt.title('Re(Dy)')
+    plt.subplot( 2, 2, 3, aspect=1); plt.contourf(xi, yi, ReDymap, np.linspace(-0.10, 0.10, 11)); plt.colorbar(); plt.title('Re(Dy)')
     circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/2); plt.plot( circle_x, circle_y )
     circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/sqrt(2)); plt.plot( circle_x, circle_y )
-    text_sd = 'Re(Dy) at Center = %5.3f' % ( np.mean(Dy[antID, IndexCenter].real) ); plt.text(-1.6*FWHM[antID], -1.5*FWHM[antID], text_sd, size='x-small')
-    text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( np.max(Dy[antID, Index3dB].real), np.min(Dy[antID, Index3dB].real) ); plt.text(-1.6*FWHM[antID], -1.7*FWHM[antID], text_sd, size='x-small')
-    text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(Dy[antID, Index6dB].real), np.min(Dy[antID, Index6dB].real) ); plt.text(-1.6*FWHM[antID], -1.9*FWHM[antID], text_sd, size='x-small')
+    text_sd = 'Re(Dy) at Center = %5.3f' % ( np.mean(Dy[DantID, IndexCenter].real) ); plt.text(-1.6*FWHM[antID], -1.5*FWHM[antID], text_sd, size='x-small')
+    text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( np.max(Dy[DantID, Index3dB].real), np.min(Dy[DantID, Index3dB].real) ); plt.text(-1.6*FWHM[antID], -1.7*FWHM[antID], text_sd, size='x-small')
+    text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(Dy[DantID, Index6dB].real), np.min(Dy[DantID, Index6dB].real) ); plt.text(-1.6*FWHM[antID], -1.9*FWHM[antID], text_sd, size='x-small')
     #---- plot Im(Dy)
-    plt.subplot( 2, 2, 4, aspect=1); plt.contourf(xi, yi, ImDymap, np.linspace(-0.1, 0.1, 21)); plt.colorbar(); plt.title('Im(Dy)')
+    plt.subplot( 2, 2, 4, aspect=1); plt.contourf(xi, yi, ImDymap, np.linspace(-0.10, 0.10, 11)); plt.colorbar(); plt.title('Im(Dy)')
     circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/2); plt.plot( circle_x, circle_y )
     circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/sqrt(2)); plt.plot( circle_x, circle_y )
-    text_sd = 'Im(Dy) at Center = %5.3f' % ( np.mean(Dy[antID, IndexCenter].imag) ); plt.text(-1.6*FWHM[antID], -1.5*FWHM[antID], text_sd, size='x-small')
-    text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( np.max(Dy[antID, Index3dB].imag), np.min(Dy[antID, Index3dB].imag) ); plt.text(-1.6*FWHM[antID], -1.7*FWHM[antID], text_sd, size='x-small')
-    text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(Dy[antID, Index6dB].imag), np.min(Dy[ant_index, Index6dB].imag) ); plt.text(-1.6*FWHM[antID], -1.9*FWHM[antID], text_sd, size='x-small')
+    text_sd = 'Im(Dy) at Center = %5.3f' % ( np.mean(Dy[DantID, IndexCenter].imag) ); plt.text(-1.6*FWHM[antID], -1.5*FWHM[antID], text_sd, size='x-small')
+    text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( np.max(Dy[DantID, Index3dB].imag), np.min(Dy[DantID, Index3dB].imag) ); plt.text(-1.6*FWHM[antID], -1.7*FWHM[antID], text_sd, size='x-small')
+    text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(Dy[DantID, Index6dB].imag), np.min(Dy[DantID, Index6dB].imag) ); plt.text(-1.6*FWHM[antID], -1.9*FWHM[antID], text_sd, size='x-small')
     plt.plot( ScanAz, ScanEl, '.', color='k', alpha=0.1)
     plt.axis([-2.0*FWHM[antID], 2.0*FWHM[antID], -2.0*FWHM[antID], 2.0*FWHM[antID]])
     plt.savefig( prefix + '-' + antList[antID] + '-SPW' + `spw[0]` + '-DtermMap.pdf', form='pdf'); plt.close()
     plt.close()
 #
-"""
 #-------- D-term-corrected Stokes parameters --------
 print('-------- D-term-corrected Stokes parameters ----')
 StokesVis = np.zeros([ScScBlNum, timeNum, 4], dtype=complex) 
@@ -341,9 +330,7 @@ for time_index in range(timeNum):
     for bl_index in range(ScScBlNum):
         BlID = ScScBlIndex[bl_index]
         ants = Bl2Ant(BlID)
-        Ant0 = scnAnt[ants[0] - trkAntNum]
-        Ant1 = scnAnt[ants[1] - trkAntNum]
-        Minv = InvMullerMatrix( Dx[Ant1, time_index], Dy[Ant1, time_index], Dx[Ant0, time_index], Dy[Ant0, time_index])
+        Minv = InvMullerMatrix( Dx[ants[1], time_index], Dy[ants[1], time_index], Dx[ants[0], time_index], Dy[ants[0], time_index])
         StokesVis[bl_index, time_index] = np.dot(Pinv, np.dot(Minv, np.array( [VisXX[BlID, time_index], VisXY[BlID, time_index], VisYX[BlID, time_index], VisYY[BlID, time_index]])))
         #StokesVis[bl_index, time_index] = np.dot(Pinv, StokesVis[bl_index, time_index])
     #
@@ -406,28 +393,28 @@ plt.savefig( prefix + '-StokesMap.pdf', form='pdf'); plt.close()
 plt.close()
 #
 #---- Plot Q err map
-plt.subplot(2, 2, 1, aspect=1); plt.contourf(xi, yi, 100.0*QEmap, np.linspace(-2.0, 2.0, 41)); plt.colorbar(); plt.title(prefix + ' Q_err %')
+plt.subplot(2, 2, 1, aspect=1); plt.contourf(xi, yi, 100.0*QEmap, np.linspace(-5.0, 5.0, 11)); plt.colorbar(); plt.title(prefix + ' Q_err')
 circle_x, circle_y = circlePoints(0, 0, FWHM/2); plt.plot( circle_x, circle_y )
 circle_x, circle_y = circlePoints(0, 0, FWHM/sqrt(2));   plt.plot( circle_x, circle_y )
 text_sd = 'Qerr at Center       = %4.1f %%' % ( 100.0* np.mean(Qerr[IndexCenter])); plt.text(-0.8*FWHM, -0.7*FWHM, text_sd, size='x-small')
 text_sd = 'Max Qerr (-3dB beam) = %4.1f %%' % ( 100.0* max(abs(Qerr[Index3dB])) ); plt.text(-0.8*FWHM, -0.8*FWHM, text_sd, size='x-small')
 text_sd = 'Max Qerr (-6dB beam) = %4.1f %%' % ( 100.0* max(abs(Qerr[Index6dB])) ); plt.text(-0.8*FWHM, -0.9*FWHM, text_sd, size='x-small')
 #----Plot U err map
-plt.subplot(2, 2, 2, aspect=1); plt.contourf(xi, yi, 100.0*UEmap, np.linspace(-2.0, 2.0, 41)); plt.colorbar(); plt.title(prefix + ' U_err %')
+plt.subplot(2, 2, 2, aspect=1); plt.contourf(xi, yi, 100.0*UEmap, np.linspace(-5.0, 5.0, 11)); plt.colorbar(); plt.title(prefix + ' U_err')
 circle_x, circle_y = circlePoints(0, 0, FWHM/2); plt.plot( circle_x, circle_y )
 circle_x, circle_y = circlePoints(0, 0, FWHM/sqrt(2));   plt.plot( circle_x, circle_y )
 text_sd = 'Uerr at Center       = %4.1f %%' % ( 100.0* np.mean(Uerr[IndexCenter])); plt.text(-0.8*FWHM, -0.7*FWHM, text_sd, size='x-small')
 text_sd = 'Max Uerr (-3dB beam) = %4.1f %%' % ( 100.0* max(abs(Uerr[Index3dB])) ); plt.text(-0.8*FWHM, -0.8*FWHM, text_sd, size='x-small')
 text_sd = 'Max Uerr (-6dB beam) = %4.1f %%' % ( 100.0* max(abs(Uerr[Index6dB])) ); plt.text(-0.8*FWHM, -0.9*FWHM, text_sd, size='x-small')
 #----Plot P error
-plt.subplot( 2, 2, 3, aspect=1); plt.contourf(xi, yi, 100.0*PEmap, np.linspace(-2.0, 2.0, 41)); plt.colorbar(); plt.title(prefix + ' P_err %')
+plt.subplot( 2, 2, 3, aspect=1); plt.contourf(xi, yi, 100.0*PEmap, np.linspace(-5.0, 5.0, 11)); plt.colorbar(); plt.title(prefix + ' P_err')
 circle_x, circle_y = circlePoints(0, 0, FWHM/2); plt.plot( circle_x, circle_y )
 circle_x, circle_y = circlePoints(0, 0, FWHM/sqrt(2));   plt.plot( circle_x, circle_y )
 text_sd = 'Perr at Center       = %4.1f %%' % ( 100.0* np.mean(Perr[IndexCenter])); plt.text(-0.8*FWHM, -0.75*FWHM, text_sd, size='x-small')
 text_sd = 'Max Perr (-3dB beam) = %4.1f %%' % ( 100.0* max(abs(Perr[Index3dB])) ); plt.text(-0.8*FWHM, -0.85*FWHM, text_sd, size='x-small')
 text_sd = 'Max Perr (-6dB beam) = %4.1f %%' % ( 100.0* max(abs(Perr[Index6dB])) ); plt.text(-0.8*FWHM, -0.95*FWHM, text_sd, size='x-small')
 #----Plot EVPA error
-plt.subplot( 2, 2, 4, aspect=1); plt.contourf(xi, yi, AEmap, np.linspace(-5, 5, 21)); plt.colorbar(); plt.title(prefix + ' EVPA_error')
+plt.subplot( 2, 2, 4, aspect=1); plt.contourf(xi, yi, AEmap, np.linspace(-10, 10, 21)); plt.colorbar(); plt.title(prefix + ' EVPA_error')
 circle_x, circle_y = circlePoints(0, 0, FWHM/2); plt.plot( circle_x, circle_y )
 circle_x, circle_y = circlePoints(0, 0, FWHM/sqrt(2));   plt.plot( circle_x, circle_y )
 text_sd = 'EVPAerr at Center       = %4.1f deg' % ( np.mean(Aerr[IndexCenter]) ); plt.text(-0.8*FWHM, -0.75*FWHM, text_sd, size='x-small')
@@ -437,7 +424,6 @@ text_sd = 'Max EVPAerr (-6dB beam) = %4.1f deg' % ( max(abs(Aerr[Index6dB])) ); 
 plt.axis([-FWHM, FWHM, -FWHM, FWHM])
 plt.savefig( prefix + '-StokesErr.pdf', form='pdf'); plt.close()
 plt.close()
-"""
 """
 #--------- Gridding for 11x11 sampling points
 az, el = readGrid(gridFile)
