@@ -2,7 +2,6 @@
 from scipy import stats
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
-import matplotlib.pyplot as plt
 execfile(SCR_DIR + 'interferometry.py')
 #-------- Load BP and Delay
 if BPCAL:

@@ -189,7 +189,10 @@ else:
 #
 Ximag = temp.transpose(0,2,1).imag * (-2.0* np.array(BlInv) + 1.0) 
 temp.imag = Ximag.transpose(0,2,1)
-XX = temp[0]; XY = temp[1]; YX = temp[2]; YY = temp[3]
+invIndex = np.where(BlInv)[0].tolist()
+XX = temp[0].copy(); XY = temp[1].copy(); YX = temp[2].copy(); YY = temp[3].copy()
+XY[invIndex] = temp[2,invIndex].copy()
+YX[invIndex] = temp[1,invIndex].copy()
 #-- BL within antenna groups
 TrkXX  = XX[trkBlIndex]; TrkXY  = XY[trkBlIndex]; TrkYX  = YX[trkBlIndex]; TrkYY  = YY[trkBlIndex]  # Ref-Ref 
 ScTrXX = XX[ScTrBlIndex]; ScTrXY = XY[ScTrBlIndex]; ScTrYX = YX[ScTrBlIndex]; ScTrYY = YY[ScTrBlIndex] # Ref-Sc 
@@ -229,12 +232,17 @@ VisYY = gainCalVis( YY, GainY, GainY )
 print('-------- Determining Antenna-based D-terms (refants) ----')
 Dx = np.zeros([antNum, timeNum], dtype=complex)
 Dy = np.zeros([antNum, timeNum], dtype=complex)
+"""
 for time_index in range(timeNum):
     PS = np.dot(PAMatrix(PA[time_index]), np.array([1.0, solution[0], solution[1], 0.0])).real
     VisTime = np.r_[VisXX[trkBlIndex,time_index], VisXY[trkBlIndex,time_index], VisYX[trkBlIndex,time_index], VisYY[trkBlIndex,time_index]]
     Dx[range(trkAntNum), time_index], Dy[range(trkAntNum), time_index] = Vis2solveDD( VisTime, PS )
 #
 TrkDx = np.mean(Dx[0:trkAntNum], axis=1); TrkDy = np.mean(Dy[0:trkAntNum], axis=1)
+"""
+PS = np.dot(PAMatrix(np.mean(PA)), np.array([1.0, solution[0], solution[1], 0.0])).real
+VisTime = np.r_[ np.mean(VisXX[trkBlIndex], axis=1), np.mean(VisXY[trkBlIndex], axis=1), np.mean(VisYX[trkBlIndex], axis=1), np.mean(VisYY[trkBlIndex], axis=1)]
+TrkDx, TrkDy = Vis2solveDD( VisTime, PS )
 for ant_index in range(trkAntNum):
     Dx[ant_index] = TrkDx[ant_index]
     Dy[ant_index] = TrkDy[ant_index]
@@ -261,12 +269,11 @@ QCpUS = TrkQ* np.cos(2.0*PA) + TrkU* np.sin(2.0*PA)   # Q cos + U sin
 print('-------- Determining Antenna-based D-terms (scan ants) ----')
 for ant_index in range(scnAntNum):
     antID = trkAntNum + ant_index
-    trkAnt_index = range(trkAntNum)
     TrkScnBL = range(antID* (antID - 1) / 2, antID* (antID - 1) / 2 + trkAntNum)
     for time_index in range(timeNum):
         PS = np.dot(PAMatrix(PA[time_index]), np.array([1.0, TrkQ, TrkU, 0.0])).real
         VisTime = np.r_[VisXX[TrkScnBL, time_index], VisXY[TrkScnBL, time_index], VisYX[TrkScnBL, time_index], VisYY[TrkScnBL, time_index]]
-        Dx[antID, time_index], Dy[antID, time_index] = Vis2solveD( VisTime, np.r_[TrkDx, TrkDy], PS )
+        Dx[antID, time_index], Dy[antID, time_index] = Vis2solveD( VisTime, TrkDx, TrkDy, PS )
     #
 #
 
@@ -330,7 +337,8 @@ for time_index in range(timeNum):
     for bl_index in range(ScScBlNum):
         BlID = ScScBlIndex[bl_index]
         ants = Bl2Ant(BlID)
-        Minv = InvMullerMatrix( Dx[ants[1], time_index], Dy[ants[1], time_index], Dx[ants[0], time_index], Dy[ants[0], time_index])
+        #Minv = InvMullerMatrix( Dx[ants[1], time_index], Dy[ants[1], time_index], Dx[ants[0], time_index], Dy[ants[0], time_index])
+        Minv = InvMullerMatrix( 0,0,0,0 )
         StokesVis[bl_index, time_index] = np.dot(Pinv, np.dot(Minv, np.array( [VisXX[BlID, time_index], VisXY[BlID, time_index], VisYX[BlID, time_index], VisYY[BlID, time_index]])))
         #StokesVis[bl_index, time_index] = np.dot(Pinv, StokesVis[bl_index, time_index])
     #

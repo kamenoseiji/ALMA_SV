@@ -46,7 +46,6 @@ def InvPAMatrix(PA):
 #
 def AzEl2PA(az, el, lat):        # Azimuth, Elevation, Latitude in [rad]
     cos_lat = np.cos(lat)
-    # return atan2( -cos_lat* math.sin(az), (math.sin(lat)* math.cos(el) - cos_lat* math.sin(el)* math.cos(az)) )
     return np.arctan( -cos_lat* np.sin(az) / (np.sin(lat)* np.cos(el) - cos_lat* np.sin(el)* np.cos(az)) )
 #
 #-------- Greenwidge Mean Sidereal Time
@@ -497,70 +496,13 @@ def clphase_solve(bl_phase, bl_error):
     #
 	return np.append(0, solution), np.append(0, np.sqrt(np.diag(ptwp_inv)))
 #
-def Vis2solveReD(Vis, Weight, D, PS ):
-    # Vis = np.r_[ReXX, ReXY, ReYX, ReYY]
-    # D   = np.r_[Dx, Dy], initial value
-    # PS  = np.array([1 + QCpUS, QCmUS, QCmUS, 1 - QCpUS])
-    W = np.diag(Weight)
-    blNum = len(Vis) / 4
-    antNum = Bl2Ant(blNum)[0]
-    Pre = np.zeros([4*blNum, 2*antNum]) # [ReXX, ReXY, ReYX, ReYY] x [ReDx, ReDy]
-    residVis = np.zeros([4*blNum])
-    for bl_index in range(blNum):
-        stokesIndex = range(bl_index, 4*blNum, blNum)
-        ants = Bl2Ant(bl_index)
-        ModelVis = np.dot(MullerMatrix(D[ants[1]], D[antNum + ants[1]], D[ants[0]], D[antNum + ants[0]]).real, PS)
-        residVis[stokesIndex] = Vis[stokesIndex].real  - ModelVis
-        #-------- Derivative by ReDx
-        DeltaP = 100.0*(np.dot(MullerMatrix(D[ants[1]] + 0.01, D[antNum + ants[1]], D[ants[0]], D[antNum + ants[0]]).real, PS) - ModelVis)
-        Pre[stokesIndex, ants[1]] = DeltaP
-        DeltaP = 100.0*(np.dot(MullerMatrix(D[ants[1]], D[antNum + ants[1]], D[ants[0]] + 0.01, D[antNum + ants[0]]).real, PS) - ModelVis)
-        Pre[stokesIndex, ants[0]] = DeltaP
-        #-------- Derivative by ReDy
-        DeltaP = 100.0*(np.dot(MullerMatrix(D[ants[1]], D[antNum + ants[1]] + 0.01, D[ants[0]], D[antNum + ants[0]]).real, PS) - ModelVis)
-        Pre[stokesIndex, antNum + ants[1]] = DeltaP
-        DeltaP = 100.0*(np.dot(MullerMatrix(D[ants[1]], D[antNum + ants[1]], D[ants[0]], D[antNum + ants[0]] + 0.01).real, PS) - ModelVis)
-        Pre[stokesIndex, antNum + ants[0]] = DeltaP
-    #
-    PrePre = np.dot(Pre.T, np.dot(W, Pre))
-    return(np.dot( np.linalg.inv( PrePre ), np.dot(Pre.T, np.dot(W, residVis.T.reshape(4*blNum))) ))
-#
-def Vis2solveImD(Vis, Weight, D, PS ):
-    # Vis = np.r_[ImXX, ImXY, ImYX, ImYY]
-    # D   = np.r_[Dx, Dy], initial value
-    # PS  = np.array([1 + QCpUS, QCmUS, QCmUS, 1 - QCpUS])
-    W = np.diag(Weight)
-    blNum = len(Vis) / 4
-    antNum = Bl2Ant(blNum)[0]; phsNum = antNum - 1
-    Pim = np.zeros([4*blNum, 2*antNum]) # [ReXX, ReXY, ReYX, ReYY] x [ReDx, ReDy]
-    residVis = np.zeros([4*blNum])
-    for bl_index in range(blNum):
-        stokesIndex = range(bl_index, 4* blNum, blNum)
-        ants = Bl2Ant(bl_index)
-        ModelVis = np.dot(MullerMatrix(D[ants[1]], D[antNum + ants[1]], D[ants[0]], D[antNum + ants[0]]).imag, PS)
-        residVis[stokesIndex] = Vis[stokesIndex].imag  - ModelVis
-        #-------- Derivative by ImDx
-        DeltaP = 100.0*(np.dot(MullerMatrix(D[ants[1]] + 0.01j, D[antNum + ants[1]], D[ants[0]], D[antNum + ants[0]]).imag, PS) - ModelVis)
-        Pim[stokesIndex, ants[1]] = DeltaP
-        DeltaP = 100.0*(np.dot(MullerMatrix(D[ants[1]], D[antNum + ants[1]], D[ants[0]] + 0.01j, D[antNum + ants[0]]).imag, PS) - ModelVis)
-        Pim[stokesIndex, ants[0]] = DeltaP
-        #-------- Derivative by ImDy
-        DeltaP = 100.0*(np.dot(MullerMatrix(D[ants[1]], D[antNum + ants[1]] + 0.01j, D[ants[0]], D[antNum + ants[0]]).imag, PS) - ModelVis)
-        Pim[stokesIndex, antNum + ants[1]] = DeltaP
-        DeltaP = 100.0*(np.dot(MullerMatrix(D[ants[1]], D[antNum + ants[1]], D[ants[0]], D[antNum + ants[0]] + 0.01j).imag, PS) - ModelVis)
-        Pim[stokesIndex, antNum + ants[0]] = DeltaP
-    #
-    #Pim = Pim[:, range(1,2*antNum)]
-    PimPim = np.dot(Pim.T, np.dot(W, Pim))
-    return(np.dot( np.linalg.inv( PimPim ), np.dot(Pim.T, np.dot(W, residVis.T.reshape(4*blNum))) ))
-#
 def Vis2solveDD(Vis, PS ):
     blNum  = len(Vis) / 4                   # (I, Q, U, V)
     antNum = Bl2Ant(blNum)[0]                   # Number of tracking antennas
     Dx = np.zeros(antNum, dtype=complex)    # Dx, Dy solutions for scanning antenna
     Dy = np.zeros(antNum, dtype=complex)    # Dx, Dy solutions for scanning antenna
     W = np.diag( np.r_[0.1*np.ones(blNum), np.ones(blNum), np.ones(blNum), 0.1*np.ones(blNum), 0.1*np.ones(blNum), np.ones(blNum), np.ones(blNum), 0.1*np.ones(blNum)] )
-    for loop_index in range(5):
+    for loop_index in range(2):
         residVis = np.zeros(8* blNum)    # Residual (real and imaginary) vector (Obs - Model)
         P = np.zeros([8*blNum, 4* antNum]) # [ReXX, ReXY, ReYX, ReYY, ImXX, ImXY, ImYX, ImYY] x [ReDx, ImDx, ReDy, ImDy], No Im part in refant
         #-------- Determine P matrix
@@ -605,54 +547,51 @@ def Vis2solveDD(Vis, PS ):
             P[stokesReIndex, 3*antNum + ants[0]] += DeltaP.real
             P[stokesImIndex, 3*antNum + ants[0]] += DeltaP.imag
         #
-        P = P[:, range(antNum) + range(antNum+1,4*antNum)]      # ImDx of refant = 0
         PTWP = np.dot(P.T, np.dot(W, P))
         D_vec = np.dot( scipy.linalg.inv( PTWP ), np.dot(P.T, np.dot(W, residVis)))
-        #print np.dot(residVis, residVis)
-        Dx += D_vec[0:antNum] + 1.0j* np.r_[0, D_vec[antNum:(2*antNum-1)]]
-        Dy += D_vec[(2*antNum-1):(3*antNum-1)] + 1.0j* D_vec[(3*antNum-1):(4*antNum-1)]
+        Dx += D_vec[0:antNum] + 1.0j* D_vec[antNum:(2*antNum)]
+        Dy += D_vec[(2*antNum):(3*antNum)] + 1.0j* D_vec[(3*antNum):(4*antNum)]
     #
     return Dx, Dy
 #
-def Vis2solveD(Vis, Dtrk, PS ):
-    trBblNum  = len(Vis)
-    trkAntNum = len(Dtrk) / 2           # Number of tracking antennas
-    D = np.zeros([2], dtype=complex)    # Dx, Dy solutions for scanning antenna
+def Vis2solveD(Vis, DtX, DtY, PS ):
+    trkAntNum = len(DtX)  # Number of tracking antennas
+    W = np.diag( np.r_[0.1*np.ones(trkAntNum), np.ones(trkAntNum), np.ones(trkAntNum), 0.1*np.ones(trkAntNum), 0.1*np.ones(trkAntNum), np.ones(trkAntNum), np.ones(trkAntNum), 0.1*np.ones(trkAntNum)] )
+    Dx = 0.0 + 0.0j
+    Dy = 0.0 + 0.0j
     for loop_index in range(2):
-        residVis = np.zeros(2* trBblNum)    # Residual (real and imaginary) vector (Obs - Model)
-        P = np.zeros([2*trBblNum, 4]) # [ReXX, ReXY, ReYX, ReYY, ImXX, ImXY, ImYX, ImYY] x [ReDx, ReDy, ImDx, ImDy]
+        residVis = np.zeros(4* trkAntNum, dtype=complex)    # Residual (real and imaginary) vector (Obs - Model)
+        P = np.zeros([8*trkAntNum, 4]) # [ReXX, ReXY, ReYX, ReYY, ImXX, ImXY, ImYX, ImYY] x [ReDx, ImDx, ReDy, ImDy]
         #-------- Determine P matrix
         for index in range(trkAntNum):
-            stokesIndex   = range(index, 4* trkAntNum, trkAntNum)
-            stokesImIndex = range(index + trBblNum, trBblNum + 4*trkAntNum, trkAntNum)
-            #stokesImIndex = range(trBblNum, trBblNum + 4*trkAntNum, trkAntNum)
-            ModelVis = np.dot(MullerMatrix(Dtrk[index], Dtrk[trkAntNum + index], D[0], D[1]), PS)
-            residVis[stokesIndex]   = Vis[stokesIndex].real  - ModelVis.real
-            residVis[stokesImIndex] = Vis[stokesIndex].imag  - ModelVis.imag
+            stokesReIndex = range(index, 4* trkAntNum, trkAntNum)
+            stokesImIndex = range(index + 4* trkAntNum, 8*trkAntNum, trkAntNum)
+            ModelVis = np.dot(MullerMatrix(DtX[index], DtY[index], Dx, Dy), PS)
+            residVis[stokesReIndex] = Vis[stokesReIndex] - ModelVis
             #-------- Derivative by  ReDx
-            DeltaP = 100.0*(np.dot(MullerMatrix(Dtrk[index], Dtrk[trkAntNum + index], D[0] + 0.01, D[1]), PS) - ModelVis)
-            P[stokesIndex, 0]   += DeltaP.real
+            DeltaP = 100.0*(np.dot(MullerMatrix(DtX[index], DtY[index], Dx + 0.01,  Dy), PS) - ModelVis)
+            P[stokesReIndex, 0] += DeltaP.real
             P[stokesImIndex, 0] += DeltaP.imag
             #-------- Derivative by ImDx
-            DeltaP = 100.0*(np.dot(MullerMatrix(Dtrk[index], Dtrk[trkAntNum + index], D[0] + 0.01j, D[1]), PS) - ModelVis)
-            P[stokesIndex, 1]   += DeltaP.real
+            DeltaP = 100.0*(np.dot(MullerMatrix(DtX[index], DtY[index], Dx + 0.01j, Dy), PS) - ModelVis)
+            P[stokesReIndex, 1] += DeltaP.real
             P[stokesImIndex, 1] += DeltaP.imag
             #-------- Derivative by  ReDy
-            DeltaP = 100.0*(np.dot(MullerMatrix(Dtrk[index], Dtrk[trkAntNum + index], D[0], D[1] + 0.01), PS) - ModelVis)
-            P[stokesIndex, 2]   += DeltaP.real
+            DeltaP = 100.0*(np.dot(MullerMatrix(DtX[index], DtY[index], Dx, Dy + 0.01),  PS) - ModelVis)
+            P[stokesReIndex, 2] += DeltaP.real
             P[stokesImIndex, 2] += DeltaP.imag
             #-------- Derivative by ImDx
-            DeltaP = 100.0*(np.dot(MullerMatrix(Dtrk[index], Dtrk[trkAntNum + index], D[0], D[1] + 0.01j), PS) - ModelVis)
-            P[stokesIndex, 3]   += DeltaP.real
+            DeltaP = 100.0*(np.dot(MullerMatrix(DtX[index], DtY[index], Dx, Dy + 0.01j), PS) - ModelVis)
+            P[stokesReIndex, 3] += DeltaP.real
             P[stokesImIndex, 3] += DeltaP.imag
         #
-        PTP = np.dot(P.T, P)
-        D_vec = np.dot( np.linalg.inv( PTP ), np.dot(P.T, residVis))
-        D[0] += (D_vec[0] + 1.0j*D_vec[1])
-        D[1] += (D_vec[2] + 1.0j*D_vec[3])
-        #print loop_index, D
+        PTWP = np.dot(P.T, np.dot(W, P))
+        D_vec = np.dot( np.linalg.inv( PTWP ), np.dot(P.T, np.dot(W, np.r_[residVis.real, residVis.imag])))
+        Dx += (D_vec[0] + 1.0j*D_vec[1])
+        Dy += (D_vec[2] + 1.0j*D_vec[3])
+        # print 'Iter%d : Residual = %e' % (loop_index, np.dot(np.r_[residVis.real, residVis.imag], np.r_[residVis.real, residVis.imag]))
     #
-    return D[0], D[1]
+    return Dx, Dy
 #
 def beamF(disk2FWHMratio):     # diskR / FWHM ratio
     disk2sigma = disk2FWHMratio * 2.3548200450309493   # FWHM / (2.0* sqrt(2.0* log(2.0)))
