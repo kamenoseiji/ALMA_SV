@@ -112,7 +112,6 @@ def XYdel( spec_BL_CH_TIME, chRange, timeRange, delay_ant_XX, delay_ant_YY ):
     antNum = Bl2Ant(blNum)[0]
 #
 #-------- GridPoint
-"""
 def GridPoint( value, samp_x, samp_y, point_x, point_y, kernel ):
     #---- Check NaN and replace with 0
     nan_index = np.where( value != value )[0]
@@ -138,7 +137,6 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
     #
     return results
 #
-"""
 #----------------------------------------- Procedures
 msfile = wd + prefix + '.ms'
 solution = np.load(wd + QUXY + '.QUXY.npy')
@@ -187,12 +185,12 @@ else:
     # BPcal, Bunch/Sel process comes here!
     temp = np.mean(Xspec[:,chRange], axis=1)
 #
-Ximag = temp.transpose(0,2,1).imag * (-2.0* np.array(BlInv) + 1.0) 
-temp.imag = Ximag.transpose(0,2,1)
-invIndex = np.where(BlInv)[0].tolist()
+Ximag = temp.transpose(0,2,1).imag * (-2.0* np.array(BlInv) + 1.0)      # For inverted baselines
+temp.imag = Ximag.transpose(0,2,1)                                      # visibilities become complex conjugate
 XX = temp[0].copy(); XY = temp[1].copy(); YX = temp[2].copy(); YY = temp[3].copy()
-XY[invIndex] = temp[2,invIndex].copy()
-YX[invIndex] = temp[1,invIndex].copy()
+invIndex = np.where(BlInv)[0].tolist()          # For inverted baselines
+XY[invIndex] = temp[2,invIndex].copy()          # XY and YX are swapped
+YX[invIndex] = temp[1,invIndex].copy()          #
 #-- BL within antenna groups
 TrkXX  = XX[trkBlIndex]; TrkXY  = XY[trkBlIndex]; TrkYX  = YX[trkBlIndex]; TrkYY  = YY[trkBlIndex]  # Ref-Ref 
 ScTrXX = XX[ScTrBlIndex]; ScTrXY = XY[ScTrBlIndex]; ScTrYX = YX[ScTrBlIndex]; ScTrYY = YY[ScTrBlIndex] # Ref-Sc 
@@ -229,24 +227,22 @@ VisXY = gainCalVis( XY, GainX, GainY )
 VisYX = gainCalVis( YX, GainY, GainX )
 VisYY = gainCalVis( YY, GainY, GainY )
 #-------- RefAnt D-term
+logfile = open(prefix + '-SPW' + `spw[0]` + '-TrkDterm.log', 'w')
+text_sd = 'ant ReDx ImDx ReDy ImDy'
+logfile.write(text_sd + '\n')
 print('-------- Determining Antenna-based D-terms (refants) ----')
 Dx = np.zeros([antNum, timeNum], dtype=complex)
 Dy = np.zeros([antNum, timeNum], dtype=complex)
-"""
-for time_index in range(timeNum):
-    PS = np.dot(PAMatrix(PA[time_index]), np.array([1.0, solution[0], solution[1], 0.0])).real
-    VisTime = np.r_[VisXX[trkBlIndex,time_index], VisXY[trkBlIndex,time_index], VisYX[trkBlIndex,time_index], VisYY[trkBlIndex,time_index]]
-    Dx[range(trkAntNum), time_index], Dy[range(trkAntNum), time_index] = Vis2solveDD( VisTime, PS )
-#
-TrkDx = np.mean(Dx[0:trkAntNum], axis=1); TrkDy = np.mean(Dy[0:trkAntNum], axis=1)
-"""
 PS = np.dot(PAMatrix(np.mean(PA)), np.array([1.0, solution[0], solution[1], 0.0])).real
 VisTime = np.r_[ np.mean(VisXX[trkBlIndex], axis=1), np.mean(VisXY[trkBlIndex], axis=1), np.mean(VisYX[trkBlIndex], axis=1), np.mean(VisYY[trkBlIndex], axis=1)]
 TrkDx, TrkDy = Vis2solveDD( VisTime, PS )
 for ant_index in range(trkAntNum):
     Dx[ant_index] = TrkDx[ant_index]
     Dy[ant_index] = TrkDy[ant_index]
+    text_sd = '%s %8.6f %8.6f %8.6f %8.6f' % (antList[trkAnt[ant_index]], TrkDx[ant_index].real, TrkDx[ant_index].imag, TrkDy[ant_index].real, TrkDy[ant_index].imag)
+    logfile.write(text_sd + '\n')
 #
+logfile.close()
 #-------- Stokes Parameters measured by tracking antennas
 StokesVis = np.zeros([trkBlNum, timeNum, 4], dtype=complex) 
 for time_index in range(timeNum):
@@ -265,6 +261,10 @@ TrkV = np.mean( StokesVis[:,:,3], axis=(0,1) ).real
 text_sd = 'TrkMeas / Model: I=%6.4f / %6.4f  Q=%6.4f / %6.4f U=%6.4f / %6.4f V=%6.4f / %6.4f' % (TrkI, 1.0, TrkQ, CalQ, TrkU, CalU, TrkV, 0.0); print text_sd
 UCmQS = TrkU* np.cos(2.0*PA) - TrkQ* np.sin(2.0*PA)   # U cos - Q sin
 QCpUS = TrkQ* np.cos(2.0*PA) + TrkU* np.sin(2.0*PA)   # Q cos + U sin
+logfile = open(prefix + '-SPW' + `spw[0]` + '-Stokes.log', 'w')
+text_sd = 'I Q U V'; logfile.write(text_sd + '\n')
+text_sd = '%8.6f %8.6f %8.6f %8.6f' % (TrkI, TrkQ, TrkU, TrkV); logfile.write(text_sd + '\n')
+logfile.close()
 #-------- Determination of D-terms in scanning antennas
 print('-------- Determining Antenna-based D-terms (scan ants) ----')
 for ant_index in range(scnAntNum):
@@ -278,6 +278,9 @@ for ant_index in range(scnAntNum):
 #
 
 #-------- Plot D-terms of scanning antennas
+logfile = open(prefix + '-SPW' + `spw[0]` + '-Dterm.log', 'w')
+text_sd = 'ant ReDx ReDx3max ReDx3min ReDx6max ReDx6min ImDx ImDx3max ImDx3min ImDx6max ImDx6min ReDy ReDy3max ReDy3min ReDy6max ReDy6min ImDy ImDy3max ImDy3min ImDy6max ImDy6min'
+logfile.write(text_sd + '\n')
 print('-------- Plot D-term Maps for scan ants ----')
 for ant_index in range(scnAntNum):
     antID = scnAnt[ant_index]
@@ -292,10 +295,10 @@ for ant_index in range(scnAntNum):
     IndexCenter = np.where( ScanAz**2 + ScanEl**2 < 0.005* FWHM[antID]**2 )[0]
     Index3dB = np.where( ScanAz**2 + ScanEl**2 < 0.25* FWHM[antID]**2 )[0]
     Index6dB = np.where( ScanAz**2 + ScanEl**2 < 0.5* FWHM[antID]**2 )[0]
-    ReDxmap = GridData( Dx[DantID].real, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
-    ImDxmap = GridData( Dx[DantID].imag, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
-    ReDymap = GridData( Dy[DantID].real, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
-    ImDymap = GridData( Dy[DantID].imag, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
+    ReDxmap = GridData( Dx[DantID].real, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM[antID]/16).reshape(len(xi), len(xi))
+    ImDxmap = GridData( Dx[DantID].imag, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM[antID]/16).reshape(len(xi), len(xi))
+    ReDymap = GridData( Dy[DantID].real, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM[antID]/16).reshape(len(xi), len(xi))
+    ImDymap = GridData( Dy[DantID].imag, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM[antID]/16).reshape(len(xi), len(xi))
     #---- plot Re(Dx)
     plt.subplot( 2, 2, 1, aspect=1); plt.contourf(xi, yi, ReDxmap, np.linspace(-0.10, 0.10, 11)); plt.colorbar(); plt.title('Re(Dx)')
     circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/2); plt.plot( circle_x, circle_y )
@@ -328,8 +331,14 @@ for ant_index in range(scnAntNum):
     plt.axis([-2.0*FWHM[antID], 2.0*FWHM[antID], -2.0*FWHM[antID], 2.0*FWHM[antID]])
     plt.savefig( prefix + '-' + antList[antID] + '-SPW' + `spw[0]` + '-DtermMap.pdf', form='pdf'); plt.close()
     plt.close()
+    text_sd = '%s %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f'  % (antList[antID], np.mean(Dx[DantID, IndexCenter].real), np.max(Dx[DantID, Index3dB].real), np.min(Dx[DantID, Index3dB].real), np.max(Dx[DantID, Index6dB].real), np.min(Dx[DantID, Index6dB].real), np.mean(Dx[DantID, IndexCenter].imag), np.max(Dx[DantID, Index3dB].imag), np.min(Dx[DantID, Index3dB].imag), np.max(Dx[DantID, Index6dB].imag), np.min(Dx[DantID, Index6dB].imag), np.mean(Dy[DantID, IndexCenter].real), np.max(Dy[DantID, Index3dB].real), np.min(Dy[DantID, Index3dB].real), np.max(Dy[DantID, Index6dB].real), np.min(Dy[DantID, Index6dB].real), np.mean(Dy[DantID, IndexCenter].imag), np.max(Dy[DantID, Index3dB].imag), np.min(Dy[DantID, Index3dB].imag), np.max(Dy[DantID, Index6dB].imag), np.min(Dy[DantID, Index6dB].imag) )
+    logfile.write(text_sd + '\n')
 #
+logfile.close()
 #-------- D-term-corrected Stokes parameters --------
+logfile = open(prefix + '-SPW' + `spw[0]` + '-Stokes.log', 'w')
+text_sd = 'I I3max I3min I6max I6min Q Q3max Q3min Q6max Q6min U U3max U3min U6max U6min V V3max V3min V6max V6min'
+logfile.write(text_sd + '\n')
 print('-------- D-term-corrected Stokes parameters ----')
 StokesVis = np.zeros([ScScBlNum, timeNum, 4], dtype=complex) 
 for time_index in range(timeNum):
@@ -337,10 +346,8 @@ for time_index in range(timeNum):
     for bl_index in range(ScScBlNum):
         BlID = ScScBlIndex[bl_index]
         ants = Bl2Ant(BlID)
-        #Minv = InvMullerMatrix( Dx[ants[1], time_index], Dy[ants[1], time_index], Dx[ants[0], time_index], Dy[ants[0], time_index])
-        Minv = InvMullerMatrix( 0,0,0,0 )
+        Minv = InvMullerMatrix( Dx[ants[1], time_index], Dy[ants[1], time_index], Dx[ants[0], time_index], Dy[ants[0], time_index])
         StokesVis[bl_index, time_index] = np.dot(Pinv, np.dot(Minv, np.array( [VisXX[BlID, time_index], VisXY[BlID, time_index], VisYX[BlID, time_index], VisYY[BlID, time_index]])))
-        #StokesVis[bl_index, time_index] = np.dot(Pinv, StokesVis[bl_index, time_index])
     #
 #
 ScnI = np.mean( StokesVis[:,:,0], axis=0 ).real
@@ -350,45 +357,48 @@ ScnV = np.mean( StokesVis[:,:,3], axis=0 ).real
 Qerr = ScnQ - TrkQ
 Uerr = ScnU - TrkU
 Perr = sqrt(ScnQ**2 + ScnU**2) - sqrt(TrkQ**2 + TrkU**2)
-Aerr = np.arccos( (ScnQ* TrkQ + ScnU* TrkU) / sqrt( (ScnQ**2 + ScnU**2)* (TrkQ**2 + TrkU**2)))*90.0/pi
+Aerr = np.arctan( (ScnU* TrkQ - ScnQ* TrkU) / (ScnQ* TrkQ + ScnU* TrkU) )* 90.0/math.pi
 #-------- Plot Stokes Beam Map
 fig = plt.figure( figsize = (10,10))
+fig.text(0.45, 0.05, 'Az Offset [arcsec]')
+fig.text(0.05, 0.45, 'El Offset [arcsec]', rotation=90)
+fig.text(0.45, 0.95, prefix)
 FWHM = np.max(FWHM)
 xi, yi = np.mgrid[ -floor(FWHM):floor(FWHM):128j, -floor(FWHM):floor(FWHM):128j]
-Imap = GridData( ScnI, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
-Qmap = GridData( ScnQ, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
-Umap = GridData( ScnU, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
-Vmap = GridData( ScnV, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
-QEmap = GridData(Qerr, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
-UEmap = GridData(Uerr, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
-PEmap = GridData(Perr, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
-AEmap = GridData(Aerr, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
+Imap = GridData( ScnI, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM/16).reshape(len(xi), len(xi))
+Qmap = GridData( ScnQ, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM/16).reshape(len(xi), len(xi))
+Umap = GridData( ScnU, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM/16).reshape(len(xi), len(xi))
+Vmap = GridData( ScnV, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM/16).reshape(len(xi), len(xi))
+QEmap = GridData(Qerr, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM/16).reshape(len(xi), len(xi))
+UEmap = GridData(Uerr, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM/16).reshape(len(xi), len(xi))
+PEmap = GridData(Perr, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM/16).reshape(len(xi), len(xi))
+AEmap = GridData(Aerr, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM/16).reshape(len(xi), len(xi))
 IndexCenter = np.where( ScanAz**2 + ScanEl**2 < 0.005* FWHM**2 )[0]
 Index3dB = np.where( ScanAz**2 + ScanEl**2 < 0.25* FWHM**2 )[0]
 Index6dB = np.where( ScanAz**2 + ScanEl**2 < 0.5* FWHM**2 )[0]
 #---- Plot I map
-plt.subplot(2, 2, 1, aspect=1); plt.contourf(xi, yi, Imap, np.linspace(0.9, 1.1, 21)); plt.colorbar(); plt.title(prefix + '-StokesI')
+plt.subplot(2, 2, 1, aspect=1); plt.contourf(xi, yi, Imap, np.linspace(0.9, 1.1, 21)); plt.colorbar(); plt.title('Stokes I')
 circle_x, circle_y = circlePoints(0, 0, FWHM/2); plt.plot( circle_x, circle_y )
 circle_x, circle_y = circlePoints(0, 0, FWHM/sqrt(2));   plt.plot( circle_x, circle_y )
 text_sd = 'I at Center   = %5.3f' % ( np.mean(ScnI[IndexCenter]) ); plt.text(-0.8*FWHM, -0.75*FWHM, text_sd, size='x-small')
 text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( np.max(ScnI[Index3dB]), np.min(ScnI[Index3dB]) ); plt.text(-0.8*FWHM, -0.85*FWHM, text_sd, size='x-small')
 text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(ScnI[Index6dB]), np.min(ScnI[Index6dB]) ); plt.text(-0.8*FWHM, -0.95*FWHM, text_sd, size='x-small')
 #---- Plot Q map
-plt.subplot(2, 2, 2, aspect=1); plt.contourf(xi, yi, Qmap, np.linspace(0.01*(floor(TrkQ* 100)-5), 0.01*(floor(TrkQ* 100)+5), 21)); plt.colorbar(); plt.title(prefix + '-StokesQ')
+plt.subplot(2, 2, 2, aspect=1); plt.contourf(xi, yi, Qmap, np.linspace(0.01*(floor(TrkQ* 100)-5), 0.01*(floor(TrkQ* 100)+5), 21)); plt.colorbar(); plt.title('Stokes Q')
 circle_x, circle_y = circlePoints(0, 0, FWHM/2); plt.plot( circle_x, circle_y )
 circle_x, circle_y = circlePoints(0, 0, FWHM/sqrt(2));   plt.plot( circle_x, circle_y )
 text_sd = 'Q at Center   = %5.3f' % ( np.mean(ScnQ[IndexCenter]) ); plt.text(-0.8*FWHM, -0.75*FWHM, text_sd, size='x-small')
 text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( np.max(ScnQ[Index3dB]), np.min(ScnQ[Index3dB]) ); plt.text(-0.8*FWHM, -0.85*FWHM, text_sd, size='x-small')
 text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(ScnQ[Index6dB]), np.min(ScnQ[Index6dB]) ); plt.text(-0.8*FWHM, -0.95*FWHM, text_sd, size='x-small')
 #---- Plot U map
-plt.subplot(2, 2, 3, aspect=1); plt.contourf(xi, yi, Umap, np.linspace(0.01*(floor(TrkU* 100)-5), 0.01*(floor(TrkU* 100)+5), 21)); plt.colorbar(); plt.title(prefix + '-StokesU')
+plt.subplot(2, 2, 3, aspect=1); plt.contourf(xi, yi, Umap, np.linspace(0.01*(floor(TrkU* 100)-5), 0.01*(floor(TrkU* 100)+5), 21)); plt.colorbar(); plt.title('Stokes U')
 circle_x, circle_y = circlePoints(0, 0, FWHM/2); plt.plot( circle_x, circle_y )
 circle_x, circle_y = circlePoints(0, 0, FWHM/sqrt(2));   plt.plot( circle_x, circle_y )
 text_sd = 'U at Center   = %5.3f' % ( np.mean(ScnU[IndexCenter]) ); plt.text(-0.8*FWHM, -0.75*FWHM, text_sd, size='x-small')
 text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( np.max(ScnU[Index3dB]), np.min(ScnU[Index3dB]) ); plt.text(-0.8*FWHM, -0.85*FWHM, text_sd, size='x-small')
 text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(ScnU[Index6dB]), np.min(ScnU[Index6dB]) ); plt.text(-0.8*FWHM, -0.95*FWHM, text_sd, size='x-small')
 #---- Plot V map
-plt.subplot(2, 2, 4, aspect=1); plt.contourf(xi, yi, Vmap, np.linspace(-0.05, 0.05, 21)); plt.colorbar(); plt.title(prefix + '-StokesV')
+plt.subplot(2, 2, 4, aspect=1); plt.contourf(xi, yi, Vmap, np.linspace(-0.05, 0.05, 21)); plt.colorbar(); plt.title('Stokes V')
 circle_x, circle_y = circlePoints(0, 0, FWHM/2); plt.plot( circle_x, circle_y )
 circle_x, circle_y = circlePoints(0, 0, FWHM/sqrt(2));   plt.plot( circle_x, circle_y )
 plt.plot( ScanAz, ScanEl, '.', color='k', alpha=0.1)
@@ -399,30 +409,40 @@ text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(ScnV[Index6dB]), np.min(Sc
 plt.axis([-FWHM, FWHM, -FWHM, FWHM])
 plt.savefig( prefix + '-StokesMap.pdf', form='pdf'); plt.close()
 plt.close()
+text_sd = '%8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f ' % (np.mean(ScnI[IndexCenter]), np.max(ScnI[Index3dB]), np.min(ScnI[Index3dB]), np.max(ScnI[Index6dB]), np.min(ScnI[Index6dB]), np.mean(ScnQ[IndexCenter]), np.max(ScnQ[Index3dB]), np.min(ScnQ[Index3dB]), np.max(ScnQ[Index6dB]), np.min(ScnQ[Index6dB]), np.mean(ScnU[IndexCenter]), np.max(ScnU[Index3dB]), np.min(ScnU[Index3dB]), np.max(ScnU[Index6dB]), np.min(ScnU[Index6dB]), np.mean(ScnV[IndexCenter]), np.max(ScnV[Index3dB]), np.min(ScnV[Index3dB]), np.max(ScnV[Index6dB]), np.min(ScnV[Index6dB]))
+logfile.write(text_sd + '\n')
+logfile.close()
 #
+logfile = open(prefix + '-SPW' + `spw[0]` + '-QUerr.log', 'w')
+text_sd = 'Qerr Qerr3max Qerr6max Uerr Uerr3max Uerr6max Perr Perr3max Perr6max EVPAerr EVPAerr3max EVPAerr6max' 
+logfile.write(text_sd + '\n')
 #---- Plot Q err map
-plt.subplot(2, 2, 1, aspect=1); plt.contourf(xi, yi, 100.0*QEmap, np.linspace(-5.0, 5.0, 11)); plt.colorbar(); plt.title(prefix + ' Q_err')
+fig = plt.figure( figsize = (10,10))
+fig.text(0.45, 0.05, 'Az Offset [arcsec]')
+fig.text(0.05, 0.45, 'El Offset [arcsec]', rotation=90)
+fig.text(0.45, 0.95, prefix)
+plt.subplot(2, 2, 1, aspect=1); plt.contourf(xi, yi, 100.0*QEmap, np.linspace(-5.0, 5.0, 11)); plt.colorbar(); plt.title('Q_err')
 circle_x, circle_y = circlePoints(0, 0, FWHM/2); plt.plot( circle_x, circle_y )
 circle_x, circle_y = circlePoints(0, 0, FWHM/sqrt(2));   plt.plot( circle_x, circle_y )
 text_sd = 'Qerr at Center       = %4.1f %%' % ( 100.0* np.mean(Qerr[IndexCenter])); plt.text(-0.8*FWHM, -0.7*FWHM, text_sd, size='x-small')
 text_sd = 'Max Qerr (-3dB beam) = %4.1f %%' % ( 100.0* max(abs(Qerr[Index3dB])) ); plt.text(-0.8*FWHM, -0.8*FWHM, text_sd, size='x-small')
 text_sd = 'Max Qerr (-6dB beam) = %4.1f %%' % ( 100.0* max(abs(Qerr[Index6dB])) ); plt.text(-0.8*FWHM, -0.9*FWHM, text_sd, size='x-small')
 #----Plot U err map
-plt.subplot(2, 2, 2, aspect=1); plt.contourf(xi, yi, 100.0*UEmap, np.linspace(-5.0, 5.0, 11)); plt.colorbar(); plt.title(prefix + ' U_err')
+plt.subplot(2, 2, 2, aspect=1); plt.contourf(xi, yi, 100.0*UEmap, np.linspace(-5.0, 5.0, 11)); plt.colorbar(); plt.title('U_err')
 circle_x, circle_y = circlePoints(0, 0, FWHM/2); plt.plot( circle_x, circle_y )
 circle_x, circle_y = circlePoints(0, 0, FWHM/sqrt(2));   plt.plot( circle_x, circle_y )
 text_sd = 'Uerr at Center       = %4.1f %%' % ( 100.0* np.mean(Uerr[IndexCenter])); plt.text(-0.8*FWHM, -0.7*FWHM, text_sd, size='x-small')
 text_sd = 'Max Uerr (-3dB beam) = %4.1f %%' % ( 100.0* max(abs(Uerr[Index3dB])) ); plt.text(-0.8*FWHM, -0.8*FWHM, text_sd, size='x-small')
 text_sd = 'Max Uerr (-6dB beam) = %4.1f %%' % ( 100.0* max(abs(Uerr[Index6dB])) ); plt.text(-0.8*FWHM, -0.9*FWHM, text_sd, size='x-small')
 #----Plot P error
-plt.subplot( 2, 2, 3, aspect=1); plt.contourf(xi, yi, 100.0*PEmap, np.linspace(-5.0, 5.0, 11)); plt.colorbar(); plt.title(prefix + ' P_err')
+plt.subplot( 2, 2, 3, aspect=1); plt.contourf(xi, yi, 100.0*PEmap, np.linspace(-5.0, 5.0, 11)); plt.colorbar(); plt.title('P_err')
 circle_x, circle_y = circlePoints(0, 0, FWHM/2); plt.plot( circle_x, circle_y )
 circle_x, circle_y = circlePoints(0, 0, FWHM/sqrt(2));   plt.plot( circle_x, circle_y )
 text_sd = 'Perr at Center       = %4.1f %%' % ( 100.0* np.mean(Perr[IndexCenter])); plt.text(-0.8*FWHM, -0.75*FWHM, text_sd, size='x-small')
 text_sd = 'Max Perr (-3dB beam) = %4.1f %%' % ( 100.0* max(abs(Perr[Index3dB])) ); plt.text(-0.8*FWHM, -0.85*FWHM, text_sd, size='x-small')
 text_sd = 'Max Perr (-6dB beam) = %4.1f %%' % ( 100.0* max(abs(Perr[Index6dB])) ); plt.text(-0.8*FWHM, -0.95*FWHM, text_sd, size='x-small')
 #----Plot EVPA error
-plt.subplot( 2, 2, 4, aspect=1); plt.contourf(xi, yi, AEmap, np.linspace(-10, 10, 21)); plt.colorbar(); plt.title(prefix + ' EVPA_error')
+plt.subplot( 2, 2, 4, aspect=1); plt.contourf(xi, yi, AEmap, np.linspace(-5.0, 5.0, 11)); plt.colorbar(); plt.title('EVPA_error')
 circle_x, circle_y = circlePoints(0, 0, FWHM/2); plt.plot( circle_x, circle_y )
 circle_x, circle_y = circlePoints(0, 0, FWHM/sqrt(2));   plt.plot( circle_x, circle_y )
 text_sd = 'EVPAerr at Center       = %4.1f deg' % ( np.mean(Aerr[IndexCenter]) ); plt.text(-0.8*FWHM, -0.75*FWHM, text_sd, size='x-small')
@@ -432,17 +452,19 @@ text_sd = 'Max EVPAerr (-6dB beam) = %4.1f deg' % ( max(abs(Aerr[Index6dB])) ); 
 plt.axis([-FWHM, FWHM, -FWHM, FWHM])
 plt.savefig( prefix + '-StokesErr.pdf', form='pdf'); plt.close()
 plt.close()
-"""
+text_sd = '%8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f' % (np.mean(Qerr[IndexCenter]), max(abs(Qerr[Index3dB])), max(abs(Qerr[Index6dB])), np.mean(Uerr[IndexCenter]), max(abs(Uerr[Index3dB])), max(abs(Uerr[Index6dB])), np.mean(Perr[IndexCenter]), max(abs(Perr[Index3dB])), max(abs(Perr[Index6dB])), np.mean(Aerr[IndexCenter]), max(abs(Aerr[Index3dB])), max(abs(Aerr[Index6dB])))
+logfile.write(text_sd + '\n')
+logfile.close()
 #--------- Gridding for 11x11 sampling points
 az, el = readGrid(gridFile)
-logfile = open(prefix + '_StokesGrid.log', 'w')
+logfile = open(prefix + '-SPW' + `spw[0]` + '-StokesGrid.log', 'w')
 text_sd = 'No. dAz      dEl        I        Q        U         V'
 logfile.write(text_sd + '\n')
 xi, yi = np.mgrid[ min(az):max(az):11j, max(el):min(el):11j]
-Imap = GridData( ScnI, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
-Qmap = GridData( ScnQ, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
-Umap = GridData( ScnU, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
-Vmap = GridData( ScnV, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), 5 ).reshape(len(xi), len(xi))
+Imap = GridData( ScnI, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM/16).reshape(len(xi), len(xi))
+Qmap = GridData( ScnQ, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM/16).reshape(len(xi), len(xi))
+Umap = GridData( ScnU, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM/16).reshape(len(xi), len(xi))
+Vmap = GridData( ScnV, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM/16).reshape(len(xi), len(xi))
 for x_index in range(11):
     for y_index in range(11):
         text_sd = '%d %f %f %f %f %f %f' % (x_index*11 + y_index + 1, xi[x_index, y_index], yi[x_index, y_index], Imap[x_index, y_index], Qmap[x_index, y_index], Umap[x_index, y_index], Vmap[x_index, y_index])
@@ -450,4 +472,3 @@ for x_index in range(11):
     #
 #
 logfile.close()
-"""

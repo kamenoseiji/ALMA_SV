@@ -4,18 +4,20 @@ from scipy.interpolate import UnivariateSpline
 from scipy.interpolate import griddata
 ALMA_lat = -23.029/180.0*pi     # ALMA AOS Latitude
 #-------- Read (dAz, dEl) offsets from MS file and return them
-def antRefScan( msfile ):
+def antRefScan( msfile, timeRange ):
     antList = GetAntName(msfile)
     antNum = len(antList)
     scanRange = np.zeros(antNum)
     Time, AntID, Offset = GetAzOffset(msfile)
     for ant_index in range(antNum):
-        time_index = np.where( AntID == ant_index )[0]
+        time_index = np.where( (AntID == ant_index) )[0]
+        time_index = time_index[np.where( (Time[time_index] >= timeRange[0]))[0]]
+        time_index = time_index[np.where( (Time[time_index] <= timeRange[1]))[0]]
         scanRange[ant_index] = max( Offset[0, time_index] ) - min( Offset[0, time_index] )
     #
-    refAntIndex  = np.where( scanRange == 0.0 )[0]
+    trkAntIndex  = np.where( scanRange == 0.0 )[0]
     scanAntIndex = np.where( scanRange >  0.0 )[0]
-    return refAntIndex.tolist(), scanAntIndex.tolist()
+    return trkAntIndex.tolist(), scanAntIndex.tolist()
 #
 #-------- Scanning Offset < threshold
 def scanThresh( msfile, ant_index, thresh ):
@@ -43,6 +45,8 @@ PA     = []
 #
 for file_index in range(fileNum):
     msfile = wd + prefix[file_index] + '.ms'
+    #-------- Time Range
+    interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[file_index], scan[file_index])
     #-------- Antenna List
     antList = GetAntName(msfile)
     if refantName not in antList:
@@ -50,18 +54,20 @@ for file_index in range(fileNum):
         sys.exit()
     #
     refant_index = np.where( antList == refantName )[0][0]
-    #-------- FWHM of the refant
+    #-------- FWHM of the trkant
     antD = 12.0
     if refantName.find('C') > -1: 
         antD = 7.0
     #
     FWHM = GetFWHM(msfile, spw[0], antD)
     print('Checking the Array ....')
-    #-------- Reference and Scan Antennas
-    refAnt, scanAnt = antRefScan(msfile)
-    print('-------- Reference Antennas ----')
-    for ant_index in refAnt:
-        text_sd = 'Ref[%d]  / %d: %s ' % (ant_index, len(refAnt), antList[ant_index])
+    #-------- Tracking and Scanning Antennas
+    if len(trkAnt) == 0:
+        trkAnt, scanAnt = antRefScan(msfile, [min(timeStamp), max(timeStamp)])
+    #
+    print('-------- Tracking Antennas ----')
+    for ant_index in trkAnt:
+        text_sd = 'Ref[%d]  / %d: %s ' % (ant_index, len(trkAnt), antList[ant_index])
         print text_sd
     #
     if len(scanAnt) > 0 :
@@ -72,11 +78,11 @@ for file_index in range(fileNum):
         #
     #
     scanTime, AntID, az, el = GetAzEl(msfile)
-    if refant_index in refAnt:
+    if refant_index in trkAnt:
         print( refantName + ' is a referencing antenna')
-        index = np.where( AntID == refAnt[0]); scanTime = scanTime[index]; az = az[index]; el = el[index]
-        AntIndex = refAnt
-        antNum = len(refAnt)
+        index = np.where( AntID == trkAnt[0]); scanTime = scanTime[index]; az = az[index]; el = el[index]
+        AntIndex = trkAnt
+        antNum = len(trkAnt)
     if refant_index in scanAnt:
         print( refantName + ' is a scanning antenna')
         index = scanThresh( msfile, 0, FWHM/20); scanTime = scanTime[index]; az = az[index]; el = el[index]
@@ -87,7 +93,7 @@ for file_index in range(fileNum):
     antList = antList[AntIndex]
     antWeight = np.ones(antNum)
     #-------- Visibility sampling points
-    interval, timeStamp = GetTimerecord(msfile, 0, refAnt[0], refAnt[0], spw[0], scan[0])
+    interval, timeStamp = GetTimerecord(msfile, 0, trkAnt[0], trkAnt[0], spw[file_index], scan[file_index])
     timeNum = len(timeStamp)
     ScanAz = np.zeros([timeNum]); ScanEl = np.zeros([timeNum]); ScanPA = np.zeros([timeNum])
     #-------- Time index at on axis
@@ -108,17 +114,16 @@ for file_index in range(fileNum):
         blMap[bl_index], blInv[bl_index] = Ant2BlD( AntIndex[ants[0]], AntIndex[ants[1]])
     #
     #-------- Cross products (XX, YY, XY, YX)
-    spw_index = 0
-    chNum, chWid, Freq = GetChNum(msfile, spw[spw_index])
+    chNum, chWid, Freq = GetChNum(msfile, spw[file_index])
     if chNum > 1:
         chRange = range( int(0.05*chNum), int(0.95*chNum))
     #
     print '--- Loading visibilities from MS'
-    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], scan[0])  # Xspec[POL, CH, BL, TIME]
+    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[file_index], scan[file_index])  # Xspec[POL, CH, BL, TIME]
     if chNum == 1:
         temp = Xspec[:,0]
     else:
-        temp = np.mean(Xspec[:,chRange])
+        temp = np.mean(Xspec[:,chRange], axis=1)
     #
     if file_index == 0:
         XX = temp[0, blMap]
@@ -159,7 +164,9 @@ plt.plot(PArange, -np.sin(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.
 plt.xlabel('PA [rad]'); plt.ylabel('XY, YX (real and imaginary)')
 plt.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
 text_sd = 'Q/I = %6.3f   U/I = %6.3f   XY_phase = %6.3f rad (RefAnt : %s)' % (solution[0], solution[1], solution[2], antList[0]); plt.text(min(PA), min(VisXY.real), text_sd, size='x-small')
+plt.savefig(prefix[0] + '-SPW' + `spw[0]` + '-' + refantName + 'QUXY.pdf', form='pdf')
 #-------- Save Results
-np.save(prefix[0] + '.Ant.npy', antList)
-np.save(prefix[0] + '.Azel.npy', np.array([mjdSec, Az, El, PA]))
-np.save(prefix[0] + '.QUXY.npy', solution )
+np.save(prefix[0] + '-SPW' + `spw[0]` + '-' + refantName + '.Ant.npy', antList)
+np.save(prefix[0] + '-SPW' + `spw[0]` + '-' + refantName + '.Azel.npy', np.array([mjdSec, Az, El, PA]))
+np.save(prefix[0] + '-SPW' + `spw[0]` + '-' + refantName + '.QUXY.npy', solution )
+plt.close('all')
