@@ -104,7 +104,7 @@ for file_index in range(fileNum):
     onAxisIndex = np.where( matchNum > 0 )[0].tolist()
     for time_index in onAxisIndex:
         ScanAz[time_index], ScanEl[time_index] = AzElMatch( timeStamp[time_index], scanTime, np.median(interval), az, el)
-        ScanPA[time_index] = AzEl2PA(ScanAz[time_index], ScanEl[time_index], ALMA_lat)
+        ScanPA[time_index] = AzEl2PA(ScanAz[time_index], ScanEl[time_index], ALMA_lat) + BANDPA
     #
     #-- baseline-based weights
     blMap = range(blNum)

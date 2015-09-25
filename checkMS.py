@@ -32,16 +32,18 @@ for file_index in range(msNum):
     #
     #-------- Reference and Scan Antennas
     refAnt, scanAnt = antRefScan(msfile)
-    print '-------- Reference Antennas ----'
+    print '-------- Reference Antennas (' + `len(refAnt)` + ')----'
     for ant_index in refAnt:
         sd_text = ' %02d %s' % (ant_index, antList[ant_index]); print sd_text
     #
-    print '-------- Scanning Antennas ----'
+    print '-------- Scanning Antennas (' + `len(scanAnt)` + ')----'
     for ant_index in scanAnt:
         sd_text = ' %02d %s' % (ant_index, antList[ant_index]); print sd_text
     #
     #-------- AZEL
     Time, AntID, Az, El = GetAzEl(msfile)
+    text_sd = 'Az %5.1f - %5.1f  El %5.1f - %5.1f' % (np.min(Az)*RADDEG, np.max(Az)*RADDEG, np.min(El)*RADDEG, np.max(El)*RADDEG)
+    print text_sd
     AzElfig = plt.figure(figsize = (8,11))
     AzElfig.text(0.45, 0.95, prefix[file_index])
     for ant_index in range(antNum):

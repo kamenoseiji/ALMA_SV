@@ -261,7 +261,7 @@ TrkV = np.mean( StokesVis[:,:,3], axis=(0,1) ).real
 text_sd = 'TrkMeas / Model: I=%6.4f / %6.4f  Q=%6.4f / %6.4f U=%6.4f / %6.4f V=%6.4f / %6.4f' % (TrkI, 1.0, TrkQ, CalQ, TrkU, CalU, TrkV, 0.0); print text_sd
 UCmQS = TrkU* np.cos(2.0*PA) - TrkQ* np.sin(2.0*PA)   # U cos - Q sin
 QCpUS = TrkQ* np.cos(2.0*PA) + TrkU* np.sin(2.0*PA)   # Q cos + U sin
-logfile = open(prefix + '-SPW' + `spw[0]` + '-Stokes.log', 'w')
+logfile = open(prefix + '-SPW' + `spw[0]` + '-trkStokes.log', 'w')
 text_sd = 'I Q U V'; logfile.write(text_sd + '\n')
 text_sd = '%8.6f %8.6f %8.6f %8.6f' % (TrkI, TrkQ, TrkU, TrkV); logfile.write(text_sd + '\n')
 logfile.close()
