@@ -513,7 +513,6 @@ def Vis2solveDD(Vis, PS ):
             ModelVis = np.dot(MullerMatrix(Dx[ants[1]], Dy[ants[1]], Dx[ants[0]], Dy[ants[0]]), PS)
             residVis[stokesReIndex] = Vis[stokesReIndex].real  - ModelVis.real
             residVis[stokesImIndex] = Vis[stokesReIndex].imag  - ModelVis.imag
-            # print '%d : %f %f %f %f' % (bl_index, residVis[stokesIndex[0]], residVis[stokesIndex[1]], residVis[stokesIndex[2]], residVis[stokesIndex[3]])
             #-------- Derivative by  ReDx0
             DeltaP = 100.0*(np.dot(MullerMatrix(Dx[ants[1]] + 0.01, Dy[ants[1]], Dx[ants[0]], Dy[ants[0]]), PS) - ModelVis)
             P[stokesReIndex, ants[1]] += DeltaP.real
@@ -547,10 +546,14 @@ def Vis2solveDD(Vis, PS ):
             P[stokesReIndex, 3*antNum + ants[0]] += DeltaP.real
             P[stokesImIndex, 3*antNum + ants[0]] += DeltaP.imag
         #
+        P = P[:, range(3*antNum) + range(3*antNum + 1, 4*antNum)]
         PTWP = np.dot(P.T, np.dot(W, P))
         D_vec = np.dot( scipy.linalg.inv( PTWP ), np.dot(P.T, np.dot(W, residVis)))
+        # print 'Iter%d : %e %e' % (loop_index, np.dot(residVis, residVis), np.dot(D_vec, D_vec))
+        # Dx += D_vec[0:antNum] + 1.0j* D_vec[antNum:(2*antNum)]
+        # Dy += D_vec[(2*antNum):(3*antNum)] + 1.0j* D_vec[(3*antNum):(4*antNum)]
         Dx += D_vec[0:antNum] + 1.0j* D_vec[antNum:(2*antNum)]
-        Dy += D_vec[(2*antNum):(3*antNum)] + 1.0j* D_vec[(3*antNum):(4*antNum)]
+        Dy += D_vec[(2*antNum):(3*antNum)] + 1.0j* np.r_[0, D_vec[(3*antNum):(4*antNum-1)]]
     #
     return Dx, Dy
 #
@@ -1125,6 +1128,7 @@ def XY2Stokes(PA, VisXY, VisYX):
     cosPA2 = np.cos(2.0*PA)
     P = np.zeros([7, 4* timeNum])       # 7 parameters to solve, 4 (ReXY, ImXY, ReYX, ImYX) * timeNum measurements
     solution = np.array([0.1, 0.1, np.angle( np.mean(VisXY[1])), 0.0, 0.0, 0.0, 0.0])   # Initial parameters : StokesQ, StokesU, XYphase, Re(Dx+Dy*), Im(Dx+Dy*)
+    W = np.diag(4.0* np.ones([4* timeNum])/ np.var(VisXY.imag + VisYX.imag))
     #-------- Iteration loop
     for index in range(10):
         sinPhi = np.sin(solution[2])
@@ -1143,10 +1147,10 @@ def XY2Stokes(PA, VisXY, VisYX):
         P[4] = np.r_[np.zeros([timeNum]), np.ones([timeNum]),  np.zeros([timeNum]), np.zeros([timeNum])]
         P[5] = np.r_[np.zeros([timeNum]), np.zeros([timeNum]), np.ones([timeNum]),  np.zeros([timeNum])]
         P[6] = np.r_[np.zeros([timeNum]), np.zeros([timeNum]), np.zeros([timeNum]), np.ones([timeNum])]
-        PTP_inv = scipy.linalg.inv(np.dot(P, P.T))
+        PTWP_inv = scipy.linalg.inv(np.dot(P, np.dot(W, P.T)))
         vecVis = np.r_[ VisXY.real, VisXY.imag, VisYX.real, VisYX.imag ]
         residual = vecVis - modelVis
-        correction = np.dot( PTP_inv, np.dot (P, residual))
+        correction = np.dot( PTWP_inv, np.dot (P, np.dot(W, residual)))
         # print 'Iteration %d : correction = %e' % (index, np.dot(correction,correction))
         solution   = solution + correction
         if np.dot(correction,correction) < 1.0e-15:
@@ -1154,7 +1158,7 @@ def XY2Stokes(PA, VisXY, VisYX):
         #
     #
     solution[2] = np.arctan2( np.sin(solution[2]), np.cos(solution[2]) )    # Remove 2pi ambiguity
-    return(solution)
+    return(solution, np.sqrt(np.diag(PTWP_inv)))
 #
 #-------- GridPoint
 def GridPoint( value, samp_x, samp_y, point_x, point_y, kernel ):

@@ -35,22 +35,23 @@ for spw_index in range(spwNum):
     chRange = range(int(round(chNum/chBunch * 0.05)), int(round(chNum/chBunch * 0.95)))
     #------- Load Cross-power spectrum
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], BPscan)   # Xspec[pol, ch, bl, time]
-    Xspec = Xspec[pol]; Xspec = Xspec[:,:,blMap]                            # select polarization and BL
+    XPspec = np.mean(Xspec, axis=3)[ppol][:,:,blMap]                         # Time Average and Select Pol
+    XCspec = np.mean(Xspec, axis=3)[cpol][:,:,blMap]                         # Time Average and Select Pol
     #-------- Baseline-based cross power spectra
-    Ximag = Xspec.transpose(0,1,3,2).imag * (-2.0* np.array(blInv) + 1.0)   # Complex conjugate for
-    Xspec.imag = Ximag.transpose(0,1,3,2)                                   # inversed baselines
-    tempVis = np.mean(Xspec, axis=3)                                        # tempVis[pol, ch, bl] (time-averaged)
+    Ximag = XPspec.imag * (-2.0* np.array(blInv) + 1.0)   # Complex conjugate for
+    XPspec.imag = Ximag                                   # inversed baselines
+    XYreal = XCspec[0].real* (1.0 - np.array(blInv)) + XCspec[1].real* np.array(blInv)  # Complex conjugate and swap(XY, YX)
+    YXreal = XCspec[1].real* (1.0 - np.array(blInv)) + XCspec[0].real* np.array(blInv)  # for inverted baselines
+    XYimag = XCspec[0].imag* (1.0 - np.array(blInv)) - XCspec[1].imag* np.array(blInv)  #
+    YXimag = XCspec[1].imag* (1.0 - np.array(blInv)) - XCspec[0].imag* np.array(blInv)  #
+    XCspec[0] = XYreal + 1.0j* XYimag
+    XCspec[1] = YXreal + 1.0j* YXimag
     #-------- Antenna-based bandpass spectra
     for pol_index in range(polNum):
-        #-------- Delay Determination and calibration
-        if DELAYCAL :
-            Delay_ant[:, spw_index, pol_index], delayCalXspec = delayCalSpec(tempVis[pol_index].T, chRange )
-        else :
-            delayCalXspec = tempVis[pol_index].T
-        #
         #-------- Solution (BL -> Ant)
-        BP_ant[:,spw_index, pol_index] = np.apply_along_axis(gainComplex, 0, delayCalXspec)
+        BP_ant[:,spw_index, pol_index] = np.apply_along_axis(gainComplex, 0, XPspec[pol_index].T)
     #
+    #-------- BP Cal for cross-pol
 #
 if plotMax == 0.0:
     plotMax = 1.5* np.median(abs(BP_ant))

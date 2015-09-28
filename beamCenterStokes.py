@@ -59,7 +59,7 @@ for file_index in range(fileNum):
     if refantName.find('C') > -1: 
         antD = 7.0
     #
-    FWHM = GetFWHM(msfile, spw[0], antD)
+    FWHM = GetFWHM(msfile, spw[file_index], antD)
     print('Checking the Array ....')
     #-------- Tracking and Scanning Antennas
     if len(trkAnt) == 0:
@@ -104,7 +104,7 @@ for file_index in range(fileNum):
     onAxisIndex = np.where( matchNum > 0 )[0].tolist()
     for time_index in onAxisIndex:
         ScanAz[time_index], ScanEl[time_index] = AzElMatch( timeStamp[time_index], scanTime, np.median(interval), az, el)
-        ScanPA[time_index] = AzEl2PA(ScanAz[time_index], ScanEl[time_index], ALMA_lat) + BANDPA
+        ScanPA[time_index] = AzEl2PA(ScanAz[time_index], ScanEl[time_index], ALMA_lat) - BANDPA
     #
     #-- baseline-based weights
     blMap = range(blNum)
@@ -142,15 +142,16 @@ for file_index in range(fileNum):
     PA     = np.append(PA, ScanPA[onAxisIndex])
 #
 solution = np.zeros([7])
-for iter_index in range(5):
+for iter_index in range(3):
     print '---- Iteration ' + `iter_index` + ' for Stokes (Q, U) and Gain ----'
     GainX, GainY = polariGain(XX, YY, PA, solution[0], solution[1])
     VisXX = np.mean(gainCalVis( XX, GainX, GainX ), axis = 0)
     VisYY = np.mean(gainCalVis( YY, GainY, GainY ), axis = 0)
     VisXY = np.mean(gainCalVis( XY, GainX, GainY ), axis = 0)
     VisYX = np.mean(gainCalVis( YX, GainY, GainX ), axis = 0)
-    solution = XY2Stokes(PA, VisXY, VisYX)
-    print `solution`
+    solution, solerr = XY2Stokes(PA, VisXY, VisYX)
+    text_sd = 'Q/I= %6.3f+-%6.4f  U/I= %6.3f+-%6.4f  XYphase= %6.3f+-%6.4f rad EVPA = %6.2f deg' % (solution[0], solerr[0], solution[1], solerr[1], solution[2], solerr[2], np.arctan(solution[1]/solution[0])*90.0/pi)
+    print text_sd
 #
 plt.plot(PA, VisXY.real, '.', label = 'ReXY', color='cyan')
 plt.plot(PA, VisXY.imag, '.', label = 'ImXY', color='darkblue')
@@ -163,7 +164,7 @@ plt.plot(PArange,  np.cos(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.
 plt.plot(PArange, -np.sin(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[6], '-', color='darkred')
 plt.xlabel('PA [rad]'); plt.ylabel('XY, YX (real and imaginary)')
 plt.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
-text_sd = 'Q/I = %6.3f   U/I = %6.3f   XY_phase = %6.3f rad (RefAnt : %s)' % (solution[0], solution[1], solution[2], antList[0]); plt.text(min(PA), min(VisXY.real), text_sd, size='x-small')
+text_sd = 'Q/I=%6.3f+-%6.3f U/I=%6.3f+-%6.3f XYphase=%6.3f+-%6.3f rad (RefAnt:%s)' % (solution[0], solerr[0], solution[1], solerr[1], solution[2], solerr[2], antList[0]); plt.text(min(PA), min(VisXY.real), text_sd, size='x-small')
 plt.savefig(prefix[0] + '-SPW' + `spw[0]` + '-' + refantName + 'QUXY.pdf', form='pdf')
 #-------- Save Results
 np.save(prefix[0] + '-SPW' + `spw[0]` + '-' + refantName + '.Ant.npy', antList)

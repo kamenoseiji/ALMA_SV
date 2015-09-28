@@ -213,7 +213,7 @@ for time_index in range(timeNum):
 azel = np.r_[az[index], el[index]].reshape(2, len(index))
 for time_index in range(timeNum):
     AZ[time_index], EL[time_index] = AzElMatch( timeStamp[time_index], scanTime[index], np.median(diff(timeStamp)), azel)
-    PA[time_index] = AzEl2PA(AZ[time_index], EL[time_index], ALMA_lat)    #
+    PA[time_index] = AzEl2PA(AZ[time_index], EL[time_index], ALMA_lat) - BANDPA   #
 #
 UCmQS = solution[1]* np.cos(2.0*PA) - solution[0]* np.sin(2.0*PA)   # U cos - Q sin
 QCpUS = solution[0]* np.cos(2.0*PA) + solution[1]* np.sin(2.0*PA)   # Q cos + U sin
@@ -233,13 +233,23 @@ logfile.write(text_sd + '\n')
 print('-------- Determining Antenna-based D-terms (refants) ----')
 Dx = np.zeros([antNum, timeNum], dtype=complex)
 Dy = np.zeros([antNum, timeNum], dtype=complex)
-PS = np.dot(PAMatrix(np.mean(PA)), np.array([1.0, solution[0], solution[1], 0.0])).real
-VisTime = np.r_[ np.mean(VisXX[trkBlIndex], axis=1), np.mean(VisXY[trkBlIndex], axis=1), np.mean(VisYX[trkBlIndex], axis=1), np.mean(VisYY[trkBlIndex], axis=1)]
-TrkDx, TrkDy = Vis2solveDD( VisTime, PS )
+# segmentation of PA
+PAwidth = 0.005
+PAsegNum = int((max(PA) - min(PA))/PAwidth)
+for seg_index in range(PAsegNum):
+    timeIndexRange = range( (seg_index* timeNum/PAsegNum), ((seg_index + 1)* timeNum/PAsegNum) )
+    PS = np.dot(PAMatrix(np.mean(PA[timeIndexRange])), np.array([1.0, solution[0], solution[1], 0.0])).real
+    VisTime = np.r_[np.mean(VisXX[trkBlIndex][:,timeIndexRange], axis=1), np.mean(VisXY[trkBlIndex][:,timeIndexRange], axis=1), np.mean(VisYX[trkBlIndex][:,timeIndexRange], axis=1), np.mean(VisYY[trkBlIndex][:,timeIndexRange], axis=1)]
+    TrkDx, TrkDy = Vis2solveDD( VisTime, PS )
+    for time_index in timeIndexRange:
+        Dx[range(trkAntNum), time_index] = TrkDx
+        Dy[range(trkAntNum), time_index] = TrkDy
+    #
+#
 for ant_index in range(trkAntNum):
-    Dx[ant_index] = TrkDx[ant_index]
-    Dy[ant_index] = TrkDy[ant_index]
-    text_sd = '%s %8.6f %8.6f %8.6f %8.6f' % (antList[trkAnt[ant_index]], TrkDx[ant_index].real, TrkDx[ant_index].imag, TrkDy[ant_index].real, TrkDy[ant_index].imag)
+    Dx[ant_index] = np.mean(Dx[ant_index])
+    Dy[ant_index] = np.mean(Dy[ant_index])
+    text_sd = '%s %8.6f %8.6f %8.6f %8.6f' % (antList[trkAnt[ant_index]], np.mean(Dx[ant_index].real), np.mean(Dx[ant_index].imag), np.mean(Dy[ant_index].real), np.mean(Dy[ant_index].imag))
     logfile.write(text_sd + '\n')
 #
 logfile.close()
@@ -407,7 +417,7 @@ text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( np.max(ScnV[Index3dB]), np.min(Sc
 text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(ScnV[Index6dB]), np.min(ScnV[Index6dB]) ); plt.text(-0.8*FWHM, -0.95*FWHM, text_sd, size='x-small')
 #
 plt.axis([-FWHM, FWHM, -FWHM, FWHM])
-plt.savefig( prefix + '-StokesMap.pdf', form='pdf'); plt.close()
+plt.savefig( prefix + '-SPW' + `spw[0]` + '-StokesMap.pdf', form='pdf'); plt.close()
 plt.close()
 text_sd = '%8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f ' % (np.mean(ScnI[IndexCenter]), np.max(ScnI[Index3dB]), np.min(ScnI[Index3dB]), np.max(ScnI[Index6dB]), np.min(ScnI[Index6dB]), np.mean(ScnQ[IndexCenter]), np.max(ScnQ[Index3dB]), np.min(ScnQ[Index3dB]), np.max(ScnQ[Index6dB]), np.min(ScnQ[Index6dB]), np.mean(ScnU[IndexCenter]), np.max(ScnU[Index3dB]), np.min(ScnU[Index3dB]), np.max(ScnU[Index6dB]), np.min(ScnU[Index6dB]), np.mean(ScnV[IndexCenter]), np.max(ScnV[Index3dB]), np.min(ScnV[Index3dB]), np.max(ScnV[Index6dB]), np.min(ScnV[Index6dB]))
 logfile.write(text_sd + '\n')
@@ -450,7 +460,7 @@ text_sd = 'Max EVPAerr (-3dB beam) = %4.1f deg' % ( max(abs(Aerr[Index3dB])) ); 
 text_sd = 'Max EVPAerr (-6dB beam) = %4.1f deg' % ( max(abs(Aerr[Index6dB])) ); plt.text(-0.8*FWHM, -0.95*FWHM, text_sd, size='x-small')
 #
 plt.axis([-FWHM, FWHM, -FWHM, FWHM])
-plt.savefig( prefix + '-StokesErr.pdf', form='pdf'); plt.close()
+plt.savefig( prefix + '-SPW' + `spw[0]` + '-StokesErr.pdf', form='pdf'); plt.close()
 plt.close()
 text_sd = '%8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f' % (np.mean(Qerr[IndexCenter]), max(abs(Qerr[Index3dB])), max(abs(Qerr[Index6dB])), np.mean(Uerr[IndexCenter]), max(abs(Uerr[Index3dB])), max(abs(Uerr[Index6dB])), np.mean(Perr[IndexCenter]), max(abs(Perr[Index3dB])), max(abs(Perr[Index6dB])), np.mean(Aerr[IndexCenter]), max(abs(Aerr[Index3dB])), max(abs(Aerr[Index6dB])))
 logfile.write(text_sd + '\n')
