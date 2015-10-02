@@ -9,7 +9,8 @@ execfile(SCR_DIR + 'interferometry.py')
 antNum = len(refant)
 blNum = antNum* (antNum - 1) / 2 
 spwNum  = len(spw)
-polNum  = len(pol)
+ppolNum  = len(ppol)
+cpolNum  = len(cpol)
 #
 #-------- Procedures
 msfile = wd + prefix + '.ms'
@@ -21,13 +22,16 @@ for bl_index in range(blNum):
 	blMap[bl_index], blInv[bl_index]  = Ant2BlD(refant[ants[0]], refant[ants[1]])
 #
 #-------- Procedures
-interval, timeStamp = GetTimerecord(msfile, 0, 0, pol[0], spw[0], BPscan)
+interval, timeStamp = GetTimerecord(msfile, 0, 0, ppol[0], spw[0], BPscan)
 timeNum = len(timeStamp)
 #
 #-------- Prepare BP and Delay to store
 chNum, chWid, Freq = GetChNum(msfile, spw[0])
-BP_ant    = np.ones([antNum, spwNum, polNum, chNum], dtype=complex)
-Delay_ant = np.zeros([antNum, spwNum, polNum])
+BP_ant    = np.ones([antNum, spwNum, ppolNum, chNum], dtype=complex)
+Delay_ant = np.zeros([antNum, spwNum, (ppolNum + cpolNum)])
+XYdelay = np.zeros(spwNum)
+BPXY = np.ones([chNum, blNum], dtype=complex)
+BPYX = np.ones([chNum, blNum], dtype=complex)
 #-------- Loop for SPW
 for spw_index in range(spwNum):
     print ' Loading SPW = ' + `spw[spw_index]`
@@ -35,29 +39,53 @@ for spw_index in range(spwNum):
     chRange = range(int(round(chNum/chBunch * 0.05)), int(round(chNum/chBunch * 0.95)))
     #------- Load Cross-power spectrum
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], BPscan)   # Xspec[pol, ch, bl, time]
-    XPspec = np.mean(Xspec, axis=3)[ppol][:,:,blMap]                         # Time Average and Select Pol
-    XCspec = np.mean(Xspec, axis=3)[cpol][:,:,blMap]                         # Time Average and Select Pol
-    #-------- Baseline-based cross power spectra
-    Ximag = XPspec.imag * (-2.0* np.array(blInv) + 1.0)   # Complex conjugate for
-    XPspec.imag = Ximag                                   # inversed baselines
-    XYreal = XCspec[0].real* (1.0 - np.array(blInv)) + XCspec[1].real* np.array(blInv)  # Complex conjugate and swap(XY, YX)
-    YXreal = XCspec[1].real* (1.0 - np.array(blInv)) + XCspec[0].real* np.array(blInv)  # for inverted baselines
-    XYimag = XCspec[0].imag* (1.0 - np.array(blInv)) - XCspec[1].imag* np.array(blInv)  #
-    YXimag = XCspec[1].imag* (1.0 - np.array(blInv)) - XCspec[0].imag* np.array(blInv)  #
-    XCspec[0] = XYreal + 1.0j* XYimag
-    XCspec[1] = YXreal + 1.0j* YXimag
+    Xspec = Xspec[:,:,blMap]
+    Ximag = Xspec.transpose(0,1,3,2).imag* (-2.0* np.array(blInv) + 1.0)
+    Xreal = Xspec.transpose(0,1,3,2).real
+    Xspec[0].imag = Ximag[0].transpose(0,2,1)
+    Xspec[1].real = (Xreal[1]*(1.0 - np.array(blInv)) + Xreal[2]* np.array(blInv)).transpose(0,2,1)
+    Xspec[1].imag = (Ximag[1]*(1.0 - np.array(blInv)) + Ximag[2]* np.array(blInv)).transpose(0,2,1)
+    Xspec[2].real = (Xreal[2]*(1.0 - np.array(blInv)) + Xreal[1]* np.array(blInv)).transpose(0,2,1)
+    Xspec[2].imag = (Ximag[2]*(1.0 - np.array(blInv)) + Ximag[1]* np.array(blInv)).transpose(0,2,1)
+    Xspec[3].imag = Ximag[3].transpose(0,2,1)
+    chAvgXX = np.mean(Xspec[0,chRange], axis=0 )
+    chAvgYY = np.mean(Xspec[3,chRange], axis=0 )
+    #-------- Antenna-based Gain Cal
+    GainX = np.apply_along_axis( gainComplex, 0, chAvgXX)
+    GainY = np.apply_along_axis( gainComplex, 0, chAvgYY)
+    for ch_index in range(chNum):
+        Xspec[0, ch_index] = gainCalVis( Xspec[0,ch_index], GainX, GainX)
+        Xspec[1, ch_index] = gainCalVis( Xspec[1,ch_index], GainX, GainY)
+        Xspec[2, ch_index] = gainCalVis( Xspec[2,ch_index], GainY, GainX)
+        Xspec[3, ch_index] = gainCalVis( Xspec[3,ch_index], GainY, GainY)
+    #
+    #-------- Time Average
+    XPspec = np.mean(Xspec, axis=3)[ppol]                         # Time Average and Select Pol
+    XCspec = np.mean(Xspec, axis=3)[cpol]                         # Time Average and Select Pol
     #-------- Antenna-based bandpass spectra
-    for pol_index in range(polNum):
+    for pol_index in range(ppolNum):
         #-------- Solution (BL -> Ant)
         BP_ant[:,spw_index, pol_index] = np.apply_along_axis(gainComplex, 0, XPspec[pol_index].T)
     #
-    #-------- BP Cal for cross-pol
+    #-------- Bandpass Correction for Cross-pol
+    for bl_index in range(blNum):
+        ants = Bl2Ant(bl_index)
+        BPXY[:,bl_index] = BP_ant[ants[0], spw_index, 0]* BP_ant[ants[1], spw_index, 1].conjugate()
+        BPYX[:,bl_index] = BP_ant[ants[0], spw_index, 1]* BP_ant[ants[1], spw_index, 0].conjugate()
+    #
+    XC = np.mean( (XCspec[0] / BPXY), axis=1 ) + np.mean( (XCspec[1] / BPYX), axis=1 ).conjugate()
+    XYdelay[spw_index], amp = delay_search( XC[chRange] )
 #
+XYdelay *= (float(chNum) / float(len(chRange)))
+print 'XY delay [sample] = ' + `XYdelay`
 if plotMax == 0.0:
     plotMax = 1.5* np.median(abs(BP_ant))
 #
 #-------- Save CalTables
-np.save(prefix + '.BPant.npy', BP_ant) 
+for spw_index in range(spwNum):
+    np.save(prefix + '-SPW' + `spw[spw_index]` + '-BPant.npy', BP_ant[:,spw_index]) 
+    np.save(prefix + '-SPW' + `spw[spw_index]` + '-XYdelay.npy', XYdelay[spw_index]) 
+#
 np.save(prefix + '.Ant.npy', antList) 
 #-------- Plots
 if BPPLOT:
@@ -75,14 +103,14 @@ if BPPLOT:
             chNum, chWid, Freq = GetChNum(msfile, spw[spw_index]); Freq = 1.0e-9* Freq  # GHz
             BPampPL = figAnt.add_subplot( 2, spwNum, spw_index + 1 )
             BPphsPL = figAnt.add_subplot( 2, spwNum, spw_index + spwNum + 1 )
-            for pol_index in range(polNum):
+            for pol_index in range(ppolNum):
                 plotBP = BP_ant[ant_index, spw_index, pol_index]
-                BPampPL.plot( Freq, abs(plotBP), ls='steps-mid', label = 'Pol=' + polName[pol_index])
+                BPampPL.plot( Freq, abs(plotBP), ls='steps-mid', label = 'Pol=' + polName[ppol[pol_index]])
                 BPampPL.axis([np.min(Freq), np.max(Freq), 0.0, 1.25* plotMax])
                 BPampPL.yaxis.set_major_formatter(ptick.ScalarFormatter(useMathText=True))
                 BPampPL.yaxis.offsetText.set_fontsize(10)
                 BPampPL.ticklabel_format(style='sci',axis='y',scilimits=(0,0))
-                BPphsPL.plot( Freq, np.angle(plotBP), '.', label = 'Pol=' + polName[pol_index])
+                BPphsPL.plot( Freq, np.angle(plotBP), '.', label = 'Pol=' + polName[ppol[pol_index]])
                 BPphsPL.axis([np.min(Freq), np.max(Freq), -math.pi, math.pi])
             #
             BPampPL.legend(loc = 'lower left', prop={'size' :7}, numpoints = 1)

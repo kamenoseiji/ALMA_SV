@@ -45,6 +45,8 @@ PA     = []
 #
 for file_index in range(fileNum):
     msfile = wd + prefix[file_index] + '.ms'
+    BP_ant = np.load(wd + prefix[file_index] + '-SPW' + `spw[file_index]` + '-BPant.npy')
+    XYdelay = np.load(wd + prefix[file_index] + '-SPW' + `spw[file_index]` + '-XYdelay.npy')
     #-------- Time Range
     interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[file_index], scan[file_index])
     #-------- Antenna List
@@ -123,6 +125,16 @@ for file_index in range(fileNum):
     if chNum == 1:
         temp = Xspec[:,0]
     else:
+        for bl_index in range(blNum):
+            ants = Bl2Ant(bl_index)
+            Xspec[0, :, bl_index] = (Xspec[0, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 0].conjugate()* BP_ant[ants[0], 0])).transpose(1,0)    # XX
+            Xspec[1, :, bl_index] = (Xspec[1, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 0].conjugate()* BP_ant[ants[0], 1])).transpose(1,0)    # XY
+            Xspec[2, :, bl_index] = (Xspec[2, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 1].conjugate()* BP_ant[ants[0], 0])).transpose(1,0)    # YX
+            Xspec[3, :, bl_index] = (Xspec[3, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 1].conjugate()* BP_ant[ants[0], 1])).transpose(1,0)    # YY
+        #
+        XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelay )
+        Xspec[1] = (Xspec[1].transpose(1,2,0) * XYdlSpec).transpose(2,0,1)
+        Xspec[2] = (Xspec[2].transpose(1,2,0) / XYdlSpec).transpose(2,0,1)
         temp = np.mean(Xspec[:,chRange], axis=1)
     #
     if file_index == 0:

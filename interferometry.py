@@ -725,8 +725,8 @@ def bpCal(spec, BP0, BP1):
 	bpCalXX = np.zeros([blnum, chNum, timeNum], dtype=complex)
 	BP_bl = np.zeros([blnum, chNum], dtype=complex)
 	for bl_index in range(blnum):
-		ants = Bl2Ant(bl_index); ant1, ant2 = ants[1], ants[0]
-		BP_bl[bl_index] = BP1[ant2]* BP0[ant1].conjugate()
+		ants = Bl2Ant(bl_index)
+		BP_bl[bl_index] = BP1[ants[0]]* BP0[ants[1]].conjugate()
 		bpCalXX[bl_index] = (spec[bl_index].T / BP_bl[bl_index]).T
 	return bpCalXX
 #
