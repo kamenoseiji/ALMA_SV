@@ -139,6 +139,8 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
 #
 #----------------------------------------- Procedures
 msfile = wd + prefix + '.ms'
+BP_ant = np.load(wd + prefix[file_index] + '-SPW' + `spw[0]` + '-BPant.npy')
+XYdelay = np.load(wd + prefix[file_index] + '-SPW' + `spw[0]` + '-XYdelay.npy')
 solution = np.load(wd + QUXY + '.QUXY.npy')
 CalQ, CalU, GYphs = solution[0], solution[1], solution[2]
 #-------- Antenna List
@@ -179,10 +181,22 @@ ScScBlIndex = np.where(blWeight == 0.25)[0].tolist(); ScScBlNum = len(ScScBlInde
 timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[0], scan[0])
 #-------- Bunch/Sel
 chNum = Xspec.shape[1]
+if chNum > 1:
+    chRange = range( int(0.05*chNum), int(0.95*chNum))
+#
 if chNum == 1:
     temp = Xspec[:,0, BlMap]
 else:
-    # BPcal, Bunch/Sel process comes here!
+    for bl_index in range(blNum):
+        ants = Bl2Ant(bl_index)
+        Xspec[0, :, bl_index] = (Xspec[0, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 0].conjugate()* BP_ant[ants[0], 0])).transpose(1,0)    # XX
+        Xspec[1, :, bl_index] = (Xspec[1, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 0].conjugate()* BP_ant[ants[0], 1])).transpose(1,0)    # XY
+        Xspec[2, :, bl_index] = (Xspec[2, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 1].conjugate()* BP_ant[ants[0], 0])).transpose(1,0)    # YX
+        Xspec[3, :, bl_index] = (Xspec[3, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 1].conjugate()* BP_ant[ants[0], 1])).transpose(1,0)    # YY
+    #
+    XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelay )
+    Xspec[1] = (Xspec[1].transpose(1,2,0) * XYdlSpec).transpose(2,0,1)
+    Xspec[2] = (Xspec[2].transpose(1,2,0) / XYdlSpec).transpose(2,0,1)
     temp = np.mean(Xspec[:,chRange], axis=1)
 #
 Ximag = temp.transpose(0,2,1).imag * (-2.0* np.array(BlInv) + 1.0)      # For inverted baselines
