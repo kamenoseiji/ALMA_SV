@@ -139,8 +139,8 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
 #
 #----------------------------------------- Procedures
 msfile = wd + prefix + '.ms'
-BP_ant = np.load(wd + prefix[file_index] + '-SPW' + `spw[0]` + '-BPant.npy')
-XYdelay = np.load(wd + prefix[file_index] + '-SPW' + `spw[0]` + '-XYdelay.npy')
+BP_ant = np.load(wd + prefix + '-SPW' + `spw[0]` + '-BPant.npy')
+XYdelay = np.load(wd + prefix + '-SPW' + `spw[0]` + '-XYdelay.npy')
 solution = np.load(wd + QUXY + '.QUXY.npy')
 CalQ, CalU, GYphs = solution[0], solution[1], solution[2]
 #-------- Antenna List
@@ -197,7 +197,7 @@ else:
     XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelay )
     Xspec[1] = (Xspec[1].transpose(1,2,0) * XYdlSpec).transpose(2,0,1)
     Xspec[2] = (Xspec[2].transpose(1,2,0) / XYdlSpec).transpose(2,0,1)
-    temp = np.mean(Xspec[:,chRange], axis=1)
+    temp = np.mean(Xspec[:,chRange], axis=1)[:,BlMap]
 #
 Ximag = temp.transpose(0,2,1).imag * (-2.0* np.array(BlInv) + 1.0)      # For inverted baselines
 temp.imag = Ximag.transpose(0,2,1)                                      # visibilities become complex conjugate
