@@ -308,6 +308,15 @@ def Ant2Bl_RevLex(ant1, ant2, antnum):
 	antenna1 = max(ant1, ant2); antenna2 = min(ant1, ant2)
 	return int(antnum* antenna2 - (antenna2 + 1)* (antenna2 + 2) / 2  + antenna1)
 #
+#-------- BL-ANT indexing
+ANT0 = []; ANT1 = []
+for bl_index in range(2016):    # Maximum number of baseline
+    ants = Bl2Ant(bl_index)
+    ANT0.append(ants[0])        # bl -> ant0 (baseline-end antenna) mapping
+    ANT1.append(ants[1])        # bl -> ant1 (baseline-begin antenna) mapping
+#
+ANT0 = np.array(ANT0); ANT1 = np.array(ANT1)
+#
 def BlAmpMatrix(antNum):
     blNum = antNum* (antNum - 1) / 2
     blamp_matrix = np.zeros([blNum, antNum])
@@ -496,64 +505,65 @@ def clphase_solve(bl_phase, bl_error):
     #
 	return np.append(0, solution), np.append(0, np.sqrt(np.diag(ptwp_inv)))
 #
-def Vis2solveDD(Vis, PS ):
+def Vis2solveDD(Vis, PS):
     blNum  = len(Vis) / 4                   # (I, Q, U, V)
-    antNum = Bl2Ant(blNum)[0]                   # Number of tracking antennas
+    antNum = Bl2Ant(blNum)[0]               # Number of tracking antennas
     Dx = np.zeros(antNum, dtype=complex)    # Dx, Dy solutions for scanning antenna
     Dy = np.zeros(antNum, dtype=complex)    # Dx, Dy solutions for scanning antenna
     W = np.diag( np.r_[0.1*np.ones(blNum), np.ones(blNum), np.ones(blNum), 0.1*np.ones(blNum), 0.1*np.ones(blNum), np.ones(blNum), np.ones(blNum), 0.1*np.ones(blNum)] )
+    ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
     for loop_index in range(2):
         residVis = np.zeros(8* blNum)    # Residual (real and imaginary) vector (Obs - Model)
         P = np.zeros([8*blNum, 4* antNum]) # [ReXX, ReXY, ReYX, ReYY, ImXX, ImXY, ImYX, ImYY] x [ReDx, ImDx, ReDy, ImDy], No Im part in refant
         #-------- Determine P matrix
         for bl_index in range(blNum):
-            ants = Bl2Ant(bl_index)
+            # ants = Bl2Ant(bl_index)
             stokesReIndex = range(bl_index, 4* blNum, blNum)
             stokesImIndex = range(bl_index + 4*blNum, 8*blNum, blNum)
-            ModelVis = np.dot(MullerMatrix(Dx[ants[1]], Dy[ants[1]], Dx[ants[0]], Dy[ants[0]]), PS)
+            ModelVis = np.dot(MullerMatrix(Dx[ant1[bl_index]], Dy[ant1[bl_index]], Dx[ant0[bl_index]], Dy[ant0[bl_index]]), PS)
             residVis[stokesReIndex] = Vis[stokesReIndex].real  - ModelVis.real
             residVis[stokesImIndex] = Vis[stokesReIndex].imag  - ModelVis.imag
             #-------- Derivative by  ReDx0
-            DeltaP = 100.0*(np.dot(MullerMatrix(Dx[ants[1]] + 0.01, Dy[ants[1]], Dx[ants[0]], Dy[ants[0]]), PS) - ModelVis)
-            P[stokesReIndex, ants[1]] += DeltaP.real
-            P[stokesImIndex, ants[1]] += DeltaP.imag
+            DeltaP = 100.0*(np.dot(MullerMatrix(Dx[ant1[bl_index]] + 0.01, Dy[ant1[bl_index]], Dx[ant0[bl_index]], Dy[ant0[bl_index]]), PS) - ModelVis)
+            P[stokesReIndex, ant1[bl_index]] += DeltaP.real
+            P[stokesImIndex, ant1[bl_index]] += DeltaP.imag
             #-------- Derivative by ImDx0
-            DeltaP = 100.0*(np.dot(MullerMatrix(Dx[ants[1]] + 0.01j, Dy[ants[1]], Dx[ants[0]], Dy[ants[0]]), PS) - ModelVis)
-            P[stokesReIndex, antNum + ants[1]] += DeltaP.real
-            P[stokesImIndex, antNum + ants[1]] += DeltaP.imag
+            DeltaP = 100.0*(np.dot(MullerMatrix(Dx[ant1[bl_index]] + 0.01j, Dy[ant1[bl_index]], Dx[ant0[bl_index]], Dy[ant0[bl_index]]), PS) - ModelVis)
+            P[stokesReIndex, antNum + ant1[bl_index]] += DeltaP.real
+            P[stokesImIndex, antNum + ant1[bl_index]] += DeltaP.imag
             #-------- Derivative by  ReDx1
-            DeltaP = 100.0*(np.dot(MullerMatrix(Dx[ants[1]], Dy[ants[1]], Dx[ants[0]] + 0.01, Dy[ants[0]]), PS) - ModelVis)
-            P[stokesReIndex, ants[0]] += DeltaP.real
-            P[stokesImIndex, ants[0]] += DeltaP.imag
+            DeltaP = 100.0*(np.dot(MullerMatrix(Dx[ant1[bl_index]], Dy[ant1[bl_index]], Dx[ant0[bl_index]] + 0.01, Dy[ant0[bl_index]]), PS) - ModelVis)
+            P[stokesReIndex, ant0[bl_index]] += DeltaP.real
+            P[stokesImIndex, ant0[bl_index]] += DeltaP.imag
             #-------- Derivative by ImDx1
-            DeltaP = 100.0*(np.dot(MullerMatrix(Dx[ants[1]], Dy[ants[1]], Dx[ants[0]] + 0.01j, Dy[ants[0]]), PS) - ModelVis)
-            P[stokesReIndex,antNum + ants[0]] += DeltaP.real
-            P[stokesImIndex,antNum + ants[0]] += DeltaP.imag
+            DeltaP = 100.0*(np.dot(MullerMatrix(Dx[ant1[bl_index]], Dy[ant1[bl_index]], Dx[ant0[bl_index]] + 0.01j, Dy[ant0[bl_index]]), PS) - ModelVis)
+            P[stokesReIndex,antNum + ant0[bl_index]] += DeltaP.real
+            P[stokesImIndex,antNum + ant0[bl_index]] += DeltaP.imag
             #-------- Derivative by  ReDy0
-            DeltaP = 100.0*(np.dot(MullerMatrix(Dx[ants[1]], Dy[ants[1]] + 0.01, Dx[ants[0]], Dy[ants[0]]), PS) - ModelVis)
-            P[stokesReIndex, 2*antNum + ants[1]] += DeltaP.real
-            P[stokesImIndex, 2*antNum + ants[1]] += DeltaP.imag
+            DeltaP = 100.0*(np.dot(MullerMatrix(Dx[ant1[bl_index]], Dy[ant1[bl_index]] + 0.01, Dx[ant0[bl_index]], Dy[ant0[bl_index]]), PS) - ModelVis)
+            P[stokesReIndex, 2*antNum + ant1[bl_index]] += DeltaP.real
+            P[stokesImIndex, 2*antNum + ant1[bl_index]] += DeltaP.imag
             #-------- Derivative by ImDy0
-            DeltaP = 100.0*(np.dot(MullerMatrix(Dx[ants[1]], Dy[ants[1]] + 0.01j, Dx[ants[0]], Dy[ants[0]]), PS) - ModelVis)
-            P[stokesReIndex, 3*antNum + ants[1]] += DeltaP.real
-            P[stokesImIndex, 3*antNum + ants[1]] += DeltaP.imag
+            DeltaP = 100.0*(np.dot(MullerMatrix(Dx[ant1[bl_index]], Dy[ant1[bl_index]] + 0.01j, Dx[ant0[bl_index]], Dy[ant0[bl_index]]), PS) - ModelVis)
+            P[stokesReIndex, 3*antNum + ant1[bl_index]] += DeltaP.real
+            P[stokesImIndex, 3*antNum + ant1[bl_index]] += DeltaP.imag
             #-------- Derivative by  ReDy1
-            DeltaP = 100.0*(np.dot(MullerMatrix(Dx[ants[1]], Dy[ants[1]], Dx[ants[0]], Dy[ants[0]] + 0.01), PS) - ModelVis)
-            P[stokesReIndex, 2*antNum + ants[0]] += DeltaP.real
-            P[stokesImIndex, 2*antNum + ants[0]] += DeltaP.imag
+            DeltaP = 100.0*(np.dot(MullerMatrix(Dx[ant1[bl_index]], Dy[ant1[bl_index]], Dx[ant0[bl_index]], Dy[ant0[bl_index]] + 0.01), PS) - ModelVis)
+            P[stokesReIndex, 2*antNum + ant0[bl_index]] += DeltaP.real
+            P[stokesImIndex, 2*antNum + ant0[bl_index]] += DeltaP.imag
             #-------- Derivative by ImDy1
-            DeltaP = 100.0*(np.dot(MullerMatrix(Dx[ants[1]], Dy[ants[1]], Dx[ants[0]], Dy[ants[0]] + 0.01j), PS) - ModelVis)
-            P[stokesReIndex, 3*antNum + ants[0]] += DeltaP.real
-            P[stokesImIndex, 3*antNum + ants[0]] += DeltaP.imag
+            DeltaP = 100.0*(np.dot(MullerMatrix(Dx[ant1[bl_index]], Dy[ant1[bl_index]], Dx[ant0[bl_index]], Dy[ant0[bl_index]] + 0.01j), PS) - ModelVis)
+            P[stokesReIndex, 3*antNum + ant0[bl_index]] += DeltaP.real
+            P[stokesImIndex, 3*antNum + ant0[bl_index]] += DeltaP.imag
         #
-        P = P[:, range(3*antNum) + range(3*antNum + 1, 4*antNum)]
+        #P = P[:, range(3*antNum) + range(3*antNum + 1, 4*antNum)]
+        P = P[:, range(antNum) + range(antNum + 1, 4*antNum)]
         PTWP = np.dot(P.T, np.dot(W, P))
         D_vec = np.dot( scipy.linalg.inv( PTWP ), np.dot(P.T, np.dot(W, residVis)))
         # print 'Iter%d : %e %e' % (loop_index, np.dot(residVis, residVis), np.dot(D_vec, D_vec))
-        # Dx += D_vec[0:antNum] + 1.0j* D_vec[antNum:(2*antNum)]
-        # Dy += D_vec[(2*antNum):(3*antNum)] + 1.0j* D_vec[(3*antNum):(4*antNum)]
-        Dx += D_vec[0:antNum] + 1.0j* D_vec[antNum:(2*antNum)]
-        Dy += D_vec[(2*antNum):(3*antNum)] + 1.0j* np.r_[0, D_vec[(3*antNum):(4*antNum-1)]]
+        Dx += D_vec[0:antNum] + 1.0j* np.r_[0, D_vec[(antNum):(2*antNum-1)]]
+        Dy += D_vec[(2*antNum-1):(3*antNum-1)] + 1.0j* D_vec[(3*antNum-1):(4*antNum-1)]
+        #Dy += D_vec[(2*antNum):(3*antNum)] + 1.0j* np.r_[0, D_vec[(3*antNum):(4*antNum-1)]]
     #
     return Dx, Dy
 #
@@ -720,45 +730,45 @@ def delayCalSpec2( Xspec, chRange, sigma ):  # chRange = [startCH:stopCH] specif
 	#   
 	return delay_ant, delay_err, delayCalXspec
 #
-def bpCal(spec, BP0, BP1): 
-	blnum, chNum, timeNum = len(spec), len(spec[0]), len(spec[0,0])
-	bpCalXX = np.zeros([blnum, chNum, timeNum], dtype=complex)
-	BP_bl = np.zeros([blnum, chNum], dtype=complex)
-	for bl_index in range(blnum):
-		ants = Bl2Ant(bl_index)
-		BP_bl[bl_index] = BP1[ants[0]]* BP0[ants[1]].conjugate()
-		bpCalXX[bl_index] = (spec[bl_index].T / BP_bl[bl_index]).T
-	return bpCalXX
+def bpCal(spec, BP0, BP1):      # spec[blNum, chNum, timeNum]
+    blnum, chNum, timeNum = len(spec), len(spec[0]), len(spec[0,0])
+    ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
+    return (spec.transpose(2,0,1) / (BP1[ant0]* BP0[ant1].conjugate())).transpose(1, 2, 0)
+	#bpCalXX = np.zeros([blnum, chNum, timeNum], dtype=complex)
+	#BP_bl = np.zeros([blnum, chNum], dtype=complex)
+	#for bl_index in range(blnum):
+	#	ants = Bl2Ant(bl_index)
+	#	BP_bl[bl_index] = BP1[ants[0]]* BP0[ants[1]].conjugate()
+	#	bpCalXX[bl_index] = (spec[bl_index].T / BP_bl[bl_index]).T
+	#return bpCalXX
 #
-def phaseCal(spec, Gain):
-	blnum, chNum, timeNum = spec.shape[0], spec.shape[1], spec.shape[2]
-	gainCalXX = np.zeros([blnum, chNum, timeNum], dtype=complex)
-	for bl_index in range(blnum):
-		ants = Bl2Ant(bl_index); ant1, ant2 = ants[1], ants[0]
-		Gain_bl = Gain[ant2].conjugate() *  Gain[ant1]
-		Gain_bl = Gain_bl / abs(Gain_bl)
-		gainCalXX[bl_index] = spec[bl_index] * Gain_bl
-	return gainCalXX
+def phaseCal(spec, Gain):   # spec[blNum, chNum, timeNum], Gain[antNum, chNum, timeNum]
+    blnum, chNum, timeNum = spec.shape[0], spec.shape[1], spec.shape[2]
+    ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
+    return spec * abs(Gain[ant0]* Gain[ant1].conjugate()) / (Gain[ant0]* Gain[ant1].conjugate())
+	#gainCalXX = np.zeros([blnum, chNum, timeNum], dtype=complex)
+	#for bl_index in range(blnum):
+	#	ants = Bl2Ant(bl_index); ant1, ant2 = ants[1], ants[0]
+	#	Gain_bl = Gain[ant2].conjugate() *  Gain[ant1]
+	#	Gain_bl = Gain_bl / abs(Gain_bl)
+	#	gainCalXX[bl_index] = spec[bl_index] * Gain_bl
+	#return gainCalXX
 #
-def gainCal(spec, Gain):
-	blnum, chNum, timeNum = spec.shape[0], spec.shape[1], spec.shape[2]
-	gainCalXX = np.zeros([blnum, chNum, timeNum], dtype=complex)
-	for bl_index in range(blnum):
-		ants = Bl2Ant(bl_index); ant1, ant2 = ants[1], ants[0]
-		Gain_bl = Gain[ant2] *  Gain[ant1].conjugate()
-		gainCalXX[bl_index] = spec[bl_index] / Gain_bl
-	return gainCalXX
+def gainCal(spec, Gain):   # spec[blNum, chNum, timeNum], Gain[antNum, chNum, timeNum]
+    blnum, chNum, timeNum = spec.shape[0], spec.shape[1], spec.shape[2]
+    ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
+    return spec / (Gain0[ant0]* Gain1[ant1].conjugate())
+	#gainCalXX = np.zeros([blnum, chNum, timeNum], dtype=complex)
+	#for bl_index in range(blnum):
+	#	ants = Bl2Ant(bl_index); ant1, ant2 = ants[1], ants[0]
+	#	Gain_bl = Gain[ant2] *  Gain[ant1].conjugate()
+	#	gainCalXX[bl_index] = spec[bl_index] / Gain_bl
+	#return gainCalXX
 #
-def gainCalVis(vis, Gain0, Gain1):
+def gainCalVis(vis, Gain1, Gain0):      # vis[blNum, timeNum], Gain[antNum, timeNum]
     blNum, timeNum = vis.shape[0], vis.shape[1]
-    Gain_bl = np.ones([blNum, timeNum], dtype=complex)
-    for time_index in range(timeNum):
-        for bl_index in range(blNum):
-            ants = Bl2Ant(bl_index); ant1, ant2 = ants[1], ants[0]  # e.g. bl_index = 0 -> ant1 = 0, ant2 = 1
-            Gain_bl[bl_index, time_index] = Gain1[ant2, time_index] *  Gain0[ant1, time_index].conjugate()
-        #
-    #
-    return( vis / Gain_bl )
+    ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
+    return vis / (Gain0[ant0]* Gain1[ant1].conjugate())
 #
 def P2P(vector):
 	return np.max(vector) - np.min(vector)
@@ -1058,8 +1068,54 @@ def plotAmphi(fig, freq, spec):
 	phsAxis.axis( [min(freq), max(freq), -pi, pi], size='x-small' )
 	return
 #
-def gainComplex( vis ):
-    return(clcomplex_solve(vis, 1.0e-8/(abs(vis) + 1.0e-8)))
+def gainComplex( bl_vis ):
+    blnum  =  len(bl_vis)
+    antnum =  Bl2Ant(blnum)[0]
+    #
+    resid  =  np.zeros(2* blnum)
+    correction = np.ones(2* antnum - 1)
+    solution   = np.zeros(2* antnum - 1)
+    #
+    #---- Initial solution
+    solution[0] = sqrt(abs(bl_vis[0]))		# Refant has only real part
+    for ant_index in range(1, antnum) :
+        solution[ant_index]			= bl_vis[Ant2Bl(0, ant_index )].real / solution[0]
+        solution[antnum + ant_index - 1]= bl_vis[Ant2Bl(0, ant_index )].imag / solution[0]
+    #
+    for iter_index in range(2):
+        complex_matrix = np.zeros((2*blnum, 2*antnum - 1))
+        #-------- Residual Vector
+        for bl_index in range(blnum):
+            ants = Bl2Ant(bl_index)
+            if ants[1] != 0:
+                resid[bl_index]			= bl_vis[bl_index].real - (solution[ants[0]]* solution[ants[1]] + solution[antnum + ants[0] - 1]* solution[antnum + ants[1] - 1])	# Real part
+                resid[blnum + bl_index] = bl_vis[bl_index].imag - (solution[ants[1]]* solution[antnum + ants[0] - 1] - solution[ants[0]]* solution[antnum + ants[1] - 1])	# Imag part
+            else:
+                resid[bl_index]			= bl_vis[bl_index].real - (solution[ants[0]]* solution[0])	# Real part
+                resid[blnum + bl_index] = bl_vis[bl_index].imag - (solution[antnum + ants[0] - 1]* solution[0])	# Imag part
+        #
+        #---- Partial Matrix
+        for bl_index in range(blnum):
+            ants = Bl2Ant(bl_index)
+            complex_matrix[bl_index, ants[0]] = solution[ants[1]]
+            complex_matrix[bl_index, ants[1]] = solution[ants[0]]
+            if ants[1] != 0:
+                complex_matrix[bl_index, antnum + ants[0] - 1] = solution[antnum + ants[1] - 1]
+                complex_matrix[bl_index, antnum + ants[1] - 1] = solution[antnum + ants[0] - 1]
+                complex_matrix[blnum + bl_index, ants[1]] =  solution[antnum + ants[0] - 1]
+                complex_matrix[blnum + bl_index, ants[0]] = -solution[antnum + ants[1] - 1]
+                complex_matrix[blnum + bl_index, antnum + ants[1] - 1] = -solution[ants[0]]
+                complex_matrix[blnum + bl_index, antnum + ants[0] - 1] =  solution[ants[1]]
+            else:		# No ants[1]
+                complex_matrix[blnum + bl_index, 0]		= solution[antnum + ants[0] - 1]
+                complex_matrix[blnum + bl_index, antnum + ants[0] - 1]= solution[0]
+        #
+        ptp = np.dot(complex_matrix.T, complex_matrix)
+        ptp_inv   = scipy.linalg.inv(ptp)
+        correction = np.dot(ptp_inv,  np.dot(complex_matrix.T, resid))
+        solution   = np.add(solution, correction)
+    #
+    return solution[range(antnum)] + 1j* np.append(0, solution[range(antnum, 2*antnum-1)])
 #
 #-------- Function to calculate visibilities
 def polariVis( Xspec ):     # Xspec[polNum, blNum, chNum, timeNum]
@@ -1115,9 +1171,7 @@ def polariGain( XX, YY, PA, StokesQ, StokesU):
     ScaleXX = np.dot(XX, np.diag(Xscale))
     ScaleYY = np.dot(YY, np.diag(Yscale))
     #
-    print '-- GainX solution ---'
     GainX = np.apply_along_axis( gainComplex, 0, ScaleXX)
-    print '-- GainY solution ---'
     GainY = np.apply_along_axis( gainComplex, 0, ScaleYY)
     return GainX, GainY
 #
