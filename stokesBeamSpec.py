@@ -220,9 +220,6 @@ for time_index in range(timeNum):
 UCmQS = solution[1]* np.cos(2.0*PA) - solution[0]* np.sin(2.0*PA)   # U cos - Q sin
 QCpUS = solution[0]* np.cos(2.0*PA) + solution[1]* np.sin(2.0*PA)   # Q cos + U sin
 #-------- Loop for each channel
-logfile = open(prefix + '-SPW' + `spw[0]` + '-TrkDterm.log', 'w')
-text_sd = 'ant ch ReDx ImDx ReDy ImDy'
-logfile.write(text_sd + '\n')
 print('Applying Gain Correction....')
 VisXX = np.zeros([blNum, timeNum, chNum], dtype=complex)
 VisXY = np.zeros([blNum, timeNum, chNum], dtype=complex)
@@ -258,6 +255,10 @@ for ch_index in range(chNum):
         #
     #
 #
+#-------- Record on-axis D-term spectrum
+logfile = open(prefix + '-SPW' + `spw[0]` + '-TrkDtermSpec.log', 'w')
+text_sd = 'ant ch ReDx ImDx ReDy ImDy'
+logfile.write(text_sd + '\n')
 DxMean = np.mean(Dx, axis=1)
 DyMean = np.mean(Dy, axis=1)
 for time_index in range(timeNum):
@@ -300,8 +301,11 @@ text_sd = 'TrkMeas / Model: I=%6.4f / %6.4f  Q=%6.4f / %6.4f U=%6.4f / %6.4f V=%
 UCmQS = TrkU* np.cos(2.0*PA) - TrkQ* np.sin(2.0*PA)   # U cos - Q sin
 QCpUS = TrkQ* np.cos(2.0*PA) + TrkU* np.sin(2.0*PA)   # Q cos + U sin
 logfile = open(prefix + '-SPW' + `spw[0]` + '-trkStokes.log', 'w')
-text_sd = 'I Q U V'; logfile.write(text_sd + '\n')
-text_sd = '%8.6f %8.6f %8.6f %8.6f' % (TrkI, TrkQ, TrkU, TrkV); logfile.write(text_sd + '\n')
+text_sd = 'CH I Q U V'; logfile.write(text_sd + '\n')
+for ch_index in range(chNum):
+    text_sd = '%d %8.6f %8.6f %8.6f %8.6f' % (ch_index, np.mean(StokesVis[:,:,ch_index,0]), np.mean(StokesVis[:,:,ch_index,1]), np.mean(StokesVis[:,:,ch_index,2]), np.mean(StokesVis[:,:,ch_index,3]))
+    logfile.write(text_sd + '\n')
+#
 logfile.close()
 #-------- Determination of D-terms in scanning antennas
 print('-------- Determining Antenna-based D-terms (scan ants) ----')
@@ -318,6 +322,9 @@ for ant_index in range(scnAntNum):
     #
 #
 #-------- Plot D-term spectrum for beam position
+logfile = open(prefix + '-SPW' + `spw[0]` + '-DtermSpec.log', 'w')
+text_sd = 'ant beamoff ch ReDx ImDx ReDy ImDy'
+logfile.write(text_sd + '\n')
 thresh = np.r_[0.0, np.linspace( min(np.sqrt(ScanAz**2 + ScanEl**2)), max(np.sqrt(ScanAz**2 + ScanEl**2)), num=16) + min(np.sqrt(ScanAz**2 + ScanEl**2))]
 Dist2 = ScanAz**2 + ScanEl**2
 xrange, yrange = [min(Freq[chRange]), max(Freq[chRange])], [-0.1, 0.1]
@@ -364,16 +371,16 @@ for ant_index in range(scnAntNum):
             plt.plot( Freq, Dy[DantID, time_index[index]].imag, ls='steps-mid', color='darkred',  label = 'ImDy')
             plt.axis([min(Freq), max(Freq), -0.2,0.2], fontsize=3)
             plt.tick_params(labelsize = 6)
+            for ch_index in range(chNum):
+                text_sd = '%s %4.1f %8.6f %8.6f %8.6f %8.6f' % (antList[antID], np.median(np.sqrt(Dist2[time_index])), Dx[DantID, time_index[index], ch_index].real, Dx[DantID, time_index[index], ch_index].imag, Dy[DantID, time_index[index], ch_index].real, Dy[DantID, time_index[index], ch_index].imag)
+                logfile.write(text_sd + '\n')
+            #
         #
         plt.savefig( prefix + '-' + antList[antID] + '-SPW' + `spw[0]` + '-OFF' + `round(np.median(np.sqrt(Dist2[time_index])),1)` + '-DtermSpec.pdf', form='pdf'); plt.close()
     #
 #
-
-
-#-------- Plot D-terms of scanning antennas
-logfile = open(prefix + '-SPW' + `spw[0]` + '-Dterm.log', 'w')
-text_sd = 'ant ReDx ReDx3max ReDx3min ReDx6max ReDx6min ImDx ImDx3max ImDx3min ImDx6max ImDx6min ReDy ReDy3max ReDy3min ReDy6max ReDy6min ImDy ImDy3max ImDy3min ImDy6max ImDy6min'
-logfile.write(text_sd + '\n')
+logfile.close()
+#-------- Plot channel-averaged D-terms of scanning antennas
 print('-------- Plot D-term Maps for scan ants ----')
 for ant_index in range(scnAntNum):
     antID = scnAnt[ant_index]
@@ -424,15 +431,8 @@ for ant_index in range(scnAntNum):
     plt.axis([-2.0*FWHM[antID], 2.0*FWHM[antID], -2.0*FWHM[antID], 2.0*FWHM[antID]])
     plt.savefig( prefix + '-' + antList[antID] + '-SPW' + `spw[0]` + '-DtermMap.pdf', form='pdf'); plt.close()
     plt.close()
-    text_sd = '%s %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f'  % (antList[antID], np.mean(Dx[DantID, IndexCenter].real), np.max(Dx[DantID, Index3dB].real), np.min(Dx[DantID, Index3dB].real), np.max(Dx[DantID, Index6dB].real), np.min(Dx[DantID, Index6dB].real), np.mean(Dx[DantID, IndexCenter].imag), np.max(Dx[DantID, Index3dB].imag), np.min(Dx[DantID, Index3dB].imag), np.max(Dx[DantID, Index6dB].imag), np.min(Dx[DantID, Index6dB].imag), np.mean(Dy[DantID, IndexCenter].real), np.max(Dy[DantID, Index3dB].real), np.min(Dy[DantID, Index3dB].real), np.max(Dy[DantID, Index6dB].real), np.min(Dy[DantID, Index6dB].real), np.mean(Dy[DantID, IndexCenter].imag), np.max(Dy[DantID, Index3dB].imag), np.min(Dy[DantID, Index3dB].imag), np.max(Dy[DantID, Index6dB].imag), np.min(Dy[DantID, Index6dB].imag) )
-    logfile.write(text_sd + '\n')
-#
-logfile.close()
 #
 #-------- D-term-corrected Stokes parameters --------
-logfile = open(prefix + '-SPW' + `spw[0]` + '-Stokes.log', 'w')
-text_sd = 'I I3max I3min I6max I6min Q Q3max Q3min Q6max Q6min U U3max U3min U6max U6min V V3max V3min V6max V6min'
-logfile.write(text_sd + '\n')
 print('-------- D-term-corrected Stokes parameters ----')
 StokesVis = np.zeros([ScScBlNum, timeNum, chNum, 4], dtype=complex) 
 for time_index in range(timeNum):
@@ -577,12 +577,11 @@ for x_index in range(11):
     #
 #
 logfile.close()
-
+#-------- Plot Stokes Spectra at Beam Position
+logfile = open(prefix + '-SPW' + `spw[0]` + '-StokesSpec.log', 'w')
+text_sd = 'BeamOff CH I Q U V ';  logfile.write(text_sd + '\n')
+text_sd = '%4.1f %d %8.6f %8.6f %8.6f %8.6f' % (0.0,  0, TrkI, TrkQ, TrkU, TrkV); logfile.write(text_sd + '\n')
 xrange, yrange = [min(Freq[chRange]), max(Freq[chRange])], [-0.01, 0.01]
-ScnIspec -= TrkI
-ScnQspec -= TrkQ
-ScnUspec -= TrkU
-ScnVspec -= TrkV
 for thresh_index in range(6):
     time_index = list(set(np.where(Dist2 > thresh[thresh_index]**2 )[0]) & set(np.where(Dist2 < thresh[thresh_index + 1]**2 )[0]))
     fig = plt.figure(thresh_index, figsize = (8,11))
@@ -602,27 +601,31 @@ for thresh_index in range(6):
     plt.subplot2grid( (9,6), (0,0), colspan=4)
     fill_color='g'
     plt.fill([xrange[0], xrange[0], xrange[1], xrange[1]], [yrange[1], yrange[0], yrange[0], yrange[1]], fill_color, alpha=0.1)
-    plt.plot( Freq, np.mean(ScnIspec[time_index], axis=0), color='k',     label = 'I', ls='steps-mid')
-    plt.plot( Freq, np.mean(ScnQspec[time_index], axis=0), color='r', label = 'Q', ls='steps-mid')
-    plt.plot( Freq, np.mean(ScnUspec[time_index], axis=0), color='g',  label = 'U', ls='steps-mid')
-    plt.plot( Freq, np.mean(ScnVspec[time_index], axis=0), color='b',  label = 'V', ls='steps-mid')
+    plt.plot( Freq, np.mean(ScnIspec[time_index] - TrkI, axis=0), color='k',     label = 'I', ls='steps-mid')
+    plt.plot( Freq, np.mean(ScnQspec[time_index] - TrkQ, axis=0), color='r', label = 'Q', ls='steps-mid')
+    plt.plot( Freq, np.mean(ScnUspec[time_index] - TrkU, axis=0), color='g',  label = 'U', ls='steps-mid')
+    plt.plot( Freq, np.mean(ScnVspec[time_index] - TrkV, axis=0), color='b',  label = 'V', ls='steps-mid')
     plt.axis([min(Freq), max(Freq), -0.02,0.02], fontsize=3)
     plt.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
     plt.tick_params(labelsize = 6)
     #
     for index in range(48):
         fill_color='g'
-        if max(abs(ScnQspec[time_index[index], chRange])) > yrange[1]: fill_color = 'r'
-        if max(abs(ScnUspec[time_index[index], chRange])) > yrange[1]: fill_color = 'r'
-        if max(abs(ScnVspec[time_index[index], chRange])) > yrange[1]: fill_color = 'r'
+        if max(abs(ScnQspec[time_index[index], chRange] - TrkQ)) > yrange[1]: fill_color = 'r'
+        if max(abs(ScnUspec[time_index[index], chRange] - TrkU)) > yrange[1]: fill_color = 'r'
+        if max(abs(ScnVspec[time_index[index], chRange] - TrkV)) > yrange[1]: fill_color = 'r'
         plt.subplot2grid( (9,6), (int(index/6)+1, index%6))
         plt.fill([xrange[0], xrange[0], xrange[1], xrange[1]], [yrange[1], yrange[0], yrange[0], yrange[1]], fill_color, alpha=0.1)
-        plt.plot( Freq, ScnIspec[time_index[index]], ls='steps-mid', color='k',     label = 'I')
-        plt.plot( Freq, ScnQspec[time_index[index]], ls='steps-mid', color='r', label = 'Q')
-        plt.plot( Freq, ScnUspec[time_index[index]], ls='steps-mid', color='g',  label = 'U')
-        plt.plot( Freq, ScnVspec[time_index[index]], ls='steps-mid', color='b',  label = 'V')
+        plt.plot( Freq, ScnIspec[time_index[index]] - TrkI, ls='steps-mid', color='k',     label = 'I')
+        plt.plot( Freq, ScnQspec[time_index[index]] - TrkQ, ls='steps-mid', color='r', label = 'Q')
+        plt.plot( Freq, ScnUspec[time_index[index]] - TrkU, ls='steps-mid', color='g',  label = 'U')
+        plt.plot( Freq, ScnVspec[time_index[index]] - TrkV, ls='steps-mid', color='b',  label = 'V')
         plt.axis([min(Freq), max(Freq), -0.05,0.05], fontsize=3)
         plt.tick_params(labelsize = 6)
+        for ch_index in range(chNum):
+            text_sd = '%4.1f %d %8.6f %8.6f %8.6f %8.6f' % (np.median(np.sqrt(Dist2[time_index])),  ch_index, ScnIspec[time_index[index], ch_index], ScnQspec[time_index[index], ch_index], ScnUspec[time_index[index], ch_index], ScnVspec[time_index[index], ch_index]); logfile.write(text_sd + '\n')
+        #
     #
     plt.savefig( prefix + '-' + '-SPW' + `spw[0]` + '-OFF' + `round(np.median(np.sqrt(Dist2[time_index])),1)` + '-StokesSpec.pdf', form='pdf'); plt.close()
 #
+logfile.close()

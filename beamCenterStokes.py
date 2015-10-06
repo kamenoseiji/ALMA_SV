@@ -92,6 +92,7 @@ for file_index in range(fileNum):
         AntIndex = range(antNum)
     #
     blNum  = antNum* (antNum - 1) / 2
+    ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
     antList = antList[AntIndex]
     antWeight = np.ones(antNum)
     #-------- Visibility sampling points
@@ -125,12 +126,18 @@ for file_index in range(fileNum):
     if chNum == 1:
         temp = Xspec[:,0]
     else:
-        for bl_index in range(blNum):
-            ants = Bl2Ant(bl_index)
-            Xspec[0, :, bl_index] = (Xspec[0, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 0].conjugate()* BP_ant[ants[0], 0])).transpose(1,0)    # XX
-            Xspec[1, :, bl_index] = (Xspec[1, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 0].conjugate()* BP_ant[ants[0], 1])).transpose(1,0)    # XY
-            Xspec[2, :, bl_index] = (Xspec[2, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 1].conjugate()* BP_ant[ants[0], 0])).transpose(1,0)    # YX
-            Xspec[3, :, bl_index] = (Xspec[3, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 1].conjugate()* BP_ant[ants[0], 1])).transpose(1,0)    # YY
+        print '--- Applying Bandpass Calibration'
+        #for bl_index in range(blNum):
+        #    ants = Bl2Ant(bl_index)
+        #    Xspec[0, :, bl_index] = (Xspec[0, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 0].conjugate()* BP_ant[ants[0], 0])).transpose(1,0)    # XX
+        #    Xspec[1, :, bl_index] = (Xspec[1, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 0].conjugate()* BP_ant[ants[0], 1])).transpose(1,0)    # XY
+        #    Xspec[2, :, bl_index] = (Xspec[2, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 1].conjugate()* BP_ant[ants[0], 0])).transpose(1,0)    # YX
+        #    Xspec[3, :, bl_index] = (Xspec[3, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 1].conjugate()* BP_ant[ants[0], 1])).transpose(1,0)    # YY
+        #
+        Xspec[0] = (Xspec[0].transpose(2,1,0) / (BP_ant[ant1,0].conjugate()* BP_ant[ant0,0])).transpose(2, 1, 0)
+        Xspec[1] = (Xspec[1].transpose(2,1,0) / (BP_ant[ant1,0].conjugate()* BP_ant[ant0,1])).transpose(2, 1, 0)
+        Xspec[2] = (Xspec[2].transpose(2,1,0) / (BP_ant[ant1,1].conjugate()* BP_ant[ant0,0])).transpose(2, 1, 0)
+        Xspec[3] = (Xspec[3].transpose(2,1,0) / (BP_ant[ant1,1].conjugate()* BP_ant[ant0,1])).transpose(2, 1, 0)
         #
         XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelay )
         Xspec[1] = (Xspec[1].transpose(1,2,0) * XYdlSpec).transpose(2,0,1)
