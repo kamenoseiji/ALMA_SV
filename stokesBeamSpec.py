@@ -323,7 +323,7 @@ for ant_index in range(scnAntNum):
 #
 #-------- Plot D-term spectrum for beam position
 logfile = open(prefix + '-SPW' + `spw[0]` + '-DtermSpec.log', 'w')
-text_sd = 'ant beamoff ch ReDx ImDx ReDy ImDy'
+text_sd = 'ant beamoff branch ch ReDx ImDx ReDy ImDy'
 logfile.write(text_sd + '\n')
 thresh = np.r_[0.0, np.linspace( min(np.sqrt(ScanAz**2 + ScanEl**2)), max(np.sqrt(ScanAz**2 + ScanEl**2)), num=16) + min(np.sqrt(ScanAz**2 + ScanEl**2))]
 Dist2 = ScanAz**2 + ScanEl**2
@@ -372,7 +372,7 @@ for ant_index in range(scnAntNum):
             plt.axis([min(Freq), max(Freq), -0.2,0.2], fontsize=3)
             plt.tick_params(labelsize = 6)
             for ch_index in range(chNum):
-                text_sd = '%s %4.1f %8.6f %8.6f %8.6f %8.6f' % (antList[antID], np.median(np.sqrt(Dist2[time_index])), Dx[DantID, time_index[index], ch_index].real, Dx[DantID, time_index[index], ch_index].imag, Dy[DantID, time_index[index], ch_index].real, Dy[DantID, time_index[index], ch_index].imag)
+                text_sd = '%s %4.1f %d %d %8.6f %8.6f %8.6f %8.6f' % (antList[antID], np.median(np.sqrt(Dist2[time_index])), index, ch_index, Dx[DantID, time_index[index], ch_index].real, Dx[DantID, time_index[index], ch_index].imag, Dy[DantID, time_index[index], ch_index].real, Dy[DantID, time_index[index], ch_index].imag)
                 logfile.write(text_sd + '\n')
             #
         #
@@ -464,6 +464,9 @@ Uerr = ScnU - TrkU
 Perr = sqrt(ScnQ**2 + ScnU**2) - sqrt(TrkQ**2 + TrkU**2)
 Aerr = np.arctan( (ScnU* TrkQ - ScnQ* TrkU) / (ScnQ* TrkQ + ScnU* TrkU) )* 90.0/math.pi
 #-------- Plot Stokes Beam Map
+logfile = open(prefix + '-SPW' + `spw[0]` + '-Stokes.log', 'w')
+text_sd = 'I I3max I3min I6max I6min Q Q3max Q3min Q6max Q6min U U3max U3min U6max U6min V V3max V3min V6max V6min'
+logfile.write(text_sd + '\n')
 fig = plt.figure( figsize = (10,10))
 fig.text(0.45, 0.05, 'Az Offset [arcsec]')
 fig.text(0.05, 0.45, 'El Offset [arcsec]', rotation=90)
@@ -579,7 +582,7 @@ for x_index in range(11):
 logfile.close()
 #-------- Plot Stokes Spectra at Beam Position
 logfile = open(prefix + '-SPW' + `spw[0]` + '-StokesSpec.log', 'w')
-text_sd = 'BeamOff CH I Q U V ';  logfile.write(text_sd + '\n')
+text_sd = 'beamoff branch CH I Q U V ';  logfile.write(text_sd + '\n')
 text_sd = '%4.1f %d %8.6f %8.6f %8.6f %8.6f' % (0.0,  0, TrkI, TrkQ, TrkU, TrkV); logfile.write(text_sd + '\n')
 xrange, yrange = [min(Freq[chRange]), max(Freq[chRange])], [-0.01, 0.01]
 for thresh_index in range(6):
@@ -623,7 +626,7 @@ for thresh_index in range(6):
         plt.axis([min(Freq), max(Freq), -0.05,0.05], fontsize=3)
         plt.tick_params(labelsize = 6)
         for ch_index in range(chNum):
-            text_sd = '%4.1f %d %8.6f %8.6f %8.6f %8.6f' % (np.median(np.sqrt(Dist2[time_index])),  ch_index, ScnIspec[time_index[index], ch_index], ScnQspec[time_index[index], ch_index], ScnUspec[time_index[index], ch_index], ScnVspec[time_index[index], ch_index]); logfile.write(text_sd + '\n')
+            text_sd = '%4.1f %d %d %8.6f %8.6f %8.6f %8.6f' % (np.median(np.sqrt(Dist2[time_index])), index, ch_index, ScnIspec[time_index[index], ch_index], ScnQspec[time_index[index], ch_index], ScnUspec[time_index[index], ch_index], ScnVspec[time_index[index], ch_index]); logfile.write(text_sd + '\n')
         #
     #
     plt.savefig( prefix + '-' + '-SPW' + `spw[0]` + '-OFF' + `round(np.median(np.sqrt(Dist2[time_index])),1)` + '-StokesSpec.pdf', form='pdf'); plt.close()
