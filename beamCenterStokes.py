@@ -134,10 +134,10 @@ for file_index in range(fileNum):
         #    Xspec[2, :, bl_index] = (Xspec[2, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 1].conjugate()* BP_ant[ants[0], 0])).transpose(1,0)    # YX
         #    Xspec[3, :, bl_index] = (Xspec[3, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 1].conjugate()* BP_ant[ants[0], 1])).transpose(1,0)    # YY
         #
-        Xspec[0] = (Xspec[0].transpose(2,1,0) / (BP_ant[ant1,0].conjugate()* BP_ant[ant0,0])).transpose(2, 1, 0)
-        Xspec[1] = (Xspec[1].transpose(2,1,0) / (BP_ant[ant1,0].conjugate()* BP_ant[ant0,1])).transpose(2, 1, 0)
-        Xspec[2] = (Xspec[2].transpose(2,1,0) / (BP_ant[ant1,1].conjugate()* BP_ant[ant0,0])).transpose(2, 1, 0)
-        Xspec[3] = (Xspec[3].transpose(2,1,0) / (BP_ant[ant1,1].conjugate()* BP_ant[ant0,1])).transpose(2, 1, 0)
+        Xspec[0] = (Xspec[0][:,0:blNum].transpose(2,1,0) / (BP_ant[ant1,0].conjugate()* BP_ant[ant0,0])).transpose(2, 1, 0)
+        Xspec[1] = (Xspec[1][:,0:blNum].transpose(2,1,0) / (BP_ant[ant1,0].conjugate()* BP_ant[ant0,1])).transpose(2, 1, 0)
+        Xspec[2] = (Xspec[2][:,0:blNum].transpose(2,1,0) / (BP_ant[ant1,1].conjugate()* BP_ant[ant0,0])).transpose(2, 1, 0)
+        Xspec[3] = (Xspec[3][:,0:blNum].transpose(2,1,0) / (BP_ant[ant1,1].conjugate()* BP_ant[ant0,1])).transpose(2, 1, 0)
         #
         XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelay )
         Xspec[1] = (Xspec[1].transpose(1,2,0) * XYdlSpec).transpose(2,0,1)
