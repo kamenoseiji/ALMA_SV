@@ -129,9 +129,12 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
 #
 #----------------------------------------- Procedures
 msfile = wd + prefix + '.ms'
-BP_ant = np.load(wd + prefix + '-SPW' + `spw[0]` + '-BPant.npy')
-XYdelay = np.load(wd + prefix + '-SPW' + `spw[0]` + '-XYdelay.npy')
-solution = np.load(wd + QUXY + '.QUXY.npy')
+#BP_ant = np.load(wd + prefix + '-SPW' + `spw[0]` + '-BPant.npy')
+#XYdelay = np.load(wd + prefix + '-SPW' + `spw[0]` + '-XYdelay.npy')
+#solution = np.load(wd + QUXY + '.QUXY.npy')
+BP_ant = np.load(wd + BPfile)
+XYdelay = np.load(wd + XYdelayfile)
+solution = np.load(wd + QUXYfile)
 CalQ, CalU, GYphs = solution[0], solution[1], solution[2]
 #-------- Antenna List
 antList = GetAntName(msfile)
@@ -455,10 +458,10 @@ ScnIspec = np.mean( StokesVis[:,:,:,0], axis=0 ).real
 ScnQspec = np.mean( StokesVis[:,:,:,1], axis=0 ).real
 ScnUspec = np.mean( StokesVis[:,:,:,2], axis=0 ).real
 ScnVspec = np.mean( StokesVis[:,:,:,3], axis=0 ).real
-ScnI = np.mean( ScnIspec, axis=1 )
-ScnQ = np.mean( ScnQspec, axis=1 )
-ScnU = np.mean( ScnUspec, axis=1 )
-ScnV = np.mean( ScnVspec, axis=1 )
+ScnI = np.mean( ScnIspec[:,chRange], axis=1 )
+ScnQ = np.mean( ScnQspec[:,chRange], axis=1 )
+ScnU = np.mean( ScnUspec[:,chRange], axis=1 )
+ScnV = np.mean( ScnVspec[:,chRange], axis=1 )
 Qerr = ScnQ - TrkQ
 Uerr = ScnU - TrkU
 Perr = sqrt(ScnQ**2 + ScnU**2) - sqrt(TrkQ**2 + TrkU**2)

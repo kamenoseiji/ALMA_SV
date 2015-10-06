@@ -45,8 +45,8 @@ PA     = []
 #
 for file_index in range(fileNum):
     msfile = wd + prefix[file_index] + '.ms'
-    BP_ant = np.load(wd + prefix[file_index] + '-SPW' + `spw[file_index]` + '-BPant.npy')
-    XYdelay = np.load(wd + prefix[file_index] + '-SPW' + `spw[file_index]` + '-XYdelay.npy')
+    BP_ant = np.load(wd + BPfile[file_index])
+    XYdelay = np.load(wd + XYdelayfile[file_index])
     #-------- Time Range
     interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[file_index], scan[file_index])
     #-------- Antenna List
