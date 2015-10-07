@@ -129,9 +129,6 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
 #
 #----------------------------------------- Procedures
 msfile = wd + prefix + '.ms'
-#BP_ant = np.load(wd + prefix + '-SPW' + `spw[0]` + '-BPant.npy')
-#XYdelay = np.load(wd + prefix + '-SPW' + `spw[0]` + '-XYdelay.npy')
-#solution = np.load(wd + QUXY + '.QUXY.npy')
 BP_ant = np.load(wd + BPfile)
 XYdelay = np.load(wd + XYdelayfile)
 solution = np.load(wd + QUXYfile)
@@ -567,23 +564,6 @@ plt.savefig( prefix + '-SPW' + `spw[0]` + '-StokesErr.pdf', form='pdf'); plt.clo
 plt.close()
 text_sd = '%8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f' % (np.mean(Qerr[IndexCenter]), max(abs(Qerr[Index3dB])), max(abs(Qerr[Index6dB])), np.mean(Uerr[IndexCenter]), max(abs(Uerr[Index3dB])), max(abs(Uerr[Index6dB])), np.mean(Perr[IndexCenter]), max(abs(Perr[Index3dB])), max(abs(Perr[Index6dB])), np.mean(Aerr[IndexCenter]), max(abs(Aerr[Index3dB])), max(abs(Aerr[Index6dB])))
 logfile.write(text_sd + '\n')
-logfile.close()
-#--------- Gridding for 11x11 sampling points
-az, el = readGrid(gridFile)
-logfile = open(prefix + '-SPW' + `spw[0]` + '-StokesGrid.log', 'w')
-text_sd = 'No. dAz      dEl        I        Q        U         V'
-logfile.write(text_sd + '\n')
-xi, yi = np.mgrid[ min(az):max(az):11j, max(el):min(el):11j]
-Imap = GridData( ScnI, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM/16).reshape(len(xi), len(xi))
-Qmap = GridData( ScnQ, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM/16).reshape(len(xi), len(xi))
-Umap = GridData( ScnU, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM/16).reshape(len(xi), len(xi))
-Vmap = GridData( ScnV, ScanAz, ScanEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM/16).reshape(len(xi), len(xi))
-for x_index in range(11):
-    for y_index in range(11):
-        text_sd = '%d %f %f %f %f %f %f' % (x_index*11 + y_index + 1, xi[x_index, y_index], yi[x_index, y_index], Imap[x_index, y_index], Qmap[x_index, y_index], Umap[x_index, y_index], Vmap[x_index, y_index])
-        logfile.write(text_sd + '\n')
-    #
-#
 logfile.close()
 #-------- Plot Stokes Spectra at Beam Position
 logfile = open(prefix + '-SPW' + `spw[0]` + '-StokesSpec.log', 'w')
