@@ -131,8 +131,10 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
 msfile = wd + prefix + '.ms'
 BP_ant = np.load(wd + BPfile)
 XYdelay = np.load(wd + XYdelayfile)
-solution = np.load(wd + QUXYfile)
-CalQ, CalU, GYphs = solution[0], solution[1], solution[2]
+solution = np.load(wd + QUXYfile); GYphs = solution[2]
+if QUmodel:
+    CalQ, CalU = solution[0], solution[1]
+#
 #-------- Antenna List
 antList = GetAntName(msfile)
 antNum = len(antList)
@@ -196,9 +198,9 @@ invIndex = np.where(BlInv)[0].tolist()          # For inverted baselines
 XY[:,invIndex] = Xspec[2][:,invIndex].copy()     # XY and YX are swapped
 YX[:,invIndex] = Xspec[1][:,invIndex].copy()     #
 #-- BL within antenna groups
-TrkXX  = XX[:,trkBlIndex];  TrkXY  = XY[:,trkBlIndex];  TrkYX  = YX[:,trkBlIndex];  TrkYY  = YY[:,trkBlIndex]  # Ref-Ref 
-ScTrXX = XX[:,ScTrBlIndex]; ScTrXY = XY[:,ScTrBlIndex]; ScTrYX = YX[:,ScTrBlIndex]; ScTrYY = YY[:,ScTrBlIndex] # Ref-Sc 
-ScScXX = XX[:,ScScBlIndex]; ScScXY = XY[:,ScScBlIndex]; ScScYX = YX[:,ScScBlIndex]; ScScYY = YY[:,ScScBlIndex] # Ref-Sc 
+#TrkXX  = XX[:,trkBlIndex];  TrkXY  = XY[:,trkBlIndex];  TrkYX  = YX[:,trkBlIndex];  TrkYY  = YY[:,trkBlIndex]  # Ref-Ref 
+#ScTrXX = XX[:,ScTrBlIndex]; ScTrXY = XY[:,ScTrBlIndex]; ScTrYX = YX[:,ScTrBlIndex]; ScTrYY = YY[:,ScTrBlIndex] # Ref-Sc 
+#ScScXX = XX[:,ScScBlIndex]; ScScXY = XY[:,ScScBlIndex]; ScScYX = YX[:,ScScBlIndex]; ScScYY = YY[:,ScScBlIndex] # Ref-Sc 
 #-------- Frequency and Wavelength
 chNum, chWid, Freq = GetChNum(msfile, spw[0])
 FWHM = GetFWHM(msfile, spw[0], AntD)
@@ -217,8 +219,6 @@ for time_index in range(timeNum):
     AZ[time_index], EL[time_index] = AzElMatch( timeStamp[time_index], scanTime[index], np.median(diff(timeStamp)), azel)
     PA[time_index] = AzEl2PA(AZ[time_index], EL[time_index], ALMA_lat) - BANDPA   #
 #
-UCmQS = solution[1]* np.cos(2.0*PA) - solution[0]* np.sin(2.0*PA)   # U cos - Q sin
-QCpUS = solution[0]* np.cos(2.0*PA) + solution[1]* np.sin(2.0*PA)   # Q cos + U sin
 #-------- Loop for each channel
 print('Applying Gain Correction....')
 VisXX = np.zeros([blNum, timeNum, chNum], dtype=complex)
@@ -226,8 +226,8 @@ VisXY = np.zeros([blNum, timeNum, chNum], dtype=complex)
 VisYX = np.zeros([blNum, timeNum, chNum], dtype=complex)
 VisYY = np.zeros([blNum, timeNum, chNum], dtype=complex)
 #-- Gain solutions using parallel-hand correlations
-GainX, GainY = polariGain( np.mean(XX[chRange], axis=0), np.mean(YY[chRange], axis=0), PA, solution[0], solution[1])
-GainY = GainY* exp(solution[2]* 1.0j)                                   # XY-phase correction
+GainX, GainY = polariGain( np.mean(XX[chRange], axis=0), np.mean(YY[chRange], axis=0), PA, CalQ, CalU)
+GainY = GainY* exp(GYphs* 1.0j)                                   # XY-phase correction
 #-- Gain Correction
 for ch_index in range(chNum):
     VisXX[:,:,ch_index] = gainCalVis( XX[ch_index], GainX, GainX )
@@ -246,7 +246,7 @@ for ch_index in range(chNum):
     PAsegNum = int((max(PA) - min(PA))/PAwidth)
     for seg_index in range(PAsegNum):
         timeIndexRange = range( (seg_index* timeNum/PAsegNum), ((seg_index + 1)* timeNum/PAsegNum) )
-        PS = np.dot(PAMatrix(np.mean(PA[timeIndexRange])), np.array([1.0, solution[0], solution[1], 0.0])).real
+        PS = np.dot(PAMatrix(np.mean(PA[timeIndexRange])), np.array([1.0, CalQ, CalU, 0.0])).real
         VisTime = np.r_[np.mean(VisXX[trkBlIndex][:,timeIndexRange, ch_index], axis=1), np.mean(VisXY[trkBlIndex][:,timeIndexRange, ch_index], axis=1), np.mean(VisYX[trkBlIndex][:,timeIndexRange, ch_index], axis=1), np.mean(VisYY[trkBlIndex][:,timeIndexRange, ch_index], axis=1)]
         TrkDx, TrkDy = Vis2solveDD( VisTime, PS )
         for time_index in timeIndexRange:
@@ -303,7 +303,7 @@ QCpUS = TrkQ* np.cos(2.0*PA) + TrkU* np.sin(2.0*PA)   # Q cos + U sin
 logfile = open(prefix + '-SPW' + `spw[0]` + '-trkStokes.log', 'w')
 text_sd = 'CH I Q U V'; logfile.write(text_sd + '\n')
 for ch_index in range(chNum):
-    text_sd = '%d %8.6f %8.6f %8.6f %8.6f' % (ch_index, np.mean(StokesVis[:,:,ch_index,0]), np.mean(StokesVis[:,:,ch_index,1]), np.mean(StokesVis[:,:,ch_index,2]), np.mean(StokesVis[:,:,ch_index,3]))
+    text_sd = '%d %8.6f %8.6f %8.6f %8.6f' % (ch_index, np.mean(StokesVis[:,:,ch_index,0]).real, np.mean(StokesVis[:,:,ch_index,1]).real, np.mean(StokesVis[:,:,ch_index,2]).real, np.mean(StokesVis[:,:,ch_index,3]).real)
     logfile.write(text_sd + '\n')
 #
 logfile.close()
