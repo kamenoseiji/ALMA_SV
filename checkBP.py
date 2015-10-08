@@ -42,41 +42,58 @@ for spw_index in range(spwNum):
     Xspec = Xspec[:,:,blMap]
     Ximag = Xspec.transpose(0,1,3,2).imag* (-2.0* np.array(blInv) + 1.0)
     Xreal = Xspec.transpose(0,1,3,2).real
-    Xspec[0].imag = Ximag[0].transpose(0,2,1)
-    Xspec[1].real = (Xreal[1]*(1.0 - np.array(blInv)) + Xreal[2]* np.array(blInv)).transpose(0,2,1)
-    Xspec[1].imag = (Ximag[1]*(1.0 - np.array(blInv)) + Ximag[2]* np.array(blInv)).transpose(0,2,1)
-    Xspec[2].real = (Xreal[2]*(1.0 - np.array(blInv)) + Xreal[1]* np.array(blInv)).transpose(0,2,1)
-    Xspec[2].imag = (Ximag[2]*(1.0 - np.array(blInv)) + Ximag[1]* np.array(blInv)).transpose(0,2,1)
-    Xspec[3].imag = Ximag[3].transpose(0,2,1)
-    chAvgXX = np.mean(Xspec[0,chRange], axis=0 )
-    chAvgYY = np.mean(Xspec[3,chRange], axis=0 )
+    if cpolNum > 0: # Full polarization pairs
+        Xspec[0].imag = Ximag[0].transpose(0,2,1)
+        Xspec[1].real = (Xreal[1]*(1.0 - np.array(blInv)) + Xreal[2]* np.array(blInv)).transpose(0,2,1)
+        Xspec[1].imag = (Ximag[1]*(1.0 - np.array(blInv)) + Ximag[2]* np.array(blInv)).transpose(0,2,1)
+        Xspec[2].real = (Xreal[2]*(1.0 - np.array(blInv)) + Xreal[1]* np.array(blInv)).transpose(0,2,1)
+        Xspec[2].imag = (Ximag[2]*(1.0 - np.array(blInv)) + Ximag[1]* np.array(blInv)).transpose(0,2,1)
+        Xspec[3].imag = Ximag[3].transpose(0,2,1)
+        chAvgXX = np.mean(Xspec[0,chRange], axis=0 )
+        chAvgYY = np.mean(Xspec[3,chRange], axis=0 )
+    #
+    else:   # parallel polarization only
+        Xspec[0].imag = Ximag[0].transpose(0,2,1)
+        Xspec[1].imag = Ximag[1].transpose(0,2,1)
+        chAvgXX = np.mean(Xspec[0,chRange], axis=0 )
+        chAvgYY = np.mean(Xspec[1,chRange], axis=0 )
+    #
     #-------- Antenna-based Gain Cal
     GainX = np.apply_along_axis( gainComplex, 0, chAvgXX)
     GainY = np.apply_along_axis( gainComplex, 0, chAvgYY)
-    for ch_index in range(chNum):
-        Xspec[0, ch_index] = gainCalVis( Xspec[0,ch_index], GainX, GainX)
-        Xspec[1, ch_index] = gainCalVis( Xspec[1,ch_index], GainX, GainY)
-        Xspec[2, ch_index] = gainCalVis( Xspec[2,ch_index], GainY, GainX)
-        Xspec[3, ch_index] = gainCalVis( Xspec[3,ch_index], GainY, GainY)
+    if cpolNum > 0: # Full polarization pairs
+        for ch_index in range(chNum):
+            Xspec[0, ch_index] = gainCalVis( Xspec[0,ch_index], GainX, GainX)
+            Xspec[1, ch_index] = gainCalVis( Xspec[1,ch_index], GainX, GainY)
+            Xspec[2, ch_index] = gainCalVis( Xspec[2,ch_index], GainY, GainX)
+            Xspec[3, ch_index] = gainCalVis( Xspec[3,ch_index], GainY, GainY)
+        #
+        XCspec = np.mean(Xspec, axis=3)[cpol]                         # Time Average and Select Pol
+    else:
+        for ch_index in range(chNum):
+            Xspec[0, ch_index] = gainCalVis( Xspec[0,ch_index], GainX, GainX)
+            Xspec[1, ch_index] = gainCalVis( Xspec[1,ch_index], GainY, GainY)
+        #
     #
     #-------- Time Average
     XPspec = np.mean(Xspec, axis=3)[ppol]                         # Time Average and Select Pol
-    XCspec = np.mean(Xspec, axis=3)[cpol]                         # Time Average and Select Pol
     #-------- Antenna-based bandpass spectra
     for pol_index in range(ppolNum):
         #-------- Solution (BL -> Ant)
         BP_ant[:,spw_index, pol_index] = np.apply_along_axis(gainComplex, 0, XPspec[pol_index].T)
     #
     #-------- Bandpass Correction for Cross-pol
-    for bl_index in range(blNum):
-        ants = Bl2Ant(bl_index)
-        BPXY[:,bl_index] = BP_ant[ants[0], spw_index, 0]* BP_ant[ants[1], spw_index, 1].conjugate()
-        BPYX[:,bl_index] = BP_ant[ants[0], spw_index, 1]* BP_ant[ants[1], spw_index, 0].conjugate()
+    if cpolNum > 0: # Full polarization pairs
+        for bl_index in range(blNum):
+            ants = Bl2Ant(bl_index)
+            BPXY[:,bl_index] = BP_ant[ants[0], spw_index, 0]* BP_ant[ants[1], spw_index, 1].conjugate()
+            BPYX[:,bl_index] = BP_ant[ants[0], spw_index, 1]* BP_ant[ants[1], spw_index, 0].conjugate()
+        #
+        XC = np.mean( (XCspec[0] / BPXY), axis=1 ) + np.mean( (XCspec[1] / BPYX), axis=1 ).conjugate()
+        XYdelay[spw_index], amp = delay_search( XC[chRange] )
+        XYdelay[spw_index] *= (float(chNum) / float(len(chRange)))
     #
-    XC = np.mean( (XCspec[0] / BPXY), axis=1 ) + np.mean( (XCspec[1] / BPYX), axis=1 ).conjugate()
-    XYdelay[spw_index], amp = delay_search( XC[chRange] )
 #
-XYdelay *= (float(chNum) / float(len(chRange)))
 print 'XY delay [sample] = ' + `XYdelay`
 if plotMax == 0.0:
     plotMax = 1.5* np.median(abs(BP_ant))
@@ -84,7 +101,9 @@ if plotMax == 0.0:
 #-------- Save CalTables
 for spw_index in range(spwNum):
     np.save(prefix + '-SPW' + `spw[spw_index]` + '-BPant.npy', BP_ant[:,spw_index]) 
-    np.save(prefix + '-SPW' + `spw[spw_index]` + '-XYdelay.npy', XYdelay[spw_index]) 
+    if cpolNum > 0: # Full polarization pairs
+        np.save(prefix + '-SPW' + `spw[spw_index]` + '-XYdelay.npy', XYdelay[spw_index]) 
+    #
 #
 np.save(prefix + '.Ant.npy', antList) 
 #-------- Plots
