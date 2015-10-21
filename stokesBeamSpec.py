@@ -197,10 +197,6 @@ XX = Xspec[0].copy(); XY = Xspec[1].copy(); YX = Xspec[2].copy(); YY = Xspec[3].
 invIndex = np.where(BlInv)[0].tolist()          # For inverted baselines
 XY[:,invIndex] = Xspec[2][:,invIndex].copy()     # XY and YX are swapped
 YX[:,invIndex] = Xspec[1][:,invIndex].copy()     #
-#-- BL within antenna groups
-#TrkXX  = XX[:,trkBlIndex];  TrkXY  = XY[:,trkBlIndex];  TrkYX  = YX[:,trkBlIndex];  TrkYY  = YY[:,trkBlIndex]  # Ref-Ref 
-#ScTrXX = XX[:,ScTrBlIndex]; ScTrXY = XY[:,ScTrBlIndex]; ScTrYX = YX[:,ScTrBlIndex]; ScTrYY = YY[:,ScTrBlIndex] # Ref-Sc 
-#ScScXX = XX[:,ScScBlIndex]; ScScXY = XY[:,ScScBlIndex]; ScScYX = YX[:,ScScBlIndex]; ScScYY = YY[:,ScScBlIndex] # Ref-Sc 
 #-------- Frequency and Wavelength
 chNum, chWid, Freq = GetChNum(msfile, spw[0])
 FWHM = GetFWHM(msfile, spw[0], AntD)

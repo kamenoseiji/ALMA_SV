@@ -100,9 +100,9 @@ if plotMax == 0.0:
 #
 #-------- Save CalTables
 for spw_index in range(spwNum):
-    np.save(prefix + '-SPW' + `spw[spw_index]` + '-BPant.npy', BP_ant[:,spw_index]) 
+    np.save(prefix + '-REF' + antList[0] + '-SPW' + `spw[spw_index]` + '-BPant.npy', BP_ant[:,spw_index]) 
     if cpolNum > 0: # Full polarization pairs
-        np.save(prefix + '-SPW' + `spw[spw_index]` + '-XYdelay.npy', XYdelay[spw_index]) 
+        np.save(prefix + '-REF' + antList[0] + '-SPW' + `spw[spw_index]` + '-XYdelay.npy', XYdelay[spw_index]) 
     #
 #
 np.save(prefix + '.Ant.npy', antList) 
@@ -138,11 +138,11 @@ if BPPLOT:
             BPphsPL.text( np.min(Freq), 2.5, 'SPW=' + `spw[spw_index]` + ' Phase')
         #
         if PLOTFMT == 'png':
-            figAnt.savefig('BP_' + prefix + '_' + antList[ant_index] + '_Scan' + `BPscan` + '.png')
+            figAnt.savefig('BP_' + prefix + '_' + antList[ant_index] + '-REF' + antList[0] + '_Scan' + `BPscan` + '.png')
         else :
-            figAnt.savefig('BP_' + prefix + '_' + antList[ant_index] + '_Scan' + `BPscan` + '.pdf')
+            figAnt.savefig('BP_' + prefix + '_' + antList[ant_index] + '-REF' + antList[0] + '_Scan' + `BPscan` + '.pdf')
         #
     #
-    np.save(prefix + '.Delay.npy', Delay_ant) 
     plt.close('all')
 #
+np.save(prefix + '-REF' + antList[0] + '.Delay.npy', Delay_ant) 
