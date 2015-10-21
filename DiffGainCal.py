@@ -4,13 +4,16 @@ from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 execfile(SCR_DIR + 'interferometry.py')
 #-------- Load BP and Delay
-if BPCAL:
+def BP_load( prefix, spw ):
     try: 
-        BP_ant = np.load( wd + BPprefix + '.BPant.npy' )
+        BP_ant = np.load( prefix + '-SPW' + `spw` + '-BPant.npy' )
+        return BP_ant
     except:
-        BPCAL = False
+        return False
     #
 #
+#BP_ant = BP_load( wd + BPprefix, 10)
+"""
 #-------- Definitions
 antNum = len(refant)
 blNum = antNum* (antNum - 1) / 2 
@@ -110,6 +113,8 @@ for ant_index in range(antNum):
 np.save(PointPrefix + '.Ant.npy', antList) 
 np.save(PointPrefix + 'Scn' + `PointScan` + '.GA.npy', Gain_ant) 
 plt.close('all')
+"""
+"""
 #-------- Visibilities for Planet
 PlanetMSfile = wd + PlanetPrefix + '.ms'
 interval, timeStamp = GetTimerecord(PlanetMSfile, 0, 0, pol[0], PlanetSPW[0], PlanetScan)
@@ -184,6 +189,7 @@ for pol_index in range(1):
         #plt.contourf(xi, yi, tempVis.imag, np.linspace(-0.05, 0.05, 11)); plt.colorbar(); plt.title('Im(Vis)')
     #
 #
+"""
 """
     #-------- Source Model
     if not PointSource:
