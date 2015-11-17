@@ -22,8 +22,6 @@ for bl_index in range(blNum):
     ants = Bl2Ant(bl_index)
     blMap[bl_index], blInv[bl_index]  = Ant2BlD(refant[ants[0]], refant[ants[1]])
 #
-#-------- Procedures
-#
 #-------- Prepare BP and Delay to store
 chNum, chWid, Freq = GetChNum(msfile, spw[0])
 BP_ant    = np.ones([antNum, spwNum, ppolNum, chNum], dtype=complex)
@@ -31,6 +29,10 @@ Delay_ant = np.zeros([antNum, spwNum, (ppolNum + cpolNum)])
 XYdelay = np.zeros(spwNum)
 BPXY = np.ones([chNum, blNum], dtype=complex)
 BPYX = np.ones([chNum, blNum], dtype=complex)
+#-------- Load Bandpass table
+for spw_index in range(spwNum):
+    BP_ant[:,spw_index] = load( wd + BPtable[spw_index])
+#
 #-------- Loop for SPW
 for spw_index in range(spwNum):
     chNum, chWid, Freq = GetChNum(msfile, spw[spw_index]); Freq = 1.0e-9* Freq  # GHz
@@ -154,3 +156,4 @@ if BPPLOT:
     plt.close('all')
 #
 np.save(prefix + '-REF' + antList[0] + '.Delay.npy', Delay_ant) 
+"""
