@@ -8,8 +8,9 @@ execfile(SCR_DIR + 'interferometry.py')
 #-------- Definitions
 antNum = len(refant)
 blNum = antNum* (antNum - 1) / 2 
+ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
 spwNum  = len(spw)
-scanNum  = len(BPscan)
+scanNum  = len(scan)
 ppolNum  = len(ppol)
 cpolNum  = len(cpol)
 #
@@ -24,98 +25,53 @@ for bl_index in range(blNum):
 #
 #-------- Prepare BP and Delay to store
 chNum, chWid, Freq = GetChNum(msfile, spw[0])
-BP_ant    = np.ones([antNum, spwNum, ppolNum, chNum], dtype=complex)
+#BP_ant    = np.ones([antNum, spwNum, ppolNum, chNum], dtype=complex)
 Delay_ant = np.zeros([antNum, spwNum, (ppolNum + cpolNum)])
 XYdelay = np.zeros(spwNum)
 BPXY = np.ones([chNum, blNum], dtype=complex)
 BPYX = np.ones([chNum, blNum], dtype=complex)
 #-------- Load Bandpass table
-for spw_index in range(spwNum):
-    BP_ant[:,spw_index] = load( wd + BPtable[spw_index])
-#
+#for spw_index in range(spwNum):
+#    BP_ant[:,spw_index] = load( wd + BPtable[spw_index])
+##
 #-------- Loop for SPW
 for spw_index in range(spwNum):
     chNum, chWid, Freq = GetChNum(msfile, spw[spw_index]); Freq = 1.0e-9* Freq  # GHz
     chRange = range(int(round(chNum/chBunch * 0.05)), int(round(chNum/chBunch * 0.95)))
-    XPspec = np.zeros([scanNum, (ppolNum + cpolNum), chNum, blNum], dtype=complex)
+    XPspec = np.zeros([scanNum, ppolNum, chNum], dtype=complex)
     scanWeight = np.ones([scanNum, ppolNum])
+    BP_ant = load( wd + BPtable[spw_index])
     for scan_index in range(scanNum):
-        interval, timeStamp = GetTimerecord(msfile, 0, 0, ppol[0], spw[spw_index], BPscan[scan_index])
+        interval, timeStamp = GetTimerecord(msfile, 0, 0, ppol[0], spw[spw_index], scan[scan_index])
         timeNum = len(timeStamp)
-        print ' Loading SPW=' + `spw[spw_index]` + ' Scan=' + `BPscan[scan_index]`,
+        print ' Loading SPW=' + `spw[spw_index]` + ' Scan=' + `scan[scan_index]`,
         #
         #------- Load Cross-power spectrum
-        timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], BPscan[scan_index])   # Xspec[pol, ch, bl, time]
+        timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], scan[scan_index])   # Xspec[pol, ch, bl, time]
         Xspec = Xspec[:,:,blMap]
+        Xspec = (Xspec.transpose(3,2,0,1) / (BP_ant[ant1].conjugate()* BP_ant[ant0])).transpose(2, 3, 1, 0)
         Ximag = Xspec.transpose(0,1,3,2).imag* (-2.0* np.array(blInv) + 1.0)
-        Xreal = Xspec.transpose(0,1,3,2).real
-        if cpolNum > 0: # Full polarization pairs
-            Xspec[0].imag = Ximag[0].transpose(0,2,1)
-            Xspec[1].real = (Xreal[1]*(1.0 - np.array(blInv)) + Xreal[2]* np.array(blInv)).transpose(0,2,1)
-            Xspec[1].imag = (Ximag[1]*(1.0 - np.array(blInv)) + Ximag[2]* np.array(blInv)).transpose(0,2,1)
-            Xspec[2].real = (Xreal[2]*(1.0 - np.array(blInv)) + Xreal[1]* np.array(blInv)).transpose(0,2,1)
-            Xspec[2].imag = (Ximag[2]*(1.0 - np.array(blInv)) + Ximag[1]* np.array(blInv)).transpose(0,2,1)
-            Xspec[3].imag = Ximag[3].transpose(0,2,1)
-            chAvgXX = np.mean(Xspec[0,chRange], axis=0 )
-            chAvgYY = np.mean(Xspec[3,chRange], axis=0 )
+        Xspec.imag = Ximag.transpose(0,1,3,2)
         #
-        else:   # parallel polarization only
-            Xspec[0].imag = Ximag[0].transpose(0,2,1)
-            Xspec[1].imag = Ximag[1].transpose(0,2,1)
-            chAvgXX = np.mean(Xspec[0,chRange], axis=0 )
-            chAvgYY = np.mean(Xspec[1,chRange], axis=0 )
+        chAvgXX = np.mean(Xspec[0,chRange], axis=0 )
+        chAvgYY = np.mean(Xspec[1,chRange], axis=0 )
         #
         #-------- Antenna-based Gain Cal
         GainX = np.apply_along_axis( gainComplex, 0, chAvgXX); scanWeight[scan_index, 0] = np.sum(abs(GainX)**2)
         GainY = np.apply_along_axis( gainComplex, 0, chAvgYY); scanWeight[scan_index, 1] = np.sum(abs(GainY)**2)
-        if cpolNum > 0: # Full polarization pairs
-            for ch_index in range(chNum):
-                Xspec[0, ch_index] = gainCalVis( Xspec[0,ch_index], GainX, GainX)
-                Xspec[1, ch_index] = gainCalVis( Xspec[1,ch_index], GainX, GainY)
-                Xspec[2, ch_index] = gainCalVis( Xspec[2,ch_index], GainY, GainX)
-                Xspec[3, ch_index] = gainCalVis( Xspec[3,ch_index], GainY, GainY)
-            #
-            XCspec = np.mean(Xspec, axis=3)[cpol]                         # Time Average and Select Pol
-        else:
-            for ch_index in range(chNum):
-                Xspec[0, ch_index] = gainCalVis( Xspec[0,ch_index], GainX, GainX)
-                Xspec[1, ch_index] = gainCalVis( Xspec[1,ch_index], GainY, GainY)
-            #
+        WeightBLX = abs(np.mean(GainX, axis=1))[ant0]* abs(np.mean(GainX, axis=1))[ant1]
+        WeightBLY = abs(np.mean(GainY, axis=1))[ant0]* abs(np.mean(GainY, axis=1))[ant1]
+        for ch_index in range(chNum):
+            Xspec[0, ch_index] = gainCalVis( Xspec[0,ch_index], GainX, GainX)
+            Xspec[1, ch_index] = gainCalVis( Xspec[1,ch_index], GainY, GainY)
         #
         #-------- Time Average
-        XPspec[scan_index,ppol[0]] = np.mean(Xspec, axis=3)[ppol[0]] * scanWeight[scan_index, 0]  # Time Average and Select Pol
-        XPspec[scan_index,ppol[1]] = np.mean(Xspec, axis=3)[ppol[1]] * scanWeight[scan_index, 1]  # Time Average and Select Pol
+        XPspec[scan_index,ppol[0]] = np.mean(np.mean(Xspec, axis=3)[ppol[0]] * WeightBLX, axis=1)  # Time Average and Select Pol
+        XPspec[scan_index,ppol[1]] = np.mean(np.mean(Xspec, axis=3)[ppol[1]] * WeightBLY, axis=1)  # Time Average and Select Pol
         print 'Weight = %6.1e %6.1e' % (scanWeight[scan_index, 0], scanWeight[scan_index, 1])
     #
-    #-------- Antenna-based bandpass spectra
-    for pol_index in range(ppolNum):
-        #-------- Solution (BL -> Ant)
-        BP_ant[:,spw_index, pol_index] = np.apply_along_axis(gainComplex, 0, np.mean(XPspec, axis=0)[pol_index].T)
-    #
-    #-------- Bandpass Correction for Cross-pol
-    if cpolNum > 0: # Full polarization pairs
-        for bl_index in range(blNum):
-            ants = Bl2Ant(bl_index)
-            BPXY[:,bl_index] = BP_ant[ants[0], spw_index, 0]* BP_ant[ants[1], spw_index, 1].conjugate()
-            BPYX[:,bl_index] = BP_ant[ants[0], spw_index, 1]* BP_ant[ants[1], spw_index, 0].conjugate()
-        #
-        XC = np.mean( (XCspec[0] / BPXY), axis=1 ) + np.mean( (XCspec[1] / BPYX), axis=1 ).conjugate()
-        XYdelay[spw_index], amp = delay_search( XC[chRange] )
-        XYdelay[spw_index] *= (float(chNum) / float(len(chRange)))
-    #
 #
-print 'XY delay [sample] = ' + `XYdelay`
-if plotMax == 0.0:
-    plotMax = 1.5* np.median(abs(BP_ant))
-#
-#-------- Save CalTables
-for spw_index in range(spwNum):
-    np.save(prefix + '-REF' + antList[0] + '-SPW' + `spw[spw_index]` + '-BPant.npy', BP_ant[:,spw_index]) 
-    if cpolNum > 0: # Full polarization pairs
-        np.save(prefix + '-REF' + antList[0] + '-SPW' + `spw[spw_index]` + '-XYdelay.npy', XYdelay[spw_index]) 
-    #
-#
-np.save(prefix + '.Ant.npy', antList) 
+"""
 #-------- Plots
 if BPPLOT:
     #-------- Prepare Plots
