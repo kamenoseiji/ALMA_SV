@@ -25,7 +25,7 @@ for bl_index in range(blNum):
 #
 #-------- Prepare BP and Delay to store
 chNum, chWid, Freq = GetChNum(msfile, spw[0])
-#BP_ant    = np.ones([antNum, spwNum, ppolNum, chNum], dtype=complex)
+AvgSpec   = np.ones([spwNum, chNum], dtype=complex)
 Delay_ant = np.zeros([antNum, spwNum, (ppolNum + cpolNum)])
 XYdelay = np.zeros(spwNum)
 BPXY = np.ones([chNum, blNum], dtype=complex)
@@ -70,7 +70,10 @@ for spw_index in range(spwNum):
         XPspec[scan_index,ppol[1]] = np.mean(np.mean(Xspec, axis=3)[ppol[1]] * WeightBLY, axis=1)  # Time Average and Select Pol
         print 'Weight = %6.1e %6.1e' % (scanWeight[scan_index, 0], scanWeight[scan_index, 1])
     #
+    AvgSpec[spw_index] = np.mean( XPspec.transpose(2,0,1)* scanWeight, axis=(1,2) )
+    plt.plot( Freq[chRange], abs(AvgSpec[spw_index, chRange]), ls='steps-mid')
 #
+np.save(prefix + '-Scan' + `scan[0]` + '.AvSpec.npy', AvgSpec) 
 """
 #-------- Plots
 if BPPLOT:
