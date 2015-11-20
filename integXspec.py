@@ -30,10 +30,6 @@ Delay_ant = np.zeros([antNum, spwNum, (ppolNum + cpolNum)])
 XYdelay = np.zeros(spwNum)
 BPXY = np.ones([chNum, blNum], dtype=complex)
 BPYX = np.ones([chNum, blNum], dtype=complex)
-#-------- Load Bandpass table
-#for spw_index in range(spwNum):
-#    BP_ant[:,spw_index] = load( wd + BPtable[spw_index])
-##
 #-------- Loop for SPW
 for spw_index in range(spwNum):
     chNum, chWid, Freq = GetChNum(msfile, spw[spw_index]); Freq = 1.0e-9* Freq  # GHz

@@ -2,23 +2,27 @@
 from scipy import stats
 import matplotlib.pyplot as plt
 execfile(SCR_DIR + 'interferometry.py')
-#-------- Load BP and Delay
-if BPCAL:
-    try: 
-        BP_ant = np.load( wd + BPprefix + '.BPant.npy' )
-    except:
-        BPCAL = False
-    #
-#
 #-------- Definitions
 antNum = len(refant)
 blNum = antNum* (antNum - 1) / 2 
 spwNum  = len(spw)
 polNum  = len(pol)
 #
+#-------- Load BP and Delay
+"""
+if BPCAL:
+    for spw_index in range(spwNum):
+    BPdata = np.load(wd.kk
+    BP_ant = np.load( wd + BPprefix + '.BPant.npy' )
+    except:
+        BPCAL = False
+    #
+#
+"""
 #-------- Procedures
 msfile = wd + prefix + '.ms'
 antList = GetAntName(msfile)[refant]
+ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
 blMap = range(blNum)
 blInv = [False]* blNum		# True -> inverted baseline
 for bl_index in range(blNum):
@@ -38,6 +42,7 @@ for ant_index in range(antNum):
 #
 Gain_ant = np.ones([antNum, spwNum, polNum, timeNum], dtype=complex)
 #-------- Baseline-based bandpass
+"""
 if BPCAL:
     BP_bl = np.ones([spwNum, polNum, chNum, blNum], dtype=complex)
     for bl_index in range(blNum):
@@ -45,6 +50,7 @@ if BPCAL:
         BP_bl[:,:,:,bl_index] = BP_ant[ants[0]]* BP_ant[ants[1]].conjugate()
     #
 #
+"""
 #-------- Loop for SPW
 CaledVis = np.zeros([polNum, spwNum, blNum, timeNum], dtype=complex)
 for spw_index in range(spwNum):
@@ -70,11 +76,13 @@ for spw_index in range(spwNum):
     #
     #-------- Delay Determination and calibration
     if BPCAL:
-        tempVis = np.mean( Xspec.transpose(3,0,1,2) / BP_bl[spw_index], axis=2).transpose(1,2,0)
+        BP_ant = np.load( BPfile[spw_index] )
+        tempVis = np.mean( Xspec.transpose(3,0,1,2) / (BP_ant[ant1].conjugate()* BP_ant[ant0]).transpose(1,2,0) , axis=2 ).transpose(1, 2, 0)
+        # tempVis = np.mean( Xspec.transpose(3,0,1,2) / BP_bl[spw_index], axis=2).transpose(1,2,0)
     elif chNum == 1:
         tempVis = Xspec[:,0,:,:]
     else:
-        tempVis = np.mean(Xspec, axis=1)    # tempVis[pol, ch, bl]
+        tempVis = np.mean(Xspec, axis=1) 
     #
     #
     #-------- Source Model
