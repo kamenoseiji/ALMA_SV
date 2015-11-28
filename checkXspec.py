@@ -82,7 +82,7 @@ for spw_index in range(spwNum):
         ACampPL = figSPW.add_subplot( antNum, antNum, (antNum + 1)* ant_index + 1 )
         ACampPL.patch.set_facecolor('pink')
         for pol_index in range(polNum):
-            ACampPL.plot( Freq, abs(tempAC[pol_index, :, ant_index]), ls='steps-mid', label = 'Pol=' + polName[pol_index])
+            ACampPL.plot( Freq, abs(tempAC[pol[pol_index], :, ant_index]), ls='steps-mid', label = 'Pol=' + polName[pol_index])
             ACampPL.xaxis.set_major_locator(plt.NullLocator())
             ACampPL.yaxis.set_major_locator(plt.NullLocator())
         #
