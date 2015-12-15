@@ -44,7 +44,7 @@ for BB_index in range(4):
         solution, err = gaussNbitThresh( YC[CAIBBindex[time_index]], 8, thresh[1, BB_index, time_index] ); bitPower[1, BB_index, time_index] = 1/solution[0]**2
     #
 #
-flag = np.where( (bitPower[0,0] > 2.9) & (bitPower[0,0] < 3.1) )[0]
+flag = np.where( (bitPower[0,0] > 2.0) & (bitPower[0,0] < 3.2) )[0]
 
 
 #for time_index in range(timeNum):

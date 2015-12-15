@@ -5,7 +5,7 @@ execfile(SCR_DIR + 'interferometry.py')
 #-------- Load BP and Delay
 if BPCAL:
     try: 
-        BP_ant = np.load( wd + BPprefix + '.BPant.npy' )
+        BP_ant = np.load( wd + BPprefix + '-BPant.npy' )
     except:
         BPCAL = False
     #
