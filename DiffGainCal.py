@@ -3,6 +3,11 @@ from scipy import stats
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
 execfile(SCR_DIR + 'interferometry.py')
+RADDEG = 180.0/pi
+RADSEC = 3600* 180.0/pi
+IMSIZE = 256
+HALFSIZE = IMSIZE/2
+CELLSIZE = 0.2
 #-------- Load BP and Delay
 def BP_load( prefix, spw ):
     try: 
@@ -40,6 +45,16 @@ for ant_index in range(antNum):
     figAnt.text(0.45, 0.05, 'MJD [sec]')
     figAnt.text(0.03, 0.45, 'Gain Amplitude and Phase', rotation=90)
 #
+for spw_index in range(spwNum):
+    figMap = plt.figure(antNum + spw_index, figsize = (11, 8))
+    figVisD= plt.figure(antNum + spwNum + spw_index, figsize = (11, 8))
+    figVisR= plt.figure(antNum + 2* spwNum + spw_index, figsize = (11, 8))
+    figVisC= plt.figure(antNum + 3* spwNum + spw_index, figsize = (11, 8))
+    figMap.suptitle(PlanetPrefix + ' ' + ' SPW = ' + `PlanetSPW[spw_index]`)
+    figVisD.suptitle(PlanetPrefix + ' ' + ' SPW = ' + `PlanetSPW[spw_index]`)
+    figVisR.suptitle(PointPrefix + ' ' + ' SPW = ' + `PointSPW[spw_index]`)
+    figVisC.suptitle(PointPrefix + ' ' + ' SPW = ' + `PointSPW[spw_index]`)
+#
 #-------- Loop for SPW
 for spw_index in range(spwNum):
     #-------- Baseline-based bandpass
@@ -53,14 +68,28 @@ for spw_index in range(spwNum):
     #
     #-------- Load Visibilities
     print ' Loading SPW = ' + `PointSPW[spw_index]`
-    timeStamp, Pspec, Xspec = GetVisAllBL(PointMSfile, PointSPW[spw_index], PointScan)
+    timeStamp, UVW = GetUVW(PointMSfile, PointSPW[spw_index], PointScan)    # UVW[3, blNum, timeNum]
     timeNum = len(timeStamp)
+    UVD = np.sqrt(UVW[0]**2 + UVW[1]**2).reshape(blNum*timeNum)
+    timeStamp, Pspec, Xspec = GetVisAllBL(PointMSfile, PointSPW[spw_index], PointScan)
+    figVisR= plt.figure(antNum + 2* spwNum + spw_index, figsize = (11, 8))
+    figVisC= plt.figure(antNum + 3* spwNum + spw_index, figsize = (11, 8))
     Xspec = Xspec[pol]; Xspec = Xspec[:,:,blMap]
     #
     #-------- Baseline-based cross power spectra
     Ximag = Xspec.transpose(0,1,3,2).imag * (-2.0* np.array(blInv) + 1.0)
     Xspec.imag = Ximag.transpose(0,1,3,2)
     Xspec = (Xspec.transpose(3,2,0,1) / BP_bl).transpose(2, 3, 1, 0)
+    VisAmp = abs(np.mean(Xspec[:,chRange], axis=1)).reshape(2, blNum*timeNum)
+    scaleFact = 1.0 / np.median( VisAmp, axis=1 )
+    VisAmpPL = figVisR.add_subplot( 1, 1, 1 )
+    for pol_index in range(polNum):
+        VisAmpPL.plot( UVD, scaleFact[pol_index]* VisAmp[pol_index], '.', label = polName[pol_index])
+    #
+    VisAmpPL.set_ylim(0.0, 1.25)
+    VisAmpPL.legend(loc = 'upper right', prop={'size' :7}, numpoints = 1)
+    VisAmpPL.set_xlabel("Baseline Length [m]"); VisAmpPL.set_ylabel("Visibility Amplitude [scaled]")
+    figVisR.savefig('VisUncal_' + PointPrefix + '_SPW' + `PointSPW[spw_index]` + '.pdf')
     #-------- Tsys calibration
     TsysBL = np.ones([blNum, polNum, chNum])    # Baseline-based SEFD with Ae=1.0
     if TSYSCAL:
@@ -69,12 +98,19 @@ for spw_index in range(spwNum):
     #
     Xspec = (Xspec.transpose(3,2,0,1) * TsysBL).transpose(2, 3, 1, 0)
     #-------- Gain Cal
+    VisAmpPL = figVisC.add_subplot( 1, 1, 1 )
     Gain_ant = np.ones([antNum, polNum, timeNum], dtype=complex)
     for pol_index in range(polNum):
         vis_bl  = np.mean(Xspec[pol_index, chRange], axis=0)
         Gain_ant[:, pol_index] = np.apply_along_axis(gainComplex, 0, vis_bl )
         CaledVis = gainCalVis(vis_bl, Gain_ant[:, pol_index], Gain_ant[:, pol_index])
+        VisAmp = CaledVis.reshape(blNum*timeNum)
+        VisAmpPL.plot( UVD, VisAmp, '.', label = polName[pol_index])
     #
+    VisAmpPL.set_ylim(0.0, 1.25)
+    VisAmpPL.legend(loc = 'upper right', prop={'size' :7}, numpoints = 1)
+    VisAmpPL.set_xlabel("Baseline Length [m]"); VisAmpPL.set_ylabel("Visibility Amplitude [scaled]")
+    figVisC.savefig('VisCaled_' + PointPrefix + '_SPW' + `PointSPW[spw_index]` + '.pdf')
     plotMax = 2.0* np.median(abs(Gain_ant))
     #-------- Plot Gain
     for ant_index in range(antNum):
@@ -98,6 +134,7 @@ for spw_index in range(spwNum):
             #
         #
     #
+#
 #-------- Visibilities for Planet
     print ' Loading SPW = ' + `PlanetSPW[spw_index]`
     timeStamp, Pspec, Xspec = GetVisAllBL(PlanetMSfile, PlanetSPW[spw_index], PlanetScan)
@@ -115,6 +152,8 @@ for spw_index in range(spwNum):
     #
     Xspec = (Xspec.transpose(3,2,0,1) * TsysBL).transpose(2, 3, 1, 0)
     #-------- Gain Cal
+    chNum, chWid, Freq = GetChNum(PlanetMSfile, PlanetSPW[spw_index]); Freq = 1.0e-9* Freq  # GHz
+    lambdaInv = np.mean(Freq)*1.0e9/constants.c     # 1/wavelength [m^-1]
     for pol_index in range(polNum):
         GainAmp = np.outer(np.mean( abs(Gain_ant[:, pol_index]), axis=1), np.ones([timeNum], dtype=complex))
         vis_bl  = np.mean(Xspec[pol_index, chRange], axis=0)
@@ -122,65 +161,65 @@ for spw_index in range(spwNum):
             antPhase, PhsError = clphase_solve( np.angle(vis_bl[:, time_index]), abs(vis_bl[:, time_index]))
             GainAmp[:,time_index] *= exp(1.0j* antPhase)
         #
-        CaledVis = gainCalVis(vis_bl, GainAmp, GainAmp)
-    #
-    #-------- Imaging
-    for pol_index in range(polNum):
-        chNum, chWid, Freq = GetChNum(PlanetMSfile, PlanetSPW[spw_index]); Freq = 1.0e-9* Freq  # GHz
-        lambdaInv = np.mean(Freq)*1.0e9/constants.c     # 1/wavelength [m^-1]
+        CaledVis = gainCalVis(vis_bl, GainAmp, GainAmp)/ scaleFact[pol_index]**2 * np.mean(scaleFact)**2
+        #
+        #-------- Set visibilities
         timeStamp, UVW = GetUVW(PlanetMSfile, PlanetSPW[spw_index], PlanetScan)    # UVW[3, blNum, timeNum]
         UVW *= lambdaInv
         UVmax = sqrt(np.max( UVW[0]**2 + UVW[1]**2 ))
         UVmin = sqrt(np.min( UVW[0]**2 + UVW[1]**2 ))
-        xi, yi = np.mgrid[ -4*floor(UVmax):4*floor(UVmax):512j, -4*floor(UVmax):4*floor(UVmax):512j]       # (u, v) sampling points
+        GridMax = RADSEC/CELLSIZE
+        xi, yi = np.mgrid[ -GridMax:GridMax:((IMSIZE + 1)* 1j), -GridMax:GridMax:((IMSIZE + 1)* 1j)]       # (u, v) sampling points
+        xi, yi = xi[0:IMSIZE, 0:IMSIZE], yi[0:IMSIZE, 0:IMSIZE]
         U = np.r_[UVW[0], -UVW[0]].reshape(2*blNum*timeNum)
         V = np.r_[UVW[1], -UVW[1]].reshape(2*blNum*timeNum)
-        reCaledVis = np.r_[ CaledVis[pol_index, spw_index].real,  CaledVis[pol_index, spw_index].real ].reshape(2*blNum*timeNum)
-        imCaledVis = np.r_[ CaledVis[pol_index, spw_index].imag, -CaledVis[pol_index, spw_index].imag ].reshape(2*blNum*timeNum)
+        reCaledVis = np.r_[ CaledVis.real,  CaledVis.real ].reshape(2*blNum*timeNum)
+        imCaledVis = np.r_[ CaledVis.imag, -CaledVis.imag ].reshape(2*blNum*timeNum)
+        #
+        #-------- Imaging
+        GridVis =  GridData( reCaledVis, U, V, xi.reshape(xi.size), yi.reshape(xi.size), UVmin/2 ).reshape(len(xi), len(xi)) + 1.0j* GridData( imCaledVis, U, V, xi.reshape(xi.size), yi.reshape(xi.size), UVmin/2 ).reshape(len(xi), len(xi))
+        tempVis = np.zeros([IMSIZE, IMSIZE], dtype=complex)
+        GridMap = np.zeros([IMSIZE, IMSIZE])
+        tempVis[0:HALFSIZE, 0:HALFSIZE]   = GridVis[HALFSIZE:IMSIZE, HALFSIZE:IMSIZE]
+        tempVis[0:HALFSIZE, HALFSIZE:IMSIZE] = GridVis[HALFSIZE:IMSIZE, 0:HALFSIZE]
+        tempVis[HALFSIZE:IMSIZE, 0:HALFSIZE] = GridVis[0:HALFSIZE,HALFSIZE:IMSIZE]
+        tempVis[HALFSIZE:IMSIZE, HALFSIZE:IMSIZE] = GridVis[0:HALFSIZE,0:HALFSIZE]
+        tempMap = np.fft.fft2(tempVis).real / len(np.where(tempVis.real > 0.5)[0])
+        GridMap[0:HALFSIZE, 0:HALFSIZE]   = tempMap[HALFSIZE:IMSIZE, HALFSIZE:IMSIZE]
+        GridMap[0:HALFSIZE, HALFSIZE:IMSIZE] = tempMap[HALFSIZE:IMSIZE, 0:HALFSIZE]
+        GridMap[HALFSIZE:IMSIZE, 0:HALFSIZE] = tempMap[0:HALFSIZE,HALFSIZE:IMSIZE]
+        GridMap[HALFSIZE:IMSIZE, HALFSIZE:IMSIZE] = tempMap[0:HALFSIZE,0:HALFSIZE]
+        xi, yi = np.mgrid[ -(HALFSIZE* CELLSIZE):(HALFSIZE* CELLSIZE):((IMSIZE + 1)* 1j), -(HALFSIZE* CELLSIZE):(HALFSIZE* CELLSIZE):((IMSIZE + 1)* 1j)] 
+        xi, yi = xi[0:IMSIZE, 0:IMSIZE], yi[0:IMSIZE, 0:IMSIZE]
+        figMap = plt.figure(antNum + spw_index)
+        MapPL = figMap.add_subplot( 1, 2, pol_index + 1, aspect=1 )
+        mapImage = MapPL.contourf(xi, yi, GridMap.real, np.linspace(-0.4, 4.8, 14))
+        figMap.colorbar(mapImage, ax=MapPL)
+        # MapPL.axis('equal')
+        #-------- Visibility map
+        #figVis = plt.figure(spw_index)
+        #ax = Axes3D(figVis)
+        #ax.set_xlabel("U [lambda]"); ax.set_ylabel("V [lambda]"); ax.set_zlabel("Visibility Amplitude [scaled by the calibrator]")
+        #ax.scatter3D( U, V, reCaledVis)
+        #ax.plot( U, V, reCaledVis, '.')
+        #figVis.savefig('VIS_' + PlanetPrefix + '_SPW_' + `PlanetSPW[spw_index]` + 'Pol' + polName[pol_index] + '.pdf')
+        #
+        #-------- Visibility Amp
+        UVD = np.sqrt(U**2 + V**2)
+        figVisD = plt.figure(antNum + spwNum + spw_index)
+        VisDPL = figVisD.add_subplot( 1, 1, 1 )
+        VisDPL.plot( UVD, reCaledVis, '.')
+        VisDPL.set_xlim(0.0, 1.2* max(UVD) ); VisDPL.set_ylim(0.0, 1.2* max(reCaledVis) )
+        VisDPL.set_xlabel("UV distance [lambda]"); VisDPL.set_ylabel("Visibility Amplitude [scaled by the calibrator]")
+    #
+    figMap.savefig('MAP_' + PlanetPrefix + '_SPW_' + `PlanetSPW[spw_index]` + '.pdf')
+    figVisD.savefig('VISD_' + PlanetPrefix + '_SPW_' + `PlanetSPW[spw_index]` + '.pdf')
 #
-#
+plt.close('all')
 #
 #np.save(PointPrefix + '.Ant.npy', antList) 
 #np.save(PointPrefix + 'Scn' + `PointScan` + '.GA.npy', Gain_ant) 
 #plt.close('all')
-"""
-#-------- Imaging
-#for pol_index in range(polNum):
-#    for spw_index in range(spwNum):
-RADDEG = 180.0* 3600.0 / math.pi
-for pol_index in range(1):
-    for spw_index in range(1):
-        chNum, chWid, Freq = GetChNum(PlanetMSfile, PlanetSPW[spw_index]); Freq = 1.0e-9* Freq  # GHz
-        lambdaInv = np.mean(Freq)*1.0e9/constants.c     # 1/wavelength [m^-1]
-        timeStamp, UVW = GetUVW(PlanetMSfile, PlanetSPW[spw_index], PlanetScan)    # UVW[3, blNum, timeNum]
-        UVW *= lambdaInv
-        UVmax = sqrt(np.max( UVW[0]**2 + UVW[1]**2 ))
-        UVmin = sqrt(np.min( UVW[0]**2 + UVW[1]**2 ))
-        xi, yi = np.mgrid[ -4*floor(UVmax):4*floor(UVmax):512j, -4*floor(UVmax):4*floor(UVmax):512j]       # (u, v) sampling points
-        U = np.r_[UVW[0], -UVW[0]].reshape(2*blNum*timeNum)
-        V = np.r_[UVW[1], -UVW[1]].reshape(2*blNum*timeNum)
-        reCaledVis = np.r_[ CaledVis[pol_index, spw_index].real,  CaledVis[pol_index, spw_index].real ].reshape(2*blNum*timeNum)
-        imCaledVis = np.r_[ CaledVis[pol_index, spw_index].imag, -CaledVis[pol_index, spw_index].imag ].reshape(2*blNum*timeNum)
-        GridVis =  GridData( reCaledVis, U, V, xi.reshape(xi.size), yi.reshape(xi.size), UVmin/4 ).reshape(len(xi), len(xi)) + 1.0j* GridData( imCaledVis, U, V, xi.reshape(xi.size), yi.reshape(xi.size), UVmin/4 ).reshape(len(xi), len(xi))
-        tempVis = np.zeros([512,512], dtype=complex)
-        GridMap = np.zeros([512,512])
-        tempVis[0:256, 0:256]   = GridVis[256:512, 256:512]
-        tempVis[0:256, 256:512] = GridVis[256:512, 0:256]
-        tempVis[256:512, 0:256] = GridVis[0:256,256:512]
-        tempVis[256:512, 256:512] = GridVis[0:256,0:256]
-        tempMap = np.fft.fft2(tempVis).real / len(np.where(tempVis.real > 0.5)[0])
-        GridMap[0:256, 0:256]   = tempMap[256:512, 256:512]
-        GridMap[0:256, 256:512] = tempMap[256:512, 0:256]
-        GridMap[256:512, 0:256] = tempMap[0:256,256:512]
-        GridMap[256:512, 256:512] = tempMap[0:256,0:256]
-
-        xi, yi = np.mgrid[ (16* RADDEG / floor(UVmax)):(-16* RADDEG / floor(UVmax)):512j, (-16* RADDEG / floor(UVmax)):(16*RADDEG / floor(UVmax)):512j] 
-        plt.contourf(xi, yi, GridMap.real, np.linspace(-0.5, 4.0, 46)); plt.colorbar(); plt.title('Planet Image')
-        #plt.contourf(xi, yi, tempVis.real, np.linspace(0.8, 1.2, 41)); plt.colorbar(); plt.title('Re(Vis)')
-        #plt.contourf(xi, yi, tempVis.imag, np.linspace(-0.05, 0.05, 11)); plt.colorbar(); plt.title('Im(Vis)')
-    #
-#
-"""
 """
     #-------- Source Model
     if not PointSource:
