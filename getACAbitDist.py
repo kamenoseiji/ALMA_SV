@@ -110,6 +110,8 @@ DIR2a  = '/alma/logs/COJ-CPM-1/ACACORR/CDPMIF/'
 DIR3   = '/alma/logs/coj-cc-1/ACACORR/OBSERVATION_CONTROL/'
 DIR3a  = '/alma/logs/COJ-CC-1/ACACORR/OBSERVATION_CONTROL/'
 
+# DATA_MODEL/
+
 initDate = datetime.datetime.strptime(DATE, '%Y-%m-%d')
 dateText = []
 for dateIndex in range(Days):
