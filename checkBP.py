@@ -83,12 +83,16 @@ for spw_index in range(spwNum):
         #-------- Time Average
         XPspec[scan_index,ppol[0]] = np.mean(Xspec, axis=3)[ppol[0]] * scanWeight[scan_index, 0]  # Time Average and Select Pol
         XPspec[scan_index,ppol[1]] = np.mean(Xspec, axis=3)[ppol[1]] * scanWeight[scan_index, 1]  # Time Average and Select Pol
+        if cpolNum > 0: # Full polarization pairs
+            XPspec[scan_index,cpol[0]] = np.mean(Xspec, axis=3)[cpol[0]] * scanWeight[scan_index, 0]  # Time Average and Select Pol
+            XPspec[scan_index,cpol[1]] = np.mean(Xspec, axis=3)[cpol[1]] * scanWeight[scan_index, 1]  # Time Average and Select Pol
+        #
         print 'Weight = %6.1e %6.1e' % (scanWeight[scan_index, 0], scanWeight[scan_index, 1])
     #
     #-------- Antenna-based bandpass spectra
     for pol_index in range(ppolNum):
         #-------- Solution (BL -> Ant)
-        BP_ant[:,spw_index, pol_index] = np.apply_along_axis(gainComplex, 0, np.mean(XPspec, axis=0)[pol_index].T)
+        BP_ant[:,spw_index, pol_index] = np.apply_along_axis(gainComplex, 0, np.mean(XPspec, axis=0)[ppol[pol_index]].T)
     #
     #-------- Bandpass Correction for Cross-pol
     if cpolNum > 0: # Full polarization pairs

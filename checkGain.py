@@ -2,6 +2,17 @@
 from scipy import stats
 import matplotlib.pyplot as plt
 execfile(SCR_DIR + 'interferometry.py')
+<<<<<<< HEAD
+#-------- Load BP and Delay
+if BPCAL:
+    try: 
+        BP_ant = np.load( wd + BPprefix + '-BPant.npy' )
+    except:
+        BPCAL = False
+    #
+#
+=======
+>>>>>>> ef7dadde44a7768568b5e50915a426e8dd40756a
 #-------- Definitions
 antNum = len(refant)
 blNum = antNum* (antNum - 1) / 2 
