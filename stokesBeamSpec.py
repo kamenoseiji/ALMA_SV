@@ -160,7 +160,6 @@ print ' '
 if refantName not in antList[trkAnt]:
    print refantName + ' does not exist in the tracking antenna list this MS.'
 #
-"""
 #-------- Antenna and BL Grouping
 refAntIndex = np.where( antList == refantName )[0].tolist()       # Ref ant in all AntList
 trkAnt.pop( trkAnt.index(refAntIndex[0])); trkAnt = refAntIndex + trkAnt
@@ -623,4 +622,3 @@ for thresh_index in range(6):
     plt.savefig( prefix + '-' + '-SPW' + `spw[0]` + '-OFF' + `round(np.median(np.sqrt(Dist2[time_index])),1)` + '-StokesSpec.pdf', form='pdf'); plt.close()
 #
 logfile.close()
-"""
