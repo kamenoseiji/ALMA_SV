@@ -127,7 +127,6 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
     #
     return results
 #
-"""
 #----------------------------------------- Procedures
 msfile = wd + prefix + '.ms'
 BP_ant = np.load(wd + BPfile)
@@ -327,7 +326,6 @@ for ant_index in range(scnAntNum):
         #
     #
 #
-"""
 #-------- Plot D-term spectrum for beam position
 logfile = open(prefix + '-SPW' + `spw[0]` + '-DtermSpec.log', 'w')
 text_sd = 'ant beamoff branch ch ReDx ImDx ReDy ImDy'
