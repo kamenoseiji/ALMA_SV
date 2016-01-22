@@ -127,6 +127,7 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
     #
     return results
 #
+"""
 #----------------------------------------- Procedures
 msfile = wd + prefix + '.ms'
 BP_ant = np.load(wd + BPfile)
@@ -326,11 +327,17 @@ for ant_index in range(scnAntNum):
         #
     #
 #
+"""
 #-------- Plot D-term spectrum for beam position
 logfile = open(prefix + '-SPW' + `spw[0]` + '-DtermSpec.log', 'w')
 text_sd = 'ant beamoff branch ch ReDx ImDx ReDy ImDy'
 logfile.write(text_sd + '\n')
-thresh = np.r_[0.0, np.linspace( min(np.sqrt(ScanAz**2 + ScanEl**2)), max(np.sqrt(ScanAz**2 + ScanEl**2)), num=16) + min(np.sqrt(ScanAz**2 + ScanEl**2))]
+OffBeam = np.sqrt(ScanAz**2 + ScanEl**2)
+ScanInterval = median( np.diff( ScanAz[0:100] ))
+SortOffBeam = np.sort( OffBeam )
+BreakIndex = np.where( np.diff(SortOffBeam) > 0.5* ScanInterval)[0]
+thresh = 0.5*( SortOffBeam[BreakIndex] + SortOffBeam[BreakIndex + 1])
+#thresh = np.r_[0.0, np.linspace( min(np.sqrt(ScanAz**2 + ScanEl**2)), max(np.sqrt(ScanAz**2 + ScanEl**2)), num=16) + min(np.sqrt(ScanAz**2 + ScanEl**2))]
 Dist2 = ScanAz**2 + ScanEl**2
 xrange, yrange = [min(Freq[chRange]), max(Freq[chRange])], [-0.1, 0.1]
 for ant_index in range(scnAntNum):
