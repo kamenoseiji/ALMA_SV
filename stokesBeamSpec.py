@@ -148,9 +148,19 @@ print('Checking the Array ....')
 trkAnt, scnAnt, scanTime, Offset = antRefScan(msfile)
 trkAntNum = len(trkAnt)
 scnAntNum = len(scnAnt)
+print 'Trakking Antennas: ',
+for index in trkAnt:
+    print antList[index] + ',',
+print ' '
+print 'Scanning Antennas: ',
+for index in scnAnt:
+    print antList[index] + ',',
+#
+print ' '
 if refantName not in antList[trkAnt]:
    print refantName + ' does not exist in the tracking antenna list this MS.'
 #
+sys.exit()
 #-------- Antenna and BL Grouping
 refAntIndex = np.where( antList == refantName )[0].tolist()       # Ref ant in all AntList
 trkAnt.pop( trkAnt.index(refAntIndex[0])); trkAnt = refAntIndex + trkAnt
