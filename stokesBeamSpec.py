@@ -1,3 +1,4 @@
+import sys
 execfile(SCR_DIR + 'interferometry.py')
 from scipy.constants import constants
 from scipy.interpolate import UnivariateSpline
