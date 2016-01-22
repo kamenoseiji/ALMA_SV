@@ -316,7 +316,7 @@ logfile.close()
 print('-------- Determining Antenna-based D-terms (scan ants) ----')
 for ant_index in range(scnAntNum):
     antID = trkAntNum + ant_index
-    print 'Determining D-term of ' + antList[antID]
+    print 'Determining D-term of ' + antList[AntIndex[antID]]
     TrkScnBL = range(antID* (antID - 1) / 2, antID* (antID - 1) / 2 + trkAntNum)
     for time_index in range(timeNum):
         PS = np.dot(PAMatrix(PA[time_index]), np.array([1.0, TrkQ, TrkU, 0.0])).real
