@@ -962,7 +962,10 @@ def simple2DGaussFit( z, x, y ):
 #
 #-------- ACD edge pattern
 def ACDedge( timeXY ):
-	edge = np.where( diff(timeXY) > 1.0 )[0]
+    timeSKY = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE")
+    timeAMB = msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT")
+    timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
+
 	skyRange = range(2, edge[0]-1)
 	ambRange = range(edge[0]+3, edge[1]-1)
 	hotRange = range(edge[1]+3, len(timeXY)-1)

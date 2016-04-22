@@ -2,7 +2,6 @@
 from scipy import stats
 import matplotlib.pyplot as plt
 execfile(SCR_DIR + 'interferometry.py')
-<<<<<<< HEAD
 #-------- Load BP and Delay
 if BPCAL:
     try: 
@@ -11,25 +10,12 @@ if BPCAL:
         BPCAL = False
     #
 #
-=======
->>>>>>> ef7dadde44a7768568b5e50915a426e8dd40756a
 #-------- Definitions
 antNum = len(refant)
 blNum = antNum* (antNum - 1) / 2 
 spwNum  = len(spw)
 polNum  = len(pol)
 #
-#-------- Load BP and Delay
-"""
-if BPCAL:
-    for spw_index in range(spwNum):
-    BPdata = np.load(wd.kk
-    BP_ant = np.load( wd + BPprefix + '.BPant.npy' )
-    except:
-        BPCAL = False
-    #
-#
-"""
 #-------- Procedures
 msfile = wd + prefix + '.ms'
 antList = GetAntName(msfile)[refant]
@@ -53,7 +39,6 @@ for ant_index in range(antNum):
 #
 Gain_ant = np.ones([antNum, spwNum, polNum, timeNum], dtype=complex)
 #-------- Baseline-based bandpass
-"""
 if BPCAL:
     BP_bl = np.ones([spwNum, polNum, chNum, blNum], dtype=complex)
     for bl_index in range(blNum):
@@ -61,7 +46,6 @@ if BPCAL:
         BP_bl[:,:,:,bl_index] = BP_ant[ants[0]]* BP_ant[ants[1]].conjugate()
     #
 #
-"""
 #-------- Loop for SPW
 CaledVis = np.zeros([polNum, spwNum, blNum, timeNum], dtype=complex)
 for spw_index in range(spwNum):
