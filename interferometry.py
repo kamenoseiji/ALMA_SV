@@ -94,6 +94,13 @@ def ecliptic2radec( longitude, latitude, mjd ):          # ecliptic -> J2000, mj
     return np.arctan2(Yb, Xb), np.arcsin(Zb)
 #
 #-------- Time-based matching between time tags in visibilities and in scan pattern 
+def indexList( refArray, motherArray ):     # Compare two arrays and return matched index
+    IL = []
+    for currentItem in refArray:
+        IL = IL + np.where( motherArray == currentItem )[0].tolist()
+    #
+    return IL
+#
 def AzElMatch( refTime, scanTime, thresh, Az, El ):
     index = np.where( abs(scanTime - refTime) < thresh)[0]
     return np.median(Az[index]), np.median(El[index])
