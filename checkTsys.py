@@ -3,21 +3,86 @@ from scipy import stats
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ptick
 execfile(SCR_DIR + 'interferometry.py')
+def indexList( refArray, motherArray ):
+    IL = []
+    for currentItem in refArray:
+        IL = IL + np.where( motherArray == currentItem )[0].tolist()
+    #
+    return IL
+#
 #
 #-------- Definitions
 #-------- Procedures
 msfile = wd + prefix + '.ms'
-antList = GetAntName(msfile)[refant]
+antList = GetAntName(msfile)
 antNum = len(antList)
 #-------- Check SPWs of atmCal
+msmd.open(msfile)
+print '---Checking spectral windows'
 TDMspw_atmCal = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*")))
-atmCalScan = msmd.scansforintent("CALIBRATE_ATMOSPHERE*").tolist()
+spwNum = len(TDMspw_atmCal)
+#-------- Check source list
+print '---Checking source list'
+sourceList = msmd.fieldnames()
+numSource = len(sourceList)
+#-------- Check MJD for Ambient Load
+print '---Checking time for ambient and hot load'
+timeAMB = msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT")
+timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
+#-------- Check Scans on-source
+print '---Checking on-source time'
+onsourceScans = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
+scanNum = len(onsourceScans)
+#
+spw_index = 0; ant_index = 0
+timeXY, Pspec = GetPSpec(msfile, ant_index, TDMspw_atmCal[spw_index])
+polNum, chNum = Pspec.shape[0], Pspec.shape[1]
+ambTime = sort( list(set(timeXY) & set(timeAMB)) ).tolist()
+hotTime = sort( list(set(timeXY) & set(timeHOT)) ).tolist()
+#
+ambTimeIndex = indexList( ambTime, timeXY)
+hotTimeIndex = indexList( hotTime, timeXY)
+#
+AmbSpec = np.zeros([antNum, spwNum, polNum, chNum, len(ambTime)])
+HotSpec = np.zeros([antNum, spwNum, polNum, chNum, len(hotTime)])
+OnSpec  = np.zeros([antNum, spwNum, polNum, chNum, scanNum])
+
+for ant_index in range(antNum):
+    tempAmb, tempHot = GetLoadTemp(msfile, ant_index, TDMspw_atmCal[0])
+    for spw_index in range(spwNum):
+        timeXY, Pspec = GetPSpec(msfile, ant_index, TDMspw_atmCal[spw_index])
+        AmbSpec[ant_index, spw_index] = Pspec[:,:,ambTimeIndex]
+        HotSpec[ant_index, spw_index] = Pspec[:,:,hotTimeIndex]
+        for scan_index in range(len(onsourceScans)):
+            OnTimeIndex = indexList(msmd.timesforscan(onsourceScans[scan_index]), timeXY)
+            OnSpec[ant_index, spw_index, :, :, scan_index] = np.median( Pspec[:,:,OnTimeIndex], axis=2 )
+        #
+    #
+#
+SPL_amb = UnivariateSpline(ambTime, AmbSpec[5,0,0,20], s=0.01*np.median(AmbSpec[5,0,0,20]))
+
+
+for sourceIndex in range(numSource):
+    scanList = list( set(msmd.scansforfield(sourceList[sourceIndex])) & set(onsourceScans) )
+    print sourceList[sourceIndex], scanList
+#
+msmd.close()
+"""
+for scan_index in range(len(atmCalScan)):
+    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, TDMspw_atmCal[spw_index], atmCalScan[scan_index])   # Xspec[pol, ch, bl, time]
+    currentAmbTime = list(set(timeStamp) & set(timeSKY))
+    ambTime = ambTime + currentAmbTime
+    for time_index in range(len(currentAmbTime)):
+        ambSpec = Pspec[:,:,:,amb_index]
+#
+#ambPspec = np.median(Pspec[:,:,:,ambTimeIndex], axis=3)
+"""
 """
 blMap = range(blNum)
 blInv = [False]* blNum		# True -> inverted baseline
 for bl_index in range(blNum):
     ants = Bl2Ant(bl_index)
-    blMap[bl_index], blInv[bl_index]  = Ant2BlD(refant[ants[0]], refant[ants[1]])
+    blMap[bl_index], blInv[bl_index]  = Ant2BlD(rllefanteants[0]], refant[ants[1]])
 #
 #-------- Procedures
 #

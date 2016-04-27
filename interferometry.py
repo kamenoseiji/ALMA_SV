@@ -159,7 +159,7 @@ def GetLoadTemp(msfile, AntID, spw):
 	Condition = 'ANTENNA_ID == ' + `AntID` + ' && SPECTRAL_WINDOW_ID == ' + `spw`
 	temp = tb.query(Condition).getcol('TEMPERATURE_LOAD')
 	tb.close()
-	return temp[0][0], temp[1][0] 
+	return np.median(temp[0]), np.median(temp[1])
 #
 
 def GetAntName(msfile):
@@ -253,17 +253,17 @@ def GetVisibility(msfile, ant1, ant2, pol, spwID, scanID):
 	tb.close()
 	return timeXY, dataXY
 
-def GetPSpec(msfile, ant, pol, spwID):
+def GetPSpec(msfile, ant, spwID):
     Out='ANTENNA1 == '+`ant`+' && ANTENNA2 == '+`ant` + ' && DATA_DESC_ID == '+`spwID`
     tb.open(msfile)
     antXantYspw = tb.query(Out)
     timeXY = antXantYspw.getcol('TIME')
     try:
-        dataXY = antXantYspw.getcol('FLOAT_DATA')[pol]
+        dataXY = antXantYspw.getcol('DATA')
     except:
-        dataXY = antXantYspw.getcol('DATA')[pol]
+        dataXY = antXantYspw.getcol('FLOAT_DATA')
     tb.close()
-    return timeXY, dataXY
+    return timeXY, dataXY.real
 #
 #-------- Mapping antList in refList
 def antIndex(refList, antList): 
@@ -965,11 +965,11 @@ def ACDedge( timeXY ):
     timeSKY = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE")
     timeAMB = msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT")
     timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
-
-	skyRange = range(2, edge[0]-1)
-	ambRange = range(edge[0]+3, edge[1]-1)
-	hotRange = range(edge[1]+3, len(timeXY)-1)
-	return skyRange, ambRange, hotRange
+    #
+    skyRange = range(2, edge[0]-1)
+    ambRange = range(edge[0]+3, edge[1]-1)
+    hotRange = range(edge[1]+3, len(timeXY)-1)
+    return skyRange, ambRange, hotRange
 #
 #-------- 3-bit VanVleck Correction
 def Vanv3bitCorr( dataXY, refRange, Qeff ):
