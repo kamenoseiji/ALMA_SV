@@ -74,6 +74,7 @@ for ant_index in range(antNum):
         OffEL[ant_index, time_index] = EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - offTime[time_index]))]]
     #
 #
+secZ = 1.0 / np.sin( OffEL )
 #-------- Time-interpolation of ambient and hot
 print '---Analyzing time variability of autocorr power'
 chRange = range(int(0.05*chNum), int(0.95*chNum))
@@ -87,9 +88,9 @@ chAvgHot = (np.mean(HotSpec[:,:,:,chRange], axis=3).transpose(3,0,1,2) / np.mean
 chAvgOn  = (np.mean(OnSpec[:,:,:,chRange], axis=3).transpose(3,0,1,2)  / np.mean(timeAvgOnSpec[:,:,:,chRange],axis=3)).transpose(1,2,3,0)
 #-------- Off-source Tsys
 Trx = np.zeros([antNum, spwNum, 2, chNum, len(offTime)])
-Tsys= np.zeros([antNum, spwNum, 2, chNum, len(offTime)])
+Tsky= np.zeros([antNum, spwNum, 2, chNum, len(offTime)])
 chAvgTrx = np.zeros([antNum, spwNum, 2, len(offTime)])
-chAvgTsys= np.zeros([antNum, spwNum, 2, len(offTime)])
+chAvgTsky= np.zeros([antNum, spwNum, 2, len(offTime)])
 TrxFlag  = np.ones([antNum, spwNum, 2, len(offTime)])
 tempAmb  = np.zeros([antNum])
 tempHot  = np.zeros([antNum])
@@ -104,10 +105,10 @@ for ant_index in range(antNum):
                 Pshot = timeAvgHotSpec[ant_index, spw_index, pol_index]* SPL_hot(offTime[time_index])
                 Psoff = OffSpec[ant_index, spw_index, pol_index, :, time_index]
                 Trx[ant_index, spw_index, pol_index, :, time_index] = (tempHot[ant_index]* Psamb - Pshot* tempAmb[ant_index]) / (Pshot - Psamb) 
-                Tsys[ant_index, spw_index, pol_index, :, time_index] = (Psoff* tempAmb[ant_index]) / (Psamb - Psoff)
+                Tsky[ant_index, spw_index, pol_index, :, time_index]= (Psoff* (tempHot[ant_index] - tempAmb[ant_index]) + tempAmb[ant_index]* Pshot - tempHot[ant_index]* Psamb) / (Pshot - Psamb)
                 Phot, Pamb, Poff = np.mean(Pshot[chRange]), np.mean(Psamb[chRange]), np.mean(Psoff[chRange])
                 chAvgTrx[ant_index, spw_index, pol_index, time_index] = (tempHot[ant_index]* Pamb - Phot* tempAmb[ant_index]) / (Phot - Pamb)
-                chAvgTsys[ant_index, spw_index, pol_index, time_index]= (Poff* tempAmb[ant_index]) / (Pamb - Poff)
+                chAvgTsky[ant_index, spw_index, pol_index, time_index]= (Poff* (tempHot[ant_index] - tempAmb[ant_index]) + tempAmb[ant_index]* Phot - tempHot[ant_index]* Pamb) / (Phot - Pamb)
             #
             #-------- Trx flagging
             TrxTemp = chAvgTrx[ant_index, spw_index, pol_index]
@@ -131,8 +132,7 @@ Trms = np.zeros([antNum, spwNum, 2])
 for ant_index in range(antNum):
     for spw_index in range(spwNum):
         for pol_index in range(2):
-            Tsky = chAvgTsys[ant_index, spw_index, pol_index] - chAvgTrx[ant_index, spw_index, pol_index]
-            fit = scipy.optimize.leastsq(residTskyTransfer, param, args=(tempAmb[ant_index], 1.0/np.sin(OffEL[ant_index]), Tsky, TrxFlag[ant_index, spw_index, pol_index]))
+            fit = scipy.optimize.leastsq(residTskyTransfer, param, args=(tempAmb[ant_index], secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
             TantN[ant_index, spw_index, pol_index] = fit[0][0]
             Tau0[ant_index, spw_index, pol_index]  = fit[0][1]
         #
@@ -149,10 +149,9 @@ param = [5.0]
 for ant_index in range(antNum):
     for spw_index in range(spwNum):
         for pol_index in range(2):
-            Tsky = chAvgTsys[ant_index, spw_index, pol_index] - chAvgTrx[ant_index, spw_index, pol_index]
-            fit = scipy.optimize.leastsq(residTskyTransfer2, param, args=(tempAmb[ant_index], Tau0[spw_index], 1.0/np.sin(OffEL[ant_index]), Tsky, TrxFlag[ant_index, spw_index, pol_index]))
+            fit = scipy.optimize.leastsq(residTskyTransfer2, param, args=(tempAmb[ant_index], Tau0[spw_index], secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
             TantN[ant_index, spw_index, pol_index] = fit[0][0]
-            resid = residTskyTransfer([fit[0][0], Tau0[spw_index]], tempAmb[ant_index], 1.0/np.sin(OffEL[ant_index]), Tsky, TrxFlag[ant_index, spw_index, pol_index])
+            resid = residTskyTransfer([fit[0][0], Tau0[spw_index]], tempAmb[ant_index], secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index])
             Trms[ant_index, spw_index, pol_index]  = sqrt(np.dot(resid, resid) / len(resid))
             print '%s SPW=%d %s : TantN=%6.3f K  Trms=%6.3f K' % (antList[ant_index], TDMspw_atmCal[spw_index], PolList[pol_index], fit[0][0], Trms[ant_index, spw_index, pol_index])
         #
@@ -161,8 +160,8 @@ for ant_index in range(antNum):
 #-------- Plot optical depth
 if PLOT:
     TrmThresh = 2.0* np.median(Trms)
-    plotMax = 2.0 * np.median(chAvgTsys - chAvgTrx)
-    airmass = np.arange( 1.0, 1.25*np.max(1.0/np.sin(OffEL)), 0.01)
+    plotMax = 2.0 * np.median(chAvgTsky)
+    airmass = np.arange( 1.0, 1.25*np.max(secZ), 0.01)
     figTau = plt.figure(0, figsize = (11,8))
     figTau.suptitle(prefix + ' Optical Depth')
     figTau.text(0.45, 0.05, 'Airmass')
@@ -170,16 +169,16 @@ if PLOT:
     for spw_index in range(spwNum):
         for pol_index in range(2):
             TskyPL = figTau.add_subplot(2, spwNum, spwNum* pol_index + spw_index + 1 )
-            TskyPL.axis([1.0, 1.25*np.max(1.0/np.sin(OffEL)), 0.0, plotMax])
+            TskyPL.axis([1.0, 1.25*np.max(secZ), 0.0, plotMax])
             TskyPL.plot( airmass, 2.713* np.exp(-Tau0[spw_index]* airmass) + tempAmb[ant_index]* (1.0 - np.exp(-Tau0[spw_index]* airmass)), '-')
             for ant_index in range(antNum):
-                plotTsky = chAvgTsys[ant_index, spw_index, pol_index] - chAvgTrx[ant_index, spw_index, pol_index] - TantN[ant_index, spw_index, pol_index]
+                plotTsky = chAvgTsky[ant_index, spw_index, pol_index] - TantN[ant_index, spw_index, pol_index]
                 if Trms[ant_index, spw_index, pol_index] > TrmThresh:
                     PLmarker = '.'
                 else:
                     PLmarker = 'o'
                 #
-                TskyPL.plot( 1.0/np.sin(OffEL[ant_index]), plotTsky, PLmarker, label = antList[ant_index])
+                TskyPL.plot( secZ[ant_index], plotTsky, PLmarker, label = antList[ant_index])
             #
             text_sd = 'Pol %s Tau(zenith)=%6.4f' % (PolList[pol_index], Tau0[spw_index])
             TskyPL.text(1.01, 0.95* plotMax, text_sd, fontsize='9')
@@ -198,7 +197,7 @@ if PLOT:
     timeThresh = 30.0
     TimePlot = ambTime[np.where( diff(ambTime) < timeThresh)[0].tolist()]
     numTimePlot = len(TimePlot)
-    plotMax = 1.5 * np.median(Tsys)
+    plotMax = 1.5 * np.median(Trx + Tsky)
     #-------- Prepare Plots
     for ant_index in range(antNum):
         figAnt = plt.figure(ant_index, figsize = (8, 11))
@@ -216,7 +215,7 @@ if PLOT:
                 timeRange = np.where( abs( ambTime - TimePlot[scan_index]) < timeThresh )[0].tolist()
                 timeLabel = qa.time('%fs' % (TimePlot[scan_index]), form='fits')[0]
                 for pol_index in range(2):
-                    plotTsys = np.mean(Tsys[ant_index, spw_index, pol_index][:, timeRange], axis=1)
+                    plotTsys = np.mean(Tsky[ant_index, spw_index, pol_index][:, timeRange] + Trx[ant_index, spw_index, pol_index][:, timeRange], axis=1)
                     plotTrx  = np.mean(Trx[ant_index, spw_index, pol_index][:, timeRange], axis=1)
                     TsysPL.plot( Freq, plotTsys, ls='steps-mid', label = 'Tsys_Pol=' + PolList[pol_index])
                     TsysPL.plot( Freq, plotTrx,  ls=':', label = 'Trec_Pol=' + PolList[pol_index])
