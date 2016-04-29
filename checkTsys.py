@@ -2,6 +2,7 @@ import sys
 from scipy import stats
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ptick
+import matplotlib.cm as cm
 execfile(SCR_DIR + 'interferometry.py')
 #
 #-------- Definitions
@@ -152,7 +153,7 @@ for ant_index in range(antNum):
             fit = scipy.optimize.leastsq(residTskyTransfer2, param, args=(tempAmb[ant_index], Tau0[spw_index], secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
             TantN[ant_index, spw_index, pol_index] = fit[0][0]
             resid = residTskyTransfer([fit[0][0], Tau0[spw_index]], tempAmb[ant_index], secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index])
-            Trms[ant_index, spw_index, pol_index]  = sqrt(np.dot(resid, resid) / len(resid))
+            Trms[ant_index, spw_index, pol_index]  = sqrt(np.dot(resid, resid) / len(np.where(TrxFlag[ant_index, spw_index, pol_index] > 0.0)[0]))
             print '%s SPW=%d %s : TantN=%6.3f K  Trms=%6.3f K' % (antList[ant_index], TDMspw_atmCal[spw_index], PolList[pol_index], fit[0][0], Trms[ant_index, spw_index, pol_index])
         #
     #
@@ -173,12 +174,7 @@ if PLOT:
             TskyPL.plot( airmass, 2.713* np.exp(-Tau0[spw_index]* airmass) + tempAmb[ant_index]* (1.0 - np.exp(-Tau0[spw_index]* airmass)), '-')
             for ant_index in range(antNum):
                 plotTsky = chAvgTsky[ant_index, spw_index, pol_index] - TantN[ant_index, spw_index, pol_index]
-                if Trms[ant_index, spw_index, pol_index] > TrmThresh:
-                    PLmarker = '.'
-                else:
-                    PLmarker = 'o'
-                #
-                TskyPL.plot( secZ[ant_index], plotTsky, PLmarker, label = antList[ant_index])
+                TskyPL.scatter( secZ[ant_index], plotTsky, s=15* TrxFlag[ant_index, spw_index, pol_index] + 1, color=cm.gist_ncar( float(ant_index) / antNum ), alpha=0.5, label = antList[ant_index])
             #
             text_sd = 'Pol %s Tau(zenith)=%6.4f' % (PolList[pol_index], Tau0[spw_index])
             TskyPL.text(1.01, 0.95* plotMax, text_sd, fontsize='9')
