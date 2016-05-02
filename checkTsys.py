@@ -139,7 +139,7 @@ for ant_index in range(antNum):
         #
     #
 #
-Tau0 = np.median(Tau0, axis=(0,2))
+Tau0 = np.median(np.median(Tau0, axis=0), axis=1)
 for spw_index in range(spwNum):
     print 'SPW=%d : Tau(zenith) = %6.4f' % (TDMspw_atmCal[spw_index], Tau0[spw_index])
 #
