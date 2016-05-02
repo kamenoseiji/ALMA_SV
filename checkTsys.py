@@ -56,6 +56,8 @@ OnSpec  = np.zeros([antNum, spwNum, 2, chNum, scanNum])
 OffEL   = np.zeros([antNum, len(offTime)])
 scanEL  = np.zeros([antNum, scanNum])
 for ant_index in range(antNum):
+    sys.stdout.write('\r\033[K' + 'Antenna ' + `ant_index` + ' / ' + `antNum`)
+    sys.stderr.flush()
     for spw_index in range(spwNum):
         timeXY, Pspec = GetPSpec(msfile, ant_index, TDMspw_atmCal[spw_index])
         OffSpec[ant_index, spw_index] = Pspec[pPol][:,:,offTimeIndex]
