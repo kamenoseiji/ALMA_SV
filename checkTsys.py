@@ -6,6 +6,19 @@ import matplotlib.cm as cm
 execfile(SCR_DIR + 'interferometry.py')
 #
 #-------- Definitions
+def residTskyTransfer( param, Tamb, secz, Tsky, weight ):
+    exp_Tau = np.exp( -param[1]* secz )
+    return weight* (Tsky - (param[0] + 2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
+#
+def residTskyTransfer2( param, Tamb, Tau0, secz, Tsky, weight ):
+    exp_Tau = np.exp( -Tau0* secz )
+    return weight* (Tsky - (param[0] + 2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
+#
+def get_progressbar_str(progress):
+    MAX_LEN = 48
+    BAR_LEN = int(MAX_LEN * progress)
+    return ('[' + '=' * BAR_LEN + ('>' if BAR_LEN < MAX_LEN else '') + ' ' * (MAX_LEN - BAR_LEN) + '] %.1f%%' % (progress * 100.))
+#
 #-------- Procedures
 msfile = wd + prefix + '.ms'
 antList = GetAntName(msfile)
@@ -56,9 +69,10 @@ OnSpec  = np.zeros([antNum, spwNum, 2, chNum, scanNum])
 OffEL   = np.zeros([antNum, len(offTime)])
 scanEL  = np.zeros([antNum, scanNum])
 for ant_index in range(antNum):
-    sys.stdout.write('\r\033[K' + 'Antenna ' + `ant_index` + ' / ' + `antNum`)
-    sys.stderr.flush()
     for spw_index in range(spwNum):
+        progress = (1.0* ant_index* spwNum + spw_index) / (antNum* spwNum)
+        sys.stderr.write('\r\033[K' + get_progressbar_str(progress))
+        sys.stderr.flush()
         timeXY, Pspec = GetPSpec(msfile, ant_index, TDMspw_atmCal[spw_index])
         OffSpec[ant_index, spw_index] = Pspec[pPol][:,:,offTimeIndex]
         AmbSpec[ant_index, spw_index] = Pspec[pPol][:,:,ambTimeIndex]
@@ -77,6 +91,8 @@ for ant_index in range(antNum):
         OffEL[ant_index, time_index] = EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - offTime[time_index]))]]
     #
 #
+sys.stderr.write('\n')
+sys.stderr.flush()
 secZ = 1.0 / np.sin( OffEL )
 #-------- Time-interpolation of ambient and hot
 print '---Analyzing time variability of autocorr power'
@@ -120,14 +136,6 @@ for ant_index in range(antNum):
         #
     #
 #
-def residTskyTransfer( param, Tamb, secz, Tsky, weight ):
-    exp_Tau = np.exp( -param[1]* secz )
-    return weight* (Tsky - (param[0] + 2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
-#
-def residTskyTransfer2( param, Tamb, Tau0, secz, Tsky, weight ):
-    exp_Tau = np.exp( -Tau0* secz )
-    return weight* (Tsky - (param[0] + 2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
-#
 param = [5.0, 0.05]
 Tau0 = np.zeros([antNum, spwNum, 2])
 TantN= np.zeros([antNum, spwNum, 2])
@@ -145,6 +153,11 @@ Tau0 = np.median(np.median(Tau0, axis=0), axis=1)
 for spw_index in range(spwNum):
     print 'SPW=%d : Tau(zenith) = %6.4f' % (TDMspw_atmCal[spw_index], Tau0[spw_index])
 #
+np.save(prefix + '.Trx.npy', Trx) 
+np.save(prefix + '.Tsky.npy', Tsky) 
+np.save(prefix + '.TrxFlag.npy', TrxFlag) 
+np.save(prefix + '.Tau0.npy', Tau0) 
+np.save(prefix + '.TantN.npy', TantN) 
 msmd.close()
 #-------- Antenna-dependent leakage noise
 PolList = ['X', 'Y']
@@ -161,7 +174,7 @@ for ant_index in range(antNum):
     #
 #
 #-------- Plot optical depth
-if PLOT:
+if PLOTTAU:
     TrmThresh = 2.0* np.median(Trms)
     plotMax = 2.0 * np.median(chAvgTsky)
     airmass = np.arange( 1.0, 1.25*np.max(secZ), 0.01)
@@ -176,7 +189,7 @@ if PLOT:
             TskyPL.plot( airmass, 2.713* np.exp(-Tau0[spw_index]* airmass) + tempAmb[ant_index]* (1.0 - np.exp(-Tau0[spw_index]* airmass)), '-')
             for ant_index in range(antNum):
                 plotTsky = chAvgTsky[ant_index, spw_index, pol_index] - TantN[ant_index, spw_index, pol_index]
-                TskyPL.scatter( secZ[ant_index], plotTsky, s=15* TrxFlag[ant_index, spw_index, pol_index] + 1, color=cm.gist_ncar( float(ant_index) / antNum ), alpha=0.5, label = antList[ant_index])
+                TskyPL.scatter( secZ[ant_index], plotTsky, s=15* TrxFlag[ant_index, spw_index, pol_index] + 1, color=cm.gist_ncar( float(ant_index) / antNum ), alpha=0.25, label = antList[ant_index])
             #
             text_sd = 'Pol %s Tau(zenith)=%6.4f' % (PolList[pol_index], Tau0[spw_index])
             TskyPL.text(1.01, 0.95* plotMax, text_sd, fontsize='9')
@@ -191,6 +204,8 @@ if PLOT:
     else :
         figTau.savefig('TAU_' + prefix + '.pdf')
     plt.close('all')
+#
+if PLOTTSYS:
     #-------- Plots for Tsys spectra
     timeThresh = 30.0
     TimePlot = ambTime[np.where( diff(ambTime) < timeThresh)[0].tolist()]
