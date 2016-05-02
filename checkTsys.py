@@ -3,7 +3,6 @@ from scipy import stats
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ptick
 import matplotlib.cm as cm
-"""
 execfile(SCR_DIR + 'interferometry.py')
 #
 #-------- Definitions
@@ -160,7 +159,6 @@ np.save(prefix + '.TrxFlag.npy', TrxFlag)
 np.save(prefix + '.Tau0.npy', Tau0) 
 np.save(prefix + '.TantN.npy', TantN) 
 msmd.close()
-"""
 #-------- Antenna-dependent leakage noise
 PolList = ['X', 'Y']
 param = [5.0]
