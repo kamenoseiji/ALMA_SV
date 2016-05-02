@@ -3,7 +3,6 @@ from scipy import stats
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ptick
 import matplotlib.cm as cm
-"""
 execfile(SCR_DIR + 'interferometry.py')
 #
 #-------- Definitions
@@ -33,6 +32,9 @@ spwNum = len(TDMspw_atmCal)
 print '---Checking source list'
 sourceList = msmd.fieldnames()
 numSource = len(sourceList)
+#-------- Check Bandpass
+print '---Producing antenna-based bandpass table'
+BPScans       = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
 #-------- Check MJD for Ambient Load
 print '---Checking time for ambient and hot load'
 timeOFF = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE")
@@ -40,7 +42,6 @@ timeAMB = msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT")
 timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
 #-------- Check Scans on-source
 print '---Checking on-source time'
-BPScans       = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
 onsourceScans = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
 scanNum = len(onsourceScans)
 #
@@ -160,66 +161,19 @@ np.save(prefix + '.TrxFlag.npy', TrxFlag)
 np.save(prefix + '.Tau0.npy', Tau0) 
 np.save(prefix + '.TantN.npy', TantN) 
 msmd.close()
-"""
 #-------- Antenna-dependent leakage noise
 PolList = ['X', 'Y']
 param = [5.0]
-print 'TantN: ',
-for spw_index in range(spwNum):
-    print 'PolX    SPW%02d  PolY           |' % (TDMspw_atmCal[spw_index]),
-#
-print ' '
-print '-----:--------------------------------+-------------------------------+-------------------------------+-------------------------------+'
 for ant_index in range(antNum):
-    print antList[ant_index] + ' : ',
     for spw_index in range(spwNum):
         for pol_index in range(2):
             fit = scipy.optimize.leastsq(residTskyTransfer2, param, args=(tempAmb[ant_index], Tau0[spw_index], secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
             TantN[ant_index, spw_index, pol_index] = fit[0][0]
             resid = residTskyTransfer([fit[0][0], Tau0[spw_index]], tempAmb[ant_index], secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index])
             Trms[ant_index, spw_index, pol_index]  = sqrt(np.dot(resid, resid) / len(np.where(TrxFlag[ant_index, spw_index, pol_index] > 0.0)[0]))
-            #print '%s SPW=%d %s : TantN=%6.3f K  Trms=%6.3f K' % (antList[ant_index], TDMspw_atmCal[spw_index], PolList[pol_index], fit[0][0], Trms[ant_index, spw_index, pol_index])
-            print '%4.1f (%4.1f) K ' % (TantN[ant_index, spw_index, pol_index], Trms[ant_index, spw_index, pol_index]),
+            print '%s SPW=%d %s : TantN=%6.3f K  Trms=%6.3f K' % (antList[ant_index], TDMspw_atmCal[spw_index], PolList[pol_index], fit[0][0], Trms[ant_index, spw_index, pol_index])
         #
-        print '|',
     #
-    print ' '
-#
-print ' '
-#-------- Trx
-print 'Trec : ',
-for spw_index in range(spwNum):
-    print 'SPW%02d  X        Y |' % (TDMspw_atmCal[spw_index]),
-#
-print ' '
-print '-----:--------------------+-------------------+-------------------+-------------------+'
-for ant_index in range(antNum):
-    print antList[ant_index] + ' : ',
-    for spw_index in range(spwNum):
-        for pol_index in range(2):
-            print '%6.1f K' % (np.median(chAvgTrx[ant_index, spw_index, pol_index])),
-        #
-        print '|',
-    #
-    print ' '
-#
-print ' '
-#-------- Tsys
-print 'Tsys : ',
-for spw_index in range(spwNum):
-    print 'SPW%02d  X        Y |' % (TDMspw_atmCal[spw_index]),
-#
-print ' '
-print '-----:--------------------+-------------------+-------------------+-------------------+'
-for ant_index in range(antNum):
-    print antList[ant_index] + ' : ',
-    for spw_index in range(spwNum):
-        for pol_index in range(2):
-            print '%6.1f K' % (np.median(chAvgTrx[ant_index, spw_index, pol_index]) + np.median(chAvgTsky[ant_index, spw_index, pol_index])),
-        #
-        print '|',
-    #
-    print ' '
 #
 #-------- Plot optical depth
 if PLOTTAU:
