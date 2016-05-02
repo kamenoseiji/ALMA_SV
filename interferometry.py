@@ -194,7 +194,7 @@ def GetTimerecord(msfile, ant1, ant2, pol, spwID, PScan):
 	timeXY = antXantYspw.getcol('TIME')
 	tb.close()
 	return interval, timeXY
-
+#
 def GetVisAllBL(msfile, spwID, scanID):
 	antNum = len(GetAntName(msfile))
 	corrNum= antNum* (antNum + 1)/2		# Number of correlations (with autocorr)
@@ -259,7 +259,7 @@ def GetVisibility(msfile, ant1, ant2, pol, spwID, scanID):
 		dataXY = antXantYspw.getcol('FLOAT_DATA')[pol]
 	tb.close()
 	return timeXY, dataXY
-
+#
 def GetPSpec(msfile, ant, spwID):
     Out='ANTENNA1 == '+`ant`+' && ANTENNA2 == '+`ant` + ' && DATA_DESC_ID == '+`spwID`
     tb.open(msfile)
@@ -322,7 +322,7 @@ for bl_index in range(2016):    # Maximum number of baseline
     ANT0.append(ants[0])        # bl -> ant0 (baseline-end antenna) mapping
     ANT1.append(ants[1])        # bl -> ant1 (baseline-begin antenna) mapping
 #
-ANT0 = np.array(ANT0); ANT1 = np.array(ANT1)
+#ANT0 = np.array(ANT0); ANT1 = np.array(ANT1)
 #
 def BlAmpMatrix(antNum):
     blNum = antNum* (antNum - 1) / 2
