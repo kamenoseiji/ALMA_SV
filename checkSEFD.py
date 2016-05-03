@@ -50,8 +50,8 @@ print `len(np.where( blInv )[0])` + ' baselines are inverted.'
 #-------- Check SPWs of atmCal
 msmd.open(msfile)
 print '---Checking spectral windows'
-TDMspw_atmCal = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*")))
-spwNum = len(TDMspw_atmCal)
+spw = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*")))
+spwNum = len(spw)
 #-------- Check source list
 print '---Checking source list'
 sourceList = msmd.fieldnames()
@@ -70,7 +70,7 @@ scanNum = len(onsourceScans)
 #-------- Check Scans for atmCal
 print '---Checking atmCal scans'
 spw_index = 0; ant_index = 0
-timeXY, Pspec = GetPSpec(msfile, ant_index, TDMspw_atmCal[spw_index])
+timeXY, Pspec = GetPSpec(msfile, ant_index, spw[spw_index])
 polNum, chNum = Pspec.shape[0], Pspec.shape[1]
 pPol, cPol = [0,1], []  # parallel and cross pol
 PolList = ['X', 'Y']
@@ -87,78 +87,14 @@ ambTimeIndex = indexList( ambTime, timeXY)
 hotTimeIndex = indexList( hotTime, timeXY)
 #-------- Prepare BP and Delay to store
 print '---Generating antenna-based bandpass table'
-chNum, chWid, Freq = GetChNum(msfile, TDMspw_atmCal[0])
-chRange = range(int(0.05*chNum), int(0.95*chNum))
-BP_ant    = np.ones([antNum, spwNum, ppolNum, chNum], dtype=complex)
-Delay_ant = np.zeros([antNum, spwNum, (ppolNum + cpolNum)])
-XYdelay = np.zeros(spwNum)
-BPXY = np.ones([chNum, blNum], dtype=complex)
-BPYX = np.ones([chNum, blNum], dtype=complex)
-for spw_index in range(spwNum):
-    XPspec = np.zeros([(ppolNum + cpolNum), chNum, blNum], dtype=complex)
-    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, TDMspw_atmCal[spw_index], BPScan)   # Xspec[pol, ch, bl, time]
-    timeNum = len(timeStamp)
-    Xspec = Xspec[:,:,blMap]
-    Ximag = Xspec.transpose(0,1,3,2).imag* (-2.0* np.array(blInv) + 1.0)
-    Xreal = Xspec.transpose(0,1,3,2).real
-    if cpolNum > 0: # Full polarization pairs
-        Xspec[0].imag = Ximag[0].transpose(0,2,1)
-        Xspec[1].real = (Xreal[1]*(1.0 - np.array(blInv)) + Xreal[2]* np.array(blInv)).transpose(0,2,1)
-        Xspec[1].imag = (Ximag[1]*(1.0 - np.array(blInv)) + Ximag[2]* np.array(blInv)).transpose(0,2,1)
-        Xspec[2].real = (Xreal[2]*(1.0 - np.array(blInv)) + Xreal[1]* np.array(blInv)).transpose(0,2,1)
-        Xspec[2].imag = (Ximag[2]*(1.0 - np.array(blInv)) + Ximag[1]* np.array(blInv)).transpose(0,2,1)
-        Xspec[3].imag = Ximag[3].transpose(0,2,1)
-        chAvgXX = np.mean(Xspec[0,chRange], axis=0 )
-        chAvgYY = np.mean(Xspec[3,chRange], axis=0 )
-    else:   # parallel polarization only
-        Xspec[0].imag = Ximag[0].transpose(0,2,1)
-        Xspec[1].imag = Ximag[1].transpose(0,2,1)
-        chAvgXX = np.mean(Xspec[0,chRange], axis=0 )
-        chAvgYY = np.mean(Xspec[1,chRange], axis=0 )
-    #-------- Antenna-based Gain Cal
-    GainX = np.apply_along_axis( gainComplex, 0, chAvgXX)
-    GainY = np.apply_along_axis( gainComplex, 0, chAvgYY)
-    if cpolNum > 0: # Full polarization pairs
-        for ch_index in range(chNum):
-            Xspec[0, ch_index] = gainCalVis( Xspec[0,ch_index], GainX, GainX)
-            Xspec[1, ch_index] = gainCalVis( Xspec[1,ch_index], GainX, GainY)
-            Xspec[2, ch_index] = gainCalVis( Xspec[2,ch_index], GainY, GainX)
-            Xspec[3, ch_index] = gainCalVis( Xspec[3,ch_index], GainY, GainY)
-        #
-        XCspec = np.mean(Xspec, axis=3)[cPol]                         # Time Average and Select Pol
-    else:
-        for ch_index in range(chNum):
-            Xspec[0, ch_index] = gainCalVis( Xspec[0,ch_index], GainX, GainX)
-            Xspec[1, ch_index] = gainCalVis( Xspec[1,ch_index], GainY, GainY)
-        #
-    #
-    #-------- Time Average
-    XPspec[pPol[0]] = np.mean(Xspec, axis=3)[pPol[0]]  # Time Average and Select Pol
-    XPspec[pPol[1]] = np.mean(Xspec, axis=3)[pPol[1]]  # Time Average and Select Pol
-    if cpolNum > 0: # Full polarization pairs
-        XPspec[cPol[0]] = np.mean(Xspec, axis=3)[cPol[0]]   # Time Average and Select Pol
-        XPspec[cPol[1]] = np.mean(Xspec, axis=3)[cPol[1]]   # Time Average and Select Pol
-    #
-    #-------- Antenna-based bandpass spectra
-    for pol_index in range(ppolNum):
-        #-------- Solution (BL -> Ant)
-        BP_ant[:,spw_index, pol_index] = np.apply_along_axis(gainComplex, 0, XPspec[pPol[pol_index]].T)
-    #
-    #-------- Bandpass Correction for Cross-pol
-    if cpolNum > 0: # Full polarization pairs
-        for bl_index in range(blNum):
-            BPXY[:,bl_index] = BP_ant[ANT0[bl_index], spw_index, 0]* BP_ant[ANT1[bl_index], spw_index, 1].conjugate()
-            BPYX[:,bl_index] = BP_ant[ANT0[bl_index], spw_index, 1]* BP_ant[ANT1[bl_index], spw_index, 0].conjugate()
-        #
-        XC = np.mean( (XCspec[0] / BPXY), axis=1 ) + np.mean( (XCspec[1] / BPYX), axis=1 ).conjugate()
-        XYdelay[spw_index], amp = delay_search( XC[chRange] )
-        XYdelay[spw_index] *= (float(chNum) / float(len(chRange)))
-    #
+XYdelayList = []
+BPList = []
+for spw_index in spw:
+    BP_ant, XYdelay = BPtable(msfile, spw_index, BPScan)
+    BPList = BPList + [BP_ant]
+    XYdelayList = XYdelayList + [XYdelay]
 #
-#-------- Baseline-based bandpass
-BP_bl = (np.ones([blNum, spwNum, 2, chNum], dtype=complex)* BP_ant[ant0]* BP_ant[ant1].conjugate()).transpose(1, 2, 3, 0)
-#-------- Plot bandpass
-plotMax = 1.25* np.median(abs(BP_ant))
+plotMax = 1.25
 if PLOTBP:
     #-------- Prepare Plots
     for ant_index in range(antNum):
@@ -171,11 +107,11 @@ if PLOTBP:
     for ant_index in range(antNum):
         figAnt = plt.figure(ant_index)
         for spw_index in range(spwNum):
-            chNum, chWid, Freq = GetChNum(msfile, TDMspw_atmCal[spw_index]); Freq = 1.0e-9* Freq  # GHz
+            chNum, chWid, Freq = GetChNum(msfile, spw[spw_index]); Freq = 1.0e-9* Freq  # GHz
             BPampPL = figAnt.add_subplot( 2, spwNum, spw_index + 1 )
             BPphsPL = figAnt.add_subplot( 2, spwNum, spw_index + spwNum + 1 )
             for pol_index in range(ppolNum):
-                plotBP = BP_ant[ant_index, spw_index, pol_index]
+                plotBP = BPList[spw_index][ant_index, pol_index]
                 BPampPL.plot( Freq, abs(plotBP), ls='steps-mid', label = 'Pol=' + PolList[pol_index])
                 BPampPL.axis([np.min(Freq), np.max(Freq), 0.0, 1.25* plotMax])
                 BPampPL.yaxis.set_major_formatter(ptick.ScalarFormatter(useMathText=True))
@@ -186,8 +122,8 @@ if PLOTBP:
             #
             BPampPL.legend(loc = 'lower left', prop={'size' :7}, numpoints = 1)
             BPphsPL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
-            BPampPL.text( np.min(Freq), 1.1* plotMax, 'SPW=' + `TDMspw_atmCal[spw_index]` + ' Amp')
-            BPphsPL.text( np.min(Freq), 2.5, 'SPW=' + `TDMspw_atmCal[spw_index]` + ' Phase')
+            BPampPL.text( np.min(Freq), 1.1* plotMax, 'SPW=' + `spw[spw_index]` + ' Amp')
+            BPphsPL.text( np.min(Freq), 2.5, 'SPW=' + `spw[spw_index]` + ' Phase')
         #
         if PLOTFMT == 'png':
             figAnt.savefig('BP_' + prefix + '_' + antList[ant_index] + '-REF' + antList[0] + '_Scan' + `BPScan` + '.png')
@@ -197,6 +133,7 @@ if PLOTBP:
     #
     plt.close('all')
 #
+"""
 #
 #-------- Load Az El position
 azelTime, AntID, AZ, EL = GetAzEl(msfile)
@@ -213,7 +150,7 @@ for ant_index in range(antNum):
         progress = (1.0* ant_index* spwNum + spw_index) / (antNum* spwNum)
         sys.stderr.write('\r\033[K' + get_progressbar_str(progress))
         sys.stderr.flush()
-        timeXY, Pspec = GetPSpec(msfile, ant_index, TDMspw_atmCal[spw_index])
+        timeXY, Pspec = GetPSpec(msfile, ant_index, spw[spw_index])
         OffSpec[ant_index, spw_index] = Pspec[pPol][:,:,offTimeIndex]
         AmbSpec[ant_index, spw_index] = Pspec[pPol][:,:,ambTimeIndex]
         HotSpec[ant_index, spw_index] = Pspec[pPol][:,:,hotTimeIndex]
@@ -253,7 +190,7 @@ TrxFlag  = np.ones([antNum, spwNum, 2, len(offTime)])
 tempAmb  = np.zeros([antNum])
 tempHot  = np.zeros([antNum])
 for ant_index in range(antNum):
-    tempAmb[ant_index], tempHot[ant_index] = GetLoadTemp(msfile, ant_index, TDMspw_atmCal[0])
+    tempAmb[ant_index], tempHot[ant_index] = GetLoadTemp(msfile, ant_index, spw[0])
     for spw_index in range(spwNum):
         for pol_index in range(2):
             SPL_amb = UnivariateSpline(ambTime, chAvgAmb[ant_index, spw_index, pol_index], s=0.001)
@@ -290,7 +227,7 @@ for ant_index in range(antNum):
 #
 Tau0 = np.median(np.median(Tau0, axis=0), axis=1)
 for spw_index in range(spwNum):
-    print 'SPW=%d : Tau(zenith) = %6.4f' % (TDMspw_atmCal[spw_index], Tau0[spw_index])
+    print 'SPW=%d : Tau(zenith) = %6.4f' % (spw[spw_index], Tau0[spw_index])
 #
 np.save(prefix + '.Trx.npy', Trx) 
 np.save(prefix + '.Tsky.npy', Tsky) 
@@ -302,7 +239,7 @@ msmd.close()
 param = [5.0]
 print 'TantN: ',
 for spw_index in range(spwNum):
-    print 'PolX    SPW%02d  PolY           |' % (TDMspw_atmCal[spw_index]),
+    print 'PolX    SPW%02d  PolY           |' % (spw[spw_index]),
 #
 print ' '
 print '-----:--------------------------------+-------------------------------+-------------------------------+-------------------------------+'
@@ -314,7 +251,7 @@ for ant_index in range(antNum):
             TantN[ant_index, spw_index, pol_index] = fit[0][0]
             resid = residTskyTransfer([fit[0][0], Tau0[spw_index]], tempAmb[ant_index], secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index])
             Trms[ant_index, spw_index, pol_index]  = sqrt(np.dot(resid, resid) / len(np.where(TrxFlag[ant_index, spw_index, pol_index] > 0.0)[0]))
-            #print '%s SPW=%d %s : TantN=%6.3f K  Trms=%6.3f K' % (antList[ant_index], TDMspw_atmCal[spw_index], PolList[pol_index], fit[0][0], Trms[ant_index, spw_index, pol_index])
+            #print '%s SPW=%d %s : TantN=%6.3f K  Trms=%6.3f K' % (antList[ant_index], spw[spw_index], PolList[pol_index], fit[0][0], Trms[ant_index, spw_index, pol_index])
             print '%4.1f (%4.1f) K ' % (TantN[ant_index, spw_index, pol_index], Trms[ant_index, spw_index, pol_index]),
         #
         print '|',
@@ -325,7 +262,7 @@ print ' '
 #-------- Trx
 print 'Trec : ',
 for spw_index in range(spwNum):
-    print 'SPW%02d  X        Y |' % (TDMspw_atmCal[spw_index]),
+    print 'SPW%02d  X        Y |' % (spw[spw_index]),
 #
 print ' '
 print '-----:--------------------+-------------------+-------------------+-------------------+'
@@ -343,7 +280,7 @@ print ' '
 #-------- Tsys
 print 'Tsys : ',
 for spw_index in range(spwNum):
-    print 'SPW%02d  X        Y |' % (TDMspw_atmCal[spw_index]),
+    print 'SPW%02d  X        Y |' % (spw[spw_index]),
 #
 print ' '
 print '-----:--------------------+-------------------+-------------------+-------------------+'
@@ -378,7 +315,7 @@ if PLOTTAU:
             text_sd = 'Pol %s Tau(zenith)=%6.4f' % (PolList[pol_index], Tau0[spw_index])
             TskyPL.text(1.01, 0.95* plotMax, text_sd, fontsize='9')
             if pol_index == 0:
-                TskyPL.set_title('SPW ' + `TDMspw_atmCal[spw_index]`)
+                TskyPL.set_title('SPW ' + `spw[spw_index]`)
             #
         #
     #
@@ -406,7 +343,7 @@ if PLOTTSYS:
     for ant_index in range(antNum):
         figAnt = plt.figure(ant_index)
         for spw_index in range(spwNum):
-            chNum, chWid, Freq = GetChNum(msfile, TDMspw_atmCal[spw_index]); Freq = 1.0e-9* Freq  # GHz
+            chNum, chWid, Freq = GetChNum(msfile, spw[spw_index]); Freq = 1.0e-9* Freq  # GHz
             for scan_index in range(numTimePlot):
                 TsysPL = figAnt.add_subplot(numTimePlot, spwNum, spwNum* scan_index + spw_index + 1 )
                 timeRange = np.where( abs( ambTime - TimePlot[scan_index]) < timeThresh )[0].tolist()
@@ -419,7 +356,7 @@ if PLOTTSYS:
                 #
                 TsysPL.axis([np.min(Freq), np.max(Freq), 0.0, plotMax])
                 if scan_index == 0:
-                    TsysPL.set_title('SPW ' + `TDMspw_atmCal[spw_index]`)
+                    TsysPL.set_title('SPW ' + `spw[spw_index]`)
                 #
                 if scan_index < numTimePlot - 1:
                     TsysPL.set_xticklabels([])
@@ -439,15 +376,38 @@ if PLOTTSYS:
     #
     plt.close('all')
 #
+"""
 #-------- Antenna-based Gain
-scanNum = 1
+GainAnt = []
 for scan_index in range(scanNum):
     for spw_index in range(spwNum):
-        timeStamp, Pspec, Xspec = GetVisAllBL(msfile, TDMspw_atmCal[spw_index], onsourceScans[scan_index])
-        Xspec = Xspec[pPol]; Xspec = Xspec[:,:,blMap]
         #-------- Baseline-based cross power spectra
+        timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], onsourceScans[scan_index])
+        Xspec = Xspec[pPol]; Xspec = Xspec[:,:,blMap]
         Ximag = Xspec.transpose(0,1,3,2).imag * (-2.0* np.array(blInv) + 1.0)
         Xspec.imag = Ximag.transpose(0,1,3,2)
-        Xspec = (Xspec.transpose(3, 0, 1, 2) / BP_bl[spw_index]).transpose(1, 2, 3, 0)
+        #-------- Bandpass Calibration
+        BP_bl = BPList[spw_index][ant0]* BPList[spw_index][ant1].conjugate()
+        Xspec = (Xspec.transpose(3,2,0,1) / BP_bl).transpose(2,3,1,0)
+        #-------- Antenna-based Gain
+        chAvgVis = np.mean( Xspec[:, chRange], axis=1 )
+        GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[0])
+        GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[1])
+        #-------- Phase Cal and channel average
+        BLphsX = GainX[ant0]* GainX[ant1].conjugate() / abs(GainX[ant0]* GainX[ant1])
+        BLphsY = GainY[ant0]* GainY[ant1].conjugate() / abs(GainY[ant0]* GainY[ant1])
+        pCalVisX = np.mean((Xspec[0] / BLphsX)[chRange], axis=(0,2))
+        pCalVisY = np.mean((Xspec[1] / BLphsY)[chRange], axis=(0,2))
+        #-------- Antenna-based Gain
+        GainAnt = GainAnt + [gainComplex(pCalVisX)]
+        GainAnt = GainAnt + [gainComplex(pCalVisY)]
     #
 #
+
+    #
+#
+"""
+#-------- Baseline-based bandpass
+BP_bl = (np.ones([blNum, spwNum, 2, chNum], dtype=complex)* BP_ant[ant0]* BP_ant[ant1].conjugate()).transpose(1, 2, 3, 0)
+#-------- Plot bandpass
+"""
