@@ -1134,6 +1134,41 @@ def PowerSpec(msfile, pol, TsysScan, TsysSPW, vanvSW):
 	#
 	return Tsysfreq, PskySpec, PambSpec, PhotSpec
 #
+#-------- Bandpass Plog
+def PlotBP(msfile, antList, spwList, BPList):
+    spwNum, antNum = len(spwList), len(antList)
+    #-------- Prepare Plots
+    for ant_index in range(antNum):
+        figAnt = plt.figure(ant_index, figsize = (11, 8))
+        figAnt.suptitle(prefix + ' ' + antList[ant_index])
+        figAnt.text(0.45, 0.05, 'Frequency [GHz]')
+        figAnt.text(0.03, 0.45, 'Bandpass Amplitude and Phase', rotation=90)
+    #
+    #-------- Plot BP
+    for ant_index in range(antNum):
+        figAnt = plt.figure(ant_index)
+        for spw_index in range(spwNum):
+            chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index]); Freq = 1.0e-9* Freq  # GHz
+            BPampPL = figAnt.add_subplot( 2, spwNum, spw_index + 1 )
+            BPphsPL = figAnt.add_subplot( 2, spwNum, spw_index + spwNum + 1 )
+            for pol_index in range(ppolNum):
+                plotBP = BPList[spw_index][ant_index, pol_index]
+                BPampPL.plot( Freq, abs(plotBP), ls='steps-mid', label = 'Pol=' + PolList[pol_index])
+                BPampPL.axis([np.min(Freq), np.max(Freq), 0.0, 1.25])
+                BPampPL.yaxis.set_major_formatter(ptick.ScalarFormatter(useMathText=True))
+                BPampPL.yaxis.offsetText.set_fontsize(10)
+                BPampPL.ticklabel_format(style='sci',axis='y',scilimits=(0,0))
+                BPphsPL.plot( Freq, np.angle(plotBP), '.', label = 'Pol=' + PolList[pol_index])
+                BPphsPL.axis([np.min(Freq), np.max(Freq), -math.pi, math.pi])
+            #
+            BPampPL.legend(loc = 'lower left', prop={'size' :7}, numpoints = 1)
+            BPphsPL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
+            BPampPL.text( np.min(Freq), 1.1, 'SPW=' + `spwList[spw_index]` + ' Amp')
+            BPphsPL.text( np.min(Freq), 2.5, 'SPW=' + `spwList[spw_index]` + ' Phase')
+        #
+    #
+    return figAnt
+#
 #
 #-------- Amp and Phase Plot
 def plotAmphi(fig, freq, spec):
