@@ -54,8 +54,10 @@ spw = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*")
 spwNum = len(spw)
 #-------- Check source list
 print '---Checking source list'
-sourceList = msmd.fieldnames()
+# sourceList = msmd.fieldnames()
+sourceList, posList = GetSourceList(msfile) 
 numSource = len(sourceList)
+SSOList   = np.where( (np.array(posList)[:,0] == 0.0) & (np.array(posList)[:,1] == 0.0) )[0].tolist()   # Solar System Objects
 #-------- Check MJD for Ambient Load
 print '---Checking time for ambient and hot load'
 timeOFF = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE")
@@ -145,7 +147,9 @@ secZ = 1.0 / np.sin( OffEL )
 print '---Analyzing Trec and Tsky using atmCal scans'
 chAvgTrx = np.zeros([antNum, spwNum, 2, len(offTime)])
 chAvgTsky= np.zeros([antNum, spwNum, 2, len(offTime)])
+chAvgTsys= np.zeros([antNum, spwNum, 2, scanNum])
 TrxFlag  = np.ones([antNum, spwNum, 2, len(offTime)])
+TsysFlag = np.ones([antNum, spwNum, 2, scanNum])
 TrxList, TskyList = [], []
 tempAmb, tempHot  = np.zeros([antNum]), np.zeros([antNum])
 for ant_index in range(antNum):
@@ -155,7 +159,7 @@ for ant_index in range(antNum):
         chNum = AmbSpecList[AntSpwIndex].shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
         Trx = np.zeros([2, chNum, len(offTime)])
         Tsky= np.zeros([2, chNum, len(offTime)])
-        for pol_index in range(2):
+        for pol_index in range(ppolNum):
             ambSpec = AmbSpecList[AntSpwIndex][pol_index]
             hotSpec = HotSpecList[AntSpwIndex][pol_index]
             SPL_amb = UnivariateSpline(ambTime, np.mean(ambSpec[chRange], axis=0), s=0.001)
@@ -174,6 +178,12 @@ for ant_index in range(antNum):
             TrxTemp = chAvgTrx[ant_index, spw_index, pol_index]
             TrxFlag[ant_index, spw_index, pol_index, np.where( abs(TrxTemp - np.median(TrxTemp)) > 0.1* np.median(TrxTemp))[0].tolist()] = 0.0
             TrxFlag[ant_index, spw_index, pol_index, np.where( TrxTemp < 1.0)[0].tolist()] = 0.0
+            #-------- Tsys for scans
+            for scan_index in range(scanNum):
+                OnTimeRange = timeXY[OnTimeIndex[scan_index]]
+                chAvgTsys[ant_index, spw_index, pol_index, scan_index] = chAvgTrx[ant_index, spw_index, pol_index, argmin(abs(ambTime - OnTimeRange[0]))] + chAvgTsky[ant_index, spw_index, pol_index, argmin(abs(offTime - OnTimeRange[0]))] 
+                TsysFlag[ant_index, spw_index, pol_index, scan_index] = TrxFlag[ant_index, spw_index, pol_index, argmin(abs(ambTime - OnTimeRange[0]))]
+            #
         #
         TrxList.append(Trx)
         TskyList.append(Tsky)
@@ -194,8 +204,7 @@ for ant_index in range(antNum):
     #
 #
 Tau0err = np.std( Tau0, axis=(0,2) )
-Tau0med = np.median( Tau0, axis=(0,2) )
-#Tau0 = np.median(np.median(Tau0, axis=0), axis=1)
+Tau0med = np.mean( Tau0, axis=(0,2) )
 for spw_index in range(spwNum):
     print 'SPW=%d : Tau(zenith) = %6.4f +- %6.4f' % (spw[spw_index], Tau0med[spw_index], Tau0err[spw_index])
 #
@@ -346,6 +355,18 @@ if PLOTTSYS:
     #
     plt.close('all')
 #
+#-------- Flux models for solar system objects
+SSONum = len(SSOList)
+ssoIndex = 2
+timeLabel = qa.time('%fs' % (timeXY[0]), form='ymd')[0]
+#for spw_index in range(spwNum):
+spw_index = 0
+chNum, chWid, Freq = GetChNum(msfile, spw[spw_index])
+text_Freq = '%6.2fGHz' % (np.median(Freq)*1.0e-9)
+SSOmodel = predictcomp(objname=sourceList[SSOList[ssoIndex]], standard="Butler-JPL-Horizons 2012", minfreq=text_Freq, maxfreq=text_Freq, nfreqs=1, prefix="", antennalist="aca.cycle3.cfg", epoch=timeLabel, showplot=F)
+SSOflux = SSOmodel['spectrum']['bl0flux']['value']
+SSOsize = SSOmodel['shape']['majoraxis']['value']   # arcmin
+#
 #-------- Antenna-based Gain
 GainAnt = []
 print '---Equalization based on SEFD'
@@ -374,6 +395,14 @@ for scan_index in range(scanNum):
         GainAnt = GainAnt + [gainComplex(pCalVisY)]
     #
 #
+GainAnt = np.array(GainAnt).reshape((scanNum, spwNum, ppolNum, antNum)).transpose(3, 1, 2, 0)
+#-------- Equalization using Bandpass scan
+scan_index = onsourceScans.index(BPScan)
+BP_SEFD = 1.0 /abs(GainAnt[:,:,:,scan_index])**2    # SEFD assuming Flux = 1 Jy
+tempFlux = abs(GainAnt).transpose(3,0,1,2)**2 * BP_SEFD
+
+
+
 """
 #-------- Baseline-based bandpass
 BP_bl = (np.ones([blNum, spwNum, 2, chNum], dtype=complex)* BP_ant[ant0]* BP_ant[ant1].conjugate()).transpose(1, 2, 3, 0)
