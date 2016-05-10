@@ -114,7 +114,9 @@ if PLOTBP:
 #-------- Load autocorrelation power spectra
 print '---Loading autocorr power spectra'
 OnSpecList, OffSpecList, AmbSpecList, HotSpecList = [], [], [], []
+antDia = np.ones([antNum])
 for ant_index in range(antNum):
+    antDia[ant_index] = msmd.antennadiameter(antList[ant_index])['value']
     for spw_index in range(spwNum):
         progress = (1.0* ant_index* spwNum + spw_index) / (antNum* spwNum)
         sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
@@ -176,7 +178,7 @@ for ant_index in range(antNum):
             #
             #-------- Trx flagging
             TrxTemp = chAvgTrx[ant_index, spw_index, pol_index]
-            TrxFlag[ant_index, spw_index, pol_index, np.where( abs(TrxTemp - np.median(TrxTemp)) > 0.1* np.median(TrxTemp))[0].tolist()] = 0.0
+            TrxFlag[ant_index, spw_index, pol_index, np.where( abs(TrxTemp - np.median(TrxTemp)) > 0.2* np.median(TrxTemp))[0].tolist()] = 0.0
             TrxFlag[ant_index, spw_index, pol_index, np.where( TrxTemp < 1.0)[0].tolist()] = 0.0
             #-------- Tsys for scans
             for scan_index in range(scanNum):
@@ -212,7 +214,6 @@ np.save(prefix + '.Trx.npy', TrxList)
 np.save(prefix + '.Tsky.npy', TskyList) 
 np.save(prefix + '.TrxFlag.npy', TrxFlag) 
 np.save(prefix + '.Tau0.npy', Tau0) 
-msmd.close()
 #-------- Antenna-dependent leakage noise
 param = [5.0]
 print 'TantN: ',
@@ -355,22 +356,60 @@ if PLOTTSYS:
     #
     plt.close('all')
 #
+#
+
+
+
 #-------- Flux models for solar system objects
 SSONum = len(SSOList)
-ssoIndex = 2
 timeLabel = qa.time('%fs' % (timeXY[0]), form='ymd')[0]
-#for spw_index in range(spwNum):
-spw_index = 0
-chNum, chWid, Freq = GetChNum(msfile, spw[spw_index])
-text_Freq = '%6.2fGHz' % (np.median(Freq)*1.0e-9)
-SSOmodel = predictcomp(objname=sourceList[SSOList[ssoIndex]], standard="Butler-JPL-Horizons 2012", minfreq=text_Freq, maxfreq=text_Freq, nfreqs=1, prefix="", antennalist="aca.cycle3.cfg", epoch=timeLabel, showplot=F)
-SSOflux = SSOmodel['spectrum']['bl0flux']['value']
-SSOsize = SSOmodel['shape']['majoraxis']['value']   # arcmin
+SSOflux = []
+SSOsize = []
+centerFreqList = []
+primaryBeam = np.ones([blNum])
+for bl_index in range(blNum):
+    beam0, beam1 = 1.0/antDia[ant0[bl_index]], 1.0/antDia[ant1[bl_index]] 
+    primaryBeam[bl_index] = np.sqrt(2.0/ ((beam0)**2 + (beam1)**2 )) * beam0* beam1
 #
+for spw_index in range(spwNum): 
+    chNum, chWid, Freq = GetChNum(msfile, spw[spw_index])
+    centerFreqList.append( np.median(Freq)*1.0e-9 )
+#
+for ssoIndex in range(SSONum):
+    for spw_index in range(spwNum): 
+        text_Freq = '%6.2fGHz' % (centerFreqList[spw_index])
+        SSOmodel = predictcomp(objname=sourceList[SSOList[ssoIndex]], standard="Butler-JPL-Horizons 2012", minfreq=text_Freq, maxfreq=text_Freq, nfreqs=1, prefix="", antennalist="aca.cycle3.cfg", epoch=timeLabel, showplot=T)
+        SSOflux.append(SSOmodel['spectrum']['bl0flux']['value']* np.exp(Tau0med[spw_index] / np.sin(SSOmodel['azel']['m1']['value'])))
+    #
+    SSOsize.append(SSOmodel['shape']['majoraxis']['value']* pi / 21600.0)   # arcmin -> rad, diameter -> radius
+#
+plt.close('all')
+SSOflux = np.array(SSOflux).reshape(SSONum, spwNum)     # [SSO, spw]
+uvFlag = np.ones([SSONum, spwNum, blNum])
+SSOmodelVis = []
+SSOscanID   = []
+for ssoIndex in range(SSONum):
+    UVlimit = 0.32 / SSOsize[ssoIndex]                              # Maximum uv distane(lambda) available for the SSO size
+    scanID = list(set( msmd.scansforfield(SSOList[ssoIndex]).tolist()) & set(onsourceScans))[0]; SSOscanID.append(scanID)
+    timeStamp, UVW = GetUVW(msfile, spw[spw_index], scanID)
+    uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
+    for spw_index in range(spwNum):
+        uvWave = uvDist* centerFreqList[spw_index] / 0.299792458    # UV distance in wavelength
+        uvFlag[ssoIndex, spw_index, np.where( uvWave > UVlimit )[0].tolist()] = 0.0
+        SSOmodelVis.append(SSOflux[ssoIndex, spw_index]* diskVisBeam(SSOsize[ssoIndex], uvWave, 1.13* 0.299792458* primaryBeam/centerFreqList[spw_index]))
+    #
+#
+SSOmodelVis = np.array(SSOmodelVis).reshape(SSONum, spwNum, blNum)
+
 #-------- Antenna-based Gain
 GainAnt = []
 print '---Equalization based on SEFD'
 for scan_index in range(scanNum):
+    if(onsourceScans[scan_index] in SSOscanID):
+        SSO_flag = T
+        SSO_ID = SSOscanID.index(onsourceScans[scan_index])
+    else:
+        SSO_flag = F
     for spw_index in range(spwNum):
         #-------- Baseline-based cross power spectra
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], onsourceScans[scan_index])
@@ -383,6 +422,9 @@ for scan_index in range(scanNum):
         Xspec = (Xspec.transpose(3,2,0,1) / BP_bl).transpose(2,3,1,0)
         #-------- Antenna-based Gain
         chAvgVis = np.mean( Xspec[:, chRange], axis=1 )
+        if(SSO_flag):
+            chAvgVis = (chAvgVis.transpose(0,2,1) / SSOmodelVis[SSO_ID, spw_index]).transpose(0,2,1)
+        #
         GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[0])
         GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[1])
         #-------- Phase Cal and channel average
@@ -399,12 +441,7 @@ GainAnt = np.array(GainAnt).reshape((scanNum, spwNum, ppolNum, antNum)).transpos
 #-------- Equalization using Bandpass scan
 scan_index = onsourceScans.index(BPScan)
 BP_SEFD = 1.0 /abs(GainAnt[:,:,:,scan_index])**2    # SEFD assuming Flux = 1 Jy
-tempFlux = abs(GainAnt).transpose(3,0,1,2)**2 * BP_SEFD
-
-
-
-"""
-#-------- Baseline-based bandpass
-BP_bl = (np.ones([blNum, spwNum, 2, chNum], dtype=complex)* BP_ant[ant0]* BP_ant[ant1].conjugate()).transpose(1, 2, 3, 0)
-#-------- Plot bandpass
-"""
+BP_AEFF = 2761.297 * ((chAvgTsys[:,:,:,scan_index] / BP_SEFD).transpose(1,2,0) / (0.25* pi*antDia**2)).transpose(2,0,1)
+#tempFlux = abs(GainAnt).transpose(3,0,1,2)**2 * BP_SEFD
+#-------- Scaling
+msmd.done()

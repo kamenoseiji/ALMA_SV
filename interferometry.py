@@ -1372,3 +1372,18 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
     #
     return results
 #
+#-------- Disk Visibility
+def diskVis(diskRadius, u):
+    # diskRadius : radius of planet disk [rad]
+    # u          : spatial frequency (= baseline / wavelength)
+    argument = 2.0* pi* u* diskRadius
+    return 2.0* scipy.special.jn(1, argument) / argument
+#
+#-------- Disk Visibility with primary beam correction, u must be smaller than 0.3/diskRadius
+def diskVisBeam(diskRadius, u, primaryBeam):
+    # diskRadius : radius of planet disk [rad]
+    # u          : spatial frequency (= baseline / wavelength)
+    # primaryBeam: FWHM of primary beam [rad]
+    disp_u = (0.30585 / diskRadius)**2 + 2.0* log(2.0)/(pi* primaryBeam)**2
+    return beamF(diskRadius/primaryBeam)* np.exp(-0.5* (u**2 / disp_u))
+#
