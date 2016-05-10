@@ -421,27 +421,32 @@ for scan_index in range(scanNum):
         BP_bl = BPList[spw_index][ant0]* BPList[spw_index][ant1].conjugate()
         Xspec = (Xspec.transpose(3,2,0,1) / BP_bl).transpose(2,3,1,0)
         #-------- Antenna-based Gain
-        chAvgVis = np.mean( Xspec[:, chRange], axis=1 )
         if(SSO_flag):
-            chAvgVis = (chAvgVis.transpose(0,2,1) / SSOmodelVis[SSO_ID, spw_index]).transpose(0,2,1)
-        #
+            chAvgVis =(np.mean(Xspec[:, chRange], axis=1).transpose(0,2,1) / SSOmodelVis[SSO_ID, spw_index]).transpose(0,2,1)
+        else:
+            chAvgVis = np.mean(Xspec[:, chRange], axis=1)
+        # 
         GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[0])
         GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[1])
+        #
         #-------- Phase Cal and channel average
         BLphsX = GainX[ant0]* GainX[ant1].conjugate() / abs(GainX[ant0]* GainX[ant1])
         BLphsY = GainY[ant0]* GainY[ant1].conjugate() / abs(GainY[ant0]* GainY[ant1])
-        pCalVisX = np.mean((Xspec[0] / BLphsX)[chRange], axis=(0,2))
-        pCalVisY = np.mean((Xspec[1] / BLphsY)[chRange], axis=(0,2))
+        pCalVisX = np.mean(chAvgVis[0] / BLphsX, axis=1)
+        pCalVisY = np.mean(chAvgVis[1] / BLphsY, axis=1)
         #-------- Antenna-based Gain
         GainAnt = GainAnt + [gainComplex(pCalVisX)]
         GainAnt = GainAnt + [gainComplex(pCalVisY)]
     #
 #
-GainAnt = np.array(GainAnt).reshape((scanNum, spwNum, ppolNum, antNum)).transpose(3, 1, 2, 0)
-#-------- Equalization using Bandpass scan
-scan_index = onsourceScans.index(BPScan)
-BP_SEFD = 1.0 /abs(GainAnt[:,:,:,scan_index])**2    # SEFD assuming Flux = 1 Jy
-BP_AEFF = 2761.297 * ((chAvgTsys[:,:,:,scan_index] / BP_SEFD).transpose(1,2,0) / (0.25* pi*antDia**2)).transpose(2,0,1)
+SSOscanList = indexList(np.array(SSOscanID), np.array(onsourceScans))
+AE = 2761.297*((abs(np.array(GainAnt))**2).reshape(scanNum, spwNum, ppolNum, antNum).transpose(3,1,2,0)*chAvgTsys)[:,:,:,SSOscanList]
+AEFF = (AE.transpose(1,2,3,0) / (0.25* pi*antDia**2)).transpose(3,0,1,2)
+
+##-------- Equalization using Bandpass scan
+#scan_index = onsourceScans.index(BPScan)
+#BP_SEFD = 1.0 /abs(GainAnt[:,:,:,scan_index])**2    # SEFD assuming Flux = 1 Jy
+#BP_AEFF = 2761.297 * ((chAvgTsys[:,:,:,scan_index] / BP_SEFD).transpose(1,2,0) / (0.25* pi*antDia**2)).transpose(2,0,1)
 #tempFlux = abs(GainAnt).transpose(3,0,1,2)**2 * BP_SEFD
 #-------- Scaling
 msmd.done()
