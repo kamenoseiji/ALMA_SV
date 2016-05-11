@@ -411,7 +411,7 @@ for ssoIndex in range(SSONum):
     for spw_index in range(spwNum): 
         text_Freq = '%6.2fGHz' % (centerFreqList[spw_index])
         SSOmodel = predictcomp(objname=sourceList[SSOList[ssoIndex]], standard="Butler-JPL-Horizons 2012", minfreq=text_Freq, maxfreq=text_Freq, nfreqs=1, prefix="", antennalist="aca.cycle3.cfg", epoch=timeLabel, showplot=T)
-        SSOflux.append(SSOmodel['spectrum']['bl0flux']['value']* np.exp(Tau0med[spw_index] / np.sin(SSOmodel['azel']['m1']['value'])))
+        SSOflux.append(SSOmodel['spectrum']['bl0flux']['value']* np.exp(-Tau0med[spw_index] / np.sin(SSOmodel['azel']['m1']['value'])))
     #
     SSOsize.append(SSOmodel['shape']['majoraxis']['value']* pi / 21600.0)   # arcmin -> rad, diameter -> radius
 #
@@ -491,7 +491,7 @@ for scan_index in range(scanNum):
         Ximag = Xspec.transpose(0,1,3,2).imag * (-2.0* np.array(blInv) + 1.0)
         Xspec.imag = Ximag.transpose(0,1,3,2)
         #-------- Bandpass Calibration
-        GainBL = FCS_Eq[ant0,spw_index]* FCS_Eq[ant1,spw_index]
+        GainBL = FCS_Eq[ant0,spw_index]* FCS_Eq[ant1,spw_index] * np.exp(-Tau0med[spw_index]/ np.sin(np.median(OnEL[:, scan_index])))
         BP_bl = ((BPList[spw_index][ant0]* BPList[spw_index][ant1].conjugate()).transpose(2,0,1) * GainBL).transpose(1,2,0)
         Xspec = (Xspec.transpose(3,2,0,1) / BP_bl).transpose(2,3,1,0)
         #-------- Antenna-based Gain
