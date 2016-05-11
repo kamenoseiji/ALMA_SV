@@ -42,7 +42,6 @@ blMap = range(blNum)
 blInv = [False]* blNum
 ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
 for bl_index in range(blNum):
-    #ants = Bl2Ant(bl_index)
     blMap[bl_index], blInv[bl_index]  = Ant2BlD(Refant[ant0[bl_index]], Refant[ant1[bl_index]])
 #
 print `len(np.where( blInv )[0])` + ' baselines are inverted.'
@@ -73,8 +72,10 @@ scanNum = len(onsourceScans)
 print '---Checking time series in MS and atmCal scans'
 tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spw[0]`).getcol('TIME'); tb.close()
 OnTimeIndex = []
+sourceIDscan = []
 for scan_index in range(scanNum):
     OnTimeIndex.append( indexList(msmd.timesforscan(onsourceScans[scan_index]), timeXY) )
+    sourceIDscan.append( msmd.fieldsforscan(onsourceScans[scan_index])[0])
 #
 polNum = msmd.ncorrforpol(msmd.polidfordatadesc(spw[0]))
 pPol, cPol = [0,1], []  # parallel and cross pol
@@ -357,6 +358,37 @@ if PLOTTSYS:
     plt.close('all')
 #
 #
+##-------- Equalization using Bandpass scan
+GainAnt = []
+for spw_index in range(spwNum):
+    #-------- Baseline-based cross power spectra
+    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], BPScan)
+    chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
+    Xspec = Xspec[pPol]; Xspec = Xspec[:,:,blMap]
+    Ximag = Xspec.transpose(0,1,3,2).imag * (-2.0* np.array(blInv) + 1.0)
+    Xspec.imag = Ximag.transpose(0,1,3,2)
+    #-------- Bandpass Calibration
+    BP_bl = BPList[spw_index][ant0]* BPList[spw_index][ant1].conjugate()
+    Xspec = (Xspec.transpose(3,2,0,1) / BP_bl).transpose(2,3,1,0)
+    #-------- Antenna-based Gain
+    chAvgVis = np.mean(Xspec[:, chRange], axis=1)
+    # 
+    GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[0])
+    GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[1])
+    #
+    #-------- Phase Cal and channel average
+    BLphsX = GainX[ant0]* GainX[ant1].conjugate() / abs(GainX[ant0]* GainX[ant1])
+    BLphsY = GainY[ant0]* GainY[ant1].conjugate() / abs(GainY[ant0]* GainY[ant1])
+    pCalVisX = np.mean(chAvgVis[0] / BLphsX, axis=1)
+    pCalVisY = np.mean(chAvgVis[1] / BLphsY, axis=1)
+    #-------- Antenna-based Gain
+    GainAnt = GainAnt + [gainComplex(pCalVisX)]
+    GainAnt = GainAnt + [gainComplex(pCalVisY)]
+#
+GainEq = abs(np.array(GainAnt)).reshape([spwNum, 2, antNum]).transpose(2,0,1)    # Ant, SPW, Pol
+#BP_AEFF = (2761.297 * (GainEq**2).transpose(1,2,0) / (0.25* pi*antDia**2)).transpose(2,0,1)
+#BP_SEFD = 1.0 /abs(GainAnt)**2    # SEFD assuming Flux = 1 Jy
+#BP_AEFF = 2761.297 * ((chAvgTsys[:,:,:,0] / BP_SEFD).transpose(1,2,0) / (0.25* pi*antDia**2)).transpose(2,0,1)
 
 
 
@@ -391,20 +423,61 @@ SSOscanID   = []
 for ssoIndex in range(SSONum):
     UVlimit = 0.32 / SSOsize[ssoIndex]                              # Maximum uv distane(lambda) available for the SSO size
     scanID = list(set( msmd.scansforfield(SSOList[ssoIndex]).tolist()) & set(onsourceScans))[0]; SSOscanID.append(scanID)
+    if( scanID == FCScan):
+        FCS_ID = ssoIndex
+        print 'Flux Calibrator : %s' % (sourceList[SSOList[ssoIndex]])
+    #
     timeStamp, UVW = GetUVW(msfile, spw[spw_index], scanID)
     uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     for spw_index in range(spwNum):
         uvWave = uvDist* centerFreqList[spw_index] / 0.299792458    # UV distance in wavelength
         uvFlag[ssoIndex, spw_index, np.where( uvWave > UVlimit )[0].tolist()] = 0.0
-        SSOmodelVis.append(SSOflux[ssoIndex, spw_index]* diskVisBeam(SSOsize[ssoIndex], uvWave, 1.13* 0.299792458* primaryBeam/centerFreqList[spw_index]))
+        #SSOmodelVis.append(SSOflux[ssoIndex, spw_index]* diskVisBeam(SSOsize[ssoIndex], uvWave, 1.13* 0.299792458* primaryBeam/centerFreqList[spw_index]))
+        SSOmodelVis.append(diskVisBeam(SSOsize[ssoIndex], uvWave, 1.13* 0.299792458* primaryBeam/centerFreqList[spw_index]))
     #
 #
 SSOmodelVis = np.array(SSOmodelVis).reshape(SSONum, spwNum, blNum)
-
+FCSmodelVis = SSOmodelVis[FCS_ID]
+FCSFlag     = uvFlag[FCS_ID]
+#
+##-------- Scaling with the flux calibrator
+GainAnt = []
+for spw_index in range(spwNum):
+    #-------- Baseline-based cross power spectra
+    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], FCScan)
+    chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
+    Xspec = Xspec[pPol]; Xspec = Xspec[:,:,blMap]
+    Ximag = Xspec.transpose(0,1,3,2).imag * (-2.0* np.array(blInv) + 1.0)
+    Xspec.imag = Ximag.transpose(0,1,3,2)
+    #-------- Bandpass Calibration
+    GainBL = GainEq[ant0,spw_index]* GainEq[ant1,spw_index]
+    BP_bl = ((BPList[spw_index][ant0]* BPList[spw_index][ant1].conjugate()).transpose(2,0,1) * GainBL).transpose(1,2,0)
+    Xspec = (Xspec.transpose(3,2,0,1) / BP_bl).transpose(2,3,1,0)
+    #-------- Antenna-based Gain
+    chAvgVis =(np.mean(Xspec[:, chRange], axis=1).transpose(0,2,1) / FCSmodelVis[spw_index]).transpose(0,2,1)
+    # 
+    GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[0])
+    GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[1])
+    #
+    #-------- Phase Cal and channel average
+    BLphsX = GainX[ant0]* GainX[ant1].conjugate() / abs(GainX[ant0]* GainX[ant1])
+    BLphsY = GainY[ant0]* GainY[ant1].conjugate() / abs(GainY[ant0]* GainY[ant1])
+    pCalVisX = np.mean(chAvgVis[0] / BLphsX, axis=1)
+    pCalVisY = np.mean(chAvgVis[1] / BLphsY, axis=1)
+    #-------- Antenna-based Gain
+    GainAnt = GainAnt + [gainComplex(pCalVisX)**2]
+    GainAnt = GainAnt + [gainComplex(pCalVisY)**2]
+#
+GainFCS = abs(np.array(GainAnt)).reshape([spwNum, 2, antNum]).transpose(2,0,1)    # Ant, SPW, Pol
+scaleFact = (SSOflux[FCS_ID] / GainFCS.transpose(0,2,1)).transpose(0,2,1)
+medSF, sdSF  = np.median(scaleFact, axis=0), np.std(scaleFact, axis=0)
+FCS_Eq = GainEq/ np.sqrt(medSF)
+#FCS_Eq = GainEq
 #-------- Antenna-based Gain
 GainAnt = []
 print '---Equalization based on SEFD'
 for scan_index in range(scanNum):
+    print '%02d %010s %4.1f' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* np.median(OnEL[:,scan_index])/pi )
     if(onsourceScans[scan_index] in SSOscanID):
         SSO_flag = T
         SSO_ID = SSOscanID.index(onsourceScans[scan_index])
@@ -418,7 +491,8 @@ for scan_index in range(scanNum):
         Ximag = Xspec.transpose(0,1,3,2).imag * (-2.0* np.array(blInv) + 1.0)
         Xspec.imag = Ximag.transpose(0,1,3,2)
         #-------- Bandpass Calibration
-        BP_bl = BPList[spw_index][ant0]* BPList[spw_index][ant1].conjugate()
+        GainBL = FCS_Eq[ant0,spw_index]* FCS_Eq[ant1,spw_index]
+        BP_bl = ((BPList[spw_index][ant0]* BPList[spw_index][ant1].conjugate()).transpose(2,0,1) * GainBL).transpose(1,2,0)
         Xspec = (Xspec.transpose(3,2,0,1) / BP_bl).transpose(2,3,1,0)
         #-------- Antenna-based Gain
         if(SSO_flag):
@@ -426,6 +500,8 @@ for scan_index in range(scanNum):
         else:
             chAvgVis = np.mean(Xspec[:, chRange], axis=1)
         # 
+        chAvgVis = np.mean(Xspec[:, chRange], axis=1)
+
         GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[0])
         GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[1])
         #
@@ -435,13 +511,20 @@ for scan_index in range(scanNum):
         pCalVisX = np.mean(chAvgVis[0] / BLphsX, axis=1)
         pCalVisY = np.mean(chAvgVis[1] / BLphsY, axis=1)
         #-------- Antenna-based Gain
-        GainAnt = GainAnt + [gainComplex(pCalVisX)]
-        GainAnt = GainAnt + [gainComplex(pCalVisY)]
+        GainAntX, GainAntY = abs(gainComplex(pCalVisX))**2, abs(gainComplex(pCalVisY))**2
+        #-------- Check 
+        gainXflag = np.where(abs(GainAntX - np.median(GainAntX)) / np.median(GainAntX) > 0.1)[0].tolist()
+        gainYflag = np.where(abs(GainAntY - np.median(GainAntY)) / np.median(GainAntY) > 0.1)[0].tolist()
+        #print 'PolX gain outliers: %s' % (antList[gainXflag])
+        #print 'PolY gain outliers: %s' % (antList[gainXflag])
+        Xants, Yants = list(set(range(antNum)) - set(gainXflag)), list(set(range(antNum)) - set(gainYflag))
+        medGX, medGY, sdGX, sdGY = np.median(GainAntX[Xants]), np.median(GainAntY[Yants]), np.std(GainAntX[Xants]), np.std(GainAntY[Yants])
+        print 'SPW%d FluxX=%6.3f (%3.1f%%)  FluxY=%6.3f (%3.1f%%)' % (spw[spw_index], medGX, 100.0*sdGX/medGX/np.sqrt(len(Xants)-1), medGY, 100.0*sdGY/medGY/np.sqrt(len(Yants)-1))
     #
 #
-SSOscanList = indexList(np.array(SSOscanID), np.array(onsourceScans))
-AE = 2761.297*((abs(np.array(GainAnt))**2).reshape(scanNum, spwNum, ppolNum, antNum).transpose(3,1,2,0)*chAvgTsys)[:,:,:,SSOscanList]
-AEFF = (AE.transpose(1,2,3,0) / (0.25* pi*antDia**2)).transpose(3,0,1,2)
+#SSOscanList = indexList(np.array(SSOscanID), np.array(onsourceScans))
+#AE = 2761.297*((abs(np.array(GainAnt))**2).reshape(scanNum, spwNum, ppolNum, antNum).transpose(3,1,2,0)*chAvgTsys)[:,:,:,SSOscanList]
+#AEFF = (AE.transpose(1,2,3,0) / (0.25* pi*antDia**2)).transpose(3,0,1,2)
 
 ##-------- Equalization using Bandpass scan
 #scan_index = onsourceScans.index(BPScan)
