@@ -752,10 +752,11 @@ def delayCalSpec2( Xspec, chRange, sigma ):  # chRange = [startCH:stopCH] specif
 	#   
 	return delay_ant, delay_err, delayCalXspec
 #
-def BPtable(msfile, spw, BPScan):   # 
+def BPtable(msfile, spw, BPScan, blMap=range(2016), blInv=[False]*2016):   # 
     pPol, cPol = [0,1], []  # parallel and cross pol
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan)    # Xspec[pol, ch, bl, time]
-    polNum, chNum = Pspec.shape[0], Pspec.shape[1]
+    antNum, blNum, polNum, chNum = Pspec.shape[2], Xspec.shape[2], Pspec.shape[0], Pspec.shape[1]
+    blMap, blInv = blMap[0:blNum], blInv[0:blNum]
     if polNum == 4:
         pPol, cPol = [0,3], [1,2]  # parallel and cross pol
     #
@@ -1206,6 +1207,7 @@ def gainComplex( bl_vis ):
     resid  =  np.zeros(2* blnum)
     correction = np.ones(2* antnum - 1)
     solution   = np.zeros(2* antnum - 1)
+    weight     = np.append(abs(bl_vis), abs(bl_vis))
     #
     #---- Initial solution
     solution[0] = sqrt(abs(bl_vis[0]))		# Refant has only real part
@@ -1241,9 +1243,9 @@ def gainComplex( bl_vis ):
                 complex_matrix[blnum + bl_index, 0]		= solution[antnum + ants[0] - 1]
                 complex_matrix[blnum + bl_index, antnum + ants[0] - 1]= solution[0]
         #
-        ptp = np.dot(complex_matrix.T, complex_matrix)
-        ptp_inv   = scipy.linalg.inv(ptp)
-        correction = np.dot(ptp_inv,  np.dot(complex_matrix.T, resid))
+        ptwp = np.dot(complex_matrix.T, np.dot(np.diag(weight), complex_matrix))
+        ptp_inv   = scipy.linalg.inv(ptwp)
+        correction = np.dot(ptp_inv,  np.dot(complex_matrix.T, (weight*resid)))
         solution   = np.add(solution, correction)
     #
     return solution[range(antnum)] + 1j* np.append(0, solution[range(antnum, 2*antnum-1)])
