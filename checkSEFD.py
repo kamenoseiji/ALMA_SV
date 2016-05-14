@@ -45,7 +45,7 @@ for bl_index in range(blNum):
     blMap[bl_index], blInv[bl_index]  = Ant2BlD(Refant[ant0[bl_index]], Refant[ant1[bl_index]])
 #
 print `len(np.where( blInv )[0])` + ' baselines are inverted.'
-kernelBL = np.where(np.array(ant1) == 0)[0].tolist()    # Baselines including refant
+#kernelBL = np.where(np.array(ant1) == 0)[0].tolist()    # Baselines including refant
 #-------- Check SPWs of atmCal
 msmd.open(msfile)
 print '---Checking spectral windows'
@@ -119,7 +119,7 @@ antDia = np.ones([antNum])
 for ant_index in range(antNum):
     antDia[ant_index] = msmd.antennadiameter(antList[Refant[ant_index]])['value']
     for spw_index in range(spwNum):
-        progress = (1.0* ant_index* spwNum + spw_index) / (antNum* spwNum)
+        progress = (1.0* ant_index* spwNum + spw_index + 1.0) / (antNum* spwNum)
         sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
         timeXY, Pspec = GetPSpec(msfile, Refant[ant_index], spw[spw_index])
         OffSpecList.append(Pspec[pPol][:,:,offTimeIndex])
@@ -437,16 +437,8 @@ FCSFlag     = uvFlag[FCS_ID]
 medSF, sdSF = [], []
 for spw_index in range(spwNum):
     #-------- Sub-array with unflagged antennas (short baselines)
-    flagIndex = np.where(FCSFlag[spw_index] == 1)[0].tolist()       # Baselines: uvDist < UVlimit
-    flagRefIndex = list( set(flagIndex) & set(kernelBL))            # Baselines including refant and uvDist < UVlimit 
-    SAantennas = list(set(np.array(ant0)[flagRefIndex]) | set(np.array(ant1)[flagRefIndex]))
+    SAantennas, SAblMap, SAblFlag, SAant0, SAant1 = subArranIndex(uvFlag[FCS_ID, spw_index])
     SAantNum = len(SAantennas); SAblNum = SAantNum* (SAantNum - 1)/2
-    SAblMap = []
-    for bl_index in range(SAblNum):
-        SAblMap = SAblMap + [Ant2Bl(SAantennas[ant0[bl_index]], SAantennas[ant1[bl_index]])]
-    #
-    SAblFlag = np.zeros([SAblNum]); SAblFlag[indexList(np.array(flagIndex), np.array(SAblMap))] = 1.0
-    SAant0, SAant1 = np.array(ant0)[SAblMap].tolist(), np.array(ant1)[SAblMap].tolist()
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], FCScan)
     chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
@@ -512,38 +504,46 @@ for scan_index in range(scanNum):
     else:
         SSO_flag = F
     for spw_index in range(spwNum):
+        #-------- Sub-array with unflagged antennas (short baselines)
+        if SSO_flag:
+            SAantennas, SAblMap, SAblFlag, SAant0, SAant1 = subArranIndex(uvFlag[SSO_ID, spw_index])
+        else:
+            SAantennas, SAblMap, SAblFlag, SAant0, SAant1 = range(antNum), range(blNum), np.ones([blNum]), ant0, ant1
+        #
+        SAantNum = len(SAantennas); SAblNum = SAantNum* (SAantNum - 1)/2
+        #
         #-------- Baseline-based cross power spectra
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], onsourceScans[scan_index])
         chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
         Xspec = Xspec[pPol]; Xspec = Xspec[:,:,blMap]
         Ximag = Xspec.transpose(0,1,3,2).imag * (-2.0* np.array(blInv) + 1.0)
         Xspec.imag = Ximag.transpose(0,1,3,2)
+        Xspec = Xspec[:,:,SAblMap]
         #-------- Bandpass Calibration
-        GainBL = FCS_Eq[ant0,spw_index]* FCS_Eq[ant1,spw_index] * np.exp(-Tau0med[spw_index]/ np.sin(np.median(OnEL[:, scan_index])))
-        BP_bl = ((BPList[spw_index][ant0]* BPList[spw_index][ant1].conjugate()).transpose(2,0,1) * GainBL).transpose(1,2,0)
+        GainBL = FCS_Eq[SAant0,spw_index]* FCS_Eq[SAant1,spw_index] * np.exp(-Tau0med[spw_index]/ np.sin(np.median(OnEL[:, scan_index])))
+        BP_bl = ((BPList[spw_index][SAant0]* BPList[spw_index][SAant1].conjugate()).transpose(2,0,1) * GainBL).transpose(1,2,0)
         Xspec = (Xspec.transpose(3,2,0,1) / BP_bl).transpose(2,3,1,0)
         #-------- Antenna-based Gain
         if(SSO_flag):
-            chAvgVis =(np.mean(Xspec[:, chRange], axis=1).transpose(0,2,1) / SSOmodelVis[SSO_ID, spw_index]).transpose(0,2,1)
+            chAvgVis =(np.mean(Xspec[:, chRange], axis=1).transpose(0,2,1) / SSOmodelVis[SSO_ID, spw_index, SAblMap]).transpose(0,2,1)
         else:
             chAvgVis = np.mean(Xspec[:, chRange], axis=1)
-        # 
-        chAvgVis = np.mean(Xspec[:, chRange], axis=1)
-
-        GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[0])
-        GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[1])
+        #
+        GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[0]); Xflag = np.where( np.std(abs(GainX), axis=0) < np.median(abs(GainX), axis=0))[0]
+        GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[1]); Yflag = np.where( np.std(abs(GainY), axis=0) < np.median(abs(GainY), axis=0))[0]
+        Tflag = list( set(Xflag) & set(Yflag) )
         #
         #-------- Phase Cal and channel average
-        BLphsX = GainX[ant0]* GainX[ant1].conjugate() / abs(GainX[ant0]* GainX[ant1])
-        BLphsY = GainY[ant0]* GainY[ant1].conjugate() / abs(GainY[ant0]* GainY[ant1])
-        pCalVisX = np.mean(chAvgVis[0] / BLphsX, axis=1)
-        pCalVisY = np.mean(chAvgVis[1] / BLphsY, axis=1)
+        BLphsX = GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]].conjugate() / abs(GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]])
+        BLphsY = GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]].conjugate() / abs(GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]])
+        pCalVisX = np.mean((chAvgVis[0]/BLphsX)[:,Tflag], axis=1)
+        pCalVisY = np.mean((chAvgVis[1]/BLphsY)[:,Tflag], axis=1)
         #-------- Antenna-based Gain
         GainAntX, GainAntY = abs(gainComplex(pCalVisX))**2, abs(gainComplex(pCalVisY))**2
         #-------- Check 
         gainXflag = np.where(abs(GainAntX - np.median(GainAntX)) / np.median(GainAntX) > 0.1)[0].tolist()
         gainYflag = np.where(abs(GainAntY - np.median(GainAntY)) / np.median(GainAntY) > 0.1)[0].tolist()
-        Xants, Yants = list(set(range(antNum)) - set(gainXflag)), list(set(range(antNum)) - set(gainYflag))
+        Xants, Yants = list(set(range(SAantNum)) - set(gainXflag)), list(set(range(SAantNum)) - set(gainYflag))
         medGX, medGY, sdGX, sdGY = np.median(GainAntX[Xants]), np.median(GainAntY[Yants]), np.std(GainAntX[Xants]), np.std(GainAntY[Yants])
         print '%6.3f(%3.1f%%) %6.3f(%3.1f%%)' % (medGX, 100.0*sdGX/medGX/np.sqrt(len(Xants)-1), medGY, 100.0*sdGY/medGY/np.sqrt(len(Yants)-1)),
     #

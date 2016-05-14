@@ -1389,3 +1389,18 @@ def diskVisBeam(diskRadius, u, primaryBeam):
     disp_u = (0.30585 / diskRadius)**2 + 2.0* log(2.0)/(pi* primaryBeam)**2
     return beamF(diskRadius/primaryBeam)* np.exp(-0.5* (u**2 / disp_u))
 #
+#-------- SubArray Index
+def subArranIndex(Flag):
+    blNum = len(Flag); antNum = Bl2Ant(blNum)[0]; kernelBL = (arange(antNum-1)*(arange(antNum-1)+1)/2).tolist()
+    flagIndex = np.where(Flag == 1)[0].tolist()       # Baselines: uvDist < UVlimit
+    flagRefIndex = list( set(flagIndex) & set(kernelBL))            # Baselines including refant and uvDist < UVlimit 
+    SAantennas = np.sort(list(set(np.array(ant0)[flagRefIndex]) | set(np.array(ant1)[flagRefIndex]))).tolist()
+    SAantNum = len(SAantennas); SAblNum = SAantNum* (SAantNum - 1)/2
+    SAblMap = []
+    for bl_index in range(SAblNum):
+        SAblMap = SAblMap + [Ant2Bl(SAantennas[ant0[bl_index]], SAantennas[ant1[bl_index]])]
+    #
+    SAblFlag = np.zeros([SAblNum]); SAblFlag[indexList(np.array(flagIndex), np.array(SAblMap))] = 1.0
+    SAant0, SAant1 = np.array(ant0)[SAblMap].tolist(), np.array(ant1)[SAblMap].tolist()
+    return SAantennas, SAblMap, SAblFlag, SAant0, SAant1
+#
