@@ -439,6 +439,7 @@ for spw_index in range(spwNum):
     #-------- Sub-array with unflagged antennas (short baselines)
     SAantennas, SAblMap, SAblFlag, SAant0, SAant1 = subArranIndex(uvFlag[FCS_ID, spw_index])
     SAantNum = len(SAantennas); SAblNum = SAantNum* (SAantNum - 1)/2
+    if SAantNum < 3: continue
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], FCScan)
     chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
