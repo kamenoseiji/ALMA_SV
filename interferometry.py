@@ -760,6 +760,7 @@ def BPtable(msfile, spw, BPScan, blMap=range(2016), blInv=[False]*2016):   #
     if polNum == 4:
         pPol, cPol = [0,3], [1,2]  # parallel and cross pol
     #
+    ppolNum, cpolNum = len(pPol), len(cPol)
     chRange = range(int(0.05*chNum), int(0.95*chNum))                   # Trim band edge
     BP_ant  = np.ones([antNum, ppolNum, chNum], dtype=complex)          # BP_ant[ant, pol, ch]
     XPspec  = np.zeros([polNum, chNum, blNum], dtype=complex)           # XPspec[pol, ch, bl]
