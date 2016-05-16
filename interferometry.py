@@ -756,7 +756,11 @@ def BPtable(msfile, spw, BPScan, blMap=range(2016), blInv=[False]*2016):   #
     pPol, cPol = [0,1], []  # parallel and cross pol
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan)    # Xspec[pol, ch, bl, time]
     antNum, blNum, polNum, chNum = Pspec.shape[2], Xspec.shape[2], Pspec.shape[0], Pspec.shape[1]
-    blMap, blInv = blMap[0:blNum], blInv[0:blNum]
+    if len(blMap) == 2016:
+        blMap, blInv = blMap[0:blNum], blInv[0:blNum]
+    else:
+        blNum = len(blMap); antNum = Bl2Ant(blNum)[0]
+    #
     if polNum == 4:
         pPol, cPol = [0,3], [1,2]  # parallel and cross pol
     #
