@@ -44,7 +44,7 @@ def InvPAMatrix(PA):
         [ sn,  cs,  cs, -sn],
         [0.0,-1.0j,1.0j, 0.0]])
 #
-def AzEl2PA(az, el, lat):        # Azimuth, Elevation, Latitude in [rad]
+def AzEl2PA(az, el, lat=-23.029/180.0*pi): # Azimuth, Elevation, Latitude (default=ALMA) in [rad]
     cos_lat = np.cos(lat)
     return np.arctan( -cos_lat* np.sin(az) / (np.sin(lat)* np.cos(el) - cos_lat* np.sin(el)* np.cos(az)) )
 #
@@ -1408,4 +1408,32 @@ def subArranIndex(Flag):
     SAblFlag = np.zeros([SAblNum]); SAblFlag[indexList(np.array(flagIndex), np.array(SAblMap))] = 1.0
     SAant0, SAant1 = np.array(ant0)[SAblMap].tolist(), np.array(ant1)[SAblMap].tolist()
     return SAantennas, SAblMap, SAblFlag, SAant0, SAant1
+#
+#-------- ArrayCenterAntenna
+def bestRefant(uvDist):
+    blNum = len(uvDist)
+    antNum = Bl2Ant(blNum)[0]
+    blCounter = np.zeros([antNum])
+    distOrder = np.argsort(uvDist)
+    bl_index = 0
+    for bl_index in range(blNum):
+        blCounter[ant0[distOrder[bl_index]]] += 1
+        blCounter[ant1[distOrder[bl_index]]] += 1
+        if np.max(blCounter) < 3: break
+    #
+    return np.argmax(blCounter)
+#
+#
+#-------- CrossPol Visibility
+def CrossPolBL(Xspec, blInv):
+    Ximag = Xspec.transpose(0,1,3,2).imag * (-2.0* np.array(blInv) + 1.0)
+    Xreal = Xspec.transpose(0,1,3,2).real
+    Xspec.imag = Ximag.transpose(0,1,3,2)
+    Xspec[0].imag = Ximag[0].transpose(0,2,1)   # XX
+    Xspec[3].imag = Ximag[3].transpose(0,2,1)   # YY
+    Xspec[1].real = (Xreal[1]*(1.0 - np.array(blInv)) + Xreal[2]* np.array(blInv)).transpose(0,2,1) # ReXY
+    Xspec[1].imag = (Ximag[1]*(1.0 - np.array(blInv)) + Ximag[2]* np.array(blInv)).transpose(0,2,1) # ImXY
+    Xspec[2].real = (Xreal[2]*(1.0 - np.array(blInv)) + Xreal[1]* np.array(blInv)).transpose(0,2,1) # ReYX
+    Xspec[2].imag = (Ximag[2]*(1.0 - np.array(blInv)) + Ximag[1]* np.array(blInv)).transpose(0,2,1) # ImYX
+    return Xspec
 #
