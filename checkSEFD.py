@@ -418,7 +418,7 @@ for ssoIndex in range(SSONum):
     scanID = list(set( msmd.scansforfield(SSOList[ssoIndex]).tolist()) & set(onsourceScans))[0]; SSOscanID.append(scanID)
     if( scanID == FCScan):
         FCS_ID = ssoIndex
-        print 'Flux Calibrator : %s' % (sourceList[SSOList[ssoIndex]])
+        print 'Flux Calibrator is %s at %s' % (sourceList[SSOList[ssoIndex]], timeLabel)
     #
     timeStamp, UVW = GetUVW(msfile, spw[spw_index], scanID)
     uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
@@ -477,7 +477,7 @@ medSF, sdSF = np.array(medSF).reshape([spwNum, 2]), np.array(sdSF).reshape([spwN
 scaleFact = (SSOflux[FCS_ID] / medSF.transpose(1,0)).transpose(1,0)
 FCS_Eq = GainEq/ np.sqrt(scaleFact)
 SEFD   = 1.0 / FCS_Eq**2
-AEFF   = ((2761.297* chAvgTsys[:,:,:,FCScan]/SEFD).transpose(1,2,0)/(0.25* pi*antDia**2)).transpose(2,0,1)
+AEFF   = ((2761.297* chAvgTsys[:,:,:,onsourceScans.index(FCScan)]/SEFD).transpose(1,2,0)/(0.25* pi*antDia**2)).transpose(2,0,1)
 print 'Aeff :',
 for spw_index in range(spwNum):
     for pol_index in range(2):
@@ -495,7 +495,7 @@ for ant_index in range(UseAntNum):
     print ''
 #
 #-------- Antenna-based Gain
-print '---Flux densities of sources'
+print '---Flux densities of sources ---'
 print 'Scan   Source  EL   ',
 for spw_index in range(spwNum):
     for pol_index in range(2):
