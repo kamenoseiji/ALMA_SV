@@ -43,12 +43,16 @@ timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
 #-------- Check bandpass and on-source scans
 print '---Checking bandpass and on-source time'
 #
-FCScan        = msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE")[0]
-BPScan        = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")[0]
+FCScan = msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE")[0]
+BPScan = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")[0]
+EQScan = BPScan
 onsourceScans = [BPScan] + [FCScan] + msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE").tolist()
 scanNum = len(onsourceScans)
 if fluxCal in sourceList:
     FCScan        = list(set(msmd.scansforfield(sourceList.index(fluxCal))) & set(msmd.scansforintent("*ON_SOURCE")))[0]
+#
+if eqCal in sourceList:
+    EQScan        = list(set(msmd.scansforfield(sourceList.index(eqCal))) & set(msmd.scansforintent("*ON_SOURCE")))[0]
 #
 #-------- Configure Array
 print '---Checking array configulation'
@@ -356,9 +360,9 @@ GainAnt = []
 polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
 for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
-    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], BPScan)
+    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], EQScan)
     chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-    PA = AzEl2PA(np.median(OnAZ[:,onsourceScans.index(BPScan)]), np.median(OnEL[:,onsourceScans.index(BPScan)]))
+    PA = AzEl2PA(np.median(OnAZ[:,onsourceScans.index(EQScan)]), np.median(OnEL[:,onsourceScans.index(EQScan)]))
     PS = InvPAMatrix(PA)
     tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)       # Cross Polarization Baseline Mapping
     Xspec = (tempSpec / (BPList[spw_index][ant0][:,polXindex]* BPList[spw_index][ant1][:,polYindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
