@@ -48,11 +48,14 @@ BPScan = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")[0]
 EQScan = BPScan
 onsourceScans = [BPScan] + [FCScan] + msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE").tolist()
 scanNum = len(onsourceScans)
+if bpCal in sourceList:
+    BPScan = list(set(msmd.scansforfield(sourceList.index(bpCal))) & set(msmd.scansforintent("*ON_SOURCE")))[0]
+#
 if fluxCal in sourceList:
-    FCScan        = list(set(msmd.scansforfield(sourceList.index(fluxCal))) & set(msmd.scansforintent("*ON_SOURCE")))[0]
+    FCScan = list(set(msmd.scansforfield(sourceList.index(fluxCal))) & set(msmd.scansforintent("*ON_SOURCE")))[0]
 #
 if eqCal in sourceList:
-    EQScan        = list(set(msmd.scansforfield(sourceList.index(eqCal))) & set(msmd.scansforintent("*ON_SOURCE")))[0]
+    EQScan = list(set(msmd.scansforfield(sourceList.index(eqCal))) & set(msmd.scansforintent("*ON_SOURCE")))[0]
 #
 #-------- Configure Array
 print '---Checking array configulation'
