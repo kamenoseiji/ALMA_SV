@@ -48,14 +48,14 @@ BPScan = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")[0]
 EQScan = BPScan
 onsourceScans = [BPScan] + [FCScan] + msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE").tolist()
 scanNum = len(onsourceScans)
-if bpCal in sourceList:
-    BPScan = list(set(msmd.scansforfield(sourceList.index(bpCal))) & set(msmd.scansforintent("*ON_SOURCE")))[0]
+if BPcal in sourceList:
+    BPScan = list(set(msmd.scansforfield(sourceList.index(BPcal))) & set(msmd.scansforintent("*ON_SOURCE")))[0]
 #
-if fluxCal in sourceList:
-    FCScan = list(set(msmd.scansforfield(sourceList.index(fluxCal))) & set(msmd.scansforintent("*ON_SOURCE")))[0]
+if FLcal in sourceList:
+    FCScan = list(set(msmd.scansforfield(sourceList.index(FLcal))) & set(msmd.scansforintent("*ON_SOURCE")))[0]
 #
-if eqCal in sourceList:
-    EQScan = list(set(msmd.scansforfield(sourceList.index(eqCal))) & set(msmd.scansforintent("*ON_SOURCE")))[0]
+if EQcal in sourceList:
+    EQScan = list(set(msmd.scansforfield(sourceList.index(EQcal))) & set(msmd.scansforintent("*ON_SOURCE")))[0]
 #
 #-------- Configure Array
 print '---Checking array configulation'
@@ -207,7 +207,7 @@ for ant_index in range(UseAntNum):
     #
 #
 #-------- Tau and TantN fitting
-param = [5.0, 0.05]     # Initial Parameter
+param = [3.0, 0.05]     # Initial Parameter
 Tau0, TantN, Trms = np.zeros([UseAntNum, spwNum, 2]), np.zeros([UseAntNum, spwNum, 2]), np.zeros([UseAntNum, spwNum, 2])
 for ant_index in range(UseAntNum):
     for spw_index in range(spwNum):
@@ -456,18 +456,11 @@ for spw_index in range(spwNum):
     PS = InvPAMatrix(PA)
     tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1) 
     Xspec = (tempSpec / (BPList[spw_index][ant0][:,polXindex]* BPList[spw_index][ant1][:,polYindex].conjugate())).transpose(2,3,1,0)[:,:,SAblMap]
-    #Xspec = Xspec[pPol]; Xspec = Xspec[:,:,blMap]
-    #Ximag = Xspec.transpose(0,1,3,2).imag * (-2.0* np.array(blInv) + 1.0)
-    #Xspec.imag = Ximag.transpose(0,1,3,2)
     Xspec = (Xspec.transpose(1,3,2,0)/(GainEq[SAant0, spw_index][:,polXindex]* GainEq[SAant1, spw_index][:,polYindex].conjugate())).transpose(3,0,2,1)
     #-------- XY delay cal
     XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelayList[spw_index] )
     Xspec[1] = (Xspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
     Xspec[2] = (Xspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
-    #-------- Bandpass Calibration
-    #GainBL = GainEq[SAant0,spw_index]* GainEq[SAant1,spw_index]
-    #BP_bl = ((BPList[spw_index][SAant0]* BPList[spw_index][SAant1].conjugate()).transpose(2,0,1) * GainBL).transpose(1,2,0)
-    #Xspec = (Xspec.transpose(3,2,0,1) / BP_bl).transpose(2,3,1,0)
     #-------- Antenna-based Gain
     chAvgVis =(np.mean(Xspec[:, chRange], axis=1).transpose(0,2,1) / FCSmodelVis[spw_index, SAblMap]* SAblFlag).transpose(0,2,1)
     GainX, GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[0]), np.apply_along_axis( gainComplex, 0, chAvgVis[3])
