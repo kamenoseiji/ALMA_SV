@@ -2,7 +2,6 @@ import sys
 from scipy import stats
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ptick
-import matplotlib.cm as cm
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Plotters.py')
 #
@@ -288,8 +287,8 @@ for ant_index in range(UseAntNum):
     print ' '
 #
 #-------- Plot optical depth
-if PLOTTAU: plotTau(prefix, antList[antMap], spw, secZ, np.median(tempAmb), Tau0med, TantN, TrxFlag, 2.0*np.median(chAvgTsky)) 
-if PLOTTSYS: plotTsys(prefix, antList[antMap], ambTime, spw, TrxList, TskyList)
+if PLOTTAU: plotTau(prefix, antList[antMap], spw, secZ, (chAvgTsky.transpose(3,0,1,2) - TantN).transpose(1,2,3,0), np.median(tempAmb) - 20.0, Tau0med, TrxFlag, 2.0*np.median(chAvgTsky), PLOTFMT) 
+if PLOTTSYS: plotTsys(prefix, antList[antMap], ambTime, spw, TrxList, TskyList, PLOTFMT)
 #
 ##-------- Equalization using Bandpass scan
 GainAnt = []
@@ -438,12 +437,15 @@ for spw_index in range(spwNum):
 print ' '
 for scan_index in range(scanNum):
     print '%02d %010s %4.1f ' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* np.median(OnEL[:,scan_index])/pi ),
+    PA = AzEl2PA(np.median(OnAZ[:,scan_index]), np.median(OnEL[:,scan_index]))
+    PS = InvPAMatrix(PA)
     if(onsourceScans[scan_index] in SSOscanID):
         SSO_flag = T
         SSO_ID = SSOscanID.index(onsourceScans[scan_index])
     else:
         SSO_flag = F
     for spw_index in range(spwNum):
+        atmCorrect = np.exp(-Tau0med[spw_index]/ np.sin(np.median(OnEL[:, scan_index])))
         #-------- Sub-array with unflagged antennas (short baselines)
         if SSO_flag:
             SAantennas, SAblMap, SAblFlag, SAant0, SAant1 = subArranIndex(uvFlag[SSO_ID, spw_index])
@@ -452,21 +454,22 @@ for scan_index in range(scanNum):
         #
         SAantNum = len(SAantennas); SAblNum = SAantNum* (SAantNum - 1)/2
         if SAantNum < 4:
-            print 'too few ants',
+            print 'too few ants too few ants',
             continue
         #
         #
         #-------- Baseline-based cross power spectra
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], onsourceScans[scan_index])
         chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-        Xspec = Xspec[pPol]; Xspec = Xspec[:,:,blMap]
-        Ximag = Xspec.transpose(0,1,3,2).imag * (-2.0* np.array(blInv) + 1.0)
-        Xspec.imag = Ximag.transpose(0,1,3,2)
-        Xspec = Xspec[:,:,SAblMap]
+        tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)[:,SAblMap]       # Cross Polarization Baseline Mapping
         #-------- Bandpass Calibration
-        GainBL = FCS_Eq[SAant0,spw_index]* FCS_Eq[SAant1,spw_index] * np.exp(-Tau0med[spw_index]/ np.sin(np.median(OnEL[:, scan_index])))
-        BP_bl = ((BPList[spw_index][SAant0]* BPList[spw_index][SAant1].conjugate()).transpose(2,0,1) * GainBL).transpose(1,2,0)
-        Xspec = (Xspec.transpose(3,2,0,1) / BP_bl).transpose(2,3,1,0)
+        GainBL = FCS_Eq[SAant0,spw_index][:,polXindex]* FCS_Eq[SAant1,spw_index][:,polYindex]* atmCorrect
+        BP_bl = ((BPList[spw_index][SAant0][:,polXindex]* BPList[spw_index][SAant1][:,polYindex].conjugate()).transpose(2,0,1)* GainBL).transpose(1,2,0)
+        Xspec = (tempSpec / BP_bl).transpose(2,3,1,0) # Bandpass Cal
+        #-------- XY delay cal
+        XYdlSpec = delay_cal(np.ones([chNum], dtype=complex), XYdelayList[spw_index])
+        Xspec[1] = (Xspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
+        Xspec[2] = (Xspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
         #-------- Antenna-based Gain
         if(SSO_flag):
             chAvgVis =(np.mean(Xspec[:, chRange], axis=1).transpose(0,2,1) / SSOmodelVis[SSO_ID, spw_index, SAblMap]).transpose(0,2,1)
@@ -474,14 +477,17 @@ for scan_index in range(scanNum):
             chAvgVis = np.mean(Xspec[:, chRange], axis=1)
         #
         GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[0]); Xflag = np.where( np.std(abs(GainX), axis=0) < np.median(abs(GainX), axis=0))[0]
-        GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[1]); Yflag = np.where( np.std(abs(GainY), axis=0) < np.median(abs(GainY), axis=0))[0]
+        GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[3]); Yflag = np.where( np.std(abs(GainY), axis=0) < np.median(abs(GainY), axis=0))[0]
         Tflag = list( set(Xflag) & set(Yflag) )
+        #VisXY = np.array([np.median(gainCalVis( chAvgVis[0], GainX, GainX)), np.median(gainCalVis( chAvgVis[1], GainX, GainY)), np.median(gainCalVis( chAvgVis[2], GainY, GainX)), np.median(gainCalVis( chAvgVis[3], GainY, GainY))])
+        #StokesVis = np.dot(PS, VisXY)
+        #print '%f %f %f %f' % (StokesVis[0], StokesVis[1], StokesVis[2], StokesVis[3])
         #
         #-------- Phase Cal and channel average
         BLphsX = GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]].conjugate() / abs(GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]])
         BLphsY = GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]].conjugate() / abs(GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]])
         pCalVisX = np.mean((chAvgVis[0]/BLphsX)[:,Tflag], axis=1)
-        pCalVisY = np.mean((chAvgVis[1]/BLphsY)[:,Tflag], axis=1)
+        pCalVisY = np.mean((chAvgVis[3]/BLphsY)[:,Tflag], axis=1)
         #-------- Antenna-based Gain
         GainAntX, GainAntY = abs(gainComplex(pCalVisX))**2, abs(gainComplex(pCalVisY))**2
         #-------- Check 
