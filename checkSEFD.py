@@ -167,6 +167,7 @@ chAvgTsky= np.zeros([UseAntNum, spwNum, 2, len(offTime)])
 chAvgTsys= np.zeros([UseAntNum, spwNum, 2, scanNum])
 TrxFlag  = np.ones([UseAntNum, spwNum, 2, len(offTime)])
 TsysFlag = np.ones([UseAntNum, spwNum, 2, scanNum])
+onTau = np.zeros([spwNum, scanNum])
 TrxList, TskyList = [], []
 tempAmb, tempHot  = np.zeros([UseAntNum]), np.zeros([UseAntNum])
 for ant_index in range(UseAntNum):
@@ -195,16 +196,26 @@ for ant_index in range(UseAntNum):
             TrxTemp = chAvgTrx[ant_index, spw_index, pol_index]
             TrxFlag[ant_index, spw_index, pol_index, np.where( abs(TrxTemp - np.median(TrxTemp)) > 0.2* np.median(TrxTemp))[0].tolist()] = 0.0
             TrxFlag[ant_index, spw_index, pol_index, np.where( TrxTemp < 1.0)[0].tolist()] = 0.0
-            #-------- Tsys for scans
-            for scan_index in range(scanNum):
-                OnTimeRange = timeXY[OnTimeIndex[scan_index]]
-                chAvgTsys[ant_index, spw_index, pol_index, scan_index] = chAvgTrx[ant_index, spw_index, pol_index, argmin(abs(ambTime - OnTimeRange[0]))] + chAvgTsky[ant_index, spw_index, pol_index, argmin(abs(offTime - OnTimeRange[0]))] 
-                TsysFlag[ant_index, spw_index, pol_index, scan_index] = TrxFlag[ant_index, spw_index, pol_index, argmin(abs(ambTime - OnTimeRange[0]))]
+            ##-------- Tsys for scans
+            #for scan_index in range(scanNum):
+            #    OnTimeRange = timeXY[OnTimeIndex[scan_index]]
+            #    ambTimeIndex = argmin(abs(ambTime - OnTimeRange[0]))
+            #    offTimeIndex = argmin(abs(offTime - OnTimeRange[0]))
+            #    chAvgTsys[ant_index, spw_index, pol_index, scan_index] = chAvgTrx[ant_index, spw_index, pol_index, ambTimeIndex] + chAvgTsky[ant_index, spw_index, pol_index, offTimeIndex] 
+            #    TsysFlag[ant_index, spw_index, pol_index, scan_index] = TrxFlag[ant_index, spw_index, pol_index, ambTimeIndex]
             #
         #
         TrxList.append(Trx)
         TskyList.append(Tsky)
     #
+#
+#-------- Tsys for scans
+for scan_index in range(scanNum):
+    OnTimeRange = timeXY[OnTimeIndex[scan_index]]
+    ambTimeIndex = argmin(abs(ambTime - OnTimeRange[0]))
+    offTimeIndex = argmin(abs(offTime - OnTimeRange[0]))
+    chAvgTsys[:,:,:,scan_index] = chAvgTrx[:,:,:,ambTimeIndex] + chAvgTsky[:,:,:,offTimeIndex] 
+    TsysFlag[:,:,:,scan_index] = TrxFlag[:,:,:,ambTimeIndex]
 #
 #-------- Tau and TantN fitting
 param = [3.0, 0.05]     # Initial Parameter
@@ -220,6 +231,12 @@ for ant_index in range(UseAntNum):
 #
 Tau0err = np.std( Tau0, axis=(0,2) )
 Tau0med = np.mean( Tau0, axis=(0,2) )
+#-------- Tau on source
+for scan_index in range(scanNum):
+    OnTimeRange = timeXY[OnTimeIndex[scan_index]]
+    offTimeIndex = argmin(abs(offTime - OnTimeRange[0]))
+    onTau[:,scan_index] = -np.median(np.log((chAvgTsky[:,:,:,offTimeIndex] - TantN - np.median(tempAmb) + 20.0) / (2.718 - np.median(tempAmb) + 20.0)), axis=(0, 2))
+#
 for spw_index in range(spwNum):
     print 'SPW=%d : Tau(zenith) = %6.4f +- %6.4f' % (spw[spw_index], Tau0med[spw_index], Tau0err[spw_index])
 #
@@ -325,7 +342,6 @@ GainEq = abs(np.array(GainAnt)).reshape([spwNum, 2, UseAntNum]).transpose(2,0,1)
 SSONum = len(SSOList)
 timeLabel = qa.time('%fs' % (timeXY[0]), form='ymd')[0]
 SSOflux0= []
-SSOflux = []
 SSOsize = []
 centerFreqList = []
 primaryBeam = np.ones([UseBlNum])
@@ -342,12 +358,10 @@ for ssoIndex in range(SSONum):
         text_Freq = '%6.2fGHz' % (centerFreqList[spw_index])
         SSOmodel = predictcomp(objname=sourceList[SSOList[ssoIndex]], standard="Butler-JPL-Horizons 2012", minfreq=text_Freq, maxfreq=text_Freq, nfreqs=1, prefix="", antennalist="aca.cycle3.cfg", epoch=timeLabel, showplot=T)
         SSOflux0.append(SSOmodel['spectrum']['bl0flux']['value'])
-        SSOflux.append(SSOmodel['spectrum']['bl0flux']['value']* np.exp(-Tau0med[spw_index] / np.sin(SSOmodel['azel']['m1']['value'])))
     #
     SSOsize.append(SSOmodel['shape']['majoraxis']['value']* pi / 21600.0)   # arcmin -> rad, diameter -> radius
 #
 plt.close('all')
-SSOflux = np.array(SSOflux).reshape(SSONum, spwNum)     # [SSO, spw]
 SSOflux0= np.array(SSOflux0).reshape(SSONum, spwNum)     # [SSO, spw]
 uvFlag = np.ones([SSONum, spwNum, UseBlNum])
 SSOmodelVis = []
@@ -367,6 +381,7 @@ for ssoIndex in range(SSONum):
         SSOmodelVis.append(diskVisBeam(SSOsize[ssoIndex], uvWave, 1.13* 0.299792458* primaryBeam/centerFreqList[spw_index]))
     #
 #
+SSOflux = SSOflux0* np.exp(-onTau.transpose(1,0)[indexList(np.array(SSOscanID), np.array(onsourceScans))])
 SSOmodelVis = np.array(SSOmodelVis).reshape(SSONum, spwNum, UseBlNum)
 FCSmodelVis = SSOmodelVis[FCS_ID]
 FCSFlag     = uvFlag[FCS_ID]
@@ -441,7 +456,8 @@ for scan_index in range(scanNum):
     else:
         SSO_flag = F
     for spw_index in range(spwNum):
-        atmCorrect = np.exp(-Tau0med[spw_index]/ np.sin(np.median(OnEL[:, scan_index])))
+        #atmCorrect = np.exp(-Tau0med[spw_index]/ np.sin(np.median(OnEL[:, scan_index])))
+        atmCorrect = np.exp(-onTau[spw_index, scan_index])
         #-------- Sub-array with unflagged antennas (short baselines)
         if SSO_flag:
             SAantennas, SAblMap, SAblFlag, SAant0, SAant1 = subArranIndex(uvFlag[SSO_ID, spw_index])
