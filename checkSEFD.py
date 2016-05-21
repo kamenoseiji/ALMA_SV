@@ -429,11 +429,7 @@ for ant_index in range(UseAntNum):
 #-------- Antenna-based Gain
 print '---Flux densities of sources ---'
 print 'Scan   Source  EL   ',
-for spw_index in range(spwNum):
-    for pol_index in range(2):
-        print 'SPW%02d Pol-%s ' % (spw[spw_index], PolList[pol_index]),
-    #
-#
+for spw_index in range(spwNum): print 'SPW%02d         ' % (spw[spw_index]),
 print ' '
 for scan_index in range(scanNum):
     print '%02d %010s %4.1f ' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* np.median(OnEL[:,scan_index])/pi ),
@@ -454,7 +450,7 @@ for scan_index in range(scanNum):
         #
         SAantNum = len(SAantennas); SAblNum = SAantNum* (SAantNum - 1)/2
         if SAantNum < 4:
-            print 'too few ants too few ants',
+            print ' too few ants ',
             continue
         #
         #
@@ -491,11 +487,13 @@ for scan_index in range(scanNum):
         #-------- Antenna-based Gain
         GainAntX, GainAntY = abs(gainComplex(pCalVisX))**2, abs(gainComplex(pCalVisY))**2
         #-------- Check 
-        gainXflag = np.where(abs(GainAntX - np.median(GainAntX)) / np.median(GainAntX) > 0.1)[0].tolist()
-        gainYflag = np.where(abs(GainAntY - np.median(GainAntY)) / np.median(GainAntY) > 0.1)[0].tolist()
+        gainXflag = np.where(abs(GainAntX - np.median(GainAntX)) / np.median(GainAntX) > 0.16)[0].tolist()
+        gainYflag = np.where(abs(GainAntY - np.median(GainAntY)) / np.median(GainAntY) > 0.16)[0].tolist()
         Xants, Yants = list(set(range(SAantNum)) - set(gainXflag)), list(set(range(SAantNum)) - set(gainYflag))
-        medGX, medGY, sdGX, sdGY = np.median(GainAntX[Xants]), np.median(GainAntY[Yants]), np.std(GainAntX[Xants]), np.std(GainAntY[Yants])
-        print '%6.3f(%3.1f%%) %6.3f(%3.1f%%)' % (medGX, 100.0*sdGX/medGX/np.sqrt(len(Xants)-1), medGY, 100.0*sdGY/medGY/np.sqrt(len(Yants)-1)),
+        Iants = list( set(Xants) & set(Yants) )
+        GainI = (GainAntX[Iants] + GainAntY[Iants])/2.0
+        meanI, sdI = np.mean(GainI), np.std(GainI)/sqrt(len(GainI) - 1.0)
+        print '%6.3f (%3.1f%%) ' % (meanI, 100.0* sdI/meanI),
     #
     if(SSO_flag):
         for spw_index in range(spwNum):
