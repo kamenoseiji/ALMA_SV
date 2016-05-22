@@ -299,7 +299,7 @@ for spw_index in range(spwNum):
     #-------- Sub-array with unflagged antennas (short baselines)
     SAantennas, SAblMap, SAblFlag, SAant0, SAant1 = subArranIndex(uvFlag[FCS_ID, spw_index])
     SAantNum = len(SAantennas); SAblNum = SAantNum* (SAantNum - 1)/2
-    if SAantNum < 4:
+    if SAantNum < 3:
         print 'Too few antennas for %s. Change REFANT or Flux Calibrator.'
         sys.exit(0)
     #
