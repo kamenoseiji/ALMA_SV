@@ -211,7 +211,7 @@ for ant_index in range(UseAntNum):
         print '|',
     print ' '
 #-------- Plot optical depth
-if PLOTTAU: plotTau(prefix, antList[antMap], spw, secZ, (chAvgTsky.transpose(3,0,1,2) - TantN).transpose(1,2,3,0), np.median(tempAmb) - 20.0, Tau0med, TrxFlag, 2.0*np.median(chAvgTsky), PLOTFMT) 
+if PLOTTAU: plotTau(prefix + ' ' + UniqBands[band_index], antList[antMap], spw, secZ, (chAvgTsky.transpose(3,0,1,2) - TantN).transpose(1,2,3,0), np.median(tempAmb) - 20.0, Tau0med, TrxFlag, 2.0*np.median(chAvgTsky), PLOTFMT) 
 if PLOTTSYS: plotTsys(prefix + ' ' + UniqBands[band_index], antList[antMap], ambTime, spw, TrxList, TskyList, PLOTFMT)
 ##-------- Equalization using Bandpass scan
 GainAnt = []
@@ -394,9 +394,11 @@ for scan_index in range(scanNum):
         else:
             chAvgVis = np.mean(Xspec[:, chRange], axis=1)
         #
-        GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[0]); Xflag = np.where( np.std(abs(GainX), axis=0) < np.median(abs(GainX), axis=0))[0]
-        GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[3]); Yflag = np.where( np.std(abs(GainY), axis=0) < np.median(abs(GainY), axis=0))[0]
-        Tflag = list( set(Xflag) & set(Yflag) )
+        GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[0]) #; Xflag = np.where( np.std(abs(GainX), axis=1) < np.median(abs(GainX), axis=1))[0]
+        GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[3]) #; Yflag = np.where( np.std(abs(GainY), axis=1) < np.median(abs(GainY), axis=1))[0]
+        # Tflag = list( set(Xflag) & set(Yflag) )
+        # print len(Tflag)
+        # if len(Tflag) < 4: print ' low SNR   ',; continue
         #VisXY = np.array([np.median(gainCalVis( chAvgVis[0], GainX, GainX)), np.median(gainCalVis( chAvgVis[1], GainX, GainY)), np.median(gainCalVis( chAvgVis[2], GainY, GainX)), np.median(gainCalVis( chAvgVis[3], GainY, GainY))])
         #StokesVis = np.dot(PS, VisXY)
         #print '%f %f %f %f' % (StokesVis[0], StokesVis[1], StokesVis[2], StokesVis[3])
@@ -404,8 +406,8 @@ for scan_index in range(scanNum):
         #-------- Phase Cal and channel average
         BLphsX = GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]].conjugate() / abs(GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]])
         BLphsY = GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]].conjugate() / abs(GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]])
-        pCalVisX = np.mean((chAvgVis[0]/BLphsX)[:,Tflag], axis=1)
-        pCalVisY = np.mean((chAvgVis[3]/BLphsY)[:,Tflag], axis=1)
+        pCalVisX = np.mean((chAvgVis[0]/BLphsX), axis=1)
+        pCalVisY = np.mean((chAvgVis[3]/BLphsY), axis=1)
         #-------- Antenna-based Gain
         GainAntX, GainAntY = abs(gainComplex(pCalVisX))**2, abs(gainComplex(pCalVisY))**2
         #-------- Check 
@@ -413,6 +415,7 @@ for scan_index in range(scanNum):
         gainYflag = np.where(abs(GainAntY - np.median(GainAntY)) / np.median(GainAntY) > 0.16)[0].tolist()
         Xants, Yants = list(set(range(SAantNum)) - set(gainXflag)), list(set(range(SAantNum)) - set(gainYflag))
         Iants = list( set(Xants) & set(Yants) )
+        if len(Iants) < 2: print ' too low SNR  ',; continue
         GainI = (GainAntX[Iants] + GainAntY[Iants])/2.0
         meanI, sdI = np.mean(GainI), np.std(GainI)/sqrt(len(GainI) - 1.0)
         print '%6.3f (%3.1f%%) ' % (meanI, 100.0* sdI/meanI),
