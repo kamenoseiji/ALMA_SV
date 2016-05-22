@@ -19,68 +19,6 @@ def get_progressbar_str(progress):
     BAR_LEN = int(MAX_LEN * progress)
     return ('[' + '=' * BAR_LEN + ('>' if BAR_LEN < MAX_LEN else '') + ' ' * (MAX_LEN - BAR_LEN) + '] %.1f%%' % (progress * 100.))
 #
-#-------- Procedures
-msfile = wd + prefix + '.ms'
-#-------- Check Antenna List
-antList = GetAntName(msfile)
-antNum = len(antList)
-blNum = antNum* (antNum - 1) / 2
-#-------- Check SPWs of atmCal
-msmd.open(msfile)
-print '---Checking spectral windows'
-spw = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*")))
-spwNum = len(spw)
-#-------- Check source list
-print '---Checking source list'
-sourceList, posList = GetSourceList(msfile) 
-numSource = len(sourceList)
-SSOList   = np.where( (np.array(posList)[:,0] == 0.0) & (np.array(posList)[:,1] == 0.0) )[0].tolist()   # Solar System Objects
-#-------- Check MJD for Ambient Load
-print '---Checking time for ambient and hot load'
-timeOFF = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE")
-timeAMB = msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT")
-timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
-#-------- Check bandpass and on-source scans
-print '---Checking bandpass and on-source time'
-#
-FCScan = msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE")[0]
-BPScan = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")[0]
-EQScan = BPScan
-onsourceScans = [BPScan] + [FCScan] + msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE").tolist()
-scanNum = len(onsourceScans)
-if BPcal in sourceList:
-    BPScan = list(set(msmd.scansforfield(sourceList.index(BPcal))) & set(msmd.scansforintent("*ON_SOURCE")))[0]
-#
-if FLcal in sourceList:
-    FCScan = list(set(msmd.scansforfield(sourceList.index(FLcal))) & set(msmd.scansforintent("*ON_SOURCE")))[0]
-#
-if EQcal in sourceList:
-    EQScan = list(set(msmd.scansforfield(sourceList.index(EQcal))) & set(msmd.scansforintent("*ON_SOURCE")))[0]
-#
-#-------- Configure Array
-print '---Checking array configulation'
-flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
-UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
-blMap, blInv= range(UseBlNum), [False]* UseBlNum
-try:
-    refantID = np.where(antList[UseAnt] == refant )[0][0]
-except:
-    ant0 = ANT0[0:UseBlNum]; ant1 = ANT1[0:UseBlNum]
-    for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
-    timeStamp, UVW = GetUVW(msfile, spw[0], FCScan)
-    uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
-    refantID = bestRefant(uvDist)
-#
-print 'Use ' + antList[UseAnt[refantID]] + ' as the refant.'
-#-------- Baseline Mapping
-antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
-UseAntNum = len(antMap)
-UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
-ant0 = ANT0[0:UseBlNum]; ant1 = ANT1[0:UseBlNum]
-for bl_index in range(UseBlNum):
-    blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
-#
-print `len(np.where( blInv )[0])` + ' baselines are inverted.'
 #-------- Check Scans for atmCal
 print '---Checking time series in MS and atmCal scans'
 tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spw[0]`).getcol('TIME'); tb.close()
@@ -90,13 +28,6 @@ for scan_index in range(scanNum):
     OnTimeIndex.append( indexList(msmd.timesforscan(onsourceScans[scan_index]), timeXY) )
     sourceIDscan.append( msmd.fieldsforscan(onsourceScans[scan_index])[0])
 #
-polNum = msmd.ncorrforpol(msmd.polidfordatadesc(spw[0]))
-pPol, cPol = [0,1], []  # parallel and cross pol
-PolList = ['X', 'Y']
-if polNum == 4:
-    pPol, cPol = [0,3], [1,2]  # parallel and cross pol
-#
-ppolNum, cpolNum = len(pPol), len(cPol)
 offTime = sort( list(set(timeXY) & set(timeOFF)) )
 ambTime = sort( list(set(timeXY) & set(timeAMB)) )
 hotTime = sort( list(set(timeXY) & set(timeHOT)) )
@@ -128,9 +59,7 @@ if PLOTBP:
 #-------- Load autocorrelation power spectra
 print '---Loading autocorr power spectra'
 OnSpecList, OffSpecList, AmbSpecList, HotSpecList = [], [], [], []
-antDia = np.ones([UseAntNum])
 for ant_index in range(UseAntNum):
-    antDia[ant_index] = msmd.antennadiameter(antList[antMap[ant_index]])['value']
     for spw_index in range(spwNum):
         progress = (1.0* ant_index* spwNum + spw_index + 1.0) / (UseAntNum* spwNum)
         sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
@@ -191,19 +120,10 @@ for ant_index in range(UseAntNum):
                 Phot, Pamb, Poff = np.mean(Pshot[chRange]), np.mean(Psamb[chRange]), np.mean(Psoff[chRange])
                 chAvgTrx[ant_index, spw_index, pol_index, time_index] = (tempHot[ant_index]* Pamb - Phot* tempAmb[ant_index]) / (Phot - Pamb)
                 chAvgTsky[ant_index, spw_index, pol_index, time_index]= (Poff* (tempHot[ant_index] - tempAmb[ant_index]) + tempAmb[ant_index]* Phot - tempHot[ant_index]* Pamb) / (Phot - Pamb)
-            #
             #-------- Trx flagging
             TrxTemp = chAvgTrx[ant_index, spw_index, pol_index]
             TrxFlag[ant_index, spw_index, pol_index, np.where( abs(TrxTemp - np.median(TrxTemp)) > 0.2* np.median(TrxTemp))[0].tolist()] = 0.0
             TrxFlag[ant_index, spw_index, pol_index, np.where( TrxTemp < 1.0)[0].tolist()] = 0.0
-            ##-------- Tsys for scans
-            #for scan_index in range(scanNum):
-            #    OnTimeRange = timeXY[OnTimeIndex[scan_index]]
-            #    ambTimeIndex = argmin(abs(ambTime - OnTimeRange[0]))
-            #    offTimeIndex = argmin(abs(offTime - OnTimeRange[0]))
-            #    chAvgTsys[ant_index, spw_index, pol_index, scan_index] = chAvgTrx[ant_index, spw_index, pol_index, ambTimeIndex] + chAvgTsky[ant_index, spw_index, pol_index, offTimeIndex] 
-            #    TsysFlag[ant_index, spw_index, pol_index, scan_index] = TrxFlag[ant_index, spw_index, pol_index, ambTimeIndex]
-            #
         #
         TrxList.append(Trx)
         TskyList.append(Tsky)
@@ -261,18 +181,13 @@ for ant_index in range(UseAntNum):
             resid = residTskyTransfer([fit[0][0], Tau0med[spw_index]], tempAmb[ant_index]-20.0, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index])
             Trms[ant_index, spw_index, pol_index]  = sqrt(np.dot(resid, resid) / len(np.where(TrxFlag[ant_index, spw_index, pol_index] > 0.0)[0]))
             print '%4.1f (%4.1f) K ' % (TantN[ant_index, spw_index, pol_index], Trms[ant_index, spw_index, pol_index]),
-        #
         print '|',
-    #
     print ' '
-#
 print ' '
 np.save(prefix + '.TantN.npy', TantN) 
 #-------- Trx
 print 'Trec : ',
-for spw_index in range(spwNum):
-    print 'SPW%02d  X        Y |' % (spw[spw_index]),
-#
+for spw_index in range(spwNum): print 'SPW%02d  X        Y |' % (spw[spw_index]),
 print ' '
 print '-----:--------------------+-------------------+-------------------+-------------------+'
 for ant_index in range(UseAntNum):
@@ -280,17 +195,12 @@ for ant_index in range(UseAntNum):
     for spw_index in range(spwNum):
         for pol_index in range(2):
             print '%6.1f K' % (np.median(chAvgTrx[ant_index, spw_index, pol_index])),
-        #
         print '|',
-    #
     print ' '
-#
 print ' '
 #-------- Tsys
 print 'Tsys : ',
-for spw_index in range(spwNum):
-    print 'SPW%02d  X        Y |' % (spw[spw_index]),
-#
+for spw_index in range(spwNum): print 'SPW%02d  X        Y |' % (spw[spw_index]),
 print ' '
 print '-----:--------------------+-------------------+-------------------+-------------------+'
 for ant_index in range(UseAntNum):
@@ -298,15 +208,11 @@ for ant_index in range(UseAntNum):
     for spw_index in range(spwNum):
         for pol_index in range(2):
             print '%6.1f K' % (np.median(chAvgTrx[ant_index, spw_index, pol_index]) + np.median(chAvgTsky[ant_index, spw_index, pol_index])),
-        #
         print '|',
-    #
     print ' '
-#
 #-------- Plot optical depth
 if PLOTTAU: plotTau(prefix, antList[antMap], spw, secZ, (chAvgTsky.transpose(3,0,1,2) - TantN).transpose(1,2,3,0), np.median(tempAmb) - 20.0, Tau0med, TrxFlag, 2.0*np.median(chAvgTsky), PLOTFMT) 
-if PLOTTSYS: plotTsys(prefix, antList[antMap], ambTime, spw, TrxList, TskyList, PLOTFMT)
-#
+if PLOTTSYS: plotTsys(prefix + ' ' + UniqBands[band_index], antList[antMap], ambTime, spw, TrxList, TskyList, PLOTFMT)
 ##-------- Equalization using Bandpass scan
 GainAnt = []
 polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
@@ -518,4 +424,3 @@ for scan_index in range(scanNum):
     #
     print ' '
 #
-msmd.done()
