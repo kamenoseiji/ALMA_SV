@@ -44,7 +44,7 @@ try:
 except:
     ant0 = ANT0[0:UseBlNum]; ant1 = ANT1[0:UseBlNum]
     for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
-    timeStamp, UVW = GetUVW(msfile, spw[0], FCScan)
+    timeStamp, UVW = GetUVW(msfile, spw[0], msmd.scansforspw(spw[0])[0])
     uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     refantID = bestRefant(uvDist)
 #
