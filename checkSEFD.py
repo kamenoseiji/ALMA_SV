@@ -155,7 +155,8 @@ Tau0med = np.mean( Tau0, axis=(0,2) )
 for scan_index in range(scanNum):
     OnTimeRange = timeXY[OnTimeIndex[scan_index]]
     offTimeIndex = argmin(abs(offTime - OnTimeRange[0]))
-    onTau[:,scan_index] = -np.median(np.log((chAvgTsky[:,:,:,offTimeIndex] - TantN - np.median(tempAmb) + 20.0) / (2.718 - np.median(tempAmb) + 20.0)), axis=(0, 2))
+    tempTau = -np.log((chAvgTsky[:,:,:,offTimeIndex] - TantN - np.median(tempAmb) + 20.0) / (2.718 - np.median(tempAmb) + 20.0))
+    onTau[:,scan_index] = np.median(tempTau.transpose(1,2,0).reshape(spwNum, -1), axis=1)
 #
 for spw_index in range(spwNum):
     print 'SPW=%d : Tau(zenith) = %6.4f +- %6.4f' % (spw[spw_index], Tau0med[spw_index], Tau0err[spw_index])
