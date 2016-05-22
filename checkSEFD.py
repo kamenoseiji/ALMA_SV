@@ -394,11 +394,10 @@ for scan_index in range(scanNum):
         else:
             chAvgVis = np.mean(Xspec[:, chRange], axis=1)
         #
-        GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[0]) #; Xflag = np.where( np.std(abs(GainX), axis=1) < np.median(abs(GainX), axis=1))[0]
-        GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[3]) #; Yflag = np.where( np.std(abs(GainY), axis=1) < np.median(abs(GainY), axis=1))[0]
-        # Tflag = list( set(Xflag) & set(Yflag) )
-        # print len(Tflag)
-        # if len(Tflag) < 4: print ' low SNR   ',; continue
+        GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[0]) #; Xflag = np.where( np.std(abs(GainX), axis=0) < np.median(abs(GainX), axis=0))[0]
+        GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[3]) #; Yflag = np.where( np.std(abs(GainY), axis=0) < np.median(abs(GainY), axis=0))[0]
+        #Tflag = list( set(Xflag) & set(Yflag) )
+        #if len(Tflag) < 4: print ' too low SNR  ',; continue
         #VisXY = np.array([np.median(gainCalVis( chAvgVis[0], GainX, GainX)), np.median(gainCalVis( chAvgVis[1], GainX, GainY)), np.median(gainCalVis( chAvgVis[2], GainY, GainX)), np.median(gainCalVis( chAvgVis[3], GainY, GainY))])
         #StokesVis = np.dot(PS, VisXY)
         #print '%f %f %f %f' % (StokesVis[0], StokesVis[1], StokesVis[2], StokesVis[3])
