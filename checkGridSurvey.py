@@ -1,3 +1,4 @@
+import sys
 import re
 from scipy import stats
 import matplotlib.pyplot as plt
@@ -29,6 +30,11 @@ print '---Checking source list'
 sourceList, posList = GetSourceList(msfile) 
 numSource = len(sourceList)
 SSOList   = np.where( (np.array(posList)[:,0] == 0.0) & (np.array(posList)[:,1] == 0.0) )[0].tolist()   # Solar System Objects
+for source in sourceList: print source,
+print ''; print 'Solar System Objects:',
+for index in SSOList: print sourceList[index],
+print ''
+if len(SSOList) == 0: print 'No Solar System Object was observed.'; sys.exit()
 #-------- Check MJD for Ambient Load
 print '---Checking time for ambient and hot load'
 timeOFF = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE")
