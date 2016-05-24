@@ -348,7 +348,7 @@ for ant_index in range(UseAntNum):
     #
     print ''
 #
-#-------- Antenna-based Gain
+#-------- Flux Density
 print '---Flux densities of sources ---'
 print 'Scan   Source  EL   ',
 for spw_index in range(spwNum): print 'SPW%02d         ' % (spw[spw_index]),
