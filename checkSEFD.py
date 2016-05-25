@@ -353,6 +353,9 @@ print '---Flux densities of sources ---'
 print 'Scan   Source  EL   ',
 for spw_index in range(spwNum): print 'SPW%02d         ' % (spw[spw_index]),
 print ' '
+print '                     ',
+for spw_index in range(spwNum): print '%4.1fGHz      ' % (centerFreqList[spw_index]),
+print ' '
 for scan_index in range(scanNum):
     print '%02d %010s %4.1f ' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* np.median(OnEL[:,scan_index])/pi ),
     PA = AzEl2PA(np.median(OnAZ[:,scan_index]), np.median(OnEL[:,scan_index]))

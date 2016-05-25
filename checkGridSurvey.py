@@ -13,6 +13,7 @@ antNum = len(antList)
 blNum = antNum* (antNum - 1) / 2
 #-------- Check SPWs of atmCal
 msmd.open(msfile)
+print prefix
 print '---Checking spectral windows'
 spw = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); spw.sort()
 spwNum = len(spw)
