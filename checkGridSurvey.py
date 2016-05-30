@@ -33,63 +33,70 @@ print '---Checking source list'
 sourceList, posList = GetSourceList(msfile) 
 numSource = len(sourceList)
 SSOList   = np.where( (np.array(posList)[:,0] == 0.0) & (np.array(posList)[:,1] == 0.0) )[0].tolist()   # Solar System Objects
-print ' ',
-for source in sourceList: print source,
-print ''; print '  Solar System Objects:',
-for index in SSOList: print sourceList[index],
-print ''
-if len(SSOList) == 0: print '  No Solar System Object was observed.'; sys.exit()
-#-------- Check MJD for Ambient Load
-print '---Checking time for ambient and hot load'
-timeOFF = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE")
-timeAMB = msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT")
-timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
-#-------- Configure Array
-print '---Checking array configulation'
-flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
-UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
-blMap, blInv= range(UseBlNum), [False]* UseBlNum
-try:
-    refantID = np.where(antList[UseAnt] == refant )[0][0]
-except:
+if FLcal in sourceList:
+    print ' ',
+    for source in sourceList: print source,
+    print ''; print '  Solar System Objects:',
+    for index in SSOList: print sourceList[index],
+    print ''
+    if len(SSOList) == 0: print '  No Solar System Object was observed.'; sys.exit()
+    #-------- Check MJD for Ambient Load
+    print '---Checking time for ambient and hot load'
+    timeOFF = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE")
+    timeAMB = msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT")
+    timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
+    #-------- Configure Array
+    print '---Checking array configulation'
+    flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
+    UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
+    blMap, blInv= range(UseBlNum), [False]* UseBlNum
+    try:
+        refantID = np.where(antList[UseAnt] == refant )[0][0]
+    except:
+        ant0 = ANT0[0:UseBlNum]; ant1 = ANT1[0:UseBlNum]
+        for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
+        timeStamp, UVW = GetUVW(msfile, spw[0], msmd.scansforspw(spw[0])[0])
+        uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
+        refantID = bestRefant(uvDist)
+    #
+    print '  Use ' + antList[UseAnt[refantID]] + ' as the refant.'
+    #-------- Baseline Mapping
+    print '---Baseline Mapping'
+    antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
+    UseAntNum = len(antMap)
+    UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
     ant0 = ANT0[0:UseBlNum]; ant1 = ANT1[0:UseBlNum]
-    for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
-    timeStamp, UVW = GetUVW(msfile, spw[0], msmd.scansforspw(spw[0])[0])
-    uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
-    refantID = bestRefant(uvDist)
-#
-print '  Use ' + antList[UseAnt[refantID]] + ' as the refant.'
-#-------- Baseline Mapping
-print '---Baseline Mapping'
-antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
-UseAntNum = len(antMap)
-UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
-ant0 = ANT0[0:UseBlNum]; ant1 = ANT1[0:UseBlNum]
-for bl_index in range(UseBlNum):
-    blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
-#
-print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
-antDia = np.ones([UseAntNum])
-for ant_index in range(UseAntNum): antDia[ant_index] = msmd.antennadiameter(antList[antMap[ant_index]])['value']
-#-------- Check Scans of BandPass, EQualization, and FluxScaling
-FCScans, BPScans, ONScans = msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE"), msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
-print '---SPWs and Scans for each receiver band'
-for band_index in range(NumBands):
-    FCScan = BandScans[band_index][indexList( FCScans, BandScans[band_index] )][0]
-    BPScan = BandScans[band_index][indexList( BPScans, BandScans[band_index] )][0]
-    ONScan = BandScans[band_index][indexList( ONScans, BandScans[band_index] )]
-    EQScan = BPScan
-    onsourceScans = [BPScan] + [FCScan] + ONScan.tolist()
-    scanNum = len(onsourceScans)
-    if BPcal in sourceList: BPScan = list(set(msmd.scansforfield(sourceList.index(BPcal))) & set(onsourceScans))[0]
-    if FLcal in sourceList: FCScan = list(set(msmd.scansforfield(sourceList.index(FLcal))) & set(onsourceScans))[0]
-    if EQcal in sourceList: EQScan = list(set(msmd.scansforfield(sourceList.index(EQcal))) & set(onsourceScans))[0]
-    #-------- Polarization setup
-    spw = spwLists[band_index]; spwNum = len(spw); polNum = msmd.ncorrforpol(msmd.polidfordatadesc(spw[0]))
-    pPol, cPol = [0,1], []  # parallel and cross pol
-    PolList = ['X', 'Y']
-    if polNum == 4: pPol, cPol = [0,3], [1,2]  # parallel and cross pol
-    ppolNum, cpolNum = len(pPol), len(cPol)
-    execfile(SCR_DIR + 'checkSEFD.py')
-#
-msmd.done()
+    for bl_index in range(UseBlNum):
+        blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
+    #
+    print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
+    antDia = np.ones([UseAntNum])
+    for ant_index in range(UseAntNum): antDia[ant_index] = msmd.antennadiameter(antList[antMap[ant_index]])['value']
+    #-------- Check Scans of BandPass, EQualization, and FluxScaling
+    FCScans, BPScans, ONScans = msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE"), msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
+    print '---SPWs and Scans for each receiver band'
+    for band_index in range(NumBands):
+        FCScan = BandScans[band_index][indexList( FCScans, BandScans[band_index] )][0]
+        BPScan = BandScans[band_index][indexList( BPScans, BandScans[band_index] )][0]
+        ONScan = BandScans[band_index][indexList( ONScans, BandScans[band_index] )]
+        EQScan = BPScan
+        onsourceScans = [BPScan] + [FCScan] + ONScan.tolist()
+        scanNum = len(onsourceScans)
+        if BPcal in sourceList: BPScan = list(set(msmd.scansforfield(sourceList.index(BPcal))) & set(onsourceScans))[0]
+        if FLcal in sourceList: FCScan = list(set(msmd.scansforfield(sourceList.index(FLcal))) & set(onsourceScans))[0]
+        if EQcal in sourceList: EQScan = list(set(msmd.scansforfield(sourceList.index(EQcal))) & set(onsourceScans))[0]
+        #-------- Avoid EQ == FL
+        if EQScan == FCScan:
+            EQcal = sourceList[max(SSOList)+1]
+            EQScan = list(set(msmd.scansforfield(sourceList.index(EQcal))) & set(onsourceScans))[0]
+            BPScan = EQScan
+        #
+        #-------- Polarization setup
+        spw = spwLists[band_index]; spwNum = len(spw); polNum = msmd.ncorrforpol(msmd.polidfordatadesc(spw[0]))
+        pPol, cPol = [0,1], []  # parallel and cross pol
+        PolList = ['X', 'Y']
+        if polNum == 4: pPol, cPol = [0,3], [1,2]  # parallel and cross pol
+        ppolNum, cpolNum = len(pPol), len(cPol)
+        execfile(SCR_DIR + 'checkSEFD.py')
+    #
+    msmd.done()
