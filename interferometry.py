@@ -1387,12 +1387,16 @@ def diskVis(diskRadius, u):
     return 2.0* scipy.special.jn(1, argument) / argument
 #
 #-------- Disk Visibility with primary beam correction, u must be smaller than 0.3/diskRadius
-def diskVisBeam(diskRadius, u, primaryBeam):
-    # diskRadius : radius of planet disk [rad]
-    # u          : spatial frequency (= baseline / wavelength)
+def diskVisBeam(diskShape, u, v, primaryBeam):
+    # diskShape  : planet disk diameter [MajorAxis, MinorAxis, PA] (rad)
+    # u,v        : spatial frequency (= baseline / wavelength) 
     # primaryBeam: FWHM of primary beam [rad]
-    disp_u = (0.30585 / diskRadius)**2 + 2.0* log(2.0)/(pi* primaryBeam)**2
-    return beamF(diskRadius/primaryBeam)* np.exp(-0.5* (u**2 / disp_u))
+    cs, sn = np.cos(diskShape[2]), np.sin(diskShape[2])
+    diskRadius = 0.5* np.sqrt(diskShape[0]* diskShape[1])
+    DSmaj = 1.0 / np.sqrt( (0.30585 / diskShape[0])**2 + 2.0* log(2.0)/(pi* primaryBeam)**2 )    # Primary-beam correction
+    DSmin = 1.0 / np.sqrt( (0.30585 / diskShape[1])**2 + 2.0* log(2.0)/(pi* primaryBeam)**2 )    # Primary-beam correction
+    uvDisp = (DSmin*(u* cs - v* sn))**2 + (DSmaj*(u* sn + v* cs))**2 
+    return beamF(diskRadius/primaryBeam)* np.exp(-0.5* uvDisp)
 #
 #-------- SubArray Index
 def subArranIndex(Flag):

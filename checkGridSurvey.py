@@ -25,17 +25,20 @@ spwLists, BandScans = [], []
 for band_index in range(NumBands):
     spwLists = spwLists + [np.array(spw)[indexList( np.array([UniqBands[band_index]]), np.array(BandNames))].tolist()]
     BandScans = BandScans + [msmd.scansforspw(spwLists[band_index][0])]
+    print ' ',
+    print UniqBands[band_index] + ': SPW=' + `spwLists[band_index]`
 #
 #-------- Check source list
 print '---Checking source list'
 sourceList, posList = GetSourceList(msfile) 
 numSource = len(sourceList)
 SSOList   = np.where( (np.array(posList)[:,0] == 0.0) & (np.array(posList)[:,1] == 0.0) )[0].tolist()   # Solar System Objects
+print ' ',
 for source in sourceList: print source,
-print ''; print 'Solar System Objects:',
+print ''; print '  Solar System Objects:',
 for index in SSOList: print sourceList[index],
 print ''
-if len(SSOList) == 0: print 'No Solar System Object was observed.'; sys.exit()
+if len(SSOList) == 0: print '  No Solar System Object was observed.'; sys.exit()
 #-------- Check MJD for Ambient Load
 print '---Checking time for ambient and hot load'
 timeOFF = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE")
@@ -55,7 +58,7 @@ except:
     uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     refantID = bestRefant(uvDist)
 #
-print 'Use ' + antList[UseAnt[refantID]] + ' as the refant.'
+print '  Use ' + antList[UseAnt[refantID]] + ' as the refant.'
 #-------- Baseline Mapping
 print '---Baseline Mapping'
 antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
@@ -65,15 +68,13 @@ ant0 = ANT0[0:UseBlNum]; ant1 = ANT1[0:UseBlNum]
 for bl_index in range(UseBlNum):
     blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
 #
-print `len(np.where( blInv )[0])` + ' baselines are inverted.'
+print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 antDia = np.ones([UseAntNum])
 for ant_index in range(UseAntNum): antDia[ant_index] = msmd.antennadiameter(antList[antMap[ant_index]])['value']
 #-------- Check Scans of BandPass, EQualization, and FluxScaling
 FCScans, BPScans, ONScans = msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE"), msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
 print '---SPWs and Scans for each receiver band'
 for band_index in range(NumBands):
-    print '%s: SPW = ' % (UniqBands[band_index]),
-    print spwLists[band_index]
     FCScan = BandScans[band_index][indexList( FCScans, BandScans[band_index] )][0]
     BPScan = BandScans[band_index][indexList( BPScans, BandScans[band_index] )][0]
     ONScan = BandScans[band_index][indexList( ONScans, BandScans[band_index] )]

@@ -161,10 +161,10 @@ for scan_index in range(scanNum):
 for spw_index in range(spwNum):
     print 'SPW=%d : Tau(zenith) = %6.4f +- %6.4f' % (spw[spw_index], Tau0med[spw_index], Tau0err[spw_index])
 #
-np.save(prefix + '.Trx.npy', TrxList) 
-np.save(prefix + '.Tsky.npy', TskyList) 
-np.save(prefix + '.TrxFlag.npy', TrxFlag) 
-np.save(prefix + '.Tau0.npy', Tau0) 
+np.save(prefix +  '-' + UniqBands[band_index] + '.Trx.npy', TrxList) 
+np.save(prefix +  '-' + UniqBands[band_index] + '.Tsky.npy', TskyList) 
+np.save(prefix +  '-' + UniqBands[band_index] + '.TrxFlag.npy', TrxFlag) 
+np.save(prefix +  '-' + UniqBands[band_index] + '.Tau0.npy', Tau0) 
 #-------- Antenna-dependent leakage noise
 param = [5.0]
 print 'TantN: ',
@@ -185,7 +185,7 @@ for ant_index in range(UseAntNum):
         print '|',
     print ' '
 print ' '
-np.save(prefix + '.TantN.npy', TantN) 
+np.save(prefix +  '-' + UniqBands[band_index] + '.TantN.npy', TantN) 
 #-------- Trx
 print 'Trec : ',
 for spw_index in range(spwNum): print 'SPW%02d  X        Y |' % (spw[spw_index]),
@@ -249,7 +249,7 @@ GainEq = abs(np.array(GainAnt)).reshape([spwNum, 2, UseAntNum]).transpose(2,0,1)
 SSONum = len(SSOList)
 timeLabel = qa.time('%fs' % (timeXY[0]), form='ymd')[0]
 SSOflux0= []
-SSOsize = []
+SSOshape = []
 centerFreqList = []
 primaryBeam = np.ones([UseBlNum])
 for bl_index in range(UseBlNum):
@@ -266,7 +266,9 @@ for ssoIndex in range(SSONum):
         SSOmodel = predictcomp(objname=sourceList[SSOList[ssoIndex]], standard="Butler-JPL-Horizons 2012", minfreq=text_Freq, maxfreq=text_Freq, nfreqs=1, prefix="", antennalist="aca.cycle3.cfg", epoch=timeLabel, showplot=T)
         SSOflux0.append(SSOmodel['spectrum']['bl0flux']['value'])
     #
-    SSOsize.append(SSOmodel['shape']['majoraxis']['value']* pi / 21600.0)   # arcmin -> rad, diameter -> radius
+    MajMinPA = np.array([SSOmodel['shape']['majoraxis']['value']* pi / 21600.0, SSOmodel['shape']['minoraxis']['value']* pi / 21600.0, SSOmodel['shape']['positionangle']['value']* pi / 180.0])
+    #ShapeMatrix = np.array([[np.cos(MajMinPA[2]), np.sin(MajMinPA[2])], [np.sin(MajMinPA[2]), np.cos(MajMinPA[2])]])
+    SSOshape.append(MajMinPA)   # arcmin -> rad, diameter -> radius
 #
 plt.close('all')
 SSOflux0= np.array(SSOflux0).reshape(SSONum, spwNum)     # [SSO, spw]
@@ -274,7 +276,7 @@ uvFlag = np.ones([SSONum, spwNum, UseBlNum])
 SSOmodelVis = []
 SSOscanID   = []
 for ssoIndex in range(SSONum):
-    UVlimit = 0.32 / SSOsize[ssoIndex]                              # Maximum uv distane(lambda) available for the SSO size
+    UVlimit = 0.32 / SSOshape[ssoIndex][0]  # Maximum uv distane(lambda) available for the SSO size
     scanID = list(set( msmd.scansforfield(SSOList[ssoIndex]).tolist()) & set(onsourceScans))[0]; SSOscanID.append(scanID)
     if( scanID == FCScan):
         FCS_ID = ssoIndex
@@ -283,9 +285,9 @@ for ssoIndex in range(SSONum):
     timeStamp, UVW = GetUVW(msfile, spw[spw_index], scanID)
     uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     for spw_index in range(spwNum):
-        uvWave = uvDist* centerFreqList[spw_index] / 0.299792458    # UV distance in wavelength
-        uvFlag[ssoIndex, spw_index, np.where( uvWave > UVlimit )[0].tolist()] = 0.0
-        SSOmodelVis.append(diskVisBeam(SSOsize[ssoIndex], uvWave, 1.13* 0.299792458* primaryBeam/centerFreqList[spw_index]))
+        uvWave = uvw[0:2,:]* centerFreqList[spw_index] / 0.299792458    # UV distance in wavelength
+        uvFlag[ssoIndex, spw_index, np.where( uvWave[0]**2 + uvWave[1]**2 > UVlimit**2 )[0].tolist()] = 0.0
+        SSOmodelVis.append(diskVisBeam(SSOshape[ssoIndex], uvWave[0], uvWave[1], 1.13* 0.299792458* primaryBeam/centerFreqList[spw_index]))
     #
 #
 SSOflux = SSOflux0* np.exp(-onTau.transpose(1,0)[indexList(np.array(SSOscanID), np.array(onsourceScans))])
@@ -332,6 +334,8 @@ scaleFact = (SSOflux[FCS_ID] / medSF.transpose(1,0)).transpose(1,0)
 FCS_Eq = GainEq/ np.sqrt(scaleFact)
 SEFD   = 1.0 / FCS_Eq**2
 AEFF   = ((2761.297* chAvgTsys[:,:,:,onsourceScans.index(FCScan)]/SEFD).transpose(1,2,0)/(0.25* pi*antDia**2)).transpose(2,0,1)
+np.save(prefix + '-' + UniqBands[band_index] + '.AntList.npy', antList) 
+np.save(prefix + '-' + UniqBands[band_index] + '.Aeff.npy', AEFF) 
 print 'Aeff :',
 for spw_index in range(spwNum):
     for pol_index in range(2):
@@ -349,6 +353,9 @@ for ant_index in range(UseAntNum):
     print ''
 #
 #-------- Flux Density
+ScanFlux = np.zeros([scanNum, spwNum])
+ErrFlux  = np.zeros([scanNum, spwNum])
+ScanEL     = np.zeros([scanNum])
 print '---Flux densities of sources ---'
 print 'Scan   Source  EL   ',
 for spw_index in range(spwNum): print 'SPW%02d         ' % (spw[spw_index]),
@@ -357,7 +364,8 @@ print '                     ',
 for spw_index in range(spwNum): print '%4.1fGHz      ' % (centerFreqList[spw_index]),
 print ' '
 for scan_index in range(scanNum):
-    print '%02d %010s %4.1f ' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* np.median(OnEL[:,scan_index])/pi ),
+    ScanEL[scan_index] = np.median(OnEL[:,scan_index])
+    print '%02d %010s %4.1f ' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi ),
     PA = AzEl2PA(np.median(OnAZ[:,scan_index]), np.median(OnEL[:,scan_index]))
     PS = InvPAMatrix(PA)
     if(onsourceScans[scan_index] in SSOscanID):
@@ -420,8 +428,10 @@ for scan_index in range(scanNum):
         Iants = list( set(Xants) & set(Yants) )
         if len(Iants) < 2: print ' too low SNR  ',; continue
         GainI = (GainAntX[Iants] + GainAntY[Iants])/2.0
-        meanI, sdI = np.mean(GainI), np.std(GainI)/sqrt(len(GainI) - 1.0)
-        print '%6.3f (%3.1f%%) ' % (meanI, 100.0* sdI/meanI),
+        ScanFlux[scan_index, spw_index] = np.mean(GainI)
+        ErrFlux[scan_index, spw_index]  = np.std(GainI)/sqrt(len(GainI) - 1.0)
+        #meanI, sdI = np.mean(GainI), np.std(GainI)/sqrt(len(GainI) - 1.0)
+        print '%6.3f (%3.1f%%) ' % (ScanFlux[scan_index, spw_index], 100.0* ErrFlux[scan_index, spw_index]/ScanFlux[scan_index, spw_index]),
     #
     if(SSO_flag):
         for spw_index in range(spwNum):
@@ -430,3 +440,7 @@ for scan_index in range(scanNum):
     #
     print ' '
 #
+np.save(prefix + '-' + UniqBands[band_index] + '.Flux.npy', ScanFlux)
+np.save(prefix + '-' + UniqBands[band_index] + '.Ferr.npy', ErrFlux)
+np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceList)[sourceIDscan])
+np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', ScanEL)
