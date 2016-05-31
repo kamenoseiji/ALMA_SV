@@ -19,6 +19,7 @@ def get_progressbar_str(progress):
     BAR_LEN = int(MAX_LEN * progress)
     return ('[' + '=' * BAR_LEN + ('>' if BAR_LEN < MAX_LEN else '') + ' ' * (MAX_LEN - BAR_LEN) + '] %.1f%%' % (progress * 100.))
 #
+Tatm_OFS = 15.0
 #-------- Check Scans for atmCal
 print '---Checking time series in MS and atmCal scans'
 tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spw[0]`).getcol('TIME'); tb.close()
@@ -138,16 +139,17 @@ for scan_index in range(scanNum):
     TsysFlag[:,:,:,scan_index] = TrxFlag[:,:,:,ambTimeIndex]
 #
 #-------- Tau and TantN fitting
-param = [3.0, 0.05]     # Initial Parameter
+param = [0.0, 0.05]     # Initial Parameter
 Tau0, TantN, Trms = np.zeros([UseAntNum, spwNum, 2]), np.zeros([UseAntNum, spwNum, 2]), np.zeros([UseAntNum, spwNum, 2])
 for ant_index in range(UseAntNum):
     for spw_index in range(spwNum):
         for pol_index in range(2):
-            fit = scipy.optimize.leastsq(residTskyTransfer, param, args=(tempAmb[ant_index]-20.0, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
+            fit = scipy.optimize.leastsq(residTskyTransfer, param, args=(tempAmb[ant_index]-Tatm_OFS, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
             TantN[ant_index, spw_index, pol_index] = fit[0][0]
             Tau0[ant_index, spw_index, pol_index]  = fit[0][1]
         #
     #
+    TantN[ant_index] = np.median(TantN[ant_index])* np.ones([spwNum, 2])
 #
 Tau0err = np.std( Tau0, axis=(0,2) )
 Tau0med = np.mean( Tau0, axis=(0,2) )
@@ -155,7 +157,7 @@ Tau0med = np.mean( Tau0, axis=(0,2) )
 for scan_index in range(scanNum):
     OnTimeRange = timeXY[OnTimeIndex[scan_index]]
     offTimeIndex = argmin(abs(offTime - OnTimeRange[0]))
-    tempTau = -np.log((chAvgTsky[:,:,:,offTimeIndex] - TantN - np.median(tempAmb) + 20.0) / (2.718 - np.median(tempAmb) + 20.0))
+    tempTau = -np.log((chAvgTsky[:,:,:,offTimeIndex] - TantN - np.median(tempAmb) + Tatm_OFS) / (2.718 - np.median(tempAmb) + Tatm_OFS))
     onTau[:,scan_index] = np.median(tempTau.transpose(1,2,0).reshape(spwNum, -1), axis=1)
 #
 for spw_index in range(spwNum):
@@ -177,9 +179,9 @@ for ant_index in range(UseAntNum):
     print antList[antMap[ant_index]] + ' : ',
     for spw_index in range(spwNum):
         for pol_index in range(2):
-            fit = scipy.optimize.leastsq(residTskyTransfer2, param, args=(tempAmb[ant_index]-20.0, Tau0med[spw_index], secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
+            fit = scipy.optimize.leastsq(residTskyTransfer2, param, args=(tempAmb[ant_index]-Tatm_OFS, Tau0med[spw_index], secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
             TantN[ant_index, spw_index, pol_index] = fit[0][0]
-            resid = residTskyTransfer([fit[0][0], Tau0med[spw_index]], tempAmb[ant_index]-20.0, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index])
+            resid = residTskyTransfer([fit[0][0], Tau0med[spw_index]], tempAmb[ant_index]-Tatm_OFS, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index])
             Trms[ant_index, spw_index, pol_index]  = sqrt(np.dot(resid, resid) / len(np.where(TrxFlag[ant_index, spw_index, pol_index] > 0.0)[0]))
             print '%4.1f (%4.1f) K ' % (TantN[ant_index, spw_index, pol_index], Trms[ant_index, spw_index, pol_index]),
         print '|',
@@ -334,7 +336,7 @@ scaleFact = (SSOflux[FCS_ID] / medSF.transpose(1,0)).transpose(1,0)
 FCS_Eq = GainEq/ np.sqrt(scaleFact)
 SEFD   = 1.0 / FCS_Eq**2
 AEFF   = ((2761.297* chAvgTsys[:,:,:,onsourceScans.index(FCScan)]/SEFD).transpose(1,2,0)/(0.25* pi*antDia**2)).transpose(2,0,1)
-np.save(prefix + '-' + UniqBands[band_index] + '.AntList.npy', antList) 
+np.save(prefix + '-' + UniqBands[band_index] + '.AntList.npy', antList[antMap]) 
 np.save(prefix + '-' + UniqBands[band_index] + '.Aeff.npy', AEFF) 
 print 'Aeff :',
 for spw_index in range(spwNum):
@@ -422,8 +424,8 @@ for scan_index in range(scanNum):
         #-------- Antenna-based Gain
         GainAntX, GainAntY = abs(gainComplex(pCalVisX))**2, abs(gainComplex(pCalVisY))**2
         #-------- Check 
-        gainXflag = np.where(abs(GainAntX - np.median(GainAntX)) / np.median(GainAntX) > 0.16)[0].tolist()
-        gainYflag = np.where(abs(GainAntY - np.median(GainAntY)) / np.median(GainAntY) > 0.16)[0].tolist()
+        gainXflag = np.where(abs(GainAntX - np.median(GainAntX)) / np.median(GainAntX) > 0.25)[0].tolist()
+        gainYflag = np.where(abs(GainAntY - np.median(GainAntY)) / np.median(GainAntY) > 0.25)[0].tolist()
         Xants, Yants = list(set(range(SAantNum)) - set(gainXflag)), list(set(range(SAantNum)) - set(gainYflag))
         Iants = list( set(Xants) & set(Yants) )
         if len(Iants) < 2: print ' too low SNR  ',; continue
