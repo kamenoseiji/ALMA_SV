@@ -168,7 +168,7 @@ np.save(prefix +  '-' + UniqBands[band_index] + '.Tsky.npy', TskyList)
 np.save(prefix +  '-' + UniqBands[band_index] + '.TrxFlag.npy', TrxFlag) 
 np.save(prefix +  '-' + UniqBands[band_index] + '.Tau0.npy', Tau0) 
 #-------- Antenna-dependent leakage noise
-param = [5.0]
+param = [0.0]
 print 'TantN: ',
 for spw_index in range(spwNum):
     print 'PolX    SPW%02d  PolY           |' % (spw[spw_index]),
@@ -214,7 +214,7 @@ for ant_index in range(UseAntNum):
         print '|',
     print ' '
 #-------- Plot optical depth
-if PLOTTAU: plotTau(prefix + ' ' + UniqBands[band_index], antList[antMap], spw, secZ, (chAvgTsky.transpose(3,0,1,2) - TantN).transpose(1,2,3,0), np.median(tempAmb) - 20.0, Tau0med, TrxFlag, 2.0*np.median(chAvgTsky), PLOTFMT) 
+if PLOTTAU: plotTau(prefix + ' ' + UniqBands[band_index], antList[antMap], spw, secZ, (chAvgTsky.transpose(3,0,1,2) - TantN).transpose(1,2,3,0), np.median(tempAmb) - Tatm_OFS, Tau0med, TrxFlag, 2.0*np.median(chAvgTsky), PLOTFMT) 
 if PLOTTSYS: plotTsys(prefix + ' ' + UniqBands[band_index], antList[antMap], ambTime, spw, TrxList, TskyList, PLOTFMT)
 ##-------- Equalization using Bandpass scan
 GainAnt = []
@@ -432,7 +432,6 @@ for scan_index in range(scanNum):
         GainI = (GainAntX[Iants] + GainAntY[Iants])/2.0
         ScanFlux[scan_index, spw_index] = np.mean(GainI)
         ErrFlux[scan_index, spw_index]  = np.std(GainI)/sqrt(len(GainI) - 1.0)
-        #meanI, sdI = np.mean(GainI), np.std(GainI)/sqrt(len(GainI) - 1.0)
         print '%6.3f (%3.1f%%) ' % (ScanFlux[scan_index, spw_index], 100.0* ErrFlux[scan_index, spw_index]/ScanFlux[scan_index, spw_index]),
     #
     if(SSO_flag):
