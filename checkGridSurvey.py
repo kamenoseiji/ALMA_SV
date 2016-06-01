@@ -76,12 +76,21 @@ if FLcal in sourceList:
     FCScans, BPScans, ONScans = msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE"), msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
     print '---SPWs and Scans for each receiver band'
     for band_index in range(NumBands):
+        #-------- Check Calibrators
         FCScan = BandScans[band_index][indexList( FCScans, BandScans[band_index] )][0]
         BPScan = BandScans[band_index][indexList( BPScans, BandScans[band_index] )][0]
         ONScan = BandScans[band_index][indexList( ONScans, BandScans[band_index] )]
         EQScan = BPScan
         onsourceScans = [BPScan] + [FCScan] + ONScan.tolist()
         scanNum = len(onsourceScans)
+        #-------- Check AZEL
+        azelTime, AntID, AZ, EL = GetAzEl(msfile)
+        azelTime_index = np.where( AntID == UseAnt[refantID] )[0].tolist() 
+        OnEL = []
+        for scan_index in range(scanNum):
+            refTime = np.median(msmd.timesforscan(onsourceScans[scan_index]))
+            OnEL = OnEL + [EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - refTime))]]]
+        #
         if BPcal in sourceList: BPScan = list(set(msmd.scansforfield(sourceList.index(BPcal))) & set(onsourceScans))[0]
         if FLcal in sourceList: FCScan = list(set(msmd.scansforfield(sourceList.index(FLcal))) & set(onsourceScans))[0]
         if EQcal in sourceList: EQScan = list(set(msmd.scansforfield(sourceList.index(EQcal))) & set(onsourceScans))[0]
@@ -97,6 +106,6 @@ if FLcal in sourceList:
         PolList = ['X', 'Y']
         if polNum == 4: pPol, cPol = [0,3], [1,2]  # parallel and cross pol
         ppolNum, cpolNum = len(pPol), len(cPol)
-        execfile(SCR_DIR + 'checkSEFD.py')
+        # execfile(SCR_DIR + 'checkSEFD.py')
     #
     msmd.done()

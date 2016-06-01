@@ -73,6 +73,8 @@ for ant_index in range(UseAntNum):
         #
     #
 #
+sys.stderr.write('\n')
+sys.stderr.flush()
 #-------- Load Az El position
 azelTime, AntID, AZ, EL = GetAzEl(msfile)
 OnAZ, OnEL, OffEL = np.ones([UseAntNum, scanNum]), np.ones([UseAntNum, scanNum]), np.ones([UseAntNum, len(offTimeIndex)])
@@ -87,8 +89,6 @@ for ant_index in range(UseAntNum):
         OffEL[ant_index, time_index] = EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - offTime[time_index]))]]
     #
 #
-sys.stderr.write('\n')
-sys.stderr.flush()
 secZ = 1.0 / np.sin( OffEL )
 #-------- Time-interpolation of ambient and hot
 print '---Analyzing Trec and Tsky using atmCal scans'
