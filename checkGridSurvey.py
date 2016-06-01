@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ptick
 execfile(SCR_DIR + 'interferometry.py')
 #
+ELshadow = np.pi* 40.0 / 180.0
 #-------- Procedures
 msfile = wd + prefix + '.ms'
 #-------- Check Antenna List
@@ -33,6 +34,7 @@ print '---Checking source list'
 sourceList, posList = GetSourceList(msfile) 
 numSource = len(sourceList)
 SSOList   = np.where( (np.array(posList)[:,0] == 0.0) & (np.array(posList)[:,1] == 0.0) )[0].tolist()   # Solar System Objects
+QSOList   = list(set(range(numSource)) - set(SSOList))
 if FLcal in sourceList:
     print ' ',
     for source in sourceList: print source,
@@ -95,10 +97,14 @@ if FLcal in sourceList:
         if FLcal in sourceList: FCScan = list(set(msmd.scansforfield(sourceList.index(FLcal))) & set(onsourceScans))[0]
         if EQcal in sourceList: EQScan = list(set(msmd.scansforfield(sourceList.index(EQcal))) & set(onsourceScans))[0]
         #-------- Avoid EQ == FL
-        if EQScan == FCScan:
-            EQcal = sourceList[max(SSOList)+1]
+        if EQScan == FCScan or OnEL[EQScan] < ELshadow :
+            print 'EQScan %d: EL=%4.1f ... too low' % (EQScan, OnEL[EQScan]),
+            QSOEL = np.array(OnEL)[QSOList]
+            EQcal = sourceList[ QSOList[ np.argmax(QSOEL) ]] 
+            # EQcal = sourceList[max(SSOList)+1]
             EQScan = list(set(msmd.scansforfield(sourceList.index(EQcal))) & set(onsourceScans))[0]
             BPScan = EQScan
+            print '... instead Use %s as EQ cal' % (EQcal)
         #
         #-------- Polarization setup
         spw = spwLists[band_index]; spwNum = len(spw); polNum = msmd.ncorrforpol(msmd.polidfordatadesc(spw[0]))
