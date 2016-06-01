@@ -19,16 +19,13 @@ def get_progressbar_str(progress):
     BAR_LEN = int(MAX_LEN * progress)
     return ('[' + '=' * BAR_LEN + ('>' if BAR_LEN < MAX_LEN else '') + ' ' * (MAX_LEN - BAR_LEN) + '] %.1f%%' % (progress * 100.))
 #
-Tatm_OFS = 15.0
+Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
+AeNominal = 0.6      # Nominal Aperture Efficiency
 #-------- Check Scans for atmCal
 print '---Checking time series in MS and atmCal scans'
 tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spw[0]`).getcol('TIME'); tb.close()
 OnTimeIndex = []
-sourceIDscan = []
-for scan_index in range(scanNum):
-    OnTimeIndex.append( indexList(msmd.timesforscan(onsourceScans[scan_index]), timeXY) )
-    sourceIDscan.append( msmd.fieldsforscan(onsourceScans[scan_index])[0])
-#
+for scan_index in range(scanNum): OnTimeIndex.append( indexList(msmd.timesforscan(onsourceScans[scan_index]), timeXY) )
 offTime = sort( list(set(timeXY) & set(timeOFF)) )
 ambTime = sort( list(set(timeXY) & set(timeAMB)) )
 hotTime = sort( list(set(timeXY) & set(timeHOT)) )
@@ -216,14 +213,14 @@ for ant_index in range(UseAntNum):
 #-------- Plot optical depth
 if PLOTTAU: plotTau(prefix + ' ' + UniqBands[band_index], antList[antMap], spw, secZ, (chAvgTsky.transpose(3,0,1,2) - TantN).transpose(1,2,3,0), np.median(tempAmb) - Tatm_OFS, Tau0med, TrxFlag, 2.0*np.median(chAvgTsky), PLOTFMT) 
 if PLOTTSYS: plotTsys(prefix + ' ' + UniqBands[band_index], antList[antMap], ambTime, spw, TrxList, TskyList, PLOTFMT)
-##-------- Equalization using Bandpass scan
+##-------- Equalization using EQ scan
 GainAnt = []
-polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
+polXindex, polYindex, scan_index = (arange(4)//2).tolist(), (arange(4)%2).tolist(), onsourceScans.index(EQScan)
 for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], EQScan)
     chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-    PA = AzEl2PA(np.median(OnAZ[:,onsourceScans.index(EQScan)]), np.median(OnEL[:,onsourceScans.index(EQScan)]))
+    PA = AzEl2PA(np.median(OnAZ[:,scan_index]), np.median(OnEL[:,scan_index]))
     PS = InvPAMatrix(PA)
     tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)       # Cross Polarization Baseline Mapping
     Xspec = (tempSpec / (BPList[spw_index][ant0][:,polXindex]* BPList[spw_index][ant1][:,polYindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
@@ -243,10 +240,10 @@ for spw_index in range(spwNum):
     BLphsX, BLphsY = GainX[ant0]* GainX[ant1].conjugate() / abs(GainX[ant0]* GainX[ant1]), GainY[ant0]* GainY[ant1].conjugate() / abs(GainY[ant0]* GainY[ant1])
     pCalVisX, pCalVisY = np.mean(chAvgVis[0] / BLphsX, axis=1), np.mean(chAvgVis[3] / BLphsY, axis=1)
     #-------- Antenna-based Gain
-    GainAnt = GainAnt + [gainComplex(pCalVisX)]
-    GainAnt = GainAnt + [gainComplex(pCalVisY)]
+    GainAnt = GainAnt + [chAvgTsys[:, spw_index, 0, scan_index]* abs(gainComplex(pCalVisX))**2] # Ae/2k assuming 1Jy
+    GainAnt = GainAnt + [chAvgTsys[:, spw_index, 1, scan_index]* abs(gainComplex(pCalVisY))**2]
 #
-GainEq = abs(np.array(GainAnt)).reshape([spwNum, 2, UseAntNum]).transpose(2,0,1)    # Ant, SPW, Pol
+GainEq = np.array(GainAnt).reshape([spwNum, 2, UseAntNum]).transpose(2,0,1)    # Ant, SPW, Pol
 #-------- Flux models for solar system objects
 SSONum = len(SSOList)
 timeLabel = qa.time('%fs' % (timeXY[0]), form='ymd')[0]
@@ -299,6 +296,7 @@ FCSFlag     = uvFlag[FCS_ID]
 #
 ##-------- Scaling with the flux calibrator
 medSF, sdSF = [], []; del GainAnt
+scan_index = onsourceScans.index(FCScan)
 for spw_index in range(spwNum):
     #-------- Sub-array with unflagged antennas (short baselines)
     SAantennas, SAblMap, SAblFlag, SAant0, SAant1 = subArranIndex(uvFlag[FCS_ID, spw_index])
@@ -310,7 +308,7 @@ for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], FCScan)
     chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-    PA = AzEl2PA(np.median(OnAZ[:,onsourceScans.index(FCScan)]), np.median(OnEL[:,onsourceScans.index(FCScan)]))
+    PA = AzEl2PA(np.median(OnAZ[:,scan_index]), np.median(OnEL[:,scan_index]))
     PS = InvPAMatrix(PA)
     tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1) 
     Xspec = (tempSpec / (BPList[spw_index][ant0][:,polXindex]* BPList[spw_index][ant1][:,polYindex].conjugate())).transpose(2,3,1,0)[:,:,SAblMap]
@@ -328,10 +326,11 @@ for spw_index in range(spwNum):
     BLphsY = GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]].conjugate() / abs(GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]])
     pCalVisX, pCalVisY = np.mean(chAvgVis[0] / BLphsX, axis=1), np.mean(chAvgVis[3] / BLphsY, axis=1)
     #-------- Antenna-based Gain
-    GainAnt = abs(gainComplex(pCalVisX))**2; medSF = medSF + [np.median(GainAnt)]; sdSF = sdSF + [np.std(GainAnt)/np.sqrt(SAantNum-1)]
-    GainAnt = abs(gainComplex(pCalVisY))**2; medSF = medSF + [np.median(GainAnt)]; sdSF = sdSF + [np.std(GainAnt)/np.sqrt(SAantNum-1)]
+    GainAnt = chAvgTsys[SAantennas, spw_index, 0, scan_index]* abs(gainComplex(pCalVisX))**2; medSF = medSF + [np.median(GainAnt)]; sdSF = sdSF + [np.std(GainAnt)/np.sqrt(SAantNum-1)]
+    GainAnt = chAvgTsys[SAantennas, spw_index, 1, scan_index]* abs(gainComplex(pCalVisY))**2; medSF = medSF + [np.median(GainAnt)]; sdSF = sdSF + [np.std(GainAnt)/np.sqrt(SAantNum-1)]
 #
 medSF, sdSF = np.array(medSF).reshape([spwNum, 2]), np.array(sdSF).reshape([spwNum, 2])
+"""
 scaleFact = (SSOflux[FCS_ID] / medSF.transpose(1,0)).transpose(1,0)
 FCS_Eq = GainEq/ np.sqrt(scaleFact)
 SEFD   = 1.0 / FCS_Eq**2
@@ -445,3 +444,4 @@ np.save(prefix + '-' + UniqBands[band_index] + '.Flux.npy', ScanFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Ferr.npy', ErrFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceList)[sourceIDscan])
 np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', ScanEL)
+"""

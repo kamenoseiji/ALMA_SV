@@ -83,35 +83,36 @@ if FLcal in sourceList:
         BPScan = BandScans[band_index][indexList( BPScans, BandScans[band_index] )][0]
         ONScan = BandScans[band_index][indexList( ONScans, BandScans[band_index] )]
         EQScan = BPScan
-        onsourceScans = [BPScan] + [FCScan] + ONScan.tolist()
+        onsourceScans = unique([BPScan] + [FCScan] + ONScan.tolist()).tolist()
         scanNum = len(onsourceScans)
         #-------- Check AZEL
         azelTime, AntID, AZ, EL = GetAzEl(msfile)
         azelTime_index = np.where( AntID == UseAnt[refantID] )[0].tolist() 
-        OnEL = []
+        OnEL, sourceIDscan = [], []
         for scan_index in range(scanNum):
+            sourceIDscan.append( msmd.fieldsforscan(onsourceScans[scan_index])[0])
             refTime = np.median(msmd.timesforscan(onsourceScans[scan_index]))
-            OnEL = OnEL + [EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - refTime))]]]
+            OnEL.append(EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - refTime))]])
+            print 'Scan%d : %s EL=%4.1f' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0*OnEL[scan_index]/np.pi)
         #
         if BPcal in sourceList: BPScan = list(set(msmd.scansforfield(sourceList.index(BPcal))) & set(onsourceScans))[0]
         if FLcal in sourceList: FCScan = list(set(msmd.scansforfield(sourceList.index(FLcal))) & set(onsourceScans))[0]
         if EQcal in sourceList: EQScan = list(set(msmd.scansforfield(sourceList.index(EQcal))) & set(onsourceScans))[0]
         #-------- Avoid EQ == FL
-        if EQScan == FCScan or OnEL[EQScan] < ELshadow :
-            print 'EQScan %d: EL=%4.1f ... too low' % (EQScan, OnEL[EQScan]),
-            QSOEL = np.array(OnEL)[QSOList]
-            EQcal = sourceList[ QSOList[ np.argmax(QSOEL) ]] 
-            # EQcal = sourceList[max(SSOList)+1]
-            EQScan = list(set(msmd.scansforfield(sourceList.index(EQcal))) & set(onsourceScans))[0]
+        if EQScan == FCScan or OnEL[onsourceScans.index(EQScan)] < ELshadow :
+            QSOscanIndex = indexList(QSOList, np.array(sourceIDscan))
+            QSOEL = np.array(OnEL)[QSOscanIndex]
+            EQScan = onsourceScans[QSOscanIndex[np.argmax(QSOEL)]]
             BPScan = EQScan
-            print '... instead Use %s as EQ cal' % (EQcal)
         #
+        EQcal  = sourceList[sourceIDscan[onsourceScans.index(EQScan)]]
+        print 'Use %s [EL = %4.1f] as Gain Equalizer' % (EQcal, 180.0* OnEL[onsourceScans.index(EQScan)]/np.pi)
         #-------- Polarization setup
         spw = spwLists[band_index]; spwNum = len(spw); polNum = msmd.ncorrforpol(msmd.polidfordatadesc(spw[0]))
         pPol, cPol = [0,1], []  # parallel and cross pol
         PolList = ['X', 'Y']
         if polNum == 4: pPol, cPol = [0,3], [1,2]  # parallel and cross pol
         ppolNum, cpolNum = len(pPol), len(cPol)
-        # execfile(SCR_DIR + 'checkSEFD.py')
+        execfile(SCR_DIR + 'checkSEFD.py')
     #
     msmd.done()
