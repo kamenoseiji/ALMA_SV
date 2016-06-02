@@ -1206,54 +1206,40 @@ def plotAmphi(fig, freq, spec):
 	return
 #
 def gainComplex( bl_vis ):
-    blnum  =  len(bl_vis)
-    antnum =  Bl2Ant(blnum)[0]
+    blNum  =  len(bl_vis)
+    antNum =  Bl2Ant(blNum)[0]
+    ant0, ant1, kernelBL = ANT0[0:blNum], ANT1[0:blNum], (arange(antNum-1)*(arange(antNum-1)+1)/2).tolist()
     #
-    resid  =  np.zeros(2* blnum)
-    correction = np.ones(2* antnum - 1)
-    solution   = np.zeros(2* antnum - 1)
-    weight     = np.append(abs(bl_vis), abs(bl_vis))
-    #
+    CompSol = np.zeros(antNum, dtype=complex)
+    CM = np.zeros([2*blNum, 2*antNum])
+    MMap = range(antNum) + range(antNum+1, 2*antNum)
     #---- Initial solution
-    solution[0] = sqrt(abs(bl_vis[0]))		# Refant has only real part
-    for ant_index in range(1, antnum) :
-        solution[ant_index]			= bl_vis[Ant2Bl(0, ant_index )].real / solution[0]
-        solution[antnum + ant_index - 1]= bl_vis[Ant2Bl(0, ant_index )].imag / solution[0]
-    #
-    for iter_index in range(2):
-        complex_matrix = np.zeros((2*blnum, 2*antnum - 1))
-        #-------- Residual Vector
-        for bl_index in range(blnum):
-            ants = Bl2Ant(bl_index)
-            if ants[1] != 0:
-                resid[bl_index]			= bl_vis[bl_index].real - (solution[ants[0]]* solution[ants[1]] + solution[antnum + ants[0] - 1]* solution[antnum + ants[1] - 1])	# Real part
-                resid[blnum + bl_index] = bl_vis[bl_index].imag - (solution[ants[1]]* solution[antnum + ants[0] - 1] - solution[ants[0]]* solution[antnum + ants[1] - 1])	# Imag part
-            else:
-                resid[bl_index]			= bl_vis[bl_index].real - (solution[ants[0]]* solution[0])	# Real part
-                resid[blnum + bl_index] = bl_vis[bl_index].imag - (solution[antnum + ants[0] - 1]* solution[0])	# Imag part
+    CompSol[0] = sqrt(abs(bl_vis[0])) + 0j
+    CompSol[1:antNum] = bl_vis[kernelBL] / CompSol[0]
+    Weight = np.abs(bl_vis)**2; CWeight = np.append(Weight, Weight)
+    #---- Residual Visivility
+    for iter_index in range(3):
+        Cresid = Weight* (bl_vis - CompSol[ant0]* CompSol[ant1].conjugate())
+        resid  = np.append( Cresid.real, Cresid.imag )
+        #---- Matrix
+        for bl_index in range(blNum):
+            a0, a1 = ant0[bl_index], ant1[bl_index]
+            CM[        bl_index,          a1] = CompSol[a0].real
+            CM[        bl_index,          a0] = CompSol[a1].real
+            CM[        bl_index, antNum + a1] = CompSol[a0].imag
+            CM[        bl_index, antNum + a0] = CompSol[a1].imag
+            CM[blNum + bl_index,          a1] = CompSol[a0].imag
+            CM[blNum + bl_index,          a0] =-CompSol[a1].imag
+            CM[blNum + bl_index, antNum + a1] =-CompSol[a0].real
+            CM[blNum + bl_index, antNum + a0] = CompSol[a1].real
         #
-        #---- Partial Matrix
-        for bl_index in range(blnum):
-            ants = Bl2Ant(bl_index)
-            complex_matrix[bl_index, ants[0]] = solution[ants[1]]
-            complex_matrix[bl_index, ants[1]] = solution[ants[0]]
-            if ants[1] != 0:
-                complex_matrix[bl_index, antnum + ants[0] - 1] = solution[antnum + ants[1] - 1]
-                complex_matrix[bl_index, antnum + ants[1] - 1] = solution[antnum + ants[0] - 1]
-                complex_matrix[blnum + bl_index, ants[1]] =  solution[antnum + ants[0] - 1]
-                complex_matrix[blnum + bl_index, ants[0]] = -solution[antnum + ants[1] - 1]
-                complex_matrix[blnum + bl_index, antnum + ants[1] - 1] = -solution[ants[0]]
-                complex_matrix[blnum + bl_index, antnum + ants[0] - 1] =  solution[ants[1]]
-            else:		# No ants[1]
-                complex_matrix[blnum + bl_index, 0]		= solution[antnum + ants[0] - 1]
-                complex_matrix[blnum + bl_index, antnum + ants[0] - 1]= solution[0]
-        #
-        ptwp = np.dot(complex_matrix.T, np.dot(np.diag(weight), complex_matrix))
-        ptp_inv   = scipy.linalg.inv(ptwp)
-        correction = np.dot(ptp_inv,  np.dot(complex_matrix.T, (weight*resid)))
-        solution   = np.add(solution, correction)
+        PM = CM[:,MMap]
+        PtWP = np.dot( PM.T, np.dot(np.diag(CWeight), PM) )
+        PtWP_inv = scipy.linalg.inv(PtWP)
+        correction = np.dot( PtWP_inv, np.dot(PM.T, CWeight* resid))
+        CompSol = CompSol + correction[range(antNum)] + 1j* np.append(0, correction[range(antNum, 2*antNum-1)])
     #
-    return solution[range(antnum)] + 1j* np.append(0, solution[range(antnum, 2*antnum-1)])
+    return CompSol
 #
 #-------- Function to calculate visibilities
 def polariVis( Xspec ):     # Xspec[polNum, blNum, chNum, timeNum]
@@ -1401,9 +1387,10 @@ def diskVisBeam(diskShape, u, v, primaryBeam):
 #-------- SubArray Index
 def subArranIndex(Flag):
     blNum = len(Flag); antNum = Bl2Ant(blNum)[0]; kernelBL = (arange(antNum-1)*(arange(antNum-1)+1)/2).tolist()
+    ant0, ant1 = ANT0[0:blNum], ANT1[0:blNum]
     flagIndex = np.where(Flag == 1)[0].tolist()       # Baselines: uvDist < UVlimit
     flagRefIndex = list( set(flagIndex) & set(kernelBL))            # Baselines including refant and uvDist < UVlimit 
-    SAantennas = np.sort(list(set(np.array(ant0)[flagRefIndex]) | set(np.array(ant1)[flagRefIndex]))).tolist()
+    SAantennas = [0] + list(np.array(ant0)[flagRefIndex]); SAantennas.sort()
     SAantNum = len(SAantennas); SAblNum = SAantNum* (SAantNum - 1)/2
     SAblMap = []
     for bl_index in range(SAblNum):

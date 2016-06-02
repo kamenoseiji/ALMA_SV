@@ -20,12 +20,14 @@ def get_progressbar_str(progress):
     return ('[' + '=' * BAR_LEN + ('>' if BAR_LEN < MAX_LEN else '') + ' ' * (MAX_LEN - BAR_LEN) + '] %.1f%%' % (progress * 100.))
 #
 Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
-AeNominal = 0.6      # Nominal Aperture Efficiency
+AeNominal = 0.6* 0.25* np.pi* antDia**2      # Nominal Collecting Area
+kb        = 1.38064852e3
 #-------- Check Scans for atmCal
 print '---Checking time series in MS and atmCal scans'
 tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spw[0]`).getcol('TIME'); tb.close()
 OnTimeIndex = []
-for scan_index in range(scanNum): OnTimeIndex.append( indexList(msmd.timesforscan(onsourceScans[scan_index]), timeXY) )
+for scan_index in range(scanNum):
+    OnTimeIndex.append( indexList(msmd.timesforscan(onsourceScans[scan_index]), timeXY) )
 offTime = sort( list(set(timeXY) & set(timeOFF)) )
 ambTime = sort( list(set(timeXY) & set(timeAMB)) )
 hotTime = sort( list(set(timeXY) & set(timeHOT)) )
@@ -312,7 +314,7 @@ for spw_index in range(spwNum):
     PS = InvPAMatrix(PA)
     tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1) 
     Xspec = (tempSpec / (BPList[spw_index][ant0][:,polXindex]* BPList[spw_index][ant1][:,polYindex].conjugate())).transpose(2,3,1,0)[:,:,SAblMap]
-    Xspec = (Xspec.transpose(1,3,2,0)/(GainEq[SAant0, spw_index][:,polXindex]* GainEq[SAant1, spw_index][:,polYindex].conjugate())).transpose(3,0,2,1)
+    Xspec = (Xspec.transpose(1,3,2,0)/np.sqrt(GainEq[SAant0, spw_index][:,polXindex]* GainEq[SAant1, spw_index][:,polYindex])).transpose(3,0,2,1)
     #-------- XY delay cal
     XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelayList[spw_index] )
     Xspec[1] = (Xspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
@@ -325,16 +327,18 @@ for spw_index in range(spwNum):
     BLphsX = GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]].conjugate() / abs(GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]])
     BLphsY = GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]].conjugate() / abs(GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]])
     pCalVisX, pCalVisY = np.mean(chAvgVis[0] / BLphsX, axis=1), np.mean(chAvgVis[3] / BLphsY, axis=1)
+    Ta = SSOflux0[FCS_ID, spw_index]* AeNominal[SAantennas] / (2.0* kb)
     #-------- Antenna-based Gain
-    GainAnt = chAvgTsys[SAantennas, spw_index, 0, scan_index]* abs(gainComplex(pCalVisX))**2; medSF = medSF + [np.median(GainAnt)]; sdSF = sdSF + [np.std(GainAnt)/np.sqrt(SAantNum-1)]
-    GainAnt = chAvgTsys[SAantennas, spw_index, 1, scan_index]* abs(gainComplex(pCalVisY))**2; medSF = medSF + [np.median(GainAnt)]; sdSF = sdSF + [np.std(GainAnt)/np.sqrt(SAantNum-1)]
+    GainAnt = (chAvgTsys[SAantennas, spw_index, 0, scan_index] + Ta)* abs(gainComplex(pCalVisX))**2
+    medSF = medSF + [np.median(GainAnt)]; sdSF = sdSF + [np.std(GainAnt)/np.sqrt(SAantNum-1)]
+    GainAnt = (chAvgTsys[SAantennas, spw_index, 1, scan_index] + Ta)* abs(gainComplex(pCalVisY))**2
+    medSF = medSF + [np.median(GainAnt)]; sdSF = sdSF + [np.std(GainAnt)/np.sqrt(SAantNum-1)]
 #
 medSF, sdSF = np.array(medSF).reshape([spwNum, 2]), np.array(sdSF).reshape([spwNum, 2])
-"""
 scaleFact = (SSOflux[FCS_ID] / medSF.transpose(1,0)).transpose(1,0)
-FCS_Eq = GainEq/ np.sqrt(scaleFact)
-SEFD   = 1.0 / FCS_Eq**2
-AEFF   = ((2761.297* chAvgTsys[:,:,:,onsourceScans.index(FCScan)]/SEFD).transpose(1,2,0)/(0.25* pi*antDia**2)).transpose(2,0,1)
+Ae     =  GainEq / scaleFact * 2.0* kb
+AEFF   =  (Ae.transpose(1,2,0) / (0.25* pi*antDia**2)).transpose(2,0,1)
+FCS_Eq =  np.sqrt(GainEq / scaleFact)
 np.save(prefix + '-' + UniqBands[band_index] + '.AntList.npy', antList[antMap]) 
 np.save(prefix + '-' + UniqBands[band_index] + '.Aeff.npy', AEFF) 
 print 'Aeff :',
@@ -444,4 +448,3 @@ np.save(prefix + '-' + UniqBands[band_index] + '.Flux.npy', ScanFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Ferr.npy', ErrFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceList)[sourceIDscan])
 np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', ScanEL)
-"""
