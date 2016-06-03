@@ -129,24 +129,6 @@ for ant_index in range(UseAntNum):
         TskyList.append(Tsky)
     #
 #
-#-------- Trx Transfer
-for ant_index in range(UseAntNum):
-    for spw_index in range(spwNum):
-        for pol_index in range(ppolNum):
-            flgIndex = np.where( TrxFlag[ant_index, spw_index, pol_index] == 0 )[0].tolist()
-            vldIndex = np.where( TrxFlag[ant_index, spw_index, pol_index] == 1 )[0].tolist()
-            if(len(vldIndex) > 0):
-                chAvgTrx[ant_index, spw_index, pol_index, flgIndex] = np.median( chAvgTrx[ant_index, spw_index, pol_index, vldIndex] )
-    
-#
-#-------- Tsys for scans
-for scan_index in range(scanNum):
-    OnTimeRange = timeXY[OnTimeIndex[scan_index]]
-    ambTimeIndex = argmin(abs(ambTime - OnTimeRange[0]))
-    offTimeIndex = argmin(abs(offTime - OnTimeRange[0]))
-    chAvgTsys[:,:,:,scan_index] = chAvgTrx[:,:,:,ambTimeIndex] + chAvgTsky[:,:,:,offTimeIndex] 
-    TsysFlag[:,:,:,scan_index] = TrxFlag[:,:,:,ambTimeIndex]
-#
 #-------- Tau and TantN fitting
 param = [0.0, 0.05]     # Initial Parameter
 Tau0, TantN, Trms = np.zeros([UseAntNum, spwNum, 2]), np.zeros([UseAntNum, spwNum, 2]), np.zeros([UseAntNum, spwNum, 2])
@@ -162,6 +144,27 @@ for ant_index in range(UseAntNum):
 #
 Tau0err = np.std( Tau0, axis=(0,2) )
 Tau0med = np.mean( Tau0, axis=(0,2) )
+#-------- Trx Transfer
+for ant_index in range(UseAntNum):
+    for spw_index in range(spwNum):
+        for pol_index in range(ppolNum):
+            flgIndex = np.where( TrxFlag[ant_index, spw_index, pol_index] == 0 )[0].tolist()
+            vldIndex = np.where( TrxFlag[ant_index, spw_index, pol_index] == 1 )[0].tolist()
+            if(len(vldIndex) > 0):
+                chAvgTrx[ant_index, spw_index, pol_index, flgIndex] = np.median( chAvgTrx[ant_index, spw_index, pol_index, vldIndex] )
+                chAvgTsky[ant_index, spw_index, pol_index, flgIndex]= (tempAmb[ant_index]-Tatm_OFS)* (1.0 - np.exp(-Tau0[ant_index, spw_index, pol_index]* secZ[ant_index, flgIndex])) + TantN[ant_index, spw_index, pol_index]
+            #
+        #
+    #
+#
+#-------- Tsys for scans
+for scan_index in range(scanNum):
+    OnTimeRange = timeXY[OnTimeIndex[scan_index]]
+    ambTimeIndex = argmin(abs(ambTime - OnTimeRange[0]))
+    offTimeIndex = argmin(abs(offTime - OnTimeRange[0]))
+    chAvgTsys[:,:,:,scan_index] = chAvgTrx[:,:,:,ambTimeIndex] + chAvgTsky[:,:,:,offTimeIndex] 
+    TsysFlag[:,:,:,scan_index] = TrxFlag[:,:,:,ambTimeIndex]
+#
 #-------- Tau on source
 for scan_index in range(scanNum):
     OnTimeRange = timeXY[OnTimeIndex[scan_index]]
@@ -255,8 +258,7 @@ for spw_index in range(spwNum):
     GainAnt = GainAnt + [chAvgTsys[:, spw_index, 0, scan_index]* abs(gainComplex(pCalVisX))**2] # Ae/2k assuming 1Jy
     GainAnt = GainAnt + [chAvgTsys[:, spw_index, 1, scan_index]* abs(gainComplex(pCalVisY))**2]
 #
-GainEq = np.array(GainAnt).reshape([spwNum, 2, UseAntNum]).transpose(2,0,1)    # Ant, SPW, Pol
-"""
+GainEq = np.array(GainAnt).reshape([spwNum, 2, UseAntNum]).transpose(2,0,1)    # Ae/2k, assuming 1 Jy
 #-------- Flux models for solar system objects
 SSONum = len(SSOList)
 timeLabel = qa.time('%fs' % (timeXY[0]), form='ymd')[0]
@@ -279,7 +281,6 @@ for ssoIndex in range(SSONum):
         SSOflux0.append(SSOmodel['spectrum']['bl0flux']['value'])
     #
     MajMinPA = np.array([SSOmodel['shape']['majoraxis']['value']* pi / 21600.0, SSOmodel['shape']['minoraxis']['value']* pi / 21600.0, SSOmodel['shape']['positionangle']['value']* pi / 180.0])
-    #ShapeMatrix = np.array([[np.cos(MajMinPA[2]), np.sin(MajMinPA[2])], [np.sin(MajMinPA[2]), np.cos(MajMinPA[2])]])
     SSOshape.append(MajMinPA)   # arcmin -> rad, diameter -> radius
 #
 plt.close('all')
@@ -325,7 +326,6 @@ for spw_index in range(spwNum):
     PS = InvPAMatrix(PA)
     tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1) 
     Xspec = (tempSpec / (BPList[spw_index][ant0][:,polXindex]* BPList[spw_index][ant1][:,polYindex].conjugate())).transpose(2,3,1,0)[:,:,SAblMap]
-    Xspec = (Xspec.transpose(1,3,2,0)/np.sqrt(GainEq[SAant0, spw_index][:,polXindex]* GainEq[SAant1, spw_index][:,polYindex])).transpose(3,0,2,1)
     #-------- XY delay cal
     XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelayList[spw_index] )
     Xspec[1] = (Xspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
@@ -338,18 +338,17 @@ for spw_index in range(spwNum):
     BLphsX = GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]].conjugate() / abs(GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]])
     BLphsY = GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]].conjugate() / abs(GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]])
     pCalVisX, pCalVisY = np.mean(chAvgVis[0] / BLphsX, axis=1), np.mean(chAvgVis[3] / BLphsY, axis=1)
-    Ta = SSOflux0[FCS_ID, spw_index]* AeNominal[SAantennas] / (2.0* kb)
+    Ta = SSOflux[FCS_ID, spw_index]* AeNominal[SAantennas] / (2.0* kb)
     #-------- Antenna-based Gain
-    GainAnt = (chAvgTsys[SAantennas, spw_index, 0, scan_index] + Ta)* abs(gainComplex(pCalVisX))**2
+    GainAnt = (chAvgTsys[SAantennas, spw_index, 0, scan_index] + Ta)* abs(gainComplex(pCalVisX))**2 / GainEq[SAantennas, spw_index, 0]
     medSF = medSF + [np.median(GainAnt)]; sdSF = sdSF + [np.std(GainAnt)/np.sqrt(SAantNum-1)]
-    GainAnt = (chAvgTsys[SAantennas, spw_index, 1, scan_index] + Ta)* abs(gainComplex(pCalVisY))**2
+    GainAnt = (chAvgTsys[SAantennas, spw_index, 1, scan_index] + Ta)* abs(gainComplex(pCalVisY))**2 / GainEq[SAantennas, spw_index, 1]
     medSF = medSF + [np.median(GainAnt)]; sdSF = sdSF + [np.std(GainAnt)/np.sqrt(SAantNum-1)]
 #
 medSF, sdSF = np.array(medSF).reshape([spwNum, 2]), np.array(sdSF).reshape([spwNum, 2])
 scaleFact = (SSOflux[FCS_ID] / medSF.transpose(1,0)).transpose(1,0)
 Ae     =  GainEq / scaleFact * 2.0* kb
 AEFF   =  (Ae.transpose(1,2,0) / (0.25* pi*antDia**2)).transpose(2,0,1)
-FCS_Eq =  np.sqrt(GainEq / scaleFact)
 np.save(prefix + '-' + UniqBands[band_index] + '.AntList.npy', antList[antMap]) 
 np.save(prefix + '-' + UniqBands[band_index] + '.Aeff.npy', AEFF) 
 print 'Aeff :',
@@ -395,9 +394,12 @@ for scan_index in range(scanNum):
         #-------- Sub-array with unflagged antennas (short baselines)
         if SSO_flag:
             SAantennas, SAblMap, SAblFlag, SAant0, SAant1 = subArranIndex(uvFlag[SSO_ID, spw_index])
+            TA = Ae[:,spw_index]* SSOflux0[SSO_ID, spw_index]* atmCorrect  / (2.0* kb)
         else:
             SAantennas, SAblMap, SAblFlag, SAant0, SAant1 = range(UseAntNum), range(UseBlNum), np.ones([blNum]), ant0, ant1
+            TA = 0.0
         #
+        SEFD = 2.0* kb* (chAvgTsys[:,spw_index, :,scan_index] + TA) / (Ae[:,spw_index]* atmCorrect)
         SAantNum = len(SAantennas); SAblNum = SAantNum* (SAantNum - 1)/2
         if SAantNum < 4:
             print ' too few ants ',
@@ -409,8 +411,7 @@ for scan_index in range(scanNum):
         chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
         tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)[:,SAblMap]       # Cross Polarization Baseline Mapping
         #-------- Bandpass Calibration
-        GainBL = FCS_Eq[SAant0,spw_index][:,polXindex]* FCS_Eq[SAant1,spw_index][:,polYindex]* atmCorrect
-        BP_bl = ((BPList[spw_index][SAant0][:,polXindex]* BPList[spw_index][SAant1][:,polYindex].conjugate()).transpose(2,0,1)* GainBL).transpose(1,2,0)
+        BP_bl = BPList[spw_index][SAant0][:,polXindex]* BPList[spw_index][SAant1][:,polYindex].conjugate()
         Xspec = (tempSpec / BP_bl).transpose(2,3,1,0) # Bandpass Cal
         #-------- XY delay cal
         XYdlSpec = delay_cal(np.ones([chNum], dtype=complex), XYdelayList[spw_index])
@@ -436,10 +437,10 @@ for scan_index in range(scanNum):
         pCalVisX = np.mean((chAvgVis[0]/BLphsX), axis=1)
         pCalVisY = np.mean((chAvgVis[3]/BLphsY), axis=1)
         #-------- Antenna-based Gain
-        GainAntX, GainAntY = abs(gainComplex(pCalVisX))**2, abs(gainComplex(pCalVisY))**2
+        GainAntX, GainAntY = SEFD[SAantennas,0]*abs(gainComplex(pCalVisX))**2, SEFD[SAantennas,1]*abs(gainComplex(pCalVisY))**2
         #-------- Check 
-        gainXflag = np.where(abs(GainAntX - np.median(GainAntX)) / np.median(GainAntX) > 0.25)[0].tolist()
-        gainYflag = np.where(abs(GainAntY - np.median(GainAntY)) / np.median(GainAntY) > 0.25)[0].tolist()
+        gainXflag = np.where(abs(GainAntX - np.median(GainAntX)) / np.median(GainAntX) > 0.2)[0].tolist()
+        gainYflag = np.where(abs(GainAntY - np.median(GainAntY)) / np.median(GainAntY) > 0.2)[0].tolist()
         Xants, Yants = list(set(range(SAantNum)) - set(gainXflag)), list(set(range(SAantNum)) - set(gainYflag))
         Iants = list( set(Xants) & set(Yants) )
         if len(Iants) < 2: print ' too low SNR  ',; continue
@@ -459,4 +460,3 @@ np.save(prefix + '-' + UniqBands[band_index] + '.Flux.npy', ScanFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Ferr.npy', ErrFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceList)[sourceIDscan])
 np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', ScanEL)
-"""

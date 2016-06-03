@@ -1209,16 +1209,13 @@ def gainComplex( bl_vis ):
     blNum  =  len(bl_vis)
     antNum =  Bl2Ant(blNum)[0]
     ant0, ant1, kernelBL = ANT0[0:blNum], ANT1[0:blNum], (arange(antNum-1)*(arange(antNum-1)+1)/2).tolist()
-    #
-    CompSol = np.zeros(antNum, dtype=complex)
-    CM = np.zeros([2*blNum, 2*antNum])
-    MMap = range(antNum) + range(antNum+1, 2*antNum)
+    CompSol, CM, MMap = np.zeros(antNum, dtype=complex), np.zeros([2*blNum, 2*antNum]), range(antNum) + range(antNum+1, 2*antNum)
     #---- Initial solution
     CompSol[0] = sqrt(abs(bl_vis[0])) + 0j
     CompSol[1:antNum] = bl_vis[kernelBL] / CompSol[0]
     Weight = np.abs(bl_vis)**2; CWeight = np.append(Weight, Weight)
     #---- Residual Visivility
-    for iter_index in range(3):
+    for iter_index in range(10):
         Cresid = Weight* (bl_vis - CompSol[ant0]* CompSol[ant1].conjugate())
         resid  = np.append( Cresid.real, Cresid.imag )
         #---- Matrix
@@ -1238,6 +1235,8 @@ def gainComplex( bl_vis ):
         PtWP_inv = scipy.linalg.inv(PtWP)
         correction = np.dot( PtWP_inv, np.dot(PM.T, CWeight* resid))
         CompSol = CompSol + correction[range(antNum)] + 1j* np.append(0, correction[range(antNum, 2*antNum-1)])
+        # print 'Iter %d : Correction = %e' % (iter_index, np.dot(correction, correction)/np.dot(abs(CompSol), abs(CompSol)))
+        if np.dot(correction, correction) < 1.0e-8* np.dot(abs(CompSol), abs(CompSol)): break
     #
     return CompSol
 #
