@@ -129,6 +129,16 @@ for ant_index in range(UseAntNum):
         TskyList.append(Tsky)
     #
 #
+#-------- Trx Transfer
+for ant_index in range(UseAntNum):
+    for spw_index in range(spwNum):
+        for pol_index in range(ppolNum):
+            flgIndex = np.where( TrxFlag[ant_index, spw_index, pol_index] == 0 )[0].tolist()
+            vldIndex = np.where( TrxFlag[ant_index, spw_index, pol_index] == 1 )[0].tolist()
+            if(len(vldIndex) > 0):
+                chAvgTrx[ant_index, spw_index, pol_index, flgIndex] = np.median( chAvgTrx[ant_index, spw_index, pol_index, vldIndex] )
+    
+#
 #-------- Tsys for scans
 for scan_index in range(scanNum):
     OnTimeRange = timeXY[OnTimeIndex[scan_index]]
@@ -246,6 +256,7 @@ for spw_index in range(spwNum):
     GainAnt = GainAnt + [chAvgTsys[:, spw_index, 1, scan_index]* abs(gainComplex(pCalVisY))**2]
 #
 GainEq = np.array(GainAnt).reshape([spwNum, 2, UseAntNum]).transpose(2,0,1)    # Ant, SPW, Pol
+"""
 #-------- Flux models for solar system objects
 SSONum = len(SSOList)
 timeLabel = qa.time('%fs' % (timeXY[0]), form='ymd')[0]
@@ -448,3 +459,4 @@ np.save(prefix + '-' + UniqBands[band_index] + '.Flux.npy', ScanFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Ferr.npy', ErrFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceList)[sourceIDscan])
 np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', ScanEL)
+"""
