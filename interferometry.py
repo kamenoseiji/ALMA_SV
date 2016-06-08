@@ -288,6 +288,21 @@ def GetPSpec(msfile, ant, spwID):
     return timeXY, dataXY.real
 #
 #-------- Mapping antList in refList
+def antRefScan( msfile, timeRange ):    # Check scanning and tracking antennas
+    antList = GetAntName(msfile)
+    antNum = len(antList)
+    scanRange = np.zeros(antNum)
+    Time, AntID, Offset = GetAzOffset(msfile)
+    for ant_index in range(antNum):
+        time_index = np.where( (AntID == ant_index) )[0]
+        time_index = time_index[np.where( (Time[time_index] >= timeRange[0]))[0]]
+        time_index = time_index[np.where( (Time[time_index] <= timeRange[1]))[0]]
+        scanRange[ant_index] = max( Offset[0, time_index] ) - min( Offset[0, time_index] )
+    #
+    trkAntIndex  = np.where( scanRange == 0.0 )[0]
+    scanAntIndex = np.where( scanRange >  0.0 )[0]
+    return trkAntIndex.tolist(), scanAntIndex.tolist()
+#                                                                    #
 def antIndex(refList, antList): 
     antMap = []
     for ant_index in range(len(antList)):
@@ -864,6 +879,13 @@ def gainCal(spec, Gain):   # spec[blNum, chNum, timeNum], Gain[antNum, chNum, ti
 	#	gainCalXX[bl_index] = spec[bl_index] / Gain_bl
 	#return gainCalXX
 #
+#-------- SmoothGain
+def smoothGain( timeValue, complexValue ):
+    weight = np.abs(complexValue)* 1.0e3
+    realSP = UnivariateSpline( timeValue, complexValue.real, w=weight, s=0.5 )
+    imagSP = UnivariateSpline( timeValue, complexValue.imag, w=weight, s=0.5 )
+    return realSP, imagSP
+#
 def gainCalVis(vis, Gain1, Gain0):      # vis[blNum, timeNum], Gain[antNum, timeNum]
     blNum, timeNum = vis.shape[0], vis.shape[1]
     ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
@@ -1402,14 +1424,13 @@ def subArranIndex(Flag):
 #-------- ArrayCenterAntenna
 def bestRefant(uvDist):
     blNum = len(uvDist)
-    antNum = Bl2Ant(blNum)[0]
+    antNum, ant0, ant1 = Bl2Ant(blNum)[0], ANT0[0:blNum], ANT1[0:blNum]
     blCounter = np.zeros([antNum])
     distOrder = np.argsort(uvDist)
-    bl_index = 0
-    for bl_index in range(blNum):
-        blCounter[ant0[distOrder[bl_index]]] += 1
-        blCounter[ant1[distOrder[bl_index]]] += 1
-        if np.max(blCounter) < 3: break
+    for bl_index in distOrder:
+        blCounter[ant0[bl_index]] += 1
+        blCounter[ant1[bl_index]] += 1
+        if np.max(blCounter) > 3: break
     #
     return np.argmax(blCounter)
 #
