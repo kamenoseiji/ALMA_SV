@@ -301,7 +301,7 @@ def antRefScan( msfile, timeRange ):    # Check scanning and tracking antennas
     #
     trkAntIndex  = np.where( scanRange == 0.0 )[0]
     scanAntIndex = np.where( scanRange >  0.0 )[0]
-    return trkAntIndex.tolist(), scanAntIndex.tolist()
+    return trkAntIndex.tolist(), scanAntIndex.tolist(), Time, Offset
 #                                                                    #
 def antIndex(refList, antList): 
     antMap = []

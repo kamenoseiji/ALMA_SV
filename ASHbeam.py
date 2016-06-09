@@ -2,7 +2,10 @@ execfile(SCR_DIR + 'interferometry.py')
 from scipy.constants import constants
 from scipy.interpolate import UnivariateSpline
 from scipy.interpolate import griddata
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ptick
 ALMA_lat = -23.029/180.0*pi     # ALMA AOS Latitude
+"""
 #
 #-------- Scanning Offset < threshold
 def scanThresh( msfile, ant_index, thresh ):
@@ -13,9 +16,9 @@ def scanThresh( msfile, ant_index, thresh ):
     #return onAxisIndex.tolist()
 #
 #-------- Time-based matching between time tags in visibilities and in scan pattern 
-def AzElMatch( refTime, scanTime, thresh, Az, El ):
-    index = np.where( abs(scanTime - refTime) < thresh)[0]
-    return np.median(Az[index]), np.median(El[index])
+#def AzElMatch( refTime, scanTime, thresh, Az, El ):
+#    index = np.where( abs(scanTime - refTime) < thresh)[0]
+#    return np.median(Az[index]), np.median(El[index])
 #
 def timeMatch( refTime, scanTime, thresh):
     match = np.where( abs(scanTime - refTime) < thresh)[0].tolist()
@@ -32,22 +35,34 @@ antDia = np.zeros(antNum)
 for ant_index in range(antNum): antDia[ant_index] = msmd.antennadiameter(antList[ant_index])['value']
 #-------- Check Scans and SPWs
 BPScan, ASHScan = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")[0], msmd.scansforintent("MAP_ANTENNA_SURFACE#ON_SOURCE")[0]
-spw = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("MAP_ANTENNA_SURFACE#ON_SOURCE"))); spw.sort()
+spw = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("MAP_ANTENNA_SURFACE#ON_SOURCE"))); spw.sort(); spwNum = len(spw)
 #-------- Scanning and Tracking antennas
 interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[0], ASHScan)
-trkAnt, scnAnt = antRefScan(msfile, [min(timeStamp), max(timeStamp)])
+timeNum = len(timeStamp)
+trkAnt, scnAnt, scanTime, AzElOffset = antRefScan(msfile, [min(timeStamp), max(timeStamp)])
 trkAntNum, scnAntNum = len(trkAnt), len(scnAnt)
 trkBlNum, blNum = trkAntNum* (trkAntNum - 1) / 2, antNum* (antNum - 1)/2
 trkBlMap, blMap, trkBlInv, blInv = range(trkBlNum), range(blNum), [False]* trkBlNum, [False]* blNum
 ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
 for bl_index in range(trkBlNum): trkBlMap[bl_index] = Ant2Bl(trkAnt[ant0[bl_index]], trkAnt[ant1[bl_index]])
 #-------- Choose Refant from Tracking antennas
-timeStamp, UVW = GetUVW(msfile, spw[0], BPScan)
+timeBPScan, UVW = GetUVW(msfile, spw[0], BPScan)
 uvw = np.mean(UVW, axis=2)[:,trkBlMap]; uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
 refantID = trkAnt[bestRefant(uvDist)]
-print '-- Select %s as Refant' % (antList[refantID])
 trkAnt.remove(refantID); trkAnt.insert(0, refantID)
+print 'Tracking antennas ',; print antList[trkAnt]
+print '-- Select %s as Refant' % (antList[refantID])
+print 'Scanning antennas ',; print antList[scnAnt]
 antMap = trkAnt + scnAnt
+#-------- Indexing Time Stamps
+scanTime, AntID, az, el = GetAzEl(msfile)
+FWHM = GetFWHM(msfile, spw[0], antDia[antMap])          # FWHM in arcsec
+centerIndex = scanThresh(msfile, scnAnt[0], FWHM[scnAnt[0]]/10); centerTime = scanTime[centerIndex]
+matchNum  = np.zeros([timeNum])
+for time_index in range(timeNum):
+    matchNum[time_index] = timeMatch(timeStamp[time_index], centerTime, np.median(interval))
+#
+onAxisIndex = np.where( matchNum > 0 )[0].tolist()
 #-------- Baseline Indexing
 for bl_index in range(trkBlNum): trkBlMap[bl_index], trkBlInv[bl_index] = Ant2BlD(trkAnt[ant0[bl_index]], trkAnt[ant1[bl_index]])
 for bl_index in range(blNum): blMap[bl_index], blInv[bl_index] = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
@@ -59,192 +74,143 @@ for spw_index in spw:
     BPList = BPList + [BP_ant]
     XYdelayList = XYdelayList + [XYdelay]
 #
+#if PLOTBP:
+#    ppolNum, cpolNum  = 2, 2
+#    PolList = ['XX', 'XY', 'YX', 'YY']
+#    figAnt = PlotBP(msfile, antList[antMap], spw, BPList)
+#    fileExt = '.pdf'
+#    if PLOTFMT == 'png': fileExt = '.png'
+#    for ant_index in range(UseAntNum):
+#        figAnt = plt.figure(ant_index)
+#        plotFigFileName = 'BP_' + prefix + '_' + antList[antMap[ant_index]] + '_REF' + antList[UseAnt[refantID]] + '_Scan' + `BPScan` + fileExt
+#        figAnt.savefig(plotFigFileName)
+#    #
+#    plt.close('all')
+##
 #-------- Scanning Visibilities
 polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
-spw_index = 0
-timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], ASHScan)  # Xspec[POL, CH, BL, TIME]
-chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)
-Xspec = (tempSpec / (BPList[spw_index][ant0][:,polXindex]* BPList[spw_index][ant1][:,polYindex].conjugate())).transpose(2,3,1,0) # [:,:,SAblMap]
-#-------- XY delay cal
-XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelayList[spw_index] )
-Xspec[1] = (Xspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
-Xspec[2] = (Xspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
-#-------- Antenna-based Gain
-chAvgVis = np.mean(Xspec[:,chRange], axis=1)
-timeNum = chAvgVis.shape[2]
-trkVis = chAvgVis[:,0:trkBlNum]
-Gain  = np.ones([2, antNum, timeNum], dtype=complex)
-Gain[0, 0:trkAntNum] = np.apply_along_axis( gainComplex, 0, trkVis[0])
-Gain[1, 0:trkAntNum] = np.apply_along_axis( gainComplex, 0, trkVis[3])
-#-------- Antenna-based Gain Calibration
-ant0, ant1 = ANT0[0:blNum], ANT1[0:blNum]
-caledVis   = chAvgVis / (Gain[polXindex][:,ant0]* Gain[polYindex][:,ant1].conjugate())
-#-------- Antenna-based Gain Calibration
-FWHM = GetFWHM(msfile, spw[spw_index], antDia[antMap])          # FWHM in arcsec
-scanTime, AntID, az, el = GetAzEl(msfile)
-centerIndex = scanThresh(msfile, scnAnt[0], FWHM[scnAnt[0]]/10); centerTime = scanTime[centerIndex]
-#-------- Time index at on axis
-matchNum = np.zeros([timeNum])
-for time_index in range(timeNum):
-    matchNum[time_index] = timeMatch(timeStamp[time_index], centerTime, np.median(interval))
+GainList = []
+for spw_index in range(spwNum):
+    print 'Processing SPW=%d ...' % (spw[spw_index])
+    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], ASHScan)  # Xspec[POL, CH, BL, TIME]
+    chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
+    tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)
+    Xspec = (tempSpec / (BPList[spw_index][ant0][:,polXindex]* BPList[spw_index][ant1][:,polYindex].conjugate())).transpose(2,3,1,0) # [:,:,SAblMap]
+    #-------- XY delay cal
+    XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelayList[spw_index] )
+    Xspec[1] = (Xspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
+    Xspec[2] = (Xspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
+    #-------- Antenna-based Gain
+    chAvgVis = np.mean(Xspec[:,chRange], axis=1)
+    timeNum = chAvgVis.shape[2]
+    trkVis = chAvgVis[:,0:trkBlNum]
+    Gain  = np.ones([2, antNum, timeNum], dtype=complex)
+    Gain[0, 0:trkAntNum] = np.apply_along_axis( gainComplex, 0, trkVis[0])
+    Gain[1, 0:trkAntNum] = np.apply_along_axis( gainComplex, 0, trkVis[3])
+    #-------- Antenna-based Gain Calibration
+    caledVis   = chAvgVis / (Gain[polXindex][:,ant0]* Gain[polYindex][:,ant1].conjugate())
+    #-------- Antenna-based Gain Cal at the beam center
+    Gain[0][trkAntNum:antNum][:,onAxisIndex] = np.apply_along_axis(gainComplex, 0, caledVis[0][:,onAxisIndex])[trkAntNum:antNum]
+    Gain[1][trkAntNum:antNum][:,onAxisIndex] = np.apply_along_axis(gainComplex, 0, caledVis[3][:,onAxisIndex])[trkAntNum:antNum]
+    for ant_index in range(trkAntNum,antNum):
+        for pol_index in range(2):
+            GR, GI = smoothGain(timeStamp[onAxisIndex], Gain[pol_index, ant_index, onAxisIndex])
+            Gain[pol_index, ant_index] = np.median(abs(Gain[pol_index, ant_index, onAxisIndex]))* np.exp((0.0 + 1j)* np.arctan2(GI(timeStamp), GR(timeStamp)))
+        #
+    #
+    caledVis = chAvgVis / (Gain[polXindex][:,ant0]* Gain[polYindex][:,ant1].conjugate())
+    #-------- Antenna-based Gain Cal at every position
+    Gain[0][trkAntNum:antNum] = np.apply_along_axis(gainComplex, 0, caledVis[0])[trkAntNum:antNum]
+    Gain[1][trkAntNum:antNum] = np.apply_along_axis(gainComplex, 0, caledVis[3])[trkAntNum:antNum]
+    GainList = GainList + [Gain]
 #
-#-------- Antenna-based Gain Cal at the beam center
-onAxisIndex = np.where( matchNum > 0 )[0].tolist()
-Gain[0][trkAntNum:antNum][:,onAxisIndex] = np.apply_along_axis(gainComplex, 0, caledVis[0][:,onAxisIndex])[trkAntNum:antNum]
-Gain[1][trkAntNum:antNum][:,onAxisIndex] = np.apply_along_axis(gainComplex, 0, caledVis[3][:,onAxisIndex])[trkAntNum:antNum]
+scanGain = np.array(GainList).transpose(2,0,1,3)[trkAntNum:antNum]
+"""
+
+#-------- Beam pattern for each antenna
+AZEL = []
 for ant_index in range(trkAntNum,antNum):
-    for pol_index in range(2):
-        GR, GI = smoothGain(timeStamp[onAxisIndex], Gain[pol_index, ant_index, onAxisIndex])
-        Gain[pol_index, ant_index] = np.median(abs(Gain[pol_index, ant_index, onAxisIndex]))* np.exp((0.0 + 1j)* np.arctan2(GI(timeStamp), GR(timeStamp)))
-    #
-#
-caledVis = chAvgVis / (Gain[polXindex][:,ant0]* Gain[polYindex][:,ant1].conjugate())
-#-------- Antenna-based Gain Cal at every position
-Gain[0][trkAntNum:antNum] = np.apply_along_axis(gainComplex, 0, caledVis[0])[trkAntNum:antNum]
-Gain[1][trkAntNum:antNum] = np.apply_along_axis(gainComplex, 0, caledVis[3])[trkAntNum:antNum]
-
-
-"""
-    #-------- Antenna List
-    antList = GetAntName(msfile)
-    if refantName not in antList:
-        print refantName + ' does not exist in this MS.'
-        sys.exit()
-    #
-    refant_index = np.where( antList == refantName )[0][0]
-    #-------- FWHM of the trkant
-    antD = 12.0
-    if refantName.find('C') > -1: 
-        antD = 7.0
-    #
-    FWHM = GetFWHM(msfile, spw[file_index], antD)
-    print('Checking the Array ....')
-    #-------- Tracking and Scanning Antennas
-    if len(trkAnt) == 0:
-        trkAnt, scanAnt = antRefScan(msfile, [min(timeStamp), max(timeStamp)])
-    #
-    print('-------- Tracking Antennas ----')
-    for ant_index in trkAnt:
-        text_sd = 'Ref[%d]  / %d: %s ' % (ant_index, len(trkAnt), antList[ant_index])
-        print text_sd
-    #
-    if len(scanAnt) > 0 :
-        print('-------- Scanning Antennas ----')
-        for ant_index in scanAnt:
-            text_sd = 'Scan[%d] / %d: %s ' % (ant_index, len(scanAnt), antList[ant_index])
-            print text_sd
-        #
-    #
-    scanTime, AntID, az, el = GetAzEl(msfile)
-    if refant_index in trkAnt:
-        print( refantName + ' is a referencing antenna')
-        index = np.where( AntID == trkAnt[0]); scanTime = scanTime[index]; az = az[index]; el = el[index]
-        AntIndex = trkAnt
-        antNum = len(trkAnt)
-    if refant_index in scanAnt:
-        print( refantName + ' is a scanning antenna')
-        index = scanThresh( msfile, 0, FWHM/20); scanTime = scanTime[index]; az = az[index]; el = el[index]
-        antNum = len(antList)
-        AntIndex = range(antNum)
-    #
-    blNum  = antNum* (antNum - 1) / 2
-    ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
-    antList = antList[AntIndex]
-    antWeight = np.ones(antNum)
-    #-------- Visibility sampling points
-    interval, timeStamp = GetTimerecord(msfile, 0, trkAnt[0], trkAnt[0], spw[file_index], scan[file_index])
-    timeNum = len(timeStamp)
-    ScanAz = np.zeros([timeNum]); ScanEl = np.zeros([timeNum]); ScanPA = np.zeros([timeNum])
-    #-------- Time index at on axis
-    matchNum = np.zeros([timeNum])
+    index = np.where( AntID == antMap[ant_index])[0].tolist()
+    scanAZEL = np.zeros([2, timeNum])
     for time_index in range(timeNum):
-        matchNum[time_index] = timeMatch( timeStamp[time_index], scanTime, np.median(interval))
+        scanAZEL[0,time_index], scanAZEL[1,time_index] = AzElMatch(timeStamp[time_index], scanTime[index], np.median(interval), AzElOffset[0][index], AzElOffset[1][index])
     #
-    onAxisIndex = np.where( matchNum > 0 )[0].tolist()
-    for time_index in onAxisIndex:
-        ScanAz[time_index], ScanEl[time_index] = AzElMatch( timeStamp[time_index], scanTime, np.median(interval), az, el)
-        ScanPA[time_index] = AzEl2PA(ScanAz[time_index], ScanEl[time_index], ALMA_lat) - BANDPA
-    #
-    #-- baseline-based weights
-    blMap = range(blNum)
-    blInv = [False]* blNum      # True -> inverted baseline
-    for bl_index in range(blNum):
-        ants = Bl2Ant(bl_index)
-        blMap[bl_index], blInv[bl_index] = Ant2BlD( AntIndex[ants[0]], AntIndex[ants[1]])
-    #
-    #-------- Cross products (XX, YY, XY, YX)
-    chNum, chWid, Freq = GetChNum(msfile, spw[file_index])
-    if chNum > 1:
-        chRange = range( int(0.05*chNum), int(0.95*chNum))
-    #
-    print '--- Loading visibilities from MS'
-    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[file_index], scan[file_index])  # Xspec[POL, CH, BL, TIME]
-    if chNum == 1:
-        temp = Xspec[:,0]
-    else:
-        print '--- Applying Bandpass Calibration'
-        #for bl_index in range(blNum):
-        #    ants = Bl2Ant(bl_index)
-        #    Xspec[0, :, bl_index] = (Xspec[0, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 0].conjugate()* BP_ant[ants[0], 0])).transpose(1,0)    # XX
-        #    Xspec[1, :, bl_index] = (Xspec[1, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 0].conjugate()* BP_ant[ants[0], 1])).transpose(1,0)    # XY
-        #    Xspec[2, :, bl_index] = (Xspec[2, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 1].conjugate()* BP_ant[ants[0], 0])).transpose(1,0)    # YX
-        #    Xspec[3, :, bl_index] = (Xspec[3, :, bl_index].transpose(1,0) / (BP_ant[ants[1], 1].conjugate()* BP_ant[ants[0], 1])).transpose(1,0)    # YY
-        #
-        Xspec[0,:,0:blNum] = (Xspec[0][:,0:blNum].transpose(2,1,0) / (BP_ant[ant1,0].conjugate()* BP_ant[ant0,0])).transpose(2, 1, 0)
-        Xspec[1,:,0:blNum] = (Xspec[1][:,0:blNum].transpose(2,1,0) / (BP_ant[ant1,0].conjugate()* BP_ant[ant0,1])).transpose(2, 1, 0)
-        Xspec[2,:,0:blNum] = (Xspec[2][:,0:blNum].transpose(2,1,0) / (BP_ant[ant1,1].conjugate()* BP_ant[ant0,0])).transpose(2, 1, 0)
-        Xspec[3,:,0:blNum] = (Xspec[3][:,0:blNum].transpose(2,1,0) / (BP_ant[ant1,1].conjugate()* BP_ant[ant0,1])).transpose(2, 1, 0)
-        #
-        XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelay )
-        Xspec[1] = (Xspec[1].transpose(1,2,0) * XYdlSpec).transpose(2,0,1)
-        Xspec[2] = (Xspec[2].transpose(1,2,0) / XYdlSpec).transpose(2,0,1)
-        temp = np.mean(Xspec[:,chRange], axis=1)
-    #
-    if file_index == 0:
-        XX = temp[0, blMap]
-        XY = temp[1, blMap]
-        YX = temp[2, blMap]
-        YY = temp[3, blMap]
-    else:
-        XX = hstack([XX, temp[0, blMap]])
-        XY = hstack([XY, temp[1, blMap]])
-        YX = hstack([YX, temp[2, blMap]])
-        YY = hstack([YY, temp[3, blMap]])
-    #
-    mjdSec = np.append(mjdSec, timeStamp[onAxisIndex])
-    Az     = np.append(Az, ScanAz[onAxisIndex])
-    El     = np.append(El, ScanEl[onAxisIndex])
-    PA     = np.append(PA, ScanPA[onAxisIndex])
+    AZEL = AZEL + [scanAZEL]
 #
-solution = np.zeros([7])
-for iter_index in range(3):
-    print '---- Iteration ' + `iter_index` + ' for Stokes (Q, U) and Gain ----'
-    GainX, GainY = polariGain(XX, YY, PA, solution[0], solution[1])
-    VisXX = np.mean(gainCalVis( XX, GainX, GainX ), axis = 0)
-    VisYY = np.mean(gainCalVis( YY, GainY, GainY ), axis = 0)
-    VisXY = np.mean(gainCalVis( XY, GainX, GainY ), axis = 0)
-    VisYX = np.mean(gainCalVis( YX, GainY, GainX ), axis = 0)
-    solution, solerr = XY2Stokes(PA, VisXY, VisYX)
-    text_sd = 'Q/I= %6.3f+-%6.4f  U/I= %6.3f+-%6.4f  XYphase= %6.3f+-%6.4f rad EVPA = %6.2f deg' % (solution[0], solerr[0], solution[1], solerr[1], solution[2], solerr[2], np.arctan(solution[1]/solution[0])*90.0/pi)
-    print text_sd
+AZEL = np.array(AZEL)
+
+
+
+#-------- GridPoint
+def GridPoint( value, samp_x, samp_y, point_x, point_y, kernel ):
+    #---- Check NaN and replace with 0
+    nan_index = np.where( value != value )[0]
+    value[nan_index] = 0.0
+    #---- Distance from gridding points
+    dist_sq = (samp_x - point_x)**2 + (samp_y - point_y)**2
+    dist_thresh = 9.0 * kernel**2
+    index = np.where( dist_sq < dist_thresh)[0]
+    wt = exp( -0.5* dist_sq[index] / kernel**2 )
+    nan_index = np.where( value[index] != value[index] )[0]
+    wt[nan_index] = 0.0
+    sumWt = np.sum(wt)
+    if sumWt < 1.0e-3:
+        return 0.0
+    return np.sum(value[index]* wt) / sumWt
 #
-plt.plot(PA, VisXY.real, '.', label = 'ReXY', color='cyan')
-plt.plot(PA, VisXY.imag, '.', label = 'ImXY', color='darkblue')
-plt.plot(PA, VisYX.real, '.', label = 'ReYX', color='magenta')
-plt.plot(PA, VisYX.imag, '.', label = 'ImYX', color='darkred')
-PArange = np.arange(min(PA), max(PA), 0.01)
-plt.plot(PArange,  np.cos(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[3], '-', color='cyan')
-plt.plot(PArange,  np.sin(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[4], '-', color='darkblue')
-plt.plot(PArange,  np.cos(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[5], '-', color='magenta')
-plt.plot(PArange, -np.sin(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[6], '-', color='darkred')
-plt.xlabel('PA [rad]'); plt.ylabel('XY, YX (real and imaginary)')
-plt.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
-text_sd = 'Q/I=%6.3f+-%6.3f U/I=%6.3f+-%6.3f XYphase=%6.3f+-%6.3f rad (RefAnt:%s)' % (solution[0], solerr[0], solution[1], solerr[1], solution[2], solerr[2], antList[0]); plt.text(min(PA), min(VisXY.real), text_sd, size='x-small')
-plt.savefig(prefix[0] + '-SPW' + `spw[0]` + '-' + refantName + 'QUXY.pdf', form='pdf')
-#-------- Save Results
-np.save(prefix[0] + '-SPW' + `spw[0]` + '-' + refantName + '.Ant.npy', antList)
-np.save(prefix[0] + '-SPW' + `spw[0]` + '-' + refantName + '.Azel.npy', np.array([mjdSec, Az, El, PA]))
-np.save(prefix[0] + '-SPW' + `spw[0]` + '-' + refantName + '.QUXY.npy', solution )
-plt.close('all')
-"""
+#-------- GridData
+def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
+    gridNum = len(grid_x)
+    results = np.zeros(gridNum)
+    for index in range(gridNum):
+        results[index] = GridPoint( value, samp_x, samp_y, grid_x[index], grid_y[index], kernel)
+    #
+    return results
+#
+#-------- Plot D-terms of scanning antennas
+print('-------- Plot Beam Maps for scan ants ----')
+for ant_index in range(scnAntNum):
+    antID = scnAnt[ant_index]
+    #-------- Plot
+    fig = plt.figure( figsize = (10,10))
+    fig.suptitle(prefix + ' ' + antList[antID] + ' SPW=' + `spw[0]`)
+    fig.text(0.45, 0.05, 'Az Offset [arcsec]')
+    fig.text(0.05, 0.45, 'El Offset [arcsec]', rotation=90)
+    #
+    xi, yi = np.mgrid[ min(AZEL[0,0]):max(AZEL[0,0]):128j, min(AZEL[0,1]):max(AZEL[0,1]):128j]
+    ampBeamX = GridData( abs(scanGain[ant_index, 0, 0])**2, AZEL[ant_index, 0], AZEL[ant_index,1], xi.reshape(xi.size), yi.reshape(xi.size), FWHM[antID]/16).reshape(len(xi), len(xi))
+    phsBeamX = GridData( np.angle(scanGain[ant_index, 0, 0]), AZEL[ant_index, 0], AZEL[ant_index,1], xi.reshape(xi.size), yi.reshape(xi.size), FWHM[antID]/16).reshape(len(xi), len(xi))
+    #---- plot BeamX
+    plt.subplot( 2, 2, 1, aspect=1); plt.contourf(xi, yi, ReBeamX, np.linspace(0.0, 1.0, 11)); plt.colorbar(); plt.title('Amp(BeamX)')
+    plt.subplot( 2, 2, 2, aspect=1); plt.contourf(xi, yi, ImBeamX, np.linspace(-np.pi, pi, 25)); plt.colorbar(); plt.title('Phs(BeamX)')
+    #circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/2); plt.plot( circle_x, circle_y )
+    """
+    #---- plot Im(Dx)
+    plt.subplot( 2, 2, 2, aspect=1); plt.contourf(xi, yi, ImDxmap, np.linspace(-0.10, 0.10, 11)); plt.colorbar(); plt.title('Im(Dx)')
+    circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/2); plt.plot( circle_x, circle_y )
+    circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/sqrt(2)); plt.plot( circle_x, circle_y )
+    text_sd = 'Im(Dx) at Center = %5.3f' % ( np.mean(Dx[DantID, IndexCenter].imag) ); plt.text(-1.6*FWHM[antID], -1.5*FWHM[antID], text_sd, size='x-small')
+    text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( np.max(Dx[DantID, Index3dB].imag), np.min(Dx[DantID, Index3dB].imag) ); plt.text(-1.6*FWHM[antID], -1.7*FWHM[antID], text_sd, size='x-small')
+    text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(Dx[DantID, Index6dB].imag), np.min(Dx[DantID, Index6dB].imag) ); plt.text(-1.6*FWHM[antID], -1.9*FWHM[antID], text_sd, size='x-small')
+    #---- plot Re(Dy)
+    plt.subplot( 2, 2, 3, aspect=1); plt.contourf(xi, yi, ReDymap, np.linspace(-0.10, 0.10, 11)); plt.colorbar(); plt.title('Re(Dy)')
+    circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/2); plt.plot( circle_x, circle_y )
+    circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/sqrt(2)); plt.plot( circle_x, circle_y )
+    text_sd = 'Re(Dy) at Center = %5.3f' % ( np.mean(Dy[DantID, IndexCenter].real) ); plt.text(-1.6*FWHM[antID], -1.5*FWHM[antID], text_sd, size='x-small')
+    text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( np.max(Dy[DantID, Index3dB].real), np.min(Dy[DantID, Index3dB].real) ); plt.text(-1.6*FWHM[antID], -1.7*FWHM[antID], text_sd, size='x-small')
+    text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(Dy[DantID, Index6dB].real), np.min(Dy[DantID, Index6dB].real) ); plt.text(-1.6*FWHM[antID], -1.9*FWHM[antID], text_sd, size='x-small')
+    #---- plot Im(Dy)
+    plt.subplot( 2, 2, 4, aspect=1); plt.contourf(xi, yi, ImDymap, np.linspace(-0.10, 0.10, 11)); plt.colorbar(); plt.title('Im(Dy)')
+    circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/2); plt.plot( circle_x, circle_y )
+    circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/sqrt(2)); plt.plot( circle_x, circle_y )
+    text_sd = 'Im(Dy) at Center = %5.3f' % ( np.mean(Dy[DantID, IndexCenter].imag) ); plt.text(-1.6*FWHM[antID], -1.5*FWHM[antID], text_sd, size='x-small')
+    text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( np.max(Dy[DantID, Index3dB].imag), np.min(Dy[DantID, Index3dB].imag) ); plt.text(-1.6*FWHM[antID], -1.7*FWHM[antID], text_sd, size='x-small')
+    text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(Dy[DantID, Index6dB].imag), np.min(Dy[DantID, Index6dB].imag) ); plt.text(-1.6*FWHM[antID], -1.9*FWHM[antID], text_sd, size='x-small')
+    plt.plot( ScanAz, ScanEl, '.', color='k', alpha=0.1)
+    """
+    plt.axis([-2.0*FWHM[antID], 2.0*FWHM[antID], -2.0*FWHM[antID], 2.0*FWHM[antID]])
+    #plt.savefig( prefix + '-' + antList[antID] + '-SPW' + `spw[0]` + '-DtermMap.pdf', form='pdf'); plt.close()
+    #plt.close()
+    #text_sd = '%s %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f'  % (antList[antID], np.mean(Dx[DantID, IndexCenter].real), np.max(Dx[DantID, Index3dB].real), np.min(Dx[DantID, Index3dB].real), np.max(Dx[DantID, Index6dB].real), np.min(Dx[DantID, Index6dB].real), np.mean(Dx[DantID, IndexCenter].imag), np.max(Dx[DantID, Index3dB].imag), np.min(Dx[DantID, Index3dB].imag), np.max(Dx[DantID, Index6dB].imag), np.min(Dx[DantID, Index6dB].imag), np.mean(Dy[DantID, IndexCenter].real), np.max(Dy[DantID, Index3dB].real), np.min(Dy[DantID, Index3dB].real), np.max(Dy[DantID, Index6dB].real), np.min(Dy[DantID, Index6dB].real), np.mean(Dy[DantID, IndexCenter].imag), np.max(Dy[DantID, Index3dB].imag), np.min(Dy[DantID, Index3dB].imag), np.max(Dy[DantID, Index6dB].imag), np.min(Dy[DantID, Index6dB].imag) )
+    #logfile.write(text_sd + '\n')
+#
