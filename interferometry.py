@@ -862,8 +862,8 @@ def gainCal(spec, Gain):   # spec[blNum, chNum, timeNum], Gain[antNum, chNum, ti
 #-------- SmoothGain
 def smoothGain( timeValue, complexValue ):
     weight = np.abs(complexValue)* 1.0e3
-    realSP = UnivariateSpline( timeValue, complexValue.real, w=weight, s=0.1, ext=3 )
-    imagSP = UnivariateSpline( timeValue, complexValue.imag, w=weight, s=0.1, ext=3 )
+    realSP = UnivariateSpline( timeValue, complexValue.real, w=weight, s=0.1)
+    imagSP = UnivariateSpline( timeValue, complexValue.imag, w=weight, s=0.1)
     return realSP, imagSP
 #
 def gainCalVis(vis, Gain1, Gain0):      # vis[blNum, timeNum], Gain[antNum, timeNum]
