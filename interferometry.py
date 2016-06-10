@@ -848,42 +848,22 @@ def bpCal(spec, BP0, BP1):      # spec[blNum, chNum, timeNum]
     blnum, chNum, timeNum = len(spec), len(spec[0]), len(spec[0,0])
     ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
     return (spec.transpose(2,0,1) / (BP1[ant0]* BP0[ant1].conjugate())).transpose(1, 2, 0)
-	#bpCalXX = np.zeros([blnum, chNum, timeNum], dtype=complex)
-	#BP_bl = np.zeros([blnum, chNum], dtype=complex)
-	#for bl_index in range(blnum):
-	#	ants = Bl2Ant(bl_index)
-	#	BP_bl[bl_index] = BP1[ants[0]]* BP0[ants[1]].conjugate()
-	#	bpCalXX[bl_index] = (spec[bl_index].T / BP_bl[bl_index]).T
-	#return bpCalXX
 #
 def phaseCal(spec, Gain):   # spec[blNum, chNum, timeNum], Gain[antNum, chNum, timeNum]
     blnum, chNum, timeNum = spec.shape[0], spec.shape[1], spec.shape[2]
     ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
     return spec * abs(Gain[ant0]* Gain[ant1].conjugate()) / (Gain[ant0]* Gain[ant1].conjugate())
-	#gainCalXX = np.zeros([blnum, chNum, timeNum], dtype=complex)
-	#for bl_index in range(blnum):
-	#	ants = Bl2Ant(bl_index); ant1, ant2 = ants[1], ants[0]
-	#	Gain_bl = Gain[ant2].conjugate() *  Gain[ant1]
-	#	Gain_bl = Gain_bl / abs(Gain_bl)
-	#	gainCalXX[bl_index] = spec[bl_index] * Gain_bl
-	#return gainCalXX
 #
 def gainCal(spec, Gain):   # spec[blNum, chNum, timeNum], Gain[antNum, chNum, timeNum]
     blnum, chNum, timeNum = spec.shape[0], spec.shape[1], spec.shape[2]
     ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
     return spec / (Gain0[ant0]* Gain1[ant1].conjugate())
-	#gainCalXX = np.zeros([blnum, chNum, timeNum], dtype=complex)
-	#for bl_index in range(blnum):
-	#	ants = Bl2Ant(bl_index); ant1, ant2 = ants[1], ants[0]
-	#	Gain_bl = Gain[ant2] *  Gain[ant1].conjugate()
-	#	gainCalXX[bl_index] = spec[bl_index] / Gain_bl
-	#return gainCalXX
 #
 #-------- SmoothGain
 def smoothGain( timeValue, complexValue ):
     weight = np.abs(complexValue)* 1.0e3
-    realSP = UnivariateSpline( timeValue, complexValue.real, w=weight, s=0.5 )
-    imagSP = UnivariateSpline( timeValue, complexValue.imag, w=weight, s=0.5 )
+    realSP = UnivariateSpline( timeValue, complexValue.real, w=weight, s=0.1, ext=3 )
+    imagSP = UnivariateSpline( timeValue, complexValue.imag, w=weight, s=0.1, ext=3 )
     return realSP, imagSP
 #
 def gainCalVis(vis, Gain1, Gain0):      # vis[blNum, timeNum], Gain[antNum, timeNum]
