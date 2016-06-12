@@ -210,6 +210,34 @@ def GetTimerecord(msfile, ant1, ant2, pol, spwID, PScan):
 	tb.close()
 	return interval, timeXY
 #
+def GetVisCross(msfile, spwID, scanID):
+	antNum = len(GetAntName(msfile))
+	corrNum= antNum* (antNum + 1)/2		# Number of correlations (with autocorr)
+	blNum  = corrNum - antNum
+	#
+	Out='DATA_DESC_ID == '+`spwID` + ' && SCAN_NUMBER == ' + `scanID`
+	tb.open(msfile)
+	antXantYspw = tb.query(Out, sortlist='noduplicates ANTENNA1, ANTENNA2, TIME')
+	timeXY = antXantYspw.getcol('TIME')
+	timeNum = len(timeXY) / corrNum
+	try:
+		dataXY = antXantYspw.getcol('DATA')		# dataXY in array[pol, ch, baselinextime]
+	except:
+		dataXY = antXantYspw.getcol('FLOAT_DATA')		# dataXY in array[pol, ch, baselinextime]
+	tb.close()
+	polNum, chNum = dataXY.shape[0], dataXY.shape[1]
+	timeStamp = timeXY.reshape(corrNum, timeNum)[0]
+	#acorr_index = range(antNum)
+	#xcorr_index = range(blNum)
+	#for ant_index in range(antNum):
+	#	acorr_index[ant_index] = Ant2Bla_RevLex(ant_index, ant_index, antNum)
+	for bl_index in range(blNum):
+		ant1, ant0 = Bl2Ant(bl_index)
+		xcorr_index[bl_index] = Ant2Bla_RevLex(ant0, ant1, antNum)
+	#Pspec = dataXY.reshape(polNum, chNum, corrNum, timeNum)[:,:,acorr_index,:]
+	Xspec = dataXY.reshape(polNum, chNum, corrNum, timeNum)[:,:,xcorr_index,:]
+	return timeStamp, Xspec
+#
 def GetVisAllBL(msfile, spwID, scanID):
 	antNum = len(GetAntName(msfile))
 	corrNum= antNum* (antNum + 1)/2		# Number of correlations (with autocorr)
