@@ -192,13 +192,13 @@ if BEAMPLOT:
             ampBeamY = GridData( 10.0*np.log10(abs(scanGain[ant_index, spw_index, 1])), AZEL[ant_index, 0], AZEL[ant_index,1], xi.reshape(xi.size), yi.reshape(xi.size), fwhm/16).reshape(len(xi), len(xi))
             phsBeamY = RADDEG* GridData(np.angle((0.0 + 1.0j)* scanGain[ant_index, spw_index, 1]), AZEL[ant_index, 0], AZEL[ant_index,1], xi.reshape(xi.size), yi.reshape(xi.size), fwhm/16).reshape(len(xi), len(xi)) - 90.0
             #---- plot BeamX
-            plt.subplot( 2, 2, 1, aspect=1); plt.contourf(xi, yi, ampBeamX, np.linspace(-20.0, 1.0, 21), cmap=ampCmap); plt.colorbar(); plt.title('Amp(BeamX)')
+            plt.subplot( 2, 2, 1, aspect=1); plt.contourf(xi, yi, ampBeamX, np.linspace(-20.0, 0.0, 21), cmap=ampCmap); plt.colorbar(); plt.title('Amp(BeamX)')
             circle_x, circle_y = circlePoints(0, 0, fwhm/2); plt.plot( circle_x, circle_y )
             circle_x, circle_y = circlePoints(0, 0, fwhm); plt.plot( circle_x, circle_y )
             plt.subplot( 2, 2, 2, aspect=1); plt.contourf(xi, yi, phsBeamX, np.linspace(-270, 90, 37), cmap=phsCmap); plt.colorbar(); plt.title('Phs(BeamX)')
             circle_x, circle_y = circlePoints(0, 0, fwhm/2); plt.plot( circle_x, circle_y )
             circle_x, circle_y = circlePoints(0, 0, fwhm); plt.plot( circle_x, circle_y )
-            plt.subplot( 2, 2, 3, aspect=1); plt.contourf(xi, yi, ampBeamY, np.linspace(-20.0, 0.0, 21), cmap=ampCmap); plt.colorbar(); plt.title('Amp(BeamY)')
+            plt.subplot( 2, 2, 3, aspect=1); plt.contourf(xi, yi, ampBeamY, np.linspace(-20.0, 0.0, 22), cmap=ampCmap); plt.colorbar(); plt.title('Amp(BeamY)')
             circle_x, circle_y = circlePoints(0, 0, fwhm/2); plt.plot( circle_x, circle_y )
             circle_x, circle_y = circlePoints(0, 0, fwhm); plt.plot( circle_x, circle_y )
             plt.subplot( 2, 2, 4, aspect=1); plt.contourf(xi, yi, phsBeamY, np.linspace(-270, 90, 37), cmap=phsCmap); plt.colorbar(); plt.title('Phs(BeamY)')
