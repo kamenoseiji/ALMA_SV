@@ -11,6 +11,55 @@ from scipy.interpolate import griddata
 import scipy.optimize
 import time
 import datetime
+#======== Baseline and Antenna Indexing
+KERNEL_BL = arange(64)*arange(1,65)/2
+def indexList( refArray, motherArray ):     # Compare two arrays and return matched index
+    IL = []
+    for currentItem in refArray: IL = IL + np.where( motherArray == currentItem )[0].tolist()
+    return IL
+#
+def Ant2Bl(ant1, ant2):	    # Antenna -> baseline index (without autocorr)
+    antenna1 = max(ant1, ant2); antenna2 = min(ant1, ant2)
+    return antenna1* (antenna1 - 1)/2 + antenna2
+#
+def Ant2BlD(ant1, ant2):    # Antenna -> baseline index and direction (True if inverted)
+    antenna1 = max(ant1, ant2); antenna2 = min(ant1, ant2)
+    return antenna1* (antenna1 - 1)/2 + antenna2, (ant1 < ant2)
+#
+def Bl2Ant(bl_index):     # Baseline -> antenna indexing (canonical ordering)
+    ant1 = max(np.where(KERNEL_BL<= bl_index)[0]) + 1
+    return ant1, bl_index - KERNEL_BL[ant1 - 1]
+#
+ANT0 = []; ANT1 = []     # List the BL -> antenna indexing
+for bl_index in range(2016):    # Maximum number of baseline
+    ants = Bl2Ant(bl_index)
+    ANT0.append(ants[0])        # bl -> ant0 (baseline-end antenna) mapping
+    ANT1.append(ants[1])        # bl -> ant1 (baseline-begin antenna) mapping
+#
+def Ant2Bla_RevLex(ant0, ant1, antNum):    # Reverse Lexical, with autcorr
+    antenna0 = min(ant0, ant1); antenna1 = max(ant0, ant1)
+    kernel = antNum* antenna0 - antenna0* (antenna0 - 1)/2
+    return kernel + antenna1 - antenna0
+#
+def Ant2Bl_RevLex(ant1, ant2, antnum):    # Reverse Lexical, without autcorr
+    antenna1 = max(ant1, ant2); antenna2 = min(ant1, ant2)
+    return int(antnum* antenna2 - (antenna2 + 1)* (antenna2 + 2) / 2  + antenna1)
+#
+def subArranIndex(Flag):          #-------- SubArray Indexing
+    blNum = len(Flag); antNum = Bl2Ant(blNum)[0]; kernelBL = KERNEL_BL[range(antNum-1)].tolist()
+    ant0, ant1 = ANT0[0:blNum], ANT1[0:blNum]
+    flagIndex = np.where(Flag == 1)[0].tolist()       # Baselines: uvDist < UVlimit
+    flagRefIndex = list( set(flagIndex) & set(kernelBL))            # Baselines including refant and uvDist < UVlimit 
+    SAantennas = [0] + list(np.array(ant0)[flagRefIndex]); SAantennas.sort()
+    SAantNum = len(SAantennas); SAblNum = SAantNum* (SAantNum - 1)/2
+    SAblMap = []
+    for bl_index in range(SAblNum):
+        SAblMap = SAblMap + [Ant2Bl(SAantennas[ant0[bl_index]], SAantennas[ant1[bl_index]])]
+    #
+    SAblFlag = np.zeros([SAblNum]); SAblFlag[indexList(np.array(flagIndex), np.array(SAblMap))] = 1.0
+    SAant0, SAant1 = np.array(ant0)[SAblMap].tolist(), np.array(ant1)[SAblMap].tolist()
+    return SAantennas, SAblMap, SAblFlag, SAant0, SAant1
+#
 #-------- Muller Matrix
 def MullerMatrix(Dx0, Dy0, Dx1, Dy1):
     return np.array([
@@ -93,14 +142,7 @@ def ecliptic2radec( longitude, latitude, mjd ):          # ecliptic -> J2000, mj
     Xb, Yb, Zb = Xa, cs* Ya - sn* Za, sn* Ya + cs* Za
     return np.arctan2(Yb, Xb), np.arcsin(Zb)
 #
-#-------- Time-based matching between time tags in visibilities and in scan pattern 
-def indexList( refArray, motherArray ):     # Compare two arrays and return matched index
-    IL = []
-    for currentItem in refArray:
-        IL = IL + np.where( motherArray == currentItem )[0].tolist()
-    #
-    return IL
-#
+#======== MS data interface
 def AzElMatch( refTime, scanTime, thresh, Az, El ):
     index = np.where( abs(scanTime - refTime) < thresh)[0]
     return np.median(Az[index]), np.median(El[index])
@@ -174,7 +216,7 @@ def AllanVar(x, lag):
 	temp = x[lag:vecSize] - x[0:diffSize]
 	temp2= temp[lag:diffSize] - temp[0:avSize]
 	return np.dot( temp2, temp2) / (2* avSize* lag* lag)
-
+#
 def GetLoadTemp(msfile, AntID, spw):
 	Out = msfile + '/' + 'CALDEVICE'
 	tb.open(Out)
@@ -331,17 +373,7 @@ def antRefScan( msfile, timeRange ):    # Check scanning and tracking antennas
     scanAntIndex = np.where( scanRange >  0.0 )[0]
     return trkAntIndex.tolist(), scanAntIndex.tolist(), Time, Offset
 #                                                                    #
-def antIndex(refList, antList): 
-    antMap = []
-    for ant_index in range(len(antList)):
-        if antList[ant_index] in refList:
-            antMap.append(refList.index(antList[ant_index]))
-        else:
-            antMap.append( -1 )
-        #
-    #
-    return antMap
-#
+
 def GetChNum(msfile, spwID):
 	tb.open(msfile + '/' + 'SPECTRAL_WINDOW')
 	chNum = tb.getcell("NUM_CHAN", spwID)
@@ -350,37 +382,6 @@ def GetChNum(msfile, spwID):
 	tb.close()
 	return chNum, chWid, freq
 
-def Ant2Bl(ant1, ant2):		# Antenna -> baseline index (without autocorr)
-	antenna1 = max(ant1, ant2); antenna2 = min(ant1, ant2)
-	return antenna1* (antenna1 - 1)/2 + antenna2
-#
-def Ant2BlD(ant1, ant2):		# Antenna -> baseline index (without autocorr)
-	antenna1 = max(ant1, ant2); antenna2 = min(ant1, ant2)
-	return antenna1* (antenna1 - 1)/2 + antenna2, (ant1 < ant2)
-#
-def Bl2Ant(baseline):
-	ant1 = int(sqrt(2.0* baseline))
-	while( (ant1* (ant1 + 1)/2 ) > baseline):
-		ant1 -= 1
-	return [(ant1+1), int(baseline - ant1*(ant1 + 1)/2)]
-#
-def Ant2Bla_RevLex(ant0, ant1, antNum):		# Reverse Lexical, with autcorr
-	antenna0 = min(ant0, ant1); antenna1 = max(ant0, ant1)
-	kernel = antNum* antenna0 - antenna0* (antenna0 - 1)/2
-	return kernel + antenna1 - antenna0
-#
-def Ant2Bl_RevLex(ant1, ant2, antnum):
-	antenna1 = max(ant1, ant2); antenna2 = min(ant1, ant2)
-	return int(antnum* antenna2 - (antenna2 + 1)* (antenna2 + 2) / 2  + antenna1)
-#
-#-------- BL-ANT indexing
-ANT0 = []; ANT1 = []
-for bl_index in range(2016):    # Maximum number of baseline
-    ants = Bl2Ant(bl_index)
-    ANT0.append(ants[0])        # bl -> ant0 (baseline-end antenna) mapping
-    ANT1.append(ants[1])        # bl -> ant1 (baseline-begin antenna) mapping
-#
-#ANT0 = np.array(ANT0); ANT1 = np.array(ANT1)
 #
 def BlAmpMatrix(antNum):
     blNum = antNum* (antNum - 1) / 2
@@ -911,9 +912,9 @@ def GetBunchedVis(msfile, ant1, ant2, pol, spw, field, chBunch, timeBunch):
 	return specBunch(dataXY, chBunch, timeBunch)
 
 
+#-------- First baseline to get time index
 def bandpassCorrection(msfile, antnum, pol, spw, field, chBunch, timeBunch):
 	blnum = antnum* (antnum - 1) / 2
-#-------- First baseline to get time index
 	timeXY = GetTimerecord(msfile, 0, 1, pol, spw, field)
 	chNum, chWid  = GetChNum(msfile, spw)
 
@@ -1413,22 +1414,6 @@ def diskVisBeam(diskShape, u, v, primaryBeam):
     uvDisp = (DSmin*(u* cs - v* sn))**2 + (DSmaj*(u* sn + v* cs))**2 
     return beamF(diskRadius/primaryBeam)* np.exp(-0.5* uvDisp)
 #
-#-------- SubArray Index
-def subArranIndex(Flag):
-    blNum = len(Flag); antNum = Bl2Ant(blNum)[0]; kernelBL = (arange(antNum-1)*(arange(antNum-1)+1)/2).tolist()
-    ant0, ant1 = ANT0[0:blNum], ANT1[0:blNum]
-    flagIndex = np.where(Flag == 1)[0].tolist()       # Baselines: uvDist < UVlimit
-    flagRefIndex = list( set(flagIndex) & set(kernelBL))            # Baselines including refant and uvDist < UVlimit 
-    SAantennas = [0] + list(np.array(ant0)[flagRefIndex]); SAantennas.sort()
-    SAantNum = len(SAantennas); SAblNum = SAantNum* (SAantNum - 1)/2
-    SAblMap = []
-    for bl_index in range(SAblNum):
-        SAblMap = SAblMap + [Ant2Bl(SAantennas[ant0[bl_index]], SAantennas[ant1[bl_index]])]
-    #
-    SAblFlag = np.zeros([SAblNum]); SAblFlag[indexList(np.array(flagIndex), np.array(SAblMap))] = 1.0
-    SAant0, SAant1 = np.array(ant0)[SAblMap].tolist(), np.array(ant1)[SAblMap].tolist()
-    return SAantennas, SAblMap, SAblFlag, SAant0, SAant1
-#
 #-------- ArrayCenterAntenna
 def bestRefant(uvDist):
     blNum = len(uvDist)
@@ -1441,7 +1426,6 @@ def bestRefant(uvDist):
         if np.max(blCounter) > 3: break
     #
     return np.argmax(blCounter)
-#
 #
 #-------- CrossPol Visibility
 def CrossPolBL(Xspec, blInv):
