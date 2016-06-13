@@ -4,6 +4,8 @@ from scipy.interpolate import UnivariateSpline
 from scipy.interpolate import griddata
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ptick
+import matplotlib.cm as cm
+RADDEG = 180.0 / math.pi
 ALMA_lat = -23.029/180.0*pi     # ALMA AOS Latitude
 #
 #-------- Scanning Offset < threshold
@@ -170,6 +172,8 @@ def circlePoints( x, y, radius ):
     return x + radius* np.cos(angle), y + radius* np.sin(angle)
 #
 #-------- Plot D-terms of scanning antennas
+ampCmap = cm.gnuplot2; ampCmap.set_over("w"); ampCmap.set_under("k")
+phsCmap = cm.hsv;      phsCmap.set_over("w"); phsCmap.set_under("k"); phsCmap.set_bad("k")
 if BEAMPLOT:
     print('-------- Plot Beam Maps for scan ants ----')
     for spw_index in range(spwNum):
@@ -181,22 +185,22 @@ if BEAMPLOT:
             fig.text(0.45, 0.05, 'Az Offset [arcsec]')
             fig.text(0.05, 0.45, 'El Offset [arcsec]', rotation=90)
             #
-            xi, yi = np.mgrid[ min(AZEL[ant_index,0]):max(AZEL[ant_index,0]):128j, min(AZEL[ant_index,1]):max(AZEL[ant_index,1]):128j]
+            xi, yi = np.mgrid[min(AZEL[ant_index,0]):max(AZEL[ant_index,0]):128j, min(AZEL[ant_index,1]):max(AZEL[ant_index,1]):128j]
             ampBeamX = GridData( 10.0*np.log10(abs(scanGain[ant_index, spw_index, 0])), AZEL[ant_index, 0], AZEL[ant_index,1], xi.reshape(xi.size), yi.reshape(xi.size), FWHM[antID, spw_index]/16).reshape(len(xi), len(xi))
-            phsBeamX = GridData( np.angle(scanGain[ant_index, spw_index, 0]), AZEL[ant_index, 0], AZEL[ant_index,1], xi.reshape(xi.size), yi.reshape(xi.size), FWHM[antID, spw_index]/16).reshape(len(xi), len(xi))
+            phsBeamX = RADDEG* GridData(np.angle((0.0 + 1.0j)* scanGain[ant_index, spw_index, 0]), AZEL[ant_index, 0], AZEL[ant_index,1], xi.reshape(xi.size), yi.reshape(xi.size), FWHM[antID, spw_index]/16).reshape(len(xi), len(xi)) - 90.0
             ampBeamY = GridData( 10.0*np.log10(abs(scanGain[ant_index, spw_index, 1])), AZEL[ant_index, 0], AZEL[ant_index,1], xi.reshape(xi.size), yi.reshape(xi.size), FWHM[antID, spw_index]/16).reshape(len(xi), len(xi))
-            phsBeamY = GridData( np.angle(scanGain[ant_index, spw_index, 1]), AZEL[ant_index, 0], AZEL[ant_index,1], xi.reshape(xi.size), yi.reshape(xi.size), FWHM[antID, spw_index]/16).reshape(len(xi), len(xi))
+            phsBeamY = RADDEG* GridData(np.angle((0.0 + 1.0j)* scanGain[ant_index, spw_index, 1]), AZEL[ant_index, 0], AZEL[ant_index,1], xi.reshape(xi.size), yi.reshape(xi.size), FWHM[antID, spw_index]/16).reshape(len(xi), len(xi)) - 90.0
             #---- plot BeamX
-            plt.subplot( 2, 2, 1, aspect=1); plt.contourf(xi, yi, ampBeamX, np.linspace(-25.0, 1.0, 27)); plt.colorbar(); plt.title('Amp(BeamX)')
+            plt.subplot( 2, 2, 1, aspect=1); plt.contourf(xi, yi, ampBeamX, np.linspace(-20.0, 1.0, 21), cmap=ampCmap); plt.colorbar(); plt.title('Amp(BeamX)')
             circle_x, circle_y = circlePoints(0, 0, FWHM[antID, spw_index]/2); plt.plot( circle_x, circle_y )
             circle_x, circle_y = circlePoints(0, 0, FWHM[antID, spw_index]); plt.plot( circle_x, circle_y )
-            plt.subplot( 2, 2, 2, aspect=1); plt.contourf(xi, yi, 180.0*phsBeamX/np.pi, np.linspace(-180, 180, 37)); plt.colorbar(); plt.title('Phs(BeamX)')
+            plt.subplot( 2, 2, 2, aspect=1); plt.contourf(xi, yi, phsBeamX, np.linspace(-270, 90, 37), cmap=phsCmap); plt.colorbar(); plt.title('Phs(BeamX)')
             circle_x, circle_y = circlePoints(0, 0, FWHM[antID, spw_index]/2); plt.plot( circle_x, circle_y )
             circle_x, circle_y = circlePoints(0, 0, FWHM[antID, spw_index]); plt.plot( circle_x, circle_y )
-            plt.subplot( 2, 2, 3, aspect=1); plt.contourf(xi, yi, ampBeamY, np.linspace(-25.0, 1.0, 27)); plt.colorbar(); plt.title('Amp(BeamX)')
+            plt.subplot( 2, 2, 3, aspect=1); plt.contourf(xi, yi, ampBeamY, np.linspace(-20.0, 0.0, 21), cmap=ampCmap); plt.colorbar(); plt.title('Amp(BeamY)')
             circle_x, circle_y = circlePoints(0, 0, FWHM[antID, spw_index]/2); plt.plot( circle_x, circle_y )
             circle_x, circle_y = circlePoints(0, 0, FWHM[antID, spw_index]); plt.plot( circle_x, circle_y )
-            plt.subplot( 2, 2, 4, aspect=1); plt.contourf(xi, yi, 180.0*phsBeamY/np.pi, np.linspace(-180, 180, 37)); plt.colorbar(); plt.title('Phs(BeamX)')
+            plt.subplot( 2, 2, 4, aspect=1); plt.contourf(xi, yi, phsBeamY, np.linspace(-270, 90, 37), cmap=phsCmap); plt.colorbar(); plt.title('Phs(BeamY)')
             circle_x, circle_y = circlePoints(0, 0, FWHM[antID, spw_index]/2); plt.plot( circle_x, circle_y )
             circle_x, circle_y = circlePoints(0, 0, FWHM[antID, spw_index]); plt.plot( circle_x, circle_y )
             plt.savefig( prefix + '-' + antList[antID] + '-SPW' + `spw[spw_index]` + '-Beam.pdf', form='pdf'); plt.close()
