@@ -5,125 +5,62 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ptick
 execfile(SCR_DIR + 'interferometry.py')
 #
-#-------- Definitions
-antNum = len(refant)
-blNum = antNum* (antNum - 1) / 2 
-spwNum  = len(spw)
-scanNum  = len(BPscan)
-ppolNum  = len(ppol)
-cpolNum  = len(cpol)
-#
 #-------- Procedures
 msfile = wd + prefix + '.ms'
-antList = GetAntName(msfile)[refant]
-blMap = range(blNum)
-blInv = [False]* blNum		# True -> inverted baseline
-for bl_index in range(blNum):
-    ants = Bl2Ant(bl_index)
-    blMap[bl_index], blInv[bl_index]  = Ant2BlD(refant[ants[0]], refant[ants[1]])
+antList = GetAntName(msfile); antNum = len(antList); blNum = antNum* (antNum - 1)/2
+#-------- Configure Array
+print '---Checking array configulation'
+flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
+UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
+blMap, blInv= range(UseBlNum), [False]* UseBlNum
+try:
+    refantID = np.where(antList[UseAnt] == refant )[0][0]
+except:
+    ant0 = ANT0[0:UseBlNum]; ant1 = ANT1[0:UseBlNum]
+    for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
+    timeStamp, UVW = GetUVW(msfile, spw[0], BPscan)
+    uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
+    refantID = bestRefant(uvDist)
 #
-#-------- Procedures
+print '  Use ' + antList[UseAnt[refantID]] + ' as the refant.'
+#-------- Baseline Mapping
+print '---Baseline Mapping'
+antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
+UseAntNum = len(antMap)
+UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
+ant0 = ANT0[0:UseBlNum]; ant1 = ANT1[0:UseBlNum]
+for bl_index in range(UseBlNum):
+    blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
 #
-#-------- Prepare BP and Delay to store
-chNum, chWid, Freq = GetChNum(msfile, spw[0])
-BP_ant    = np.ones([antNum, spwNum, ppolNum, chNum], dtype=complex)
-Delay_ant = np.zeros([antNum, spwNum, (ppolNum + cpolNum)])
-XYdelay = np.zeros(spwNum)
-BPXY = np.ones([chNum, blNum], dtype=complex)
-BPYX = np.ones([chNum, blNum], dtype=complex)
-#-------- Loop for SPW
-for spw_index in range(spwNum):
-    chNum, chWid, Freq = GetChNum(msfile, spw[spw_index]); Freq = 1.0e-9* Freq  # GHz
-    chRange = range(int(round(chNum/chBunch * 0.05)), int(round(chNum/chBunch * 0.95)))
-    XPspec = np.zeros([scanNum, (ppolNum + cpolNum), chNum, blNum], dtype=complex)
-    scanWeight = np.ones([scanNum, ppolNum])
-    for scan_index in range(scanNum):
-        interval, timeStamp = GetTimerecord(msfile, 0, 0, ppol[0], spw[spw_index], BPscan[scan_index])
-        timeNum = len(timeStamp)
-        print ' Loading SPW=' + `spw[spw_index]` + ' Scan=' + `BPscan[scan_index]`,
-        #
-        #------- Load Cross-power spectrum
-        timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], BPscan[scan_index])   # Xspec[pol, ch, bl, time]
-        Xspec = Xspec[:,:,blMap]
-        Ximag = Xspec.transpose(0,1,3,2).imag* (-2.0* np.array(blInv) + 1.0)
-        Xreal = Xspec.transpose(0,1,3,2).real
-        if cpolNum > 0: # Full polarization pairs
-            Xspec[0].imag = Ximag[0].transpose(0,2,1)
-            Xspec[1].real = (Xreal[1]*(1.0 - np.array(blInv)) + Xreal[2]* np.array(blInv)).transpose(0,2,1)
-            Xspec[1].imag = (Ximag[1]*(1.0 - np.array(blInv)) + Ximag[2]* np.array(blInv)).transpose(0,2,1)
-            Xspec[2].real = (Xreal[2]*(1.0 - np.array(blInv)) + Xreal[1]* np.array(blInv)).transpose(0,2,1)
-            Xspec[2].imag = (Ximag[2]*(1.0 - np.array(blInv)) + Ximag[1]* np.array(blInv)).transpose(0,2,1)
-            Xspec[3].imag = Ximag[3].transpose(0,2,1)
-            chAvgXX = np.mean(Xspec[0,chRange], axis=0 )
-            chAvgYY = np.mean(Xspec[3,chRange], axis=0 )
-        #
-        else:   # parallel polarization only
-            Xspec[0].imag = Ximag[0].transpose(0,2,1)
-            Xspec[1].imag = Ximag[1].transpose(0,2,1)
-            chAvgXX = np.mean(Xspec[0,chRange], axis=0 )
-            chAvgYY = np.mean(Xspec[1,chRange], axis=0 )
-        #
-        #-------- Antenna-based Gain Cal
-        GainX = np.apply_along_axis( gainComplex, 0, chAvgXX); scanWeight[scan_index, 0] = np.sum(abs(GainX)**2)
-        GainY = np.apply_along_axis( gainComplex, 0, chAvgYY); scanWeight[scan_index, 1] = np.sum(abs(GainY)**2)
-        if cpolNum > 0: # Full polarization pairs
-            for ch_index in range(chNum):
-                Xspec[0, ch_index] = gainCalVis( Xspec[0,ch_index], GainX, GainX)
-                Xspec[1, ch_index] = gainCalVis( Xspec[1,ch_index], GainX, GainY)
-                Xspec[2, ch_index] = gainCalVis( Xspec[2,ch_index], GainY, GainX)
-                Xspec[3, ch_index] = gainCalVis( Xspec[3,ch_index], GainY, GainY)
-            #
-            XCspec = np.mean(Xspec, axis=3)[cpol]                         # Time Average and Select Pol
-        else:
-            for ch_index in range(chNum):
-                Xspec[0, ch_index] = gainCalVis( Xspec[0,ch_index], GainX, GainX)
-                Xspec[1, ch_index] = gainCalVis( Xspec[1,ch_index], GainY, GainY)
-            #
-        #
-        #-------- Time Average
-        XPspec[scan_index,ppol[0]] = np.mean(Xspec, axis=3)[ppol[0]] * scanWeight[scan_index, 0]  # Time Average and Select Pol
-        XPspec[scan_index,ppol[1]] = np.mean(Xspec, axis=3)[ppol[1]] * scanWeight[scan_index, 1]  # Time Average and Select Pol
-        if cpolNum > 0: # Full polarization pairs
-            XPspec[scan_index,cpol[0]] = np.mean(Xspec, axis=3)[cpol[0]] * scanWeight[scan_index, 0]  # Time Average and Select Pol
-            XPspec[scan_index,cpol[1]] = np.mean(Xspec, axis=3)[cpol[1]] * scanWeight[scan_index, 1]  # Time Average and Select Pol
-        #
-        print 'Weight = %6.1e %6.1e' % (scanWeight[scan_index, 0], scanWeight[scan_index, 1])
-    #
-    #-------- Antenna-based bandpass spectra
-    for pol_index in range(ppolNum):
-        #-------- Solution (BL -> Ant)
-        BP_ant[:,spw_index, pol_index] = np.apply_along_axis(gainComplex, 0, np.mean(XPspec, axis=0)[ppol[pol_index]].T)
-    #
-    #-------- Bandpass Correction for Cross-pol
-    if cpolNum > 0: # Full polarization pairs
-        for bl_index in range(blNum):
-            ants = Bl2Ant(bl_index)
-            BPXY[:,bl_index] = BP_ant[ants[0], spw_index, 0]* BP_ant[ants[1], spw_index, 1].conjugate()
-            BPYX[:,bl_index] = BP_ant[ants[0], spw_index, 1]* BP_ant[ants[1], spw_index, 0].conjugate()
-        #
-        XC = np.mean( (XCspec[0] / BPXY), axis=1 ) + np.mean( (XCspec[1] / BPYX), axis=1 ).conjugate()
-        XYdelay[spw_index], amp = delay_search( XC[chRange] )
-        XYdelay[spw_index] *= (float(chNum) / float(len(chRange)))
-    #
+print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
+#-------- Bandpass Table
+print '---Generating antenna-based bandpass table'
+BPList, XYdelayList = [], []
+spwNum = len(spw)
+for spw_index in spw:
+    BP_ant, XYdelay = BPtable(msfile, spw_index, BPscan, blMap, blInv)
+    BPList = BPList + [BP_ant]
+    XYdelayList = XYdelayList + [XYdelay]
+    print 'SPW%d: XY delay [sample] = %f' % (spw_index, XYdelay)
 #
-print 'XY delay [sample] = ' + `XYdelay`
-if plotMax == 0.0:
-    plotMax = 1.5* np.median(abs(BP_ant))
+BP_ant = np.array(BPList).transpose(1,0,2,3)
+XYdelay = np.array(XYdelayList)
+ppolNum = BP_ant.shape[2]
+PolList = ['X', 'Y']
 #
 #-------- Save CalTables
+np.save(prefix + '.Ant.npy', antList[antMap]) 
 for spw_index in range(spwNum):
-    np.save(prefix + '-REF' + antList[0] + '-SPW' + `spw[spw_index]` + '-BPant.npy', BP_ant[:,spw_index]) 
-    if cpolNum > 0: # Full polarization pairs
-        np.save(prefix + '-REF' + antList[0] + '-SPW' + `spw[spw_index]` + '-XYdelay.npy', XYdelay[spw_index]) 
-    #
+    np.save(prefix + '-REF' + antList[refantID] + '-SPW' + `spw[spw_index]` + '-BPant.npy', BP_ant[:,spw_index]) 
+    np.save(prefix + '-REF' + antList[refantID] + '-SPW' + `spw[spw_index]` + '-XYdelay.npy', XYdelay[spw_index]) 
 #
-np.save(prefix + '.Ant.npy', antList) 
 #-------- Plots
 if BPPLOT:
+    plotMax = 1.5* np.median(abs(BP_ant))
     #-------- Prepare Plots
     for ant_index in range(antNum):
         figAnt = plt.figure(ant_index, figsize = (11, 8))
-        figAnt.suptitle(prefix + ' ' + antList[ant_index] + ' Scan = ' + `BPscan[0]`)
+        figAnt.suptitle(prefix + ' ' + antList[antMap[ant_index]] + ' Scan = ' + `BPscan`)
         figAnt.text(0.45, 0.05, 'Frequency [GHz]')
         figAnt.text(0.03, 0.45, 'Bandpass Amplitude and Phase', rotation=90)
     #
@@ -136,12 +73,12 @@ if BPPLOT:
             BPphsPL = figAnt.add_subplot( 2, spwNum, spw_index + spwNum + 1 )
             for pol_index in range(ppolNum):
                 plotBP = BP_ant[ant_index, spw_index, pol_index]
-                BPampPL.plot( Freq, abs(plotBP), ls='steps-mid', label = 'Pol=' + polName[ppol[pol_index]])
+                BPampPL.plot( Freq, abs(plotBP), ls='steps-mid', label = 'Pol=' + PolList[pol_index])
                 BPampPL.axis([np.min(Freq), np.max(Freq), 0.0, 1.25* plotMax])
                 BPampPL.yaxis.set_major_formatter(ptick.ScalarFormatter(useMathText=True))
                 BPampPL.yaxis.offsetText.set_fontsize(10)
                 BPampPL.ticklabel_format(style='sci',axis='y',scilimits=(0,0))
-                BPphsPL.plot( Freq, np.angle(plotBP), '.', label = 'Pol=' + polName[ppol[pol_index]])
+                BPphsPL.plot( Freq, np.angle(plotBP), '.', label = 'Pol=' + PolList[pol_index])
                 BPphsPL.axis([np.min(Freq), np.max(Freq), -math.pi, math.pi])
             #
             BPampPL.legend(loc = 'lower left', prop={'size' :7}, numpoints = 1)
@@ -150,11 +87,10 @@ if BPPLOT:
             BPphsPL.text( np.min(Freq), 2.5, 'SPW=' + `spw[spw_index]` + ' Phase')
         #
         if PLOTFMT == 'png':
-            figAnt.savefig('BP_' + prefix + '_' + antList[ant_index] + '-REF' + antList[0] + '_Scan' + `BPscan[0]` + '.png')
+            figAnt.savefig('BP_' + prefix + '_' + antList[antMap[ant_index]] + '-REF' + antList[refantID] + '_Scan' + `BPscan` + '.png')
         else :
-            figAnt.savefig('BP_' + prefix + '_' + antList[ant_index] + '-REF' + antList[0] + '_Scan' + `BPscan[0]` + '.pdf')
+            figAnt.savefig('BP_' + prefix + '_' + antList[antMap[ant_index]] + '-REF' + antList[refantID] + '_Scan' + `BPscan` + '.pdf')
         #
     #
     plt.close('all')
 #
-np.save(prefix + '-REF' + antList[0] + '.Delay.npy', Delay_ant) 

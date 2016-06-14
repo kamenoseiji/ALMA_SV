@@ -14,19 +14,13 @@ def scanThresh( msfile, ant_index, thresh ):
     time_index = np.where( AntID == ant_index )[0]
     onAxisIndex = np.where( Offset[0, time_index]**2 + Offset[1, time_index]**2 < thresh**2 )[0]
     return time_index[onAxisIndex].tolist()
-    #return onAxisIndex.tolist()
 #
 #-------- Time-based matching between time tags in visibilities and in scan pattern 
-#def AzElMatch( refTime, scanTime, thresh, Az, El ):
-#    index = np.where( abs(scanTime - refTime) < thresh)[0]
-#    return np.median(Az[index]), np.median(El[index])
-#
 def timeMatch( refTime, scanTime, thresh):
     match = np.where( abs(scanTime - refTime) < thresh)[0].tolist()
     return len(match)
 #
 #----------------------------------------- Procedures
-#mjdSec, Az, El, PA = [], [], []. []
 msfile = wd + prefix + '.ms'
 msmd.open(msfile)
 #-------- Antenna List
@@ -198,7 +192,7 @@ if BEAMPLOT:
             plt.subplot( 2, 2, 2, aspect=1); plt.contourf(xi, yi, phsBeamX, np.linspace(-270, 90, 37), cmap=phsCmap); plt.colorbar(); plt.title('Phs(BeamX)')
             circle_x, circle_y = circlePoints(0, 0, fwhm/2); plt.plot( circle_x, circle_y )
             circle_x, circle_y = circlePoints(0, 0, fwhm); plt.plot( circle_x, circle_y )
-            plt.subplot( 2, 2, 3, aspect=1); plt.contourf(xi, yi, ampBeamY, np.linspace(-20.0, 0.0, 22), cmap=ampCmap); plt.colorbar(); plt.title('Amp(BeamY)')
+            plt.subplot( 2, 2, 3, aspect=1); plt.contourf(xi, yi, ampBeamY, np.linspace(-20.0, 0.0, 21), cmap=ampCmap); plt.colorbar(); plt.title('Amp(BeamY)')
             circle_x, circle_y = circlePoints(0, 0, fwhm/2); plt.plot( circle_x, circle_y )
             circle_x, circle_y = circlePoints(0, 0, fwhm); plt.plot( circle_x, circle_y )
             plt.subplot( 2, 2, 4, aspect=1); plt.contourf(xi, yi, phsBeamY, np.linspace(-270, 90, 37), cmap=phsCmap); plt.colorbar(); plt.title('Phs(BeamY)')
