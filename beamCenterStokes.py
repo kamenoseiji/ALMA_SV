@@ -15,19 +15,17 @@ for spw_index in range(spwNum):
     for file_index in range(fileNum):
         prefix, scan = prefixList[file_index], scanList[file_index]
         msfile = wd + prefix + '.ms'
-        #BPantList = np.load(wd + prefix + '.Ant.npy') 
-        #BP_ant = np.load(wd + BPfile[file_index])       # 
-        #XYdelay = np.load(wd + XYdelayfile[file_index])
+        BPantList, BP_ant, XYdelay = np.load(BPprefix + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYdelay.npy')
         interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw, scan); timeNum = len(timeStamp)
         #-------- Subarray with Tracking antennas
         antList = GetAntName(msfile)
-        interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw, scan)
         if refantName not in antList[trkAnt]:
             print refantName + ' does not exist in this MS.'
             sys.exit()
         #
         refantID = np.where( antList == refantName)[0][0]
         antMap = [refantID] + np.array(trkAnt)[range(trkAnt.index(refantID))].tolist() + np.array(trkAnt)[range(trkAnt.index(refantID)+1, len(trkAnt))].tolist()
+        BP_ant = BP_ant[indexList(antList[antMap], BPantList)]
         #-------- AZ, EL, PA
         azelTime, AntID, AZ, EL = GetAzEl(msfile)
         azelTime_index = np.where( AntID == refantID )[0].tolist()
@@ -45,16 +43,15 @@ for spw_index in range(spwNum):
             blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
         #
         #-------- Bandpass table
-        print '-- Bandpass table %s ...' % (prefix)
-        BP_ant, XYdelay = BPtable(msfile, spw, scan, blMap, blInv)
+        #print '-- Bandpass table %s ...' % (prefix)
+        #BP_ant, XYdelay = BPtable(msfile, spw, scan, blMap, blInv)
         #-------- Load Visibilities
-        print '-- Loading visibility data of SPW=%d ...' % (spw)
+        print '-- Loading visibility data %s SPW=%d ...' % (prefix, spw)
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)  # Xspec[POL, CH, BL, TIME]
         chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
         #-------- Bandpass Calibration
         print '---- Bandpass cal'
         tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)
-        #Xspec = (tempSpec / (BP_ant[ant0][:,polXindex]* BP_ant[ant1][:,polYindex].conjugate())).transpose(2,3,1,0) # 
         Xspec = (tempSpec / (BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # 
         #-------- XY delay cal
         print '---- XY delay cal'
