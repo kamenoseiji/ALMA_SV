@@ -175,14 +175,14 @@ for ant_index in range(scnAntNum):
 #
 #trkBlIndex  = np.where(blWeight == 1.0)[0].tolist(); trkBlNum  = len(trkBlIndex)        # Ref-Ref baselines
 #ScTrBlIndex = np.where(blWeight == 0.5)[0].tolist(); ScTrBlNum = len(ScTrBlIndex)       # Ref-Scan baselines
-#ScScBlIndex = np.where(blWeight == 0.25)[0].tolist(); ScScBlNum = len(ScScBlIndex)      # Scan-Scan baselines
+ScScBlIndex = np.where(blWeight == 0.25)[0].tolist(); ScScBlNum = len(ScScBlIndex)      # Scan-Scan baselines
 #
 #-------- Plot D-term spectrum for beam position
 logfile = open(prefix + '-SPW' + `spw` + '-DtermSpec.log', 'w')
 text_sd = 'ant beamoff branch ch ReDx ImDx ReDy ImDy'
 logfile.write(text_sd + '\n')
 OffBeam = np.sqrt(dAz**2 + dEl**2)
-ScanInterval = median( np.diff( dAz[0:100] ))
+ScanInterval = median( np.diff( dAz[0:50] ))
 SortOffBeam = np.sort( OffBeam )
 BreakIndex = np.where( np.diff(SortOffBeam) > 0.5* ScanInterval)[0]
 thresh = 0.5*( SortOffBeam[BreakIndex] + SortOffBeam[BreakIndex + 1])
