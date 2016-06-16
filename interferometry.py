@@ -576,7 +576,8 @@ def clphase_solve(bl_phase, bl_error):
 	return np.append(0, solution), np.append(0, np.sqrt(np.diag(ptwp_inv)))
 #
 def Vis2solveDD(Vis, PS):
-    blNum  = Vis.shape[1]                   # (I, Q, U, V)
+    #blNum  = Vis.shape[1]                   # (I, Q, U, V)
+    blNum  = len(Vis) / 4
     antNum = Bl2Ant(blNum)[0]               # Number of tracking antennas
     Dx, Dy = np.zeros(antNum, dtype=complex), np.zeros(antNum, dtype=complex)     # Dx, Dy solutions for scanning antenna
     W = np.diag( np.r_[0.1*np.ones(blNum), np.ones(blNum), np.ones(blNum), 0.1*np.ones(blNum), 0.1*np.ones(blNum), np.ones(blNum), np.ones(blNum), 0.1*np.ones(blNum)] )
@@ -590,8 +591,8 @@ def Vis2solveDD(Vis, PS):
             stokesReIndex = range(bl_index, 4* blNum, blNum)
             stokesImIndex = range(bl_index + 4*blNum, 8*blNum, blNum)
             ModelVis = np.dot(MullerMatrix(Dx[ant1[bl_index]], Dy[ant1[bl_index]], Dx[ant0[bl_index]], Dy[ant0[bl_index]]), PS)
-            residVis[stokesReIndex] = Vis[:,bl_index].real  - ModelVis.real
-            residVis[stokesImIndex] = Vis[:,bl_index].imag  - ModelVis.imag
+            residVis[stokesReIndex] = Vis[stokesReIndex].real  - ModelVis.real
+            residVis[stokesImIndex] = Vis[stokesReIndex].imag  - ModelVis.imag
             #-------- Derivative by  ReDx0
             DeltaP = 100.0*(np.dot(MullerMatrix(Dx[ant1[bl_index]] + 0.01, Dy[ant1[bl_index]], Dx[ant0[bl_index]], Dy[ant0[bl_index]]), PS) - ModelVis)
             P[stokesReIndex, ant1[bl_index]] += DeltaP.real
@@ -649,8 +650,8 @@ def Vis2solveD(Vis, DtX, DtY, PS ):
             stokesReIndex = range(index, 4* trkAntNum, trkAntNum)
             stokesImIndex = range(index + 4* trkAntNum, 8*trkAntNum, trkAntNum)
             ModelVis = np.dot(MullerMatrix(DtX[index], DtY[index], Dx, Dy), PS)
-            #residVis[stokesReIndex] = Vis[stokesReIndex] - ModelVis
-            residVis[stokesReIndex] = Vis[:, index] - ModelVis
+            residVis[stokesReIndex] = Vis[stokesReIndex] - ModelVis
+            #residVis[stokesReIndex] = Vis[:, index] - ModelVis
             #-------- Derivative by  ReDx
             DeltaP = 100.0*(np.dot(MullerMatrix(DtX[index], DtY[index], Dx + 0.01,  Dy), PS) - ModelVis)
             P[stokesReIndex, 0] += DeltaP.real
