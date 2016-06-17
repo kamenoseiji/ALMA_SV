@@ -238,7 +238,7 @@ for spw_index in range(spwNum):
     PA = AzEl2PA(np.median(OnAZ[:,scan_index]), np.median(OnEL[:,scan_index]))
     PS = InvPAMatrix(PA)
     tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)       # Cross Polarization Baseline Mapping
-    Xspec = (tempSpec / (BPList[spw_index][ant0][:,polXindex]* BPList[spw_index][ant1][:,polYindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
+    Xspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
     #-------- XY delay cal
     XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelayList[spw_index] )
     Xspec[1] = (Xspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
@@ -325,7 +325,7 @@ for spw_index in range(spwNum):
     PA = AzEl2PA(np.median(OnAZ[:,scan_index]), np.median(OnEL[:,scan_index]))
     PS = InvPAMatrix(PA)
     tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1) 
-    Xspec = (tempSpec / (BPList[spw_index][ant0][:,polXindex]* BPList[spw_index][ant1][:,polYindex].conjugate())).transpose(2,3,1,0)[:,:,SAblMap]
+    Xspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0)[:,:,SAblMap]
     #-------- XY delay cal
     XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelayList[spw_index] )
     Xspec[1] = (Xspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
@@ -411,7 +411,7 @@ for scan_index in range(scanNum):
         chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
         tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)[:,SAblMap]       # Cross Polarization Baseline Mapping
         #-------- Bandpass Calibration
-        BP_bl = BPList[spw_index][SAant0][:,polXindex]* BPList[spw_index][SAant1][:,polYindex].conjugate()
+        BP_bl = BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate()
         Xspec = (tempSpec / BP_bl).transpose(2,3,1,0) # Bandpass Cal
         #-------- XY delay cal
         XYdlSpec = delay_cal(np.ones([chNum], dtype=complex), XYdelayList[spw_index])

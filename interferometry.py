@@ -575,13 +575,47 @@ def clphase_solve(bl_phase, bl_error):
     #
 	return np.append(0, solution), np.append(0, np.sqrt(np.diag(ptwp_inv)))
 #
+def MullerVector(Dx0, Dy0, Dx1, Dy1, Unity):
+    P = np.array([[Unity,               Dx1.conjugate(),      Dx0,                  Dx0* Dx1.conjugate()],
+                  [Dy1.conjugate(),     Unity,                Dx0* Dy1.conjugate(), Dx0                 ],
+                  [Dy0,                 Dx1.conjugate()* Dy0, Unity,                Dy1.conjugate()     ],
+                  [Dy0*Dy1.conjugate(), Dy0,                  Dy1.conjugate(),      Unity               ]]) #.transpose(2,0,1)
+    return P
+#
+
 def Vis2solveDD(Vis, PS):
-    #blNum  = Vis.shape[1]                   # (I, Q, U, V)
-    blNum  = len(Vis) / 4
-    antNum = Bl2Ant(blNum)[0]               # Number of tracking antennas
-    Dx, Dy = np.zeros(antNum, dtype=complex), np.zeros(antNum, dtype=complex)     # Dx, Dy solutions for scanning antenna
-    W = np.diag( np.r_[0.1*np.ones(blNum), np.ones(blNum), np.ones(blNum), 0.1*np.ones(blNum), 0.1*np.ones(blNum), np.ones(blNum), np.ones(blNum), 0.1*np.ones(blNum)] )
+    blNum  = Vis.shape[1]; antNum = Bl2Ant(blNum)[0]                   # (I, Q, U, V)
     ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
+    Dx, Dy, Unity = np.zeros(antNum, dtype=complex), np.zeros(antNum, dtype=complex), np.ones(blNum, dtype=complex)     # Dx, Dy solutions for scanning antenna
+    W = np.diag( np.r_[0.1*np.ones(blNum), np.ones(blNum), np.ones(blNum), 0.1*np.ones(blNum), 0.1*np.ones(blNum), np.ones(blNum), np.ones(blNum), 0.1*np.ones(blNum)] )
+    #P = np.array([[Unity,                         Dx[ant1].conjugate(),           Dx[ant0],                       Dx[ant0]* Dx[ant1].conjugate()],
+    #              [Dy[ant1].conjugate(),          Unity,                          Dx[ant0]* Dy[ant1].conjugate(), Dx[ant0]                      ],
+    #              [Dy[ant0]            ,          Dx[ant1].conjugate()* Dy[ant0], Unity,                          Dy[ant1].conjugate()          ],
+    #              [Dy[ant0]*Dy[ant1].conjugate(), Dy[ant0],                       Dy[ant1].conjugate(),           Unity                         ]]).transpose(2,0,1)
+    P = MullerVector( Dx[ant0], Dy[ant0], Dx[ant1], Dy[ant1], Unity ).transpose(2,0,1)
+    #dP = MullerMatrix( (Dx + 0.01)[ant0], Dy[ant0], Dx[ant1], Dy[ant1], Unity ).transpose(2,0,1)
+    resid = Vis - np.dot(P, PS).T
+    eps = 1.0e-4; ips = 1.0j* eps
+    dXPre, dYPre, dXPim, dYPim = np.zeros([blNum, 4*antNum], dtype=complex), np.zeros([blNum, 4*antNum], dtype=complex), np.zeros([blNum, 4*antNum], dtype=complex), np.zeros([blNum, 4*antNum], dtype=complex)
+    for bl_index in range(blNum):
+        a0, a1 = ant0[bl_index], ant1[bl_index]
+        a0Range, a1Range = range(4*a0, 4*a0+4), range(4*a1, 4*a1+4)
+        ModelVis = np.dot(MullerMatrix(Dx[a1], Dy[a1], Dx[a0], Dy[a0]), PS)
+        dXPre[bl_index, a1Range] += (np.dot( MullerMatrix(Dx[a1]+eps, Dy[a1], Dx[a0], Dy[a0]), PS) - ModelVis) / eps
+        dXPre[bl_index, a0Range] += (np.dot( MullerMatrix(Dx[a1], Dy[a1], Dx[a0]+eps, Dy[a0]), PS) - ModelVis) / eps
+        dYPre[bl_index, a1Range] += (np.dot( MullerMatrix(Dx[a1], Dy[a1]+eps, Dx[a0], Dy[a0]), PS) - ModelVis) / eps
+        dYPre[bl_index, a0Range] += (np.dot( MullerMatrix(Dx[a1], Dy[a1], Dx[a0], Dy[a0]+eps), PS) - ModelVis) / eps
+        dXPim[bl_index, a1Range] += (np.dot( MullerMatrix(Dx[a1]+ips, Dy[a1], Dx[a0], Dy[a0]), PS) - ModelVis) / eps
+        dXPim[bl_index, a0Range] += (np.dot( MullerMatrix(Dx[a1], Dy[a1], Dx[a0]+ips, Dy[a0]), PS) - ModelVis) / eps
+        dYPim[bl_index, a1Range] += (np.dot( MullerMatrix(Dx[a1], Dy[a1]+ips, Dx[a0], Dy[a0]), PS) - ModelVis) / eps
+        dYPim[bl_index, a0Range] += (np.dot( MullerMatrix(Dx[a1], Dy[a1], Dx[a0], Dy[a0]+ips), PS) - ModelVis) / eps
+    #
+    dP = c_[dXPre, dYPre, dXPim, dYPim]
+    return
+"""
+
+    temp = np.array([Unity, Dx[ant1].conjugate(), Dx[ant0], Dx[ant0]* Dx[ant1].conjugate()]).T
+
     for loop_index in range(2):
         residVis = np.zeros(8* blNum)    # Residual (real and imaginary) vector (Obs - Model)
         P = np.zeros([8*blNum, 4* antNum]) # [ReXX, ReXY, ReYX, ReYY, ImXX, ImXY, ImYX, ImYY] x [ReDx, ImDx, ReDy, ImDy], No Im part in refant
@@ -591,6 +625,7 @@ def Vis2solveDD(Vis, PS):
             stokesReIndex = range(bl_index, 4* blNum, blNum)
             stokesImIndex = range(bl_index + 4*blNum, 8*blNum, blNum)
             ModelVis = np.dot(MullerMatrix(Dx[ant1[bl_index]], Dy[ant1[bl_index]], Dx[ant0[bl_index]], Dy[ant0[bl_index]]), PS)
+
             residVis[stokesReIndex] = Vis[stokesReIndex].real  - ModelVis.real
             residVis[stokesImIndex] = Vis[stokesReIndex].imag  - ModelVis.imag
             #-------- Derivative by  ReDx0
@@ -676,6 +711,7 @@ def Vis2solveD(Vis, DtX, DtY, PS ):
         # print 'Iter%d : Residual = %e' % (loop_index, np.dot(np.r_[residVis.real, residVis.imag], np.r_[residVis.real, residVis.imag]))
     #
     return Dx, Dy
+"""
 #
 def beamF(disk2FWHMratio):     # diskR / FWHM ratio
     disk2sigma = disk2FWHMratio * 2.3548200450309493   # FWHM / (2.0* sqrt(2.0* log(2.0)))
