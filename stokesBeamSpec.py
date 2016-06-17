@@ -156,7 +156,6 @@ for ch_index in range(chNum):
     logfile.write(text_sd + '\n')
 #
 logfile.close()
-"""
 #-------- Determination of D-terms in scanning antennas
 print('-------- Determining Antenna-based D-terms (scan ants) ----')
 for ant_index in range(scnAntNum):
@@ -471,4 +470,3 @@ for thresh_index in range(6):
     plt.savefig( prefix + '-' + '-SPW' + `spw` + '-OFF' + `round(np.median(np.sqrt(Dist2[time_index])),1)` + '-StokesSpec.pdf', form='pdf'); plt.close()
 #
 logfile.close()
-"""
