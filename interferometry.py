@@ -642,39 +642,39 @@ def Vis2solveDD(Vis, PS):
 #
 def Vis2solveD(Vis, DtX, DtY, PS ):
     trkAntNum = len(DtX)  # Number of tracking antennas
-    W = np.diag( np.r_[0.1*np.ones(trkAntNum), np.ones(trkAntNum), np.ones(trkAntNum), 0.1*np.ones(trkAntNum), 0.1*np.ones(trkAntNum), np.ones(trkAntNum), np.ones(trkAntNum), 0.1*np.ones(trkAntNum)] )
+    weight = np.r_[0.1*np.ones(trkAntNum), np.ones(trkAntNum), np.ones(trkAntNum), 0.1*np.ones(trkAntNum), 0.1*np.ones(trkAntNum), np.ones(trkAntNum), np.ones(trkAntNum), 0.1*np.ones(trkAntNum)]
     Dx, Dy = 0.0 + 0.0j, 0.0 + 0.0j
+    eps = 1.0e-4; ips = 1.0j* eps
     for loop_index in range(2):
-        residVis = np.zeros(4* trkAntNum, dtype=complex)    # Residual (real and imaginary) vector (Obs - Model)
-        P = np.zeros([8*trkAntNum, 4]) # [ReXX, ReXY, ReYX, ReYY, ImXX, ImXY, ImYX, ImYY] x [ReDx, ImDx, ReDy, ImDy]
+        residVis = np.zeros([4, trkAntNum], dtype=complex)    # Residual (real and imaginary) vector (Obs - Model)
+        dP = np.zeros([4, 8*trkAntNum]) # [ReDx, ImDx, ReDy, ImDy], [ReXX, ReXY, ReYX, ReYY, ImXX, ImXY, ImYX, ImYY]
         #-------- Determine P matrix
         for index in range(trkAntNum):
-            stokesReIndex = range(index, 4* trkAntNum, trkAntNum)
-            stokesImIndex = range(index + 4* trkAntNum, 8*trkAntNum, trkAntNum)
-            ModelVis = np.dot(MullerMatrix(DtX[index], DtY[index], Dx, Dy), PS)
-            residVis[stokesReIndex] = Vis[stokesReIndex] - ModelVis
-            #residVis[stokesReIndex] = Vis[:, index] - ModelVis
+            breRange, bimRange = range(index, 4*trkAntNum, trkAntNum), range(4*trkAntNum + index, 8*trkAntNum, trkAntNum)
+            ModelVis = np.dot(MullerMatrix(Dx, Dy, DtX[index], DtY[index]), PS)
+            residVis[:,index] = Vis[:,index] - ModelVis
             #-------- Derivative by  ReDx
-            DeltaP = 100.0*(np.dot(MullerMatrix(DtX[index], DtY[index], Dx + 0.01,  Dy), PS) - ModelVis)
-            P[stokesReIndex, 0] += DeltaP.real
-            P[stokesImIndex, 0] += DeltaP.imag
+            dVis = (np.dot(MullerMatrix(Dx+eps, Dy,     DtX[index], DtY[index]), PS) - ModelVis) / eps
+            dP[0, breRange] += dVis.real
+            dP[0, bimRange] += dVis.imag
             #-------- Derivative by ImDx
-            DeltaP = 100.0*(np.dot(MullerMatrix(DtX[index], DtY[index], Dx + 0.01j, Dy), PS) - ModelVis)
-            P[stokesReIndex, 1] += DeltaP.real
-            P[stokesImIndex, 1] += DeltaP.imag
+            dVis = (np.dot(MullerMatrix(Dx+ips, Dy,     DtX[index], DtY[index]), PS) - ModelVis) / eps
+            dP[1, breRange] += dVis.real
+            dP[1, bimRange] += dVis.imag
             #-------- Derivative by  ReDy
-            DeltaP = 100.0*(np.dot(MullerMatrix(DtX[index], DtY[index], Dx, Dy + 0.01),  PS) - ModelVis)
-            P[stokesReIndex, 2] += DeltaP.real
-            P[stokesImIndex, 2] += DeltaP.imag
+            dVis = (np.dot(MullerMatrix(Dx,     Dy+eps, DtX[index], DtY[index]), PS) - ModelVis) / eps
+            dP[2, breRange] += dVis.real
+            dP[2, bimRange] += dVis.imag
             #-------- Derivative by ImDx
-            DeltaP = 100.0*(np.dot(MullerMatrix(DtX[index], DtY[index], Dx, Dy + 0.01j), PS) - ModelVis)
-            P[stokesReIndex, 3] += DeltaP.real
-            P[stokesImIndex, 3] += DeltaP.imag
+            dVis = (np.dot(MullerMatrix(Dx,     Dy+ips, DtX[index], DtY[index]), PS) - ModelVis) / eps
+            dP[3, breRange] += dVis.real
+            dP[3, bimRange] += dVis.imag
         #
-        PTWP = np.dot(P.T, np.dot(W, P))
-        D_vec = np.dot( np.linalg.inv( PTWP ), np.dot(P.T, np.dot(W, np.r_[residVis.real, residVis.imag])))
-        Dx += (D_vec[0] + 1.0j*D_vec[1])
-        Dy += (D_vec[2] + 1.0j*D_vec[3])
+        residVis = residVis.reshape(4*trkAntNum)
+        dPtWdP = np.dot(dP, np.dot(np.diag(weight), dP.T))
+        correction = np.dot( scipy.linalg.inv( dPtWdP ), np.dot(dP, weight* np.r_[residVis.real, residVis.imag]))
+        Dx += (correction[0] + 1.0j*correction[1])
+        Dy += (correction[2] + 1.0j*correction[3])
         # print 'Iter%d : Residual = %e' % (loop_index, np.dot(np.r_[residVis.real, residVis.imag], np.r_[residVis.real, residVis.imag]))
     #
     return Dx, Dy
