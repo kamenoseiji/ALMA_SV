@@ -120,7 +120,7 @@ for seg_index in range(PAsegNum):
 sys.stderr.write('\n'); sys.stderr.flush()
 DxMean, DyMean = np.mean(trkDx, axis=1), np.mean(trkDy, axis=1)
 Dx[range(trkAntNum)] = (Dx[range(trkAntNum)].transpose(1,0,2) + DxMean).transpose(1,0,2)
-Dy[range(trkAntNum)] = (Dx[range(trkAntNum)].transpose(1,0,2) + DyMean).transpose(1,0,2)
+Dy[range(trkAntNum)] = (Dy[range(trkAntNum)].transpose(1,0,2) + DyMean).transpose(1,0,2)
 #-------- Record on-axis D-term spectrum
 logfile = open(prefix + '-SPW' + `spw` + '-TrkDtermSpec.log', 'w')
 text_sd = 'ant ch ReDx ImDx ReDy ImDy'
@@ -173,8 +173,8 @@ for ant_index in range(scnAntNum):
     #
     sys.stderr.write('\n'); sys.stderr.flush()
 #
-#trkBlIndex  = np.where(blWeight == 1.0)[0].tolist(); trkBlNum  = len(trkBlIndex)        # Ref-Ref baselines
-#ScTrBlIndex = np.where(blWeight == 0.5)[0].tolist(); ScTrBlNum = len(ScTrBlIndex)       # Ref-Scan baselines
+trkBlIndex  = np.where(blWeight == 1.0)[0].tolist(); trkBlNum  = len(trkBlIndex)        # Ref-Ref baselines
+ScTrBlIndex = np.where(blWeight == 0.5)[0].tolist(); ScTrBlNum = len(ScTrBlIndex)       # Ref-Scan baselines
 ScScBlIndex = np.where(blWeight == 0.25)[0].tolist(); ScScBlNum = len(ScScBlIndex)      # Scan-Scan baselines
 #
 #-------- Plot D-term spectrum for beam position
@@ -192,7 +192,7 @@ xrange, yrange = [min(Freq[chRange]), max(Freq[chRange])], [-0.1, 0.1]
 for ant_index in range(scnAntNum):
     antID = scnAnt[ant_index]
     DantID = trkAntNum + ant_index
-    for thresh_index in range(6):
+    for thresh_index in range(8):
         time_index = list(set(np.where(Dist2 > thresh[thresh_index]**2 )[0]) & set(np.where(Dist2 < thresh[thresh_index + 1]**2 )[0]))
         fig = plt.figure(thresh_index, figsize = (8,11))
         fig.text(0.45, 0.05, 'Frequency [GHz]')
@@ -243,6 +243,7 @@ for ant_index in range(scnAntNum):
 logfile.close()
 #-------- Plot channel-averaged D-terms of scanning antennas
 print('-------- Plot D-term Maps for scan ants ----')
+chAvgDx, chAvgDy = np.mean(Dx[:,:,chRange], axis=2), np.mean(Dy[:,:,chRange], axis=2)
 for ant_index in range(scnAntNum):
     antID = scnAnt[ant_index]
     DantID = trkAntNum + ant_index
@@ -256,12 +257,12 @@ for ant_index in range(scnAntNum):
     IndexCenter = np.where( dAz**2 + dEl**2 < 0.005* FWHM[DantID]**2 )[0]
     Index3dB = np.where( dAz**2 + dEl**2 < 0.25* FWHM[DantID]**2 )[0]
     Index6dB = np.where( dAz**2 + dEl**2 < 0.5* FWHM[DantID]**2 )[0]
-    Dx3dB, Dy3dB = np.mean(Dx[DantID][Index3dB][:,chRange], axis=1), np.mean(Dy[DantID][Index3dB][:,chRange], axis=1)
-    Dx6dB, Dy6dB = np.mean(Dx[DantID][Index6dB][:,chRange], axis=1), np.mean(Dy[DantID][Index6dB][:,chRange], axis=1)
-    ReDxmap = GridData( np.mean(Dx[DantID][:, chRange], axis=1).real, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM[DantID]/16).reshape(len(xi), len(xi))
-    ImDxmap = GridData( np.mean(Dx[DantID][:, chRange], axis=1).imag, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM[DantID]/16).reshape(len(xi), len(xi))
-    ReDymap = GridData( np.mean(Dy[DantID][:, chRange], axis=1).real, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM[DantID]/16).reshape(len(xi), len(xi))
-    ImDymap = GridData( np.mean(Dy[DantID][:, chRange], axis=1).imag, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM[DantID]/16).reshape(len(xi), len(xi))
+    Dx3dB, Dy3dB = chAvgDx[DantID][Index3dB], chAvgDy[DantID][Index3dB]
+    Dx6dB, Dy6dB = chAvgDx[DantID][Index6dB], chAvgDy[DantID][Index6dB]
+    ReDxmap = GridData( chAvgDx[DantID].real, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM[DantID]/16).reshape(len(xi), len(xi))
+    ImDxmap = GridData( chAvgDx[DantID].imag, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM[DantID]/16).reshape(len(xi), len(xi))
+    ReDymap = GridData( chAvgDy[DantID].real, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM[DantID]/16).reshape(len(xi), len(xi))
+    ImDymap = GridData( chAvgDy[DantID].imag, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM[DantID]/16).reshape(len(xi), len(xi))
     #---- plot Re(Dx)
     plt.subplot( 2, 2, 1, aspect=1); plt.contourf(xi, yi, ReDxmap, np.linspace(-0.10, 0.10, 11)); plt.colorbar(); plt.title('Re(Dx)')
     circle_x, circle_y = circlePoints(0, 0, FWHM[DantID]/2); plt.plot( circle_x, circle_y )
