@@ -1252,6 +1252,23 @@ def gainComplex( bl_vis ):
     blNum  =  len(bl_vis)
     antNum =  Bl2Ant(blNum)[0]
     ant0, ant1, kernelBL = ANT0[0:blNum], ANT1[0:blNum], (arange(antNum-1)*(arange(antNum-1)+1)/2).tolist()
+    CompSol = sqrt(abs(bl_vis[0])) + 0.0j 
+    CompSol = np.append( CompSol, bl_vis[kernelBL] / CompSol )
+    realSol = np.append(CompSol[range(antNum)].real, CompSol[range(1, antNum)].imag)
+    def residual(solution):
+        Csol  = solution[range(antNum)]+ 1.0j* np.append(0.0, solution[range(antNum, 2*antNum-1)])
+        Cresid = bl_vis - Csol[ant0]* Csol[ant1].conjugate()
+        resid  = np.append( Cresid.real, Cresid.imag )
+    return np.dot(resid, resid)
+    #
+    realSol = scipy.optimize.minimize( residual, realSol )['x']
+    return realSol[range(antNum)]+ 1.0j* np.append(0.0, realSol[range(antNum, 2*antNum-1)])
+#
+"""
+def gainComplex( bl_vis ):
+    blNum  =  len(bl_vis)
+    antNum =  Bl2Ant(blNum)[0]
+    ant0, ant1, kernelBL = ANT0[0:blNum], ANT1[0:blNum], (arange(antNum-1)*(arange(antNum-1)+1)/2).tolist()
     CompSol, CM, MMap = np.zeros(antNum, dtype=complex), np.zeros([2*blNum, 2*antNum]), range(antNum) + range(antNum+1, 2*antNum)
     #---- Initial solution
     CompSol[0] = sqrt(abs(bl_vis[0])) + 0j
@@ -1283,6 +1300,7 @@ def gainComplex( bl_vis ):
     #
     return CompSol
 #
+"""
 #-------- Function to calculate visibilities
 def polariVis( Xspec ):     # Xspec[polNum, blNum, chNum, timeNum]
     blNum, chNum, timeNum   = Xspec.shape[1], Xspec.shape[2], Xspec.shape[3]
