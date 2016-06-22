@@ -52,11 +52,6 @@ def readGrid( file ):
     #
     return Az, El
 #
-#-------- Time-based matching between time tags in visibilities and in scan pattern 
-def AzElMatch( refTime, scanTime, thresh, Offset ):
-    index = np.where( abs(scanTime - refTime) < thresh)[0]
-    return np.median(Offset[0, index]), np.median(Offset[1, index])
-#
 #-------- Divide scan into subscans, based on time continuity
 def subScan(scanTime, gapThresh):
     gapIndex = np.where( diff(scanTime) > gapThresh )[0]
@@ -201,7 +196,7 @@ scanTime, AntID, az, el = GetAzEl(msfile)
 index = np.where( AntID == refAntIndex[0])[0].tolist()
 azel = np.r_[az[index], el[index]].reshape(2, len(index))
 for time_index in range(timeNum):
-    AZ[time_index], EL[time_index] = AzElMatch( timeStamp[time_index], scanTime[index], np.median(diff(timeStamp)), azel)
+    AZ[time_index], EL[time_index] = AzElMatch( timeStamp[time_index], scanTime[index], AntID, refAntIndex, np.median(diff(timeStamp)), azel)
     PA[time_index] = AzEl2PA(AZ[time_index], EL[time_index], ALMA_lat) - BANDPA   #
 #
 UCmQS = solution[1]* np.cos(2.0*PA) - solution[0]* np.sin(2.0*PA)   # U cos - Q sin

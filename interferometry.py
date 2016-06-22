@@ -648,7 +648,8 @@ def Vis2solveDD(Vis, PS):
         #
         P = P[dSolMap]
         PWtP = np.dot(P, np.dot(np.diag(weight), P.T))
-        correction = np.dot(scipy.linalg.inv(PWtP), np.dot(P, weight* resReal))
+        # correction = np.dot(scipy.linalg.inv(PWtP), np.dot(P, weight* resReal))
+        correction = scipy.linalg.solve(PWtP, np.dot(P, weight* resReal))
         Dx += correction[range(antNum)]           + 1.0j* np.append(0, correction[range(2*antNum, 3*antNum-1)])
         Dy += correction[range(antNum, 2*antNum)] + 1.0j* correction[range(3*antNum-1, 4*antNum-1)]
     #
@@ -678,7 +679,8 @@ def Vis2solveD(Vis, DtX, DtY, PS ):
             np.r_[Zeros, Zeros, -dVis[:, 2].imag, -dVis[:, 3].imag, Zeros, Zeros, dVis[:, 2].real, dVis[:, 3].real]]
         #
         tPWP = np.dot(P.T, np.dot(np.diag(weight), P))
-        correction = np.dot( scipy.linalg.inv( tPWP ), np.dot(P.T, weight* np.r_[residVis.real, residVis.imag]))
+        correction = scipy.linalg.solve( tPWP, np.dot(P.T, weight* np.r_[residVis.real, residVis.imag]))
+        #correction = np.dot( scipy.linalg.inv( tPWP ), np.dot(P.T, weight* np.r_[residVis.real, residVis.imag]))
         Dx += (correction[0] + 1.0j*correction[1])
         Dy += (correction[2] + 1.0j*correction[3])
         # print 'Iter%d : Residual = %e' % (loop_index, np.dot(np.r_[residVis.real, residVis.imag], np.r_[residVis.real, residVis.imag]))
@@ -1276,8 +1278,9 @@ def gainComplex( bl_vis ):
         #
         PM = CM[:,MMap]
         PtWP = np.dot( PM.T, np.dot(np.diag(CWeight), PM) )
-        PtWP_inv = scipy.linalg.inv(PtWP)
-        correction = np.dot( PtWP_inv, np.dot(PM.T, CWeight* resid))
+        correction = scipy.linalg.solve(PtWP, np.dot(PM.T, CWeight* resid))
+        #PtWP_inv = scipy.linalg.inv(PtWP)
+        #correction = np.dot( PtWP_inv, np.dot(PM.T, CWeight* resid))
         CompSol = CompSol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
         # print 'Iter %d : Correction = %e' % (iter_index, np.dot(correction, correction)/np.dot(abs(CompSol), abs(CompSol)))
         if np.dot(correction, correction) < 1.0e-15* np.dot(abs(CompSol), abs(CompSol)): break

@@ -32,7 +32,7 @@ for spw_index in range(spwNum):
         timeThresh = np.median( np.diff( azelTime[azelTime_index]))
         #-------- Time index at on axis
         for time_index in range(timeNum):
-            scanAz, scanEl = AzElMatch(timeStamp[time_index], azelTime, timeThresh, AZ, EL)
+            scanAz, scanEl = AzElMatch(timeStamp[time_index], azelTime, AntID, refantID, timeThresh, AZ, EL)
             Az, El = np.append(Az, scanAz), np.append(El, scanEl)
         #
         mjdSec = np.append(mjdSec, timeStamp)
