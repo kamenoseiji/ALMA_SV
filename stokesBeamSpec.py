@@ -192,7 +192,7 @@ xrange, yrange = [min(Freq[chRange]), max(Freq[chRange])], [-0.1, 0.1]
 for ant_index in range(scnAntNum):
     antID = scnAnt[ant_index]
     DantID = trkAntNum + ant_index
-    for thresh_index in range(8):
+    for thresh_index in range(10):
         time_index = list(set(np.where(Dist2 > thresh[thresh_index]**2 )[0]) & set(np.where(Dist2 < thresh[thresh_index + 1]**2 )[0]))
         fig = plt.figure(thresh_index, figsize = (8,11))
         fig.text(0.45, 0.05, 'Frequency [GHz]')

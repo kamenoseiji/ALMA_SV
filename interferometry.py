@@ -1248,6 +1248,7 @@ def plotAmphi(fig, freq, spec):
 	phsAxis.axis( [min(freq), max(freq), -pi, pi], size='x-small' )
 	return
 #
+"""
 def gainComplex( bl_vis ):
     blNum  =  len(bl_vis)
     antNum =  Bl2Ant(blNum)[0]
@@ -1275,8 +1276,8 @@ def gainComplex( bl_vis ):
     CompSol[1:antNum] = bl_vis[kernelBL] / CompSol[0]
     Weight = np.abs(bl_vis)**2; CWeight = np.append(Weight, Weight)
     #---- Residual Visivility
-    for iter_index in range(10):
-        Cresid = Weight* (bl_vis - CompSol[ant0]* CompSol[ant1].conjugate())
+    for iter_index in range(3):
+        Cresid = (bl_vis - CompSol[ant0]* CompSol[ant1].conjugate())
         resid  = np.append( Cresid.real, Cresid.imag )
         #---- Matrix
         for bl_index in range(blNum):
@@ -1292,15 +1293,13 @@ def gainComplex( bl_vis ):
         #
         PM = CM[:,MMap]
         PtWP = np.dot( PM.T, np.dot(np.diag(CWeight), PM) )
-        PtWP_inv = scipy.linalg.inv(PtWP)
-        correction = np.dot( PtWP_inv, np.dot(PM.T, CWeight* resid))
+        correction = scipy.linalg.solve(PtWP, np.dot(PM.T, CWeight* resid))
         CompSol = CompSol + correction[range(antNum)] + 1j* np.append(0, correction[range(antNum, 2*antNum-1)])
         # print 'Iter %d : Correction = %e' % (iter_index, np.dot(correction, correction)/np.dot(abs(CompSol), abs(CompSol)))
         if np.dot(correction, correction) < 1.0e-8* np.dot(abs(CompSol), abs(CompSol)): break
     #
     return CompSol
 #
-"""
 #-------- Function to calculate visibilities
 def polariVis( Xspec ):     # Xspec[polNum, blNum, chNum, timeNum]
     blNum, chNum, timeNum   = Xspec.shape[1], Xspec.shape[2], Xspec.shape[3]
@@ -1347,17 +1346,13 @@ def polariVis( Xspec ):     # Xspec[polNum, blNum, chNum, timeNum]
 #-------- Determine antenna-based gain with polarized source
 def polariGain( XX, YY, PA, StokesQ, StokesU):
     blNum, timeNum = XX.shape[0], XX.shape[1]
-    csPA = np.cos(2.0* PA)
-    snPA = np.sin(2.0* PA)
+    csPA, snPA = np.cos(2.0* PA), np.sin(2.0* PA)
     Xscale = 1.0 / (1.0 + StokesQ* csPA + StokesU* snPA)
     Yscale = 1.0 / (1.0 - StokesQ* csPA - StokesU* snPA)
     #
-    ScaleXX = np.dot(XX, np.diag(Xscale))
-    ScaleYY = np.dot(YY, np.diag(Yscale))
+    ScaledXX, ScaledYY = XX* Xscale, YY* Yscale
     #
-    GainX = np.apply_along_axis( gainComplex, 0, ScaleXX)
-    GainY = np.apply_along_axis( gainComplex, 0, ScaleYY)
-    return GainX, GainY
+    return np.apply_along_axis(gainComplex, 0, ScaledXX), np.apply_along_axis(gainComplex, 0, ScaledYY)
 #
 def XY2Stokes(PA, VisXY, VisYX):
     #-------- Least-Square fit for polarizatino parameters (Q, U, XYphase, Dx, Dy)
