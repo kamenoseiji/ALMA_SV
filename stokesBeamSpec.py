@@ -80,8 +80,8 @@ centerIndex = scanThresh(msfile, scnAnt[0], FWHM[scnAnt[0]]/10.0); centerTime = 
 matchNum  = np.zeros([timeNum])
 for time_index in range(timeNum):
     matchNum[time_index] = timeMatch(timeStamp[time_index], centerTime, np.median(interval))
-    scanAz, scanEl = AzElMatch(timeStamp[time_index], scanTime, timeThresh, AZ, EL)
-    diffAz, diffEl = AzElMatch(timeStamp[time_index], scanTime, timeThresh, AzElOffset[0], AzElOffset[1])
+    scanAz, scanEl = AzElMatch(timeStamp[time_index], scanTime, AntID, refantID, timeThresh, AZ, EL)
+    diffAz, diffEl = AzElMatch(timeStamp[time_index], scanTime, AntID, scnAnt[0], timeThresh, AzElOffset[0], AzElOffset[1])
     Az, El = np.append(Az, scanAz), np.append(El, scanEl)
     dAz, dEl = np.append(dAz, diffAz), np.append(dEl, diffEl) 
 #
@@ -192,7 +192,7 @@ xrange, yrange = [min(Freq[chRange]), max(Freq[chRange])], [-0.1, 0.1]
 for ant_index in range(scnAntNum):
     antID = scnAnt[ant_index]
     DantID = trkAntNum + ant_index
-    for thresh_index in range(10):
+    for thresh_index in range(6):
         time_index = list(set(np.where(Dist2 > thresh[thresh_index]**2 )[0]) & set(np.where(Dist2 < thresh[thresh_index + 1]**2 )[0]))
         fig = plt.figure(thresh_index, figsize = (8,11))
         fig.text(0.45, 0.05, 'Frequency [GHz]')

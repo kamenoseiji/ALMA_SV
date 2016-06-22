@@ -147,9 +147,10 @@ def ecliptic2radec( longitude, latitude, mjd ):          # ecliptic -> J2000, mj
     return np.arctan2(Yb, Xb), np.arcsin(Zb)
 #
 #======== MS data interface
-def AzElMatch( refTime, scanTime, thresh, Az, El ):
-    index = np.where( abs(scanTime - refTime) < thresh)[0]
-    return np.median(Az[index]), np.median(El[index])
+def AzElMatch( refTime, scanTime, AntID, targetAnt, thresh, Az, El ):
+    antTimeIndex = np.where(AntID == targetAnt)[0].tolist()
+    time_pointer = np.array(antTimeIndex)[np.where( abs(scanTime[antTimeIndex] - refTime) < thresh)[0].tolist()].tolist()
+    return np.median(Az[time_pointer]), np.median(El[time_pointer])
 #
 def GetAntD(antName):
     antD = 12.0
@@ -1248,24 +1249,6 @@ def plotAmphi(fig, freq, spec):
 	phsAxis.axis( [min(freq), max(freq), -pi, pi], size='x-small' )
 	return
 #
-"""
-def gainComplex( bl_vis ):
-    blNum  =  len(bl_vis)
-    antNum =  Bl2Ant(blNum)[0]
-    ant0, ant1, kernelBL = ANT0[0:blNum], ANT1[0:blNum], (arange(antNum-1)*(arange(antNum-1)+1)/2).tolist()
-    CompSol = sqrt(abs(bl_vis[0])) + 0.0j 
-    CompSol = np.append( CompSol, bl_vis[kernelBL] / CompSol )
-    realSol = np.append(CompSol[range(antNum)].real, CompSol[range(1, antNum)].imag)
-    def residual(solution):
-        Csol  = solution[range(antNum)]+ 1.0j* np.append(0.0, solution[range(antNum, 2*antNum-1)])
-        Cresid = bl_vis - Csol[ant0]* Csol[ant1].conjugate()
-        resid  = np.append( Cresid.real, Cresid.imag )
-    return np.dot(resid, resid)
-    #
-    realSol = scipy.optimize.minimize( residual, realSol )['x']
-    return realSol[range(antNum)]+ 1.0j* np.append(0.0, realSol[range(antNum, 2*antNum-1)])
-#
-"""
 def gainComplex( bl_vis ):
     blNum  =  len(bl_vis)
     antNum =  Bl2Ant(blNum)[0]
@@ -1274,10 +1257,10 @@ def gainComplex( bl_vis ):
     #---- Initial solution
     CompSol[0] = sqrt(abs(bl_vis[0])) + 0j
     CompSol[1:antNum] = bl_vis[kernelBL] / CompSol[0]
-    Weight = np.abs(bl_vis)**2; CWeight = np.append(Weight, Weight)
+    Weight = np.abs(bl_vis); CWeight = np.append(Weight, Weight)
     #---- Residual Visivility
     for iter_index in range(3):
-        Cresid = (bl_vis - CompSol[ant0]* CompSol[ant1].conjugate())
+        Cresid = bl_vis - CompSol[ant0]* CompSol[ant1].conjugate()
         resid  = np.append( Cresid.real, Cresid.imag )
         #---- Matrix
         for bl_index in range(blNum):
@@ -1293,10 +1276,11 @@ def gainComplex( bl_vis ):
         #
         PM = CM[:,MMap]
         PtWP = np.dot( PM.T, np.dot(np.diag(CWeight), PM) )
-        correction = scipy.linalg.solve(PtWP, np.dot(PM.T, CWeight* resid))
-        CompSol = CompSol + correction[range(antNum)] + 1j* np.append(0, correction[range(antNum, 2*antNum-1)])
+        PtWP_inv = scipy.linalg.inv(PtWP)
+        correction = np.dot( PtWP_inv, np.dot(PM.T, CWeight* resid))
+        CompSol = CompSol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
         # print 'Iter %d : Correction = %e' % (iter_index, np.dot(correction, correction)/np.dot(abs(CompSol), abs(CompSol)))
-        if np.dot(correction, correction) < 1.0e-8* np.dot(abs(CompSol), abs(CompSol)): break
+        if np.dot(correction, correction) < 1.0e-15* np.dot(abs(CompSol), abs(CompSol)): break
     #
     return CompSol
 #
@@ -1350,9 +1334,8 @@ def polariGain( XX, YY, PA, StokesQ, StokesU):
     Xscale = 1.0 / (1.0 + StokesQ* csPA + StokesU* snPA)
     Yscale = 1.0 / (1.0 - StokesQ* csPA - StokesU* snPA)
     #
-    ScaledXX, ScaledYY = XX* Xscale, YY* Yscale
-    #
-    return np.apply_along_axis(gainComplex, 0, ScaledXX), np.apply_along_axis(gainComplex, 0, ScaledYY)
+    ScaledXX, ScaledYY = XX * Xscale, YY* Yscale
+    return np.apply_along_axis( gainComplex, 0, ScaledXX), np.apply_along_axis( gainComplex, 0, ScaledYY)
 #
 def XY2Stokes(PA, VisXY, VisYX):
     #-------- Least-Square fit for polarizatino parameters (Q, U, XYphase, Dx, Dy)
