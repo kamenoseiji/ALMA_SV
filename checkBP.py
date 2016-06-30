@@ -26,8 +26,6 @@ print '  Use ' + antList[UseAnt[refantID]] + ' as the refant.'
 #-------- Baseline Mapping
 print '---Baseline Mapping'
 antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
-UseAntNum = len(antMap)
-UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
 ant0 = ANT0[0:UseBlNum]; ant1 = ANT1[0:UseBlNum]
 for bl_index in range(UseBlNum):
     blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
@@ -58,14 +56,14 @@ for spw_index in range(spwNum):
 if BPPLOT:
     plotMax = 1.5* np.median(abs(BP_ant))
     #-------- Prepare Plots
-    for ant_index in range(antNum):
+    for ant_index in range(UseAntNum):
         figAnt = plt.figure(ant_index, figsize = (11, 8))
         figAnt.suptitle(prefix + ' ' + antList[antMap[ant_index]] + ' Scan = ' + `BPscan`)
         figAnt.text(0.45, 0.05, 'Frequency [GHz]')
         figAnt.text(0.03, 0.45, 'Bandpass Amplitude and Phase', rotation=90)
     #
     #-------- Plot BP
-    for ant_index in range(antNum):
+    for ant_index in range(UseAntNum):
         figAnt = plt.figure(ant_index)
         for spw_index in range(spwNum):
             chNum, chWid, Freq = GetChNum(msfile, spw[spw_index]); Freq = 1.0e-9* Freq  # GHz
