@@ -39,6 +39,14 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
     for index in range(gridNum): results[index] = GridPoint( value, samp_x, samp_y, grid_x[index], grid_y[index], kernel)
     return results
 #
+#----------------------------------------- Antenna Mapping
+# antList : (eg.) array(['DA41', 'DA42', 'DV01', ... ])     : antenna name list ordered in MS
+# antID   : [0,1,2,3,4,5,6,...]                             : one-by-one number on antList 
+# fragAnt : (eg.) [2,15]                                    : subset of antID to flag out
+# antMap  : (eg.) [32,0,1,4, ... ]                          : subset of antID by canonical order, fragged antennas are not included
+# trkAntMap : (eg.) [32,0,1,4, ...]                         : subset of antID for tracking antennas by canonical order
+# refantID :  (eg.) 32                                      : antID for the reference antenna
+# scnAnt  : (eg.) [33,3,38,...]                             : subset of antID for scanning antennas
 #----------------------------------------- Procedures
 msfile = wd + prefix + '.ms'
 BPantList, BP_ant, XYdelay, solution = np.load(wd + BPprefix + '.Ant.npy'), np.load(wd + BPfile), np.load(wd + XYdelayfile), np.load(wd + QUXYfile)
@@ -194,6 +202,7 @@ xrange, yrange = [min(Freq[chRange]), max(Freq[chRange])], [-0.1, 0.1]
 for ant_index in range(scnAntNum):
     antID = scnAnt[ant_index]
     DantID = trkAntNum + ant_index
+    fwhm = FWHM[DantID]
     for thresh_index in range(6):
         time_index = list(set(np.where(Dist2 > thresh[thresh_index]**2 )[0]) & set(np.where(Dist2 < thresh[thresh_index + 1]**2 )[0]))
         fig = plt.figure(thresh_index, figsize = (8,11))
@@ -204,9 +213,9 @@ for ant_index in range(scnAntNum):
         plt.subplot2grid( (9,6), (0,5), aspect=1)
         plt.plot(dAz, dEl, ',', color='k', alpha=0.1)
         plt.plot( dAz[time_index], dEl[time_index], '.', color='r')
-        circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/2); plt.plot( circle_x, circle_y, color='green' )
-        circle_x, circle_y = circlePoints(0, 0, FWHM[antID]/sqrt(2)); plt.plot( circle_x, circle_y, color='blue' )
-        plt.axis([-FWHM[0], FWHM[0], -FWHM[0], FWHM[0]], fontsize=3)
+        circle_x, circle_y = circlePoints(0, 0, fwhm/2); plt.plot( circle_x, circle_y, color='green' )
+        circle_x, circle_y = circlePoints(0, 0, fwhm/sqrt(2)); plt.plot( circle_x, circle_y, color='blue' )
+        plt.axis([-fwhm, fwhm, -fwhm, fwhm], fontsize=3)
         plt.tick_params(labelsize = 6)
         #
         #-------- Plot Mean D-term
@@ -249,52 +258,53 @@ chAvgDx, chAvgDy = np.mean(Dx[:,:,chRange], axis=2), np.mean(Dy[:,:,chRange], ax
 for ant_index in range(scnAntNum):
     antID = scnAnt[ant_index]
     DantID = trkAntNum + ant_index
+    fwhm = FWHM[DantID]
     #-------- Plot
     fig = plt.figure( figsize = (10,10))
     fig.suptitle(prefix + ' ' + antList[antID] + ' SPW=' + `spw` + ' Scan=' + `scan`)
     fig.text(0.45, 0.05, 'Az Offset [arcsec]')
     fig.text(0.05, 0.45, 'El Offset [arcsec]', rotation=90)
     #
-    xi, yi = np.mgrid[ -floor(2.0*FWHM[DantID]):floor(2.0*FWHM[DantID]):128j, -floor(2.0*FWHM[DantID]):floor(2.0*FWHM[DantID]):128j]
-    IndexCenter = np.where( dAz**2 + dEl**2 < 0.005* FWHM[DantID]**2 )[0]
-    Index3dB = np.where( dAz**2 + dEl**2 < 0.25* FWHM[DantID]**2 )[0]
-    Index6dB = np.where( dAz**2 + dEl**2 < 0.5* FWHM[DantID]**2 )[0]
+    xi, yi = np.mgrid[ -floor(2.0*fwhm):floor(2.0*fwhm):128j, -floor(2.0*fwhm):floor(2.0*fwhm):128j]
+    IndexCenter = np.where( dAz**2 + dEl**2 < 0.005* fwhm**2 )[0]
+    Index3dB = np.where( dAz**2 + dEl**2 < 0.25* fwhm**2 )[0]
+    Index6dB = np.where( dAz**2 + dEl**2 < 0.5* fwhm**2 )[0]
     Dx3dB, Dy3dB = chAvgDx[DantID][Index3dB], chAvgDy[DantID][Index3dB]
     Dx6dB, Dy6dB = chAvgDx[DantID][Index6dB], chAvgDy[DantID][Index6dB]
-    ReDxmap = GridData( chAvgDx[DantID].real, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM[DantID]/16).reshape(len(xi), len(xi))
-    ImDxmap = GridData( chAvgDx[DantID].imag, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM[DantID]/16).reshape(len(xi), len(xi))
-    ReDymap = GridData( chAvgDy[DantID].real, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM[DantID]/16).reshape(len(xi), len(xi))
-    ImDymap = GridData( chAvgDy[DantID].imag, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), FWHM[DantID]/16).reshape(len(xi), len(xi))
+    ReDxmap = GridData( chAvgDx[DantID].real, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), fwhm/16).reshape(len(xi), len(xi))
+    ImDxmap = GridData( chAvgDx[DantID].imag, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), fwhm/16).reshape(len(xi), len(xi))
+    ReDymap = GridData( chAvgDy[DantID].real, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), fwhm/16).reshape(len(xi), len(xi))
+    ImDymap = GridData( chAvgDy[DantID].imag, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), fwhm/16).reshape(len(xi), len(xi))
     #---- plot Re(Dx)
     plt.subplot( 2, 2, 1, aspect=1); plt.contourf(xi, yi, ReDxmap, np.linspace(-0.10, 0.10, 11)); plt.colorbar(); plt.title('Re(Dx)')
-    circle_x, circle_y = circlePoints(0, 0, FWHM[DantID]/2); plt.plot( circle_x, circle_y )
-    circle_x, circle_y = circlePoints(0, 0, FWHM[DantID]/sqrt(2)); plt.plot( circle_x, circle_y )
-    text_sd = 'Re(Dx) at Center = %5.3f' % ( np.mean(Dx[DantID, IndexCenter].real) ); plt.text(-1.6*FWHM[DantID], -1.5*FWHM[DantID], text_sd, size='x-small')
-    text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( max(Dx3dB.real), min(Dx3dB.real) ); plt.text(-1.6*FWHM[DantID], -1.7*FWHM[DantID], text_sd, size='x-small')
-    text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( max(Dx6dB.real), min(Dx6dB.real) ); plt.text(-1.6*FWHM[DantID], -1.9*FWHM[DantID], text_sd, size='x-small')
+    circle_x, circle_y = circlePoints(0, 0, fwhm/2); plt.plot( circle_x, circle_y )
+    circle_x, circle_y = circlePoints(0, 0, fwhm/sqrt(2)); plt.plot( circle_x, circle_y )
+    text_sd = 'Re(Dx) at Center = %5.3f' % ( np.mean(Dx[DantID, IndexCenter].real) ); plt.text(-1.6*fwhm, -1.5*fwhm, text_sd, size='x-small')
+    text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( max(Dx3dB.real), min(Dx3dB.real) ); plt.text(-1.6*fwhm, -1.7*fwhm, text_sd, size='x-small')
+    text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( max(Dx6dB.real), min(Dx6dB.real) ); plt.text(-1.6*fwhm, -1.9*fwhm, text_sd, size='x-small')
     #---- plot Im(Dx)
     plt.subplot( 2, 2, 2, aspect=1); plt.contourf(xi, yi, ImDxmap, np.linspace(-0.10, 0.10, 11)); plt.colorbar(); plt.title('Im(Dx)')
-    circle_x, circle_y = circlePoints(0, 0, FWHM[DantID]/2); plt.plot( circle_x, circle_y )
-    circle_x, circle_y = circlePoints(0, 0, FWHM[DantID]/sqrt(2)); plt.plot( circle_x, circle_y )
-    text_sd = 'Im(Dx) at Center = %5.3f' % ( np.mean(Dx[DantID, IndexCenter].imag) ); plt.text(-1.6*FWHM[DantID], -1.5*FWHM[DantID], text_sd, size='x-small')
-    text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( max(Dx3dB.imag), min(Dx3dB.imag) ); plt.text(-1.6*FWHM[DantID], -1.7*FWHM[DantID], text_sd, size='x-small')
-    text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( max(Dx6dB.imag), min(Dx6dB.imag) ); plt.text(-1.6*FWHM[DantID], -1.9*FWHM[DantID], text_sd, size='x-small')
+    circle_x, circle_y = circlePoints(0, 0, fwhm/2); plt.plot( circle_x, circle_y )
+    circle_x, circle_y = circlePoints(0, 0, fwhm/sqrt(2)); plt.plot( circle_x, circle_y )
+    text_sd = 'Im(Dx) at Center = %5.3f' % ( np.mean(Dx[DantID, IndexCenter].imag) ); plt.text(-1.6*fwhm, -1.5*fwhm, text_sd, size='x-small')
+    text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( max(Dx3dB.imag), min(Dx3dB.imag) ); plt.text(-1.6*fwhm, -1.7*fwhm, text_sd, size='x-small')
+    text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( max(Dx6dB.imag), min(Dx6dB.imag) ); plt.text(-1.6*fwhm, -1.9*fwhm, text_sd, size='x-small')
     #---- plot Re(Dy)
     plt.subplot( 2, 2, 3, aspect=1); plt.contourf(xi, yi, ReDymap, np.linspace(-0.10, 0.10, 11)); plt.colorbar(); plt.title('Re(Dy)')
-    circle_x, circle_y = circlePoints(0, 0, FWHM[DantID]/2); plt.plot( circle_x, circle_y )
-    circle_x, circle_y = circlePoints(0, 0, FWHM[DantID]/sqrt(2)); plt.plot( circle_x, circle_y )
-    text_sd = 'Re(Dy) at Center = %5.3f' % ( np.mean(Dy[DantID, IndexCenter].real) ); plt.text(-1.6*FWHM[DantID], -1.5*FWHM[DantID], text_sd, size='x-small')
-    text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( max(Dy3dB.real), min(Dy3dB.real) ); plt.text(-1.6*FWHM[DantID], -1.7*FWHM[DantID], text_sd, size='x-small')
-    text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( max(Dy6dB.real), min(Dy6dB.real) ); plt.text(-1.6*FWHM[DantID], -1.9*FWHM[DantID], text_sd, size='x-small')
+    circle_x, circle_y = circlePoints(0, 0, fwhm/2); plt.plot( circle_x, circle_y )
+    circle_x, circle_y = circlePoints(0, 0, fwhm/sqrt(2)); plt.plot( circle_x, circle_y )
+    text_sd = 'Re(Dy) at Center = %5.3f' % ( np.mean(Dy[DantID, IndexCenter].real) ); plt.text(-1.6*fwhm, -1.5*fwhm, text_sd, size='x-small')
+    text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( max(Dy3dB.real), min(Dy3dB.real) ); plt.text(-1.6*fwhm, -1.7*fwhm, text_sd, size='x-small')
+    text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( max(Dy6dB.real), min(Dy6dB.real) ); plt.text(-1.6*fwhm, -1.9*fwhm, text_sd, size='x-small')
     #---- plot Im(Dy)
     plt.subplot( 2, 2, 4, aspect=1); plt.contourf(xi, yi, ImDymap, np.linspace(-0.10, 0.10, 11)); plt.colorbar(); plt.title('Im(Dy)')
-    circle_x, circle_y = circlePoints(0, 0, FWHM[DantID]/2); plt.plot( circle_x, circle_y )
-    circle_x, circle_y = circlePoints(0, 0, FWHM[DantID]/sqrt(2)); plt.plot( circle_x, circle_y )
-    text_sd = 'Im(Dy) at Center = %5.3f' % ( np.mean(Dy[DantID, IndexCenter].imag) ); plt.text(-1.6*FWHM[DantID], -1.5*FWHM[DantID], text_sd, size='x-small')
-    text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( max(Dy3dB.imag), min(Dy3dB.imag) ); plt.text(-1.6*FWHM[DantID], -1.7*FWHM[DantID], text_sd, size='x-small')
-    text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( max(Dy6dB.imag), min(Dy6dB.imag) ); plt.text(-1.6*FWHM[DantID], -1.9*FWHM[DantID], text_sd, size='x-small')
+    circle_x, circle_y = circlePoints(0, 0, fwhm/2); plt.plot( circle_x, circle_y )
+    circle_x, circle_y = circlePoints(0, 0, fwhm/sqrt(2)); plt.plot( circle_x, circle_y )
+    text_sd = 'Im(Dy) at Center = %5.3f' % ( np.mean(Dy[DantID, IndexCenter].imag) ); plt.text(-1.6*fwhm, -1.5*fwhm, text_sd, size='x-small')
+    text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( max(Dy3dB.imag), min(Dy3dB.imag) ); plt.text(-1.6*fwhm, -1.7*fwhm, text_sd, size='x-small')
+    text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( max(Dy6dB.imag), min(Dy6dB.imag) ); plt.text(-1.6*fwhm, -1.9*fwhm, text_sd, size='x-small')
     plt.plot( dAz, dEl, '.', color='k', alpha=0.1)
-    plt.axis([-2.0*FWHM[DantID], 2.0*FWHM[DantID], -2.0*FWHM[DantID], 2.0*FWHM[DantID]])
+    plt.axis([-2.0*fwhm, 2.0*fwhm, -2.0*fwhm, 2.0*fwhm])
     plt.savefig( prefix + '-' + antList[antID] + '-SPW' + `spw` + '-DtermMap.pdf', form='pdf'); plt.close()
     plt.close()
 #
