@@ -137,7 +137,7 @@ text_sd = 'ant ch ReDx ImDx ReDy ImDy'
 logfile.write(text_sd + '\n')
 for ant_index in range(trkAntNum):
     for ch_index in range(chNum):
-        text_sd = '%s %d %8.6f %8.6f %8.6f %8.6f' % (antList[trkAnt[ant_index]], ch_index, DxMean[ant_index, ch_index].real, DxMean[ant_index, ch_index].imag, DyMean[ant_index, ch_index].real, DyMean[ant_index, ch_index].imag)
+        text_sd = '%s %d %8.6f %8.6f %8.6f %8.6f' % (antList[trkAntMap[ant_index]], ch_index, DxMean[ant_index, ch_index].real, DxMean[ant_index, ch_index].imag, DyMean[ant_index, ch_index].real, DyMean[ant_index, ch_index].imag)
         logfile.write(text_sd + '\n')
     #
 #
