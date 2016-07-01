@@ -48,7 +48,7 @@ mjdSec, Az, El, dAz, dEl = np.ones([0]), np.ones([0]), np.ones([0]), np.ones([0]
 chNum, chWid, Freq = GetChNum(msfile, spw); Freq = Freq* 1.0e-9
 ##-------- Antenna List
 antList = GetAntName(msfile)
-flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
+flagAnt = indexList(antFlag, antList)
 interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw, scan); timeNum = len(timeStamp)
 trkAnt, scnAnt, scanTime, AzElOffset = antRefScan(msfile, [min(timeStamp), max(timeStamp)])
 trkAnt, scnAnt  = list(set(trkAnt) - set(flagAnt)), list(set(scnAnt) - set(flagAnt))

@@ -10,8 +10,8 @@ msfile = wd + prefix + '.ms'
 antList = GetAntName(msfile); antNum = len(antList); blNum = antNum* (antNum - 1)/2
 #-------- Configure Array
 print '---Checking array configulation'
-flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
-UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
+flagAnt = indexList(antFlag, antList)
+UseAnt = list(set(range(antNum)) - set(flagAnt)); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
 blMap, blInv= range(UseBlNum), [False]* UseBlNum
 try:
     refantID = np.where(antList[UseAnt] == refant )[0][0]
