@@ -46,10 +46,12 @@ GYphs = solution[2]
 if QUmodel: CalQ, CalU = solution[0], solution[1]
 mjdSec, Az, El, dAz, dEl = np.ones([0]), np.ones([0]), np.ones([0]), np.ones([0]), np.ones([0])
 chNum, chWid, Freq = GetChNum(msfile, spw); Freq = Freq* 1.0e-9
-#-------- Antenna List
+##-------- Antenna List
 antList = GetAntName(msfile)
+flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
 interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw, scan); timeNum = len(timeStamp)
 trkAnt, scnAnt, scanTime, AzElOffset = antRefScan(msfile, [min(timeStamp), max(timeStamp)])
+trkAnt, scnAnt  = list(set(trkAnt) - set(flagAnt)), list(set(scnAnt) - set(flagAnt))
 if refantName not in antList[trkAnt]:
     print refantName + ' does not exist in this MS.'
     sys.exit()
