@@ -49,8 +49,8 @@ PolList = ['X', 'Y']
 #-------- Save CalTables
 np.save(prefix + '.Ant.npy', antList[antMap]) 
 for spw_index in range(spwNum):
-    np.save(prefix + '-REF' + antList[refantID] + '-SPW' + `spw[spw_index]` + '-BPant.npy', BP_ant[:,spw_index]) 
-    np.save(prefix + '-REF' + antList[refantID] + '-SPW' + `spw[spw_index]` + '-XYdelay.npy', XYdelay[spw_index]) 
+    np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SPW' + `spw[spw_index]` + '-BPant.npy', BP_ant[:,spw_index]) 
+    np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SPW' + `spw[spw_index]` + '-XYdelay.npy', XYdelay[spw_index]) 
 #
 #-------- Plots
 if BPPLOT:
@@ -85,9 +85,9 @@ if BPPLOT:
             BPphsPL.text( np.min(Freq), 2.5, 'SPW=' + `spw[spw_index]` + ' Phase')
         #
         if PLOTFMT == 'png':
-            figAnt.savefig('BP_' + prefix + '_' + antList[antMap[ant_index]] + '-REF' + antList[refantID] + '_Scan' + `BPscan` + '.png')
+            figAnt.savefig('BP_' + prefix + '_' + antList[antMap[ant_index]] + '-REF' + antList[UseAnt[refantID]] + '_Scan' + `BPscan` + '.png')
         else :
-            figAnt.savefig('BP_' + prefix + '_' + antList[antMap[ant_index]] + '-REF' + antList[refantID] + '_Scan' + `BPscan` + '.pdf')
+            figAnt.savefig('BP_' + prefix + '_' + antList[antMap[ant_index]] + '-REF' + antList[UseAnt[refantID]] + '_Scan' + `BPscan` + '.pdf')
         #
     #
     plt.close('all')
