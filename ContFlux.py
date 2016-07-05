@@ -118,7 +118,7 @@ interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw_ACA[0], scan[0])
 timeNum = len(timeStamp)
 ScanAz = np.zeros([timeNum]); ScanEl = np.zeros([timeNum])
 for time_index in range(timeNum):
-    ScanAz[time_index], ScanEl[time_index] = AzElMatch( timeStamp[time_index], scanTime, np.median(interval), az, el)
+    ScanAz[time_index], ScanEl[time_index] = AzElMatch( timeStamp[time_index], scanTime, AntID, 0, np.median(interval), az, el)
 #
 LST = mjd2gmst( timeStamp/86400.0, 30.0) + ALMA_long
 ScanRA, ScanDEC = azel2radec( ScanAz, ScanEl, LST, ALMA_lat)
