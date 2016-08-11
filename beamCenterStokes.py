@@ -15,7 +15,7 @@ for file_index in range(fileNum):
     print '-- Checking %s ' % (msfile)
     antList = GetAntName(msfile)
     refAntID  = indexList([refantName], antList)
-    flagAntID = indexList([antFlag], antList)
+    flagAntID = indexList(antFlag, antList)
     if len(refAntID) < 1:
         print 'Antenna %s didn not participate in this file.' % refantName
         continue
