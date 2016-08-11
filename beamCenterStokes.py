@@ -6,68 +6,91 @@ ALMA_lat = -23.029/180.0*pi     # ALMA AOS Latitude
 #----------------------------------------- Procedures
 fileNum, spwNum = len(prefixList), len(spwList)
 polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
-antNum = len(trkAnt); blNum = antNum * (antNum - 1)/2
 #
+trkAntSet = set(range(64))
+scansFile = []
+for file_index in range(fileNum):
+    prefix = prefixList[file_index]
+    msfile = wd + prefix + '.ms'
+    print '-- Checking %s ' % (msfile)
+    antList = GetAntName(msfile)
+    refAntID  = indexList([refantName], antList)
+    flagAntID = indexList([antFlag], antList)
+    if len(refAntID) < 1:
+        print 'Antenna %s didn not participate in this file.' % refantName
+        continue
+    else:
+        refAntID = refAntID[0]
+    #
+    msmd.open(msfile)
+    scanList = msmd.scannumbers().tolist()
+    for scan in scanList:
+        timeStamp = msmd.timesforscans(scan).tolist()
+        trkAnt, scanAnt, Time, Offset = antRefScan( msfile, [timeStamp[0], timeStamp[-1]] )
+        trkAnt = list(set(trkAnt) - set(flagAntID))
+        if refAntID in trkAnt:
+            trkAntSet = set(trkAnt) & trkAntSet
+        else:
+            scanList = list( set(scanList) - set([scan]) )
+        #
+        print '---- Scan %d : %d tracking antennas' % (scan, len(trkAnt))
+    #
+    scansFile.append(scanList)
+#
+antMap = [refAntID] + list(trkAntSet - set([refAntID]))
+antNum = len(antMap); blNum = antNum * (antNum - 1)/2
+ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
+blMap, blInv= range(blNum), [False]* blNum
+for bl_index in range(blNum):
+    blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
+#
+#-------- Loop for SPW
 for spw_index in range(spwNum):
     spw = spwList[spw_index]
     caledVis = np.ones([4,blNum, 0], dtype=complex)
     mjdSec, Az, El = np.ones([0]), np.ones([0]), np.ones([0])
+    BPantList, BP_ant, XYdelay = np.load(BPprefix + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYdelay.npy')
+    BP_ant = BP_ant[indexList(antList[antMap], BPantList)]
+    BP_bl = BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate()
+#
     for file_index in range(fileNum):
-        prefix, scan = prefixList[file_index], scanList[file_index]
+    #for file_index in range(1):
+        prefix = prefixList[file_index]
         msfile = wd + prefix + '.ms'
-        BPantList, BP_ant, XYdelay = np.load(BPprefix + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYdelay.npy')
-        interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw, scan); timeNum = len(timeStamp)
-        #-------- Subarray with Tracking antennas
-        antList = GetAntName(msfile)
-        if refantName not in antList[trkAnt]:
-            print refantName + ' does not exist in this MS.'
-            sys.exit()
-        #
-        refantID = np.where( antList == refantName)[0][0]
-        antMap = [refantID] + np.array(trkAnt)[range(trkAnt.index(refantID))].tolist() + np.array(trkAnt)[range(trkAnt.index(refantID)+1, len(trkAnt))].tolist()
-        BP_ant = BP_ant[indexList(antList[antMap], BPantList)]
         #-------- AZ, EL, PA
         azelTime, AntID, AZ, EL = GetAzEl(msfile)
-        azelTime_index = np.where( AntID == refantID )[0].tolist()
+        azelTime_index = np.where( AntID == refAntID )[0].tolist()
         timeThresh = np.median( np.diff( azelTime[azelTime_index]))
-        #-------- Time index at on axis
-        for time_index in range(timeNum):
-            scanAz, scanEl = AzElMatch(timeStamp[time_index], azelTime, AntID, refantID, timeThresh, AZ, EL)
-            Az, El = np.append(Az, scanAz), np.append(El, scanEl)
+        for scan in scansFile[file_index]:
+        #for scan in range(1,2):
+            #-------- Load Visibilities
+            print '-- Loading visibility data %s SPW=%d SCAN=%d...' % (prefix, spw, scan)
+            timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)  # Xspec[POL, CH, BL, TIME]
+            chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
+            tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)
+            BPCaledXspec = (tempSpec / BP_bl).transpose(2,3,1,0) 
+            #-------- XY delay cal
+            print '  -- XY delay cal'
+            XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelay )
+            BPCaledXspec[1] = (BPCaledXspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
+            BPCaledXspec[2] = (BPCaledXspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
+            #-------- Antenna-based Gain
+            print '  -- Gain cal using tracking antennasl'
+            chAvgVis = np.mean(BPCaledXspec[:,chRange], axis=1)
+            timeNum = chAvgVis.shape[2]
+            Gain  = np.ones([2, antNum, timeNum], dtype=complex)
+            Gain[0, 0:antNum] = np.apply_along_axis( gainComplex, 0, chAvgVis[0])
+            Gain[1, 0:antNum] = np.apply_along_axis( gainComplex, 0, chAvgVis[3])
+            #-------- Gain-calibrated visibilities
+            print '  -- Calibrated visibilities'
+            caledVis = concatenate([caledVis, chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())], axis=2)
+            #-------- Time index at on axis
+            mjdSec = np.append(mjdSec, timeStamp)
+            for time_index in range(timeNum):
+                scanAz, scanEl = AzElMatch(timeStamp[time_index], azelTime, AntID, refAntID, timeThresh, AZ, EL)
+                Az, El = np.append(Az, scanAz), np.append(El, scanEl)
+            #
         #
-        mjdSec = np.append(mjdSec, timeStamp)
-        #-------- Baseline mapping
-        ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
-        blMap, blInv= range(blNum), [False]* blNum
-        for bl_index in range(blNum):
-            blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
-        #
-        #-------- Bandpass table
-        #print '-- Bandpass table %s ...' % (prefix)
-        #BP_ant, XYdelay = BPtable(msfile, spw, scan, blMap, blInv)
-        #-------- Load Visibilities
-        print '-- Loading visibility data %s SPW=%d ...' % (prefix, spw)
-        timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)  # Xspec[POL, CH, BL, TIME]
-        chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-        #-------- Bandpass Calibration
-        print '---- Bandpass cal'
-        tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)
-        Xspec = (tempSpec / (BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # 
-        #-------- XY delay cal
-        print '---- XY delay cal'
-        XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelay )
-        Xspec[1] = (Xspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
-        Xspec[2] = (Xspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
-        #-------- Antenna-based Gain
-        print '---- Gain cal using tracking antennasl'
-        chAvgVis = np.mean(Xspec[:,chRange], axis=1)
-        timeNum = chAvgVis.shape[2]
-        Gain  = np.ones([2, antNum, timeNum], dtype=complex)
-        Gain[0, 0:antNum] = np.apply_along_axis( gainComplex, 0, chAvgVis[0])
-        Gain[1, 0:antNum] = np.apply_along_axis( gainComplex, 0, chAvgVis[3])
-        #-------- Gain-calibrated visibilities
-        print '---- Calibrated visibilities'
-        caledVis = concatenate([caledVis, chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())], axis=2)
     #
     PA = AzEl2PA(Az, El, ALMA_lat) - BANDPA
     solution = np.zeros([7])
@@ -90,7 +113,7 @@ for spw_index in range(spwNum):
     plt.plot(PArange, -np.sin(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[6], '-', color='darkred')
     plt.xlabel('PA [rad]'); plt.ylabel('XY, YX (real and imaginary)')
     plt.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
-    text_sd = 'Q/I=%6.3f+-%6.3f U/I=%6.3f+-%6.3f XYphase=%6.3f+-%6.3f rad (RefAnt:%s)' % (solution[0], solerr[0], solution[1], solerr[1], solution[2], solerr[2], antList[refantID]); plt.text(min(PA), min(Vis[1].real), text_sd, size='x-small')
+    text_sd = 'Q/I=%6.3f+-%6.3f U/I=%6.3f+-%6.3f XYphase=%6.3f+-%6.3f rad (RefAnt:%s)' % (solution[0], solerr[0], solution[1], solerr[1], solution[2], solerr[2], antList[refAntID]); plt.text(min(PA), min(Vis[1].real), text_sd, size='x-small')
     plt.savefig(prefixList[0] + '-SPW' + `spw` + '-' + refantName + 'QUXY.pdf', form='pdf')
     #-------- Save Results
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.Ant.npy', antList[antMap])
