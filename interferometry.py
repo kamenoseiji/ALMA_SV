@@ -99,7 +99,8 @@ def InvPAMatrix(PA):
 #
 def AzEl2PA(az, el, lat=-23.029/180.0*pi): # Azimuth, Elevation, Latitude (default=ALMA) in [rad]
     cos_lat = np.cos(lat)
-    return np.arctan( -cos_lat* np.sin(az) / (np.sin(lat)* np.cos(el) - cos_lat* np.sin(el)* np.cos(az)) )
+    #return np.arctan( -cos_lat* np.sin(az) / (np.sin(lat)* np.cos(el) - cos_lat* np.sin(el)* np.cos(az)) )
+    return np.arctan2( -cos_lat* np.sin(az), (np.sin(lat)* np.cos(el) - cos_lat* np.sin(el)* np.cos(az)) )
 #
 #-------- Greenwidge Mean Sidereal Time
 def mjd2gmst( mjd, ut1utc ):        # mjd in [day], ut1utc in [sec]
