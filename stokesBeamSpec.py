@@ -109,7 +109,8 @@ Xspec[2] = (Xspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
 print '---- Antenna-based gain correction'
 chAvgVis = np.mean(Xspec[:,chRange], axis=1)
 PA = AzEl2PA(Az, El, ALMA_lat) - BANDPA
-GainX, GainY = polariGain(chAvgVis[0], chAvgVis[3], PA, CalQ, CalU); Gain = np.array([GainX, GainY])
+GainX, GainY = polariGain(chAvgVis[0], chAvgVis[3], PA, CalQ, CalU)
+Gain = np.array([GainX, GainY])
 CaledXspec = (Xspec.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())).transpose(1,0,2,3)
 #-------- D-term of tracking antennas
 Dx, Dy = np.zeros([antNum, timeNum, chNum], dtype=complex), np.zeros([antNum, timeNum, chNum], dtype=complex)
@@ -268,6 +269,20 @@ for ant_index in range(scnAntNum):
     IndexCenter = np.where( dAz**2 + dEl**2 < 0.005* fwhm**2 )[0]
     Index3dB = np.where( dAz**2 + dEl**2 < 0.25* fwhm**2 )[0]
     Index6dB = np.where( dAz**2 + dEl**2 < 0.5* fwhm**2 )[0]
+    #-------- Save Gain and D-term to logfile
+    logfile = open(prefix + '-' + antList[antID] + '-SPW' + `spw` + '-beamGainD.log', 'w')
+    GXA, GXP = smoothGain(timeStamp[IndexCenter], Gain[0, DantID, IndexCenter])
+    GYA, GYP = smoothGain(timeStamp[IndexCenter], Gain[1, DantID, IndexCenter])
+    NormGX = Gain[0, DantID] / GXA(timeStamp) * np.exp( (0.0 - 1.0j)* GXP(timeStamp))
+    NormGY = Gain[1, DantID] / GYA(timeStamp) * np.exp( (0.0 - 1.0j)* GYP(timeStamp))
+    text_sd = '#Antenna-based Complex Gain and D-term : %s %s %9.4f GHz' % (prefix, antList[antID], np.median(Freq)) ; logfile.write(text_sd + '\n')
+    text_sd = '#dAZ   dEL    ReGX    ImGX     ReGY     ImGY     ReDX     ImDX      RdDY     ImDY   '; logfile.write(text_sd + '\n')
+    text_sd = '#-----------------------------------------------------------------------------------'; logfile.write(text_sd + '\n')
+    for time_index in range(timeNum):
+        text_sd = '%4.1f %4.1f %8.5f %8.5f %8.5f %8.5f %8.5f %8.5f %8.5f %8.5f' % (dAz[time_index], dEl[time_index], NormGX[time_index].real, NormGX[time_index].imag, NormGY[time_index].real, NormGY[time_index].imag, chAvgDx[DantID,time_index].real, chAvgDx[DantID,time_index].imag, chAvgDy[DantID,time_index].real, chAvgDy[DantID,time_index].imag)
+        logfile.write(text_sd + '\n')
+    #
+    logfile.close()
     Dx3dB, Dy3dB = chAvgDx[DantID][Index3dB], chAvgDy[DantID][Index3dB]
     Dx6dB, Dy6dB = chAvgDx[DantID][Index6dB], chAvgDy[DantID][Index6dB]
     ReDxmap = GridData( chAvgDx[DantID].real, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), fwhm/16).reshape(len(xi), len(xi))

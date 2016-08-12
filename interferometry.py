@@ -906,10 +906,12 @@ def gainCal(spec, Gain):   # spec[blNum, chNum, timeNum], Gain[antNum, chNum, ti
 #
 #-------- SmoothGain
 def smoothGain( timeValue, complexValue ):
-    weight = np.abs(complexValue)* 1.0e3
-    realSP = UnivariateSpline( timeValue, complexValue.real, w=weight, s=0.1)
-    imagSP = UnivariateSpline( timeValue, complexValue.imag, w=weight, s=0.1)
-    return realSP, imagSP
+    amp    = np.abs(complexValue); meanAmp = np.mean(amp)
+    meanPhs = np.angle(np.mean(complexValue)); meanTwiddle = np.cos(meanPhs) + (0.0 - 1.0j)*np.sin(meanPhs) 
+    biasedPhs =  np.angle(complexValue * meanTwiddle)
+    ampSP  = UnivariateSpline( timeValue, amp, w=amp/meanAmp, s=0.1)
+    phsSP  = UnivariateSpline( timeValue, biasedPhs + meanPhs, w=amp/meanAmp, s=0.1)
+    return ampSP, phsSP
 #
 def gainCalVis(vis, Gain1, Gain0):      # vis[blNum, timeNum], Gain[antNum, timeNum]
     blNum, timeNum = vis.shape[0], vis.shape[1]
