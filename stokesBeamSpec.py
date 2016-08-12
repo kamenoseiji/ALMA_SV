@@ -69,11 +69,10 @@ trkAntMap = [refantID] + np.array(trkAnt)[range(trkAnt.index(refantID))].tolist(
 antMap = trkAntMap + scnAnt
 antNum, trkAntNum, scnAntNum = len(antMap), len(trkAntMap), len(scnAnt)
 blNum, trkBlNum = antNum* (antNum - 1) / 2, trkAntNum* (trkAntNum - 1) / 2
-trkBlMap, blMap, trkBlInv, blInv = range(trkBlNum), range(blNum), [False]* trkBlNum, [False]* blNum
+blMap, blInv = range(blNum), [False]* blNum
 #-------- Baseline Indexing
 ant0, ant1, antWeight = ANT0[0:blNum], ANT1[0:blNum], np.ones([antNum])
 antWeight[range(trkAntNum, antNum)] = 0.5
-for bl_index in range(trkBlNum): trkBlMap[bl_index], trkBlInv[bl_index] = Ant2BlD(trkAnt[ant0[bl_index]], trkAnt[ant1[bl_index]])
 for bl_index in range(blNum):    blMap[bl_index], blInv[bl_index] = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
 blWeight = antWeight[ant0]* antWeight[ant1]
 #-------- BP table
