@@ -49,12 +49,13 @@ for spw_index in range(spwNum):
     spw = spwList[spw_index]
     caledVis = np.ones([4,blNum, 0], dtype=complex)
     mjdSec, Az, El = np.ones([0]), np.ones([0]), np.ones([0])
-    BPantList, BP_ant, XYdelay = np.load(BPprefix + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYdelay.npy')
-    BP_ant = BP_ant[indexList(antList[antMap], BPantList)]
-    BP_bl = BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate()
+    if BPprefix != '':  # Bandpass file
+        BPantList, BP_ant, XYdelay = np.load(BPprefix + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYdelay.npy')
+        BP_ant = BP_ant[indexList(antList[antMap], BPantList)]
+        BP_bl = BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate()
+    #
 #
     for file_index in range(fileNum):
-    #for file_index in range(1):
         prefix = prefixList[file_index]
         msfile = wd + prefix + '.ms'
         #-------- AZ, EL, PA
@@ -62,21 +63,25 @@ for spw_index in range(spwNum):
         azelTime_index = np.where( AntID == refAntID )[0].tolist()
         timeThresh = np.median( np.diff( azelTime[azelTime_index]))
         for scan in scansFile[file_index]:
-        #for scan in range(1,2):
             #-------- Load Visibilities
             print '-- Loading visibility data %s SPW=%d SCAN=%d...' % (prefix, spw, scan)
             timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)  # Xspec[POL, CH, BL, TIME]
             chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-            tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)
-            BPCaledXspec = (tempSpec / BP_bl).transpose(2,3,1,0) 
-            #-------- XY delay cal
-            print '  -- XY delay cal'
-            XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelay )
-            BPCaledXspec[1] = (BPCaledXspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
-            BPCaledXspec[2] = (BPCaledXspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
-            #-------- Antenna-based Gain
-            print '  -- Gain cal using tracking antennasl'
-            chAvgVis = np.mean(BPCaledXspec[:,chRange], axis=1)
+            if chNum == 1:
+                print '  -- Channel-averaged data: no BP and delay cal'
+                chAvgVis= CrossPolBL(Xspec[:,:,blMap], blInv)[:,0]
+            else:
+                tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)
+                BPCaledXspec = (tempSpec / BP_bl).transpose(2,3,1,0) 
+                #-------- XY delay cal
+                print '  -- XY delay cal'
+                XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelay )
+                BPCaledXspec[1] = (BPCaledXspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
+                BPCaledXspec[2] = (BPCaledXspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
+                #-------- Antenna-based Gain
+                print '  -- Gain cal using tracking antennasl'
+                chAvgVis = np.mean(BPCaledXspec[:,chRange], axis=1)
+            #
             timeNum = chAvgVis.shape[2]
             Gain  = np.ones([2, antNum, timeNum], dtype=complex)
             Gain[0, 0:antNum] = np.apply_along_axis( gainComplex, 0, chAvgVis[0])
@@ -93,6 +98,7 @@ for spw_index in range(spwNum):
         #
     #
     PA = AzEl2PA(Az, El, ALMA_lat) - BANDPA
+    PA = np.arctan2( np.sin(PA), np.cos(PA))
     solution = np.zeros([7])
     for iter_index in range(3):
         print '---- Iteration ' + `iter_index` + ' for Stokes (Q, U) and Gain ----'

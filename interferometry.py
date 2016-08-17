@@ -1260,7 +1260,7 @@ def gainComplex( bl_vis ):
     ant0, ant1, kernelBL = ANT0[0:blNum], ANT1[0:blNum], (arange(antNum-1)*(arange(antNum-1)+1)/2).tolist()
     CompSol, CM, MMap = np.zeros(antNum, dtype=complex), np.zeros([2*blNum, 2*antNum]), range(antNum) + range(antNum+1, 2*antNum)
     #---- Initial solution
-    CompSol[0] = sqrt(abs(bl_vis[0])) + 0j
+    CompSol[0] = 0.9* sqrt(abs(bl_vis[0])) + 0j
     CompSol[1:antNum] = bl_vis[kernelBL] / CompSol[0]
     Weight = np.abs(bl_vis); CWeight = np.append(Weight, Weight)
     #---- Residual Visivility
