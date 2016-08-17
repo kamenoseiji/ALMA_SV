@@ -109,6 +109,7 @@ Xspec[2] = (Xspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
 print '---- Antenna-based gain correction'
 chAvgVis = np.mean(Xspec[:,chRange], axis=1)
 PA = AzEl2PA(Az, El, ALMA_lat) - BANDPA
+PA = np.arctan2( np.sin(PA), np.cos(PA))
 GainX, GainY = polariGain(chAvgVis[0], chAvgVis[3], PA, CalQ, CalU)
 Gain = np.array([GainX, GainY])
 CaledXspec = (Xspec.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())).transpose(1,0,2,3)
@@ -116,6 +117,9 @@ CaledXspec = (Xspec.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXinde
 Dx, Dy = np.zeros([antNum, timeNum, chNum], dtype=complex), np.zeros([antNum, timeNum, chNum], dtype=complex)
 print('-------- Determining Antenna-based D-terms (refants) ----')
 PAwidth = 0.005; PAsegNum = int((max(PA) - min(PA))/PAwidth)
+if max(np.diff(PA)) > np.pi: PAsegNum = int((max(np.sin(PA)) - min(np.sin(PA)))/PAwidth) # for +/-pi gap
+if PAsegNum > timeNum/2: PAsegNum = timeNum/2
+#
 trkDx, trkDy = np.zeros([trkAntNum, PAsegNum, chNum], dtype=complex), np.zeros([trkAntNum, PAsegNum, chNum], dtype=complex)
 for seg_index in range(PAsegNum):
     progress = (seg_index + 1.0) / PAsegNum
