@@ -139,9 +139,11 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
 #
 #----------------------------------------- Procedures
 msfile = wd + prefix + '.ms'
-BP_ant = np.load(wd + prefix + '-SPW' + `spw[0]` + '-BPant.npy')
-XYdelay = np.load(wd + prefix + '-SPW' + `spw[0]` + '-XYdelay.npy')
-solution = np.load(wd + QUXY + '.QUXY.npy')
+if(BPprefix != ''):
+    BP_ant = np.load(wd + prefix + '-SPW' + `spw` + '-BPant.npy')
+    XYdelay = np.load(wd + prefix + '-SPW' + `spw` + '-XYdelay.npy')
+#
+solution = np.load(wd + QUXY)
 CalQ, CalU, GYphs = solution[0], solution[1], solution[2]
 #-------- Antenna List
 antList = GetAntName(msfile)
@@ -178,7 +180,7 @@ trkBlIndex  = np.where(blWeight == 1.0)[0].tolist(); trkBlNum  = len(trkBlIndex)
 ScTrBlIndex = np.where(blWeight == 0.5)[0].tolist(); ScTrBlNum = len(ScTrBlIndex)       # Ref-Scan baselines
 ScScBlIndex = np.where(blWeight == 0.25)[0].tolist(); ScScBlNum = len(ScScBlIndex)      # Scan-Scan baselines
 #-- Load all-baseline visibilities
-timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[0], scan[0])
+timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)
 #-------- Bunch/Sel
 chNum = Xspec.shape[1]
 if chNum > 1:
@@ -210,8 +212,8 @@ TrkXX  = XX[trkBlIndex]; TrkXY  = XY[trkBlIndex]; TrkYX  = YX[trkBlIndex]; TrkYY
 ScTrXX = XX[ScTrBlIndex]; ScTrXY = XY[ScTrBlIndex]; ScTrYX = YX[ScTrBlIndex]; ScTrYY = YY[ScTrBlIndex] # Ref-Sc 
 ScScXX = XX[ScScBlIndex]; ScScXY = XY[ScScBlIndex]; ScScYX = YX[ScScBlIndex]; ScScYY = YY[ScScBlIndex] # Ref-Sc 
 #-------- Frequency and Wavelength
-chNum, chWid, Freq = GetChNum(msfile, spw[0])
-FWHM = GetFWHM(msfile, spw[0], AntD)
+chNum, chWid, Freq = GetChNum(msfile, spw)
+FWHM = GetFWHM(msfile, spw, AntD)
 if chNum > 1:
     chRange = range( int(0.05*chNum), int(0.95*chNum))
 #
@@ -241,7 +243,7 @@ VisXY = gainCalVis( XY, GainX, GainY )
 VisYX = gainCalVis( YX, GainY, GainX )
 VisYY = gainCalVis( YY, GainY, GainY )
 #-------- RefAnt D-term
-logfile = open(prefix + '-SPW' + `spw[0]` + '-TrkDterm.log', 'w')
+logfile = open(prefix + '-SPW' + `spw` + '-TrkDterm.log', 'w')
 text_sd = 'ant ReDx ImDx ReDy ImDy'
 logfile.write(text_sd + '\n')
 print('-------- Determining Antenna-based D-terms (refants) ----')
@@ -253,7 +255,8 @@ PAsegNum = int((max(PA) - min(PA))/PAwidth)
 for seg_index in range(PAsegNum):
     timeIndexRange = range( (seg_index* timeNum/PAsegNum), ((seg_index + 1)* timeNum/PAsegNum) )
     PS = np.dot(PAMatrix(np.mean(PA[timeIndexRange])), np.array([1.0, solution[0], solution[1], 0.0])).real
-    VisTime = np.r_[np.mean(VisXX[trkBlIndex][:,timeIndexRange], axis=1), np.mean(VisXY[trkBlIndex][:,timeIndexRange], axis=1), np.mean(VisYX[trkBlIndex][:,timeIndexRange], axis=1), np.mean(VisYY[trkBlIndex][:,timeIndexRange], axis=1)]
+    #VisTime = np.r_[np.mean(VisXX[trkBlIndex][:,timeIndexRange], axis=1), np.mean(VisXY[trkBlIndex][:,timeIndexRange], axis=1), np.mean(VisYX[trkBlIndex][:,timeIndexRange], axis=1), np.mean(VisYY[trkBlIndex][:,timeIndexRange], axis=1)]
+    VisTime = np.array([np.mean(VisXX[trkBlIndex][:,timeIndexRange], axis=1), np.mean(VisXY[trkBlIndex][:,timeIndexRange], axis=1), np.mean(VisYX[trkBlIndex][:,timeIndexRange], axis=1), np.mean(VisYY[trkBlIndex][:,timeIndexRange], axis=1)])
     TrkDx, TrkDy = Vis2solveDD( VisTime, PS )
     for time_index in timeIndexRange:
         Dx[range(trkAntNum), time_index] = TrkDx
@@ -285,7 +288,7 @@ TrkV = np.mean( StokesVis[:,:,3], axis=(0,1) ).real
 text_sd = 'TrkMeas / Model: I=%6.4f / %6.4f  Q=%6.4f / %6.4f U=%6.4f / %6.4f V=%6.4f / %6.4f' % (TrkI, 1.0, TrkQ, CalQ, TrkU, CalU, TrkV, 0.0); print text_sd
 UCmQS = TrkU* np.cos(2.0*PA) - TrkQ* np.sin(2.0*PA)   # U cos - Q sin
 QCpUS = TrkQ* np.cos(2.0*PA) + TrkU* np.sin(2.0*PA)   # Q cos + U sin
-logfile = open(prefix + '-SPW' + `spw[0]` + '-trkStokes.log', 'w')
+logfile = open(prefix + '-SPW' + `spw` + '-trkStokes.log', 'w')
 text_sd = 'I Q U V'; logfile.write(text_sd + '\n')
 text_sd = '%8.6f %8.6f %8.6f %8.6f' % (TrkI, TrkQ, TrkU, TrkV); logfile.write(text_sd + '\n')
 logfile.close()
@@ -296,13 +299,14 @@ for ant_index in range(scnAntNum):
     TrkScnBL = range(antID* (antID - 1) / 2, antID* (antID - 1) / 2 + trkAntNum)
     for time_index in range(timeNum):
         PS = np.dot(PAMatrix(PA[time_index]), np.array([1.0, TrkQ, TrkU, 0.0])).real
-        VisTime = np.r_[VisXX[TrkScnBL, time_index], VisXY[TrkScnBL, time_index], VisYX[TrkScnBL, time_index], VisYY[TrkScnBL, time_index]]
+        #VisTime = np.r_[VisXX[TrkScnBL, time_index], VisXY[TrkScnBL, time_index], VisYX[TrkScnBL, time_index], VisYY[TrkScnBL, time_index]]
+        VisTime = np.array([VisXX[TrkScnBL, time_index], VisXY[TrkScnBL, time_index], VisYX[TrkScnBL, time_index], VisYY[TrkScnBL, time_index]])
         Dx[antID, time_index], Dy[antID, time_index] = Vis2solveD( VisTime, TrkDx, TrkDy, PS )
     #
 #
 
 #-------- Plot D-terms of scanning antennas
-logfile = open(prefix + '-SPW' + `spw[0]` + '-Dterm.log', 'w')
+logfile = open(prefix + '-SPW' + `spw` + '-Dterm.log', 'w')
 text_sd = 'ant ReDx ReDx3max ReDx3min ReDx6max ReDx6min ImDx ImDx3max ImDx3min ImDx6max ImDx6min ReDy ReDy3max ReDy3min ReDy6max ReDy6min ImDy ImDy3max ImDy3min ImDy6max ImDy6min'
 logfile.write(text_sd + '\n')
 print('-------- Plot D-term Maps for scan ants ----')
@@ -311,7 +315,7 @@ for ant_index in range(scnAntNum):
     DantID = trkAntNum + ant_index
     #-------- Plot
     fig = plt.figure( figsize = (10,10))
-    fig.suptitle(prefix + ' ' + antList[antID] + ' SPW=' + `spw[0]` + ' Scan=' + `scan[0]`)
+    fig.suptitle(prefix + ' ' + antList[antID] + ' SPW=' + `spw` + ' Scan=' + `scan`)
     fig.text(0.45, 0.05, 'Az Offset [arcsec]')
     fig.text(0.05, 0.45, 'El Offset [arcsec]', rotation=90)
     #
@@ -353,14 +357,14 @@ for ant_index in range(scnAntNum):
     text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(Dy[DantID, Index6dB].imag), np.min(Dy[DantID, Index6dB].imag) ); plt.text(-1.6*FWHM[antID], -1.9*FWHM[antID], text_sd, size='x-small')
     plt.plot( ScanAz, ScanEl, '.', color='k', alpha=0.1)
     plt.axis([-2.0*FWHM[antID], 2.0*FWHM[antID], -2.0*FWHM[antID], 2.0*FWHM[antID]])
-    plt.savefig( prefix + '-' + antList[antID] + '-SPW' + `spw[0]` + '-DtermMap.pdf', form='pdf'); plt.close()
+    plt.savefig( prefix + '-' + antList[antID] + '-SPW' + `spw` + '-DtermMap.pdf', form='pdf'); plt.close()
     plt.close()
     text_sd = '%s %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f %6.4f'  % (antList[antID], np.mean(Dx[DantID, IndexCenter].real), np.max(Dx[DantID, Index3dB].real), np.min(Dx[DantID, Index3dB].real), np.max(Dx[DantID, Index6dB].real), np.min(Dx[DantID, Index6dB].real), np.mean(Dx[DantID, IndexCenter].imag), np.max(Dx[DantID, Index3dB].imag), np.min(Dx[DantID, Index3dB].imag), np.max(Dx[DantID, Index6dB].imag), np.min(Dx[DantID, Index6dB].imag), np.mean(Dy[DantID, IndexCenter].real), np.max(Dy[DantID, Index3dB].real), np.min(Dy[DantID, Index3dB].real), np.max(Dy[DantID, Index6dB].real), np.min(Dy[DantID, Index6dB].real), np.mean(Dy[DantID, IndexCenter].imag), np.max(Dy[DantID, Index3dB].imag), np.min(Dy[DantID, Index3dB].imag), np.max(Dy[DantID, Index6dB].imag), np.min(Dy[DantID, Index6dB].imag) )
     logfile.write(text_sd + '\n')
 #
 logfile.close()
 #-------- D-term-corrected Stokes parameters --------
-logfile = open(prefix + '-SPW' + `spw[0]` + '-Stokes.log', 'w')
+logfile = open(prefix + '-SPW' + `spw` + '-Stokes.log', 'w')
 text_sd = 'I I3max I3min I6max I6min Q Q3max Q3min Q6max Q6min U U3max U3min U6max U6min V V3max V3min V6max V6min'
 logfile.write(text_sd + '\n')
 print('-------- D-term-corrected Stokes parameters ----')
@@ -431,13 +435,13 @@ text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( np.max(ScnV[Index3dB]), np.min(Sc
 text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(ScnV[Index6dB]), np.min(ScnV[Index6dB]) ); plt.text(-0.8*FWHM, -0.95*FWHM, text_sd, size='x-small')
 #
 plt.axis([-FWHM, FWHM, -FWHM, FWHM])
-plt.savefig( prefix + '-SPW' + `spw[0]` + '-StokesMap.pdf', form='pdf'); plt.close()
+plt.savefig( prefix + '-SPW' + `spw` + '-StokesMap.pdf', form='pdf'); plt.close()
 plt.close()
 text_sd = '%8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f ' % (np.mean(ScnI[IndexCenter]), np.max(ScnI[Index3dB]), np.min(ScnI[Index3dB]), np.max(ScnI[Index6dB]), np.min(ScnI[Index6dB]), np.mean(ScnQ[IndexCenter]), np.max(ScnQ[Index3dB]), np.min(ScnQ[Index3dB]), np.max(ScnQ[Index6dB]), np.min(ScnQ[Index6dB]), np.mean(ScnU[IndexCenter]), np.max(ScnU[Index3dB]), np.min(ScnU[Index3dB]), np.max(ScnU[Index6dB]), np.min(ScnU[Index6dB]), np.mean(ScnV[IndexCenter]), np.max(ScnV[Index3dB]), np.min(ScnV[Index3dB]), np.max(ScnV[Index6dB]), np.min(ScnV[Index6dB]))
 logfile.write(text_sd + '\n')
 logfile.close()
 #
-logfile = open(prefix + '-SPW' + `spw[0]` + '-QUerr.log', 'w')
+logfile = open(prefix + '-SPW' + `spw` + '-QUerr.log', 'w')
 text_sd = 'Qerr Qerr3max Qerr6max Uerr Uerr3max Uerr6max Perr Perr3max Perr6max EVPAerr EVPAerr3max EVPAerr6max' 
 logfile.write(text_sd + '\n')
 #---- Plot Q err map
@@ -474,14 +478,14 @@ text_sd = 'Max EVPAerr (-3dB beam) = %4.1f deg' % ( max(abs(Aerr[Index3dB])) ); 
 text_sd = 'Max EVPAerr (-6dB beam) = %4.1f deg' % ( max(abs(Aerr[Index6dB])) ); plt.text(-0.8*FWHM, -0.95*FWHM, text_sd, size='x-small')
 #
 plt.axis([-FWHM, FWHM, -FWHM, FWHM])
-plt.savefig( prefix + '-SPW' + `spw[0]` + '-StokesErr.pdf', form='pdf'); plt.close()
+plt.savefig( prefix + '-SPW' + `spw` + '-StokesErr.pdf', form='pdf'); plt.close()
 plt.close()
 text_sd = '%8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f' % (np.mean(Qerr[IndexCenter]), max(abs(Qerr[Index3dB])), max(abs(Qerr[Index6dB])), np.mean(Uerr[IndexCenter]), max(abs(Uerr[Index3dB])), max(abs(Uerr[Index6dB])), np.mean(Perr[IndexCenter]), max(abs(Perr[Index3dB])), max(abs(Perr[Index6dB])), np.mean(Aerr[IndexCenter]), max(abs(Aerr[Index3dB])), max(abs(Aerr[Index6dB])))
 logfile.write(text_sd + '\n')
 logfile.close()
 #--------- Gridding for 11x11 sampling points
-az, el = readGrid(gridFile)
-logfile = open(prefix + '-SPW' + `spw[0]` + '-StokesGrid.log', 'w')
+#az, el = readGrid(gridFile)
+logfile = open(prefix + '-SPW' + `spw` + '-StokesGrid.log', 'w')
 text_sd = 'No. dAz      dEl        I        Q        U         V'
 logfile.write(text_sd + '\n')
 xi, yi = np.mgrid[ min(az):max(az):11j, max(el):min(el):11j]
