@@ -50,7 +50,7 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
 #----------------------------------------- Procedures
 msfile = wd + prefix + '.ms'
 BPantList, BP_ant, XYdelay, solution = np.load(wd + BPprefix + '.Ant.npy'), np.load(wd + BPfile), np.load(wd + XYdelayfile), np.load(wd + QUXYfile)
-GYtwiddle = np.exp( (0.0 - 1.0j)* solution[2])
+GYtwiddle = np.exp( (0.0 + 1.0j)* solution[2])
 if QUmodel: CalQ, CalU = solution[0], solution[1]
 mjdSec, Az, El, dAz, dEl = np.ones([0]), np.ones([0]), np.ones([0]), np.ones([0]), np.ones([0])
 chNum, chWid, Freq = GetChNum(msfile, spw); Freq = Freq* 1.0e-9

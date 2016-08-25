@@ -1453,9 +1453,10 @@ def bestRefant(uvDist):
 def CrossPolBL(Xspec, blInv):
     Neg, Pos, Sig = (0.0 + np.array(blInv)), (1.0 - np.array(blInv)), (-2.0* np.array(blInv) + 1.0)
     Tspec = Xspec.copy()
-    Tspec.imag = (Xspec.transpose(0,1,3,2).imag * Sig).transpose(0,1,3,2)       # Complex conjugate for inversed BL
-    Tspec[1]   = (Xspec[1].transpose(0,2,1)* Pos + Xspec[2].transpose(0,2,1)* Neg).transpose(0,2,1) # XY
-    Tspec[2]   = (Xspec[2].transpose(0,2,1)* Pos + Xspec[1].transpose(0,2,1)* Neg).transpose(0,2,1) # YX
+    Tspec[0]   = (Xspec[0].transpose(0,2,1)* Pos + Xspec[0].conjugate().transpose(0,2,1)* Neg).transpose(0,2,1) # XX
+    Tspec[1]   = (Xspec[1].transpose(0,2,1)* Pos + Xspec[2].conjugate().transpose(0,2,1)* Neg).transpose(0,2,1) # XY
+    Tspec[2]   = (Xspec[2].transpose(0,2,1)* Pos + Xspec[1].conjugate().transpose(0,2,1)* Neg).transpose(0,2,1) # YX
+    Tspec[3]   = (Xspec[3].transpose(0,2,1)* Pos + Xspec[3].conjugate().transpose(0,2,1)* Neg).transpose(0,2,1) # YY
     return Tspec
 #
 
