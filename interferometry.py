@@ -824,6 +824,7 @@ def BPtable(msfile, spw, BPScan, blMap=range(2016), blInv=[False]*2016):   #
     pPol, cPol = [0,1], []  # parallel and cross pol
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan)    # Xspec[pol, ch, bl, time]
     antNum, blNum, polNum, chNum = Pspec.shape[2], Xspec.shape[2], Pspec.shape[0], Pspec.shape[1]
+    chRange = range(int(0.05*chNum), int(0.95*chNum))                   # Trim band edge
     if len(blMap) == 2016:
         blMap, blInv = blMap[0:blNum], blInv[0:blNum]
     else:
@@ -831,32 +832,23 @@ def BPtable(msfile, spw, BPScan, blMap=range(2016), blInv=[False]*2016):   #
     #
     if polNum == 4:
         pPol, cPol = [0,3], [1,2]  # parallel and cross pol
+        polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
+        Xspec  = CrossPolBL(Xspec[:,:,blMap], blInv)
+        chAvgYY = np.mean(Xspec[3,chRange], axis=0 )
+    else:
+        Xspec = Xspec[:,:,blMap]
+        Neg, Pos = (0.0 + np.array(blInv)), (1.0 - np.array(blInv))
+        Xspec[0] = (Xspec[0].transpose(0,2,1)*Pos + Xspec[0].conjugate().transpose(0,2,1)*Neg).transpose(0,2,1)
+        Xspec[1] = (Xspec[1].transpose(0,2,1)*Pos + Xspec[1].conjugate().transpose(0,2,1)*Neg).transpose(0,2,1)
+        chAvgYY = np.mean(Xspec[1,chRange], axis=0 )
     #
+    chAvgXX = np.mean(Xspec[0,chRange], axis=0 )
+
     ppolNum, cpolNum = len(pPol), len(cPol)
-    chRange = range(int(0.05*chNum), int(0.95*chNum))                   # Trim band edge
     BP_ant  = np.ones([antNum, ppolNum, chNum], dtype=complex)          # BP_ant[ant, pol, ch]
     XPspec  = np.zeros([polNum, chNum, blNum], dtype=complex)           # XPspec[pol, ch, bl]
     BPXY = np.ones([chNum, blNum], dtype=complex)
     BPYX = np.ones([chNum, blNum], dtype=complex)
-    #---- Phase inversion for inverted baselines
-    Xspec = Xspec[:,:,blMap]                                            # Canonical ordering 
-    Ximag = Xspec.transpose(0,1,3,2).imag* (-2.0* np.array(blInv) + 1.0)
-    Xreal = Xspec.transpose(0,1,3,2).real
-    #---- Phase inversion for cross-pol
-    if cpolNum > 0: # Full polarization pairs
-        Xspec[0].imag = Ximag[0].transpose(0,2,1)   # XX
-        Xspec[3].imag = Ximag[3].transpose(0,2,1)   # YY
-        Xspec[1].real = (Xreal[1]*(1.0 - np.array(blInv)) + Xreal[2]* np.array(blInv)).transpose(0,2,1) # ReXY
-        Xspec[1].imag = (Ximag[1]*(1.0 - np.array(blInv)) + Ximag[2]* np.array(blInv)).transpose(0,2,1) # ImXY
-        Xspec[2].real = (Xreal[2]*(1.0 - np.array(blInv)) + Xreal[1]* np.array(blInv)).transpose(0,2,1) # ReYX
-        Xspec[2].imag = (Ximag[2]*(1.0 - np.array(blInv)) + Ximag[1]* np.array(blInv)).transpose(0,2,1) # ImYX
-        chAvgXX = np.mean(Xspec[0,chRange], axis=0 )
-        chAvgYY = np.mean(Xspec[3,chRange], axis=0 )
-    else:   # parallel polarization only
-        Xspec[0].imag = Ximag[0].transpose(0,2,1)
-        Xspec[1].imag = Ximag[1].transpose(0,2,1)
-        chAvgXX = np.mean(Xspec[0,chRange], axis=0 )
-        chAvgYY = np.mean(Xspec[1,chRange], axis=0 )
     #-------- Antenna-based Gain Cal
     GainX = np.apply_along_axis( gainComplex, 0, chAvgXX)
     GainY = np.apply_along_axis( gainComplex, 0, chAvgYY)
