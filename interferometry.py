@@ -34,6 +34,14 @@ def Bl2Ant(bl_index):     # Baseline -> antenna indexing (canonical ordering)
     ant1 = max(np.where(KERNEL_BL<= bl_index)[0]) + 1
     return ant1, bl_index - KERNEL_BL[ant1 - 1]
 #
+def revList(inList):
+    listLen = len(inList)
+    outList = []
+    for index in range(listLen):
+        outList.append( inList.index(index) )
+    #
+    return outList
+#
 ANT0 = []; ANT1 = []     # List the BL -> antenna indexing
 for bl_index in range(2016):    # Maximum number of baseline
     ants = Bl2Ant(bl_index)
@@ -378,8 +386,7 @@ def antRefScan( msfile, timeRange ):    # Check scanning and tracking antennas
     trkAntIndex  = np.where( scanRange == 0.0 )[0]
     scanAntIndex = np.where( scanRange >  0.0 )[0]
     return trkAntIndex.tolist(), scanAntIndex.tolist(), Time, Offset
-#                                                                    #
-
+#
 def GetChNum(msfile, spwID):
 	tb.open(msfile + '/' + 'SPECTRAL_WINDOW')
 	chNum = tb.getcell("NUM_CHAN", spwID)
@@ -658,7 +665,8 @@ def Vis2solveDD(Vis, PS):
 #
 def Vis2solveD(Vis, DtX, DtY, PS ):
     trkAntNum = len(DtX)  # Number of tracking antennas
-    weight = np.r_[0.1*np.ones(trkAntNum), np.ones(trkAntNum), np.ones(trkAntNum), 0.1*np.ones(trkAntNum), 0.1*np.ones(trkAntNum), np.ones(trkAntNum), np.ones(trkAntNum), 0.1*np.ones(trkAntNum)]
+    #weight = np.r_[0.1*np.ones(trkAntNum), np.ones(trkAntNum), np.ones(trkAntNum), 0.1*np.ones(trkAntNum), 0.1*np.ones(trkAntNum), np.ones(trkAntNum), np.ones(trkAntNum), 0.1*np.ones(trkAntNum)]
+    weight = np.ones(8* trkAntNum)
     Dx, Dy = 0.0 + 0.0j, 0.0 + 0.0j
     Unity = np.ones(trkAntNum)
     Zeros = 0.0* Unity
@@ -1443,16 +1451,12 @@ def bestRefant(uvDist):
 #
 #-------- CrossPol Visibility
 def CrossPolBL(Xspec, blInv):
-    Ximag = Xspec.transpose(0,1,3,2).imag * (-2.0* np.array(blInv) + 1.0)
-    Xreal = Xspec.transpose(0,1,3,2).real
-    Xspec.imag = Ximag.transpose(0,1,3,2)
-    Xspec[0].imag = Ximag[0].transpose(0,2,1)   # XX
-    Xspec[3].imag = Ximag[3].transpose(0,2,1)   # YY
-    Xspec[1].real = (Xreal[1]*(1.0 - np.array(blInv)) + Xreal[2]* np.array(blInv)).transpose(0,2,1) # ReXY
-    Xspec[1].imag = (Ximag[1]*(1.0 - np.array(blInv)) + Ximag[2]* np.array(blInv)).transpose(0,2,1) # ImXY
-    Xspec[2].real = (Xreal[2]*(1.0 - np.array(blInv)) + Xreal[1]* np.array(blInv)).transpose(0,2,1) # ReYX
-    Xspec[2].imag = (Ximag[2]*(1.0 - np.array(blInv)) + Ximag[1]* np.array(blInv)).transpose(0,2,1) # ImYX
-    return Xspec
+    Neg, Pos, Sig = (0.0 + np.array(blInv)), (1.0 - np.array(blInv)), (-2.0* np.array(blInv) + 1.0)
+    Tspec = Xspec.copy()
+    Tspec.imag = (Xspec.transpose(0,1,3,2).imag * Sig).transpose(0,1,3,2)       # Complex conjugate for inversed BL
+    Tspec[1]   = (Xspec[1].transpose(0,2,1)* Pos + Xspec[2].transpose(0,2,1)* Neg).transpose(0,2,1) # XY
+    Tspec[2]   = (Xspec[2].transpose(0,2,1)* Pos + Xspec[1].transpose(0,2,1)* Neg).transpose(0,2,1) # YX
+    return Tspec
 #
 
 #-------- Tool 

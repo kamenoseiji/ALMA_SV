@@ -70,6 +70,7 @@ for spw_index in range(spwNum):
             if chNum == 1:
                 print '  -- Channel-averaged data: no BP and delay cal'
                 chAvgVis= CrossPolBL(Xspec[:,:,blMap], blInv)[:,0]
+                #chAvgVis= CrossPolBL(Xspec, blInv)[:,0][:,blMap]
             else:
                 tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)
                 BPCaledXspec = (tempSpec / BP_bl).transpose(2,3,1,0) 

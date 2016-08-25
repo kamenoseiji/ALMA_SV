@@ -157,7 +157,7 @@ if refantName not in antList[trkAnt]:
 #-------- Antenna and BL Grouping
 refAntIndex = np.where( antList == refantName )[0].tolist()       # Ref ant in all AntList
 trkAnt.pop( trkAnt.index(refAntIndex[0])); trkAnt = refAntIndex + trkAnt
-AntIndex = trkAnt + scnAnt     # Antenna List, refants are prior
+antMap = trkAnt + scnAnt     # Antenna List, refants are prior
 antWeight = np.ones(antNum)
 antWeight[scnAnt] = 0.5
 #-- BL mapping for all baselines
@@ -166,8 +166,8 @@ BlInv = [False]* blNum      # True -> inverted baseline
 blWeight = np.ones([blNum])
 for bl_index in range(blNum):
     ants = Bl2Ant(bl_index)
-    BlMap[bl_index], BlInv[bl_index] = Ant2BlD(AntIndex[ants[0]], AntIndex[ants[1]])
-    blWeight[bl_index] = antWeight[AntIndex[ants[0]]]* antWeight[AntIndex[ants[1]]]
+    BlMap[bl_index], BlInv[bl_index] = Ant2BlD(antMap[ants[0]], antMap[ants[1]])
+    blWeight[bl_index] = antWeight[antMap[ants[0]]]* antWeight[antMap[ants[1]]]
 #
 trkBlIndex  = np.where(blWeight == 1.0)[0].tolist(); trkBlNum  = len(trkBlIndex)        # Ref-Ref baselines
 ScTrBlIndex = np.where(blWeight == 0.5)[0].tolist(); ScTrBlNum = len(ScTrBlIndex)       # Ref-Scan baselines
