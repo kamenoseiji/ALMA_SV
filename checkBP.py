@@ -26,10 +26,9 @@ print '  Use ' + antList[UseAnt[refantID]] + ' as the refant.'
 #-------- Baseline Mapping
 print '---Baseline Mapping'
 antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
-antRev = revList(antMap)
 ant0 = ANT0[0:UseBlNum]; ant1 = ANT1[0:UseBlNum]
 for bl_index in range(UseBlNum):
-    blMap[bl_index], blInv[bl_index]  = Ant2BlD(antRev[ant0[bl_index]], antRev[ant1[bl_index]])
+    blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
 #
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 #-------- Bandpass Table
