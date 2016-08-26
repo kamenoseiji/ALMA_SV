@@ -182,7 +182,7 @@ for ant_index in range(scnAntNum):
             progress = (time_index* chNum + ch_index + 1.0) / (timeNum* chNum)
             sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
             VisTime = CaledXspec[:, ch_index, TrkScnBL, time_index]
-            Dx[antID, time_index, ch_index], Dy[antID, time_index, ch_index] = Vis2solveD(VisTime, Dx[0:trkAntNum, time_index, ch_index], Dy[0:trkAntNum, time_index, ch_index], PS )
+            Dx[antID, time_index, ch_index], Dy[antID, time_index, ch_index] = Vis2solveDD(VisTime, Dx[0:trkAntNum, time_index, ch_index], Dy[0:trkAntNum, time_index, ch_index], PS )
         #
     #
     sys.stderr.write('\n'); sys.stderr.flush()
