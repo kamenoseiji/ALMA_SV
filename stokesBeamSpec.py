@@ -49,7 +49,7 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
 # scnAnt  : (eg.) [33,3,38,...]                             : subset of antID for scanning antennas
 #----------------------------------------- Procedures
 msfile = wd + prefix + '.ms'
-BPantList, BP_ant, XYdelay, solution = np.load(wd + BPprefix + '.Ant.npy'), np.load(wd + BPfile), np.load(wd + XYdelayfile), np.load(wd + QUXYfile)
+BPantList, BP_ant, XYdelay, solution = np.load(BPprefix + '-REF' + refantName + '.Ant.npy'), np.load(wd + BPfile), np.load(wd + XYdelayfile), np.load(wd + QUXYfile)
 GYtwiddle = np.exp( (0.0 + 1.0j)* solution[2])
 if QUmodel: CalQ, CalU = solution[0], solution[1]
 mjdSec, Az, El, dAz, dEl = np.ones([0]), np.ones([0]), np.ones([0]), np.ones([0]), np.ones([0])
