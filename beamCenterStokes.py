@@ -50,7 +50,7 @@ for spw_index in range(spwNum):
     caledVis = np.ones([4,blNum, 0], dtype=complex)
     mjdSec, Az, El = np.ones([0]), np.ones([0]), np.ones([0])
     if BPprefix != '':  # Bandpass file
-        BPantList, BP_ant, XYdelay = np.load(BPprefix + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYdelay.npy')
+        BPantList, BP_ant, XYdelay = np.load(BPprefix + '-REF' + refantName + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYdelay.npy')
         BP_ant = BP_ant[indexList(antList[antMap], BPantList)]
         BP_bl = BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate()
     #

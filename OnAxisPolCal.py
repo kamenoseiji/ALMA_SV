@@ -134,7 +134,7 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
 #
 #----------------------------------------- Procedures
 msfile = wd + prefix + '.ms'
-BP_ant = np.load(wd + prefix + '.BPant.npy')
+BP_ant = np.load(wd + prefix + '-REF' + refantName + '.BPant.npy')
 XYdelay = np.load(wd + prefix + '.XYdelay.npy')
 solution = np.load(wd + QUXY + '.QUXY.npy')
 CalQ, CalU, GYphs = solution[0], solution[1], solution[2]

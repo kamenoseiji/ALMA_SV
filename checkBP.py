@@ -47,7 +47,7 @@ ppolNum = BP_ant.shape[2]
 PolList = ['X', 'Y']
 #
 #-------- Save CalTables
-np.save(prefix + '.Ant.npy', antList[antMap]) 
+np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '.Ant.npy', antList[antMap]) 
 for spw_index in range(spwNum):
     np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SPW' + `spw[spw_index]` + '-BPant.npy', BP_ant[:,spw_index]) 
     np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SPW' + `spw[spw_index]` + '-XYdelay.npy', XYdelay[spw_index]) 
