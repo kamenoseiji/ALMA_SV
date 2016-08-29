@@ -615,24 +615,7 @@ def Vis2solveDD(Vis, PS):
     fit = scipy.optimize.minimize(Dresid, x0=np.zeros(4*antNum), method="tnc")['x']
     return fit[0:antNum] + (0.0+1.0j)*fit[antNum:(2*antNum)], fit[(2*antNum):(3*antNum)] + (0.0+1.0j)*fit[(3*antNum):(4*antNum)]
 #
-"""
-def Vis2solveDD(Vis, PS):
-    blNum  = Vis.shape[1]; antNum = Bl2Ant(blNum)[0]                   # (I, Q, U, V)
-    ant0, ant1 = ANT0[0:blNum], ANT1[0:blNum]
-    def Dresid( D ):
-        antNum = (len(D)+1)/4; blNum = antNum* (antNum - 1) /2
-        Dx = D[0:antNum] + (0.0+1.0j)* np.r_[0.0, D[antNum:(2*antNum-1)]]
-        Dy = D[(2*antNum-1):(3*antNum-1)] + (0.0+1.0j)*D[(3*antNum-1):(4*antNum-1)]
-        resid   = (Vis - np.dot(MullerVector( Dx[ant0], Dy[ant0], Dx[ant1], Dy[ant1], np.ones(blNum, dtype=complex) ).transpose(2,0,1), PS).T).reshape(4* blNum)
-        resReal = np.r_[resid.real, resid.imag]
-        return np.dot(resReal, resReal)
-    #
-    fit = scipy.optimize.minimize(Dresid, x0=np.zeros(4*antNum - 1), method="tnc")['x']
-    return fit[0:antNum] + (0.0+1.0j)* np.r_[0.0, fit[antNum:(2*antNum-1)]], fit[(2*antNum-1):(3*antNum-1)] + (0.0+1.0j)*fit[(3*antNum-1):(4*antNum-1)]
-#
-"""
-"""
-def Vis2solveDD(Vis, PS):
+def Vis2solveDDD(Vis, PS):
     blNum  = Vis.shape[1]; antNum = Bl2Ant(blNum)[0]                   # (I, Q, U, V)
     ant0, ant1 = ANT0[0:blNum], ANT1[0:blNum]
     dSolMap = range(2* antNum) + range(2*antNum+1, 4*antNum)
@@ -686,16 +669,17 @@ def Vis2solveDD(Vis, PS):
             P[3*antNum + a1, 5*blNum + bl_index] -= dVisY1[bl_index,0].real # /imY1
             P[3*antNum + a1, 7*blNum + bl_index] -= dVisY1[bl_index,1].real # /imY1
         #
-        P = P[dSolMap]
+        #P = P[dSolMap]
         PWtP = np.dot(P, np.dot(np.diag(weight), P.T))
         # correction = np.dot(scipy.linalg.inv(PWtP), np.dot(P, weight* resReal))
         correction = scipy.linalg.solve(PWtP, np.dot(P, weight* resReal))
-        Dx += correction[range(antNum)]           + 1.0j* np.append(0, correction[range(2*antNum, 3*antNum-1)])
-        Dy += correction[range(antNum, 2*antNum)] + 1.0j* correction[range(3*antNum-1, 4*antNum-1)]
+        #Dx += correction[range(antNum)]           + 1.0j* np.append(0, correction[range(2*antNum, 3*antNum-1)])
+        #Dy += correction[range(antNum, 2*antNum)] + 1.0j* correction[range(3*antNum-1, 4*antNum-1)]
+        Dx += correction[range(antNum)]           + 1.0j* correction[range(2*antNum, 3*antNum)]
+        Dy += correction[range(antNum, 2*antNum)] + 1.0j* correction[range(3*antNum, 4*antNum)]
     #
     return Dx, Dy
 #
-"""
 def Vis2solveDS(Vis, DtX, DtY, PS ):
     def DTresid( D ):
         Dx, Dy = D[0] + (0.0 + 1.0j)*D[1], D[2] + (0.0 + 1.0j)*D[3]
