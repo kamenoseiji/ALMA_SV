@@ -116,7 +116,7 @@ CaledXspec = (Xspec.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXinde
 #-------- D-term of tracking antennas
 Dx, Dy = np.zeros([antNum, timeNum, chNum], dtype=complex), np.zeros([antNum, timeNum, chNum], dtype=complex)
 print('-------- Determining Antenna-based D-terms (refants) ----')
-PAwidth = 0.005; PAsegNum = int((max(PA) - min(PA))/PAwidth)
+PAwidth = 0.01; PAsegNum = int((max(PA) - min(PA))/PAwidth)
 if max(np.diff(PA)) > np.pi: PAsegNum = int((max(np.sin(PA)) - min(np.sin(PA)))/PAwidth) # for +/-pi gap
 if PAsegNum > timeNum/2: PAsegNum = timeNum/2
 #
