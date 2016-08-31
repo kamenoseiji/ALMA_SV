@@ -202,7 +202,7 @@ BeamPA  = np.arctan2(dEl, dAz)*180.0/pi
 ScanInterval = median( np.diff( dAz[0:50] ))
 SortOffBeam = np.sort( OffBeam )
 BreakIndex = np.where( np.diff(SortOffBeam) > 0.5* ScanInterval)[0]
-thresh = np.r_[0, 0.5*( SortOffBeam[BreakIndex] + SortOffBeam[BreakIndex + 1])]
+thresh = np.r_[0.1, 0.5*( SortOffBeam[BreakIndex] + SortOffBeam[BreakIndex + 1])]
 xrange, yrange = [min(Freq[chRange]), max(Freq[chRange])], [-0.1, 0.1]
 for ant_index in range(scnAntNum):
     antID = scnAnt[ant_index]
@@ -210,6 +210,7 @@ for ant_index in range(scnAntNum):
     fwhm = FWHM[DantID]
     for thresh_index in range(7):
         time_index = list(set(np.where(OffBeam > thresh[thresh_index])[0]) & set(np.where(OffBeam < thresh[thresh_index + 1])[0]))  # Select time-points between thresholds
+        if(len(time_index) != 48): continue
         PA_arg = np.argsort(BeamPA[time_index]).tolist()    # Sort by Position Angle
         time_index = np.array(time_index)[PA_arg].tolist()
         fig = plt.figure(thresh_index, figsize = (8,11))
