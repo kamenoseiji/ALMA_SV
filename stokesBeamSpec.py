@@ -460,6 +460,7 @@ text_sd = '%4.1f %d %8.6f %8.6f %8.6f %8.6f' % (0.0,  0, StokesFlux[0], StokesFl
 xrange, yrange = [min(Freq[chRange]), max(Freq[chRange])], [-0.01, 0.01]
 for thresh_index in range(7):
     time_index = list(set(np.where(OffBeam > thresh[thresh_index])[0]) & set(np.where(OffBeam < thresh[thresh_index + 1])[0]))  # Select time-points between thresholds
+    if(len(time_index) != 48): continue
     PA_arg = np.argsort(BeamPA[time_index]).tolist()    # Sort by Position Angle
     time_index = np.array(time_index)[PA_arg].tolist()
     fig = plt.figure(thresh_index, figsize = (8,11))
