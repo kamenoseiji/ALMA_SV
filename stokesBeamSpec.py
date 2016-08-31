@@ -192,27 +192,30 @@ ScTrBlIndex = np.where(blWeight == 0.5)[0].tolist(); ScTrBlNum = len(ScTrBlIndex
 ScScBlIndex = np.where(blWeight == 0.25)[0].tolist(); ScScBlNum = len(ScScBlIndex)      # Scan-Scan baselines
 #
 #-------- Plot D-term spectrum for beam position
+np.save(prefix + '-SPW' + `spw` + '-REF' + refantName + '.Dants.npy', antList[antMap])
+np.save(prefix + '-SPW' + `spw` + '-REF' + refantName + '.Dterm.npy', np.array([Dx, Dy]))
 logfile = open(prefix + '-SPW' + `spw` + '-DtermSpec.log', 'w')
 text_sd = 'ant beamoff branch ch ReDx ImDx ReDy ImDy'
 logfile.write(text_sd + '\n')
 OffBeam = np.sqrt(dAz**2 + dEl**2)
+BeamPA  = np.arctan2(dEl, dAz)*180.0/pi
 ScanInterval = median( np.diff( dAz[0:50] ))
 SortOffBeam = np.sort( OffBeam )
 BreakIndex = np.where( np.diff(SortOffBeam) > 0.5* ScanInterval)[0]
-thresh = 0.5*( SortOffBeam[BreakIndex] + SortOffBeam[BreakIndex + 1])
-#thresh = np.r_[0.0, np.linspace( min(np.sqrt(ScanAz**2 + ScanEl**2)), max(np.sqrt(ScanAz**2 + ScanEl**2)), num=16) + min(np.sqrt(ScanAz**2 + ScanEl**2))]
-Dist2 = dAz**2 + dEl**2
+thresh = np.r_[0, 0.5*( SortOffBeam[BreakIndex] + SortOffBeam[BreakIndex + 1])]
 xrange, yrange = [min(Freq[chRange]), max(Freq[chRange])], [-0.1, 0.1]
 for ant_index in range(scnAntNum):
     antID = scnAnt[ant_index]
     DantID = trkAntNum + ant_index
     fwhm = FWHM[DantID]
-    for thresh_index in range(6):
-        time_index = list(set(np.where(Dist2 > thresh[thresh_index]**2 )[0]) & set(np.where(Dist2 < thresh[thresh_index + 1]**2 )[0]))
+    for thresh_index in range(7):
+        time_index = list(set(np.where(OffBeam > thresh[thresh_index])[0]) & set(np.where(OffBeam < thresh[thresh_index + 1])[0]))  # Select time-points between thresholds
+        PA_arg = np.argsort(BeamPA[time_index]).tolist()    # Sort by Position Angle
+        time_index = np.array(time_index)[PA_arg].tolist()
         fig = plt.figure(thresh_index, figsize = (8,11))
         fig.text(0.45, 0.05, 'Frequency [GHz]')
         fig.text(0.05, 0.45, 'D-term', rotation=90)
-        plt.suptitle(prefix + ' ' + antList[antID] + ' D-term@' + `round(np.median(np.sqrt(Dist2[time_index])),1)` + ' arcsec')
+        plt.suptitle(prefix + ' ' + antList[antID] + ' D-term@' + `round(np.median(OffBeam[time_index]),1)` + ' arcsec')
         #-------- Plot beam map
         plt.subplot2grid( (9,6), (0,5), aspect=1)
         plt.plot(dAz, dEl, ',', color='k', alpha=0.1)
@@ -247,12 +250,13 @@ for ant_index in range(scnAntNum):
             plt.plot( Freq, Dy[DantID, time_index[index]].imag, ls='steps-mid', color='darkred',  label = 'ImDy')
             plt.axis([min(Freq), max(Freq), -0.2,0.2], fontsize=3)
             plt.tick_params(labelsize = 6)
+            text_sd = 'PA=%.1f deg' % (BeamPA[time_index[index]]); plt.text(min(Freq), 0.16, text_sd, size='x-small')
             for ch_index in range(chNum):
-                text_sd = '%s %4.1f %d %d %8.6f %8.6f %8.6f %8.6f' % (antList[antID], np.median(np.sqrt(Dist2[time_index])), index, ch_index, Dx[DantID, time_index[index], ch_index].real, Dx[DantID, time_index[index], ch_index].imag, Dy[DantID, time_index[index], ch_index].real, Dy[DantID, time_index[index], ch_index].imag)
+                text_sd = '%s %4.1f %4.1f %d %8.6f %8.6f %8.6f %8.6f' % (antList[antID], np.median(OffBeam[time_index]), BeamPA[time_index[index]], ch_index, Dx[DantID, time_index[index], ch_index].real, Dx[DantID, time_index[index], ch_index].imag, Dy[DantID, time_index[index], ch_index].real, Dy[DantID, time_index[index], ch_index].imag)
                 logfile.write(text_sd + '\n')
             #
         #
-        plt.savefig( prefix + '-' + antList[antID] + '-SPW' + `spw` + '-OFF' + `round(np.median(np.sqrt(Dist2[time_index])),1)` + '-DtermSpec.pdf', form='pdf'); plt.close()
+        plt.savefig( prefix + '-' + antList[antID] + '-SPW' + `spw` + '-OFF' + `round(np.median(OffBeam[time_index]),1)` + '-DtermSpec.pdf', form='pdf'); plt.close()
     #
 #
 logfile.close()
@@ -348,7 +352,6 @@ Qerr = ScnStokes[:,1] - StokesFlux[1]
 Uerr = ScnStokes[:,2] - StokesFlux[2]
 Perr = sqrt(ScnStokes[:,1]**2 + ScnStokes[:,2]**2) - sqrt(StokesFlux[1]**2 + StokesFlux[2]**2)
 Aerr = np.arctan( (ScnStokes[:,2]* StokesFlux[1] - ScnStokes[:,1]* StokesFlux[2]) / (ScnStokes[:,1]* StokesFlux[1] + ScnStokes[:,2]* StokesFlux[2]) )* 90.0/math.pi
-
 #-------- Plot Stokes Beam Map
 logfile = open(prefix + '-SPW' + `spw` + '-Stokes.log', 'w')
 text_sd = 'I I3max I3min I6max I6min Q Q3max Q3min Q6max Q6min U U3max U3min U6max U6min V V3max V3min V6max V6min'
@@ -454,12 +457,14 @@ logfile = open(prefix + '-SPW' + `spw` + '-StokesSpec.log', 'w')
 text_sd = 'beamoff branch CH I Q U V ';  logfile.write(text_sd + '\n')
 text_sd = '%4.1f %d %8.6f %8.6f %8.6f %8.6f' % (0.0,  0, StokesFlux[0], StokesFlux[1], StokesFlux[2], StokesFlux[3]); logfile.write(text_sd + '\n')
 xrange, yrange = [min(Freq[chRange]), max(Freq[chRange])], [-0.01, 0.01]
-for thresh_index in range(6):
-    time_index = list(set(np.where(Dist2 > thresh[thresh_index]**2 )[0]) & set(np.where(Dist2 < thresh[thresh_index + 1]**2 )[0]))
+for thresh_index in range(7):
+    time_index = list(set(np.where(OffBeam > thresh[thresh_index])[0]) & set(np.where(OffBeam < thresh[thresh_index + 1])[0]))  # Select time-points between thresholds
+    PA_arg = np.argsort(BeamPA[time_index]).tolist()    # Sort by Position Angle
+    time_index = np.array(time_index)[PA_arg].tolist()
     fig = plt.figure(thresh_index, figsize = (8,11))
     fig.text(0.45, 0.05, 'Frequency [GHz]')
     fig.text(0.05, 0.45, 'Stokes Residual [scaled by Stokes I]', rotation=90)
-    plt.suptitle(prefix + ' ' + ' Stokes Residuals@' + `round(np.median(np.sqrt(Dist2[time_index])),1)` + ' arcsec')
+    plt.suptitle(prefix + ' ' + ' Stokes Residuals@' + `round(np.median(OffBeam[time_index]),1)` + ' arcsec')
     #-------- Plot beam map
     plt.subplot2grid( (9,6), (0,5), aspect=1)
     plt.plot(dAz, dEl, ',', color='k', alpha=0.1)
@@ -494,10 +499,11 @@ for thresh_index in range(6):
         plt.plot( Freq, ScnStokesSpec[time_index[index], :, 3] - StokesFlux[3], ls='steps-mid', color='b',  label = 'V')
         plt.axis([min(Freq), max(Freq), -0.05,0.05], fontsize=3)
         plt.tick_params(labelsize = 6)
+        text_sd = 'PA=%.1f deg' % (BeamPA[time_index[index]]); plt.text(min(Freq), 0.035, text_sd, size='x-small')
         for ch_index in range(chNum):
-            text_sd = '%4.1f %d %d %8.6f %8.6f %8.6f %8.6f' % (np.median(np.sqrt(Dist2[time_index])), index, ch_index, ScnStokesSpec[time_index[index], ch_index, 0], ScnStokesSpec[time_index[index], ch_index, 1], ScnStokesSpec[time_index[index], ch_index, 2], ScnStokesSpec[time_index[index], ch_index, 3]); logfile.write(text_sd + '\n')
+            text_sd = '%4.1f %4.1f %d %8.6f %8.6f %8.6f %8.6f' % (np.median(OffBeam[time_index]), BeamPA[time_index[index]], ch_index, ScnStokesSpec[time_index[index], ch_index, 0], ScnStokesSpec[time_index[index], ch_index, 1], ScnStokesSpec[time_index[index], ch_index, 2], ScnStokesSpec[time_index[index], ch_index, 3]); logfile.write(text_sd + '\n')
         #
     #
-    plt.savefig( prefix + '-' + '-SPW' + `spw` + '-OFF' + `round(np.median(np.sqrt(Dist2[time_index])),1)` + '-StokesSpec.pdf', form='pdf'); plt.close()
+    plt.savefig( prefix + '-' + '-SPW' + `spw` + '-OFF' + `round(np.median(OffBeam[time_index]),1)` + '-StokesSpec.pdf', form='pdf'); plt.close()
 #
 logfile.close()
