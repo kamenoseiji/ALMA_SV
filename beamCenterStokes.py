@@ -104,7 +104,8 @@ for spw_index in range(spwNum):
         print '---- Iteration ' + `iter_index` + ' for Stokes (Q, U) and Gain ----'
         GainX, GainY = polariGain(caledVis[0], caledVis[3], PA, solution[0], solution[1]); Gain = np.array([GainX, GainY])
         Vis    = np.mean(caledVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate()), axis=1)
-        solution, solerr = XY2Stokes(PA, Vis[1], Vis[2])
+        #solution, solerr = XY2Stokes(PA, Vis[1], Vis[2])
+        solution, solerr = XXYY2Stokes(PA, Vis)
         text_sd = 'Q/I= %6.3f+-%6.4f  U/I= %6.3f+-%6.4f  XYphase= %6.3f+-%6.4f rad EVPA = %6.2f deg' % (solution[0], solerr[0], solution[1], solerr[1], solution[2], solerr[2], np.arctan(solution[1]/solution[0])*90.0/pi)
         print text_sd
     #
