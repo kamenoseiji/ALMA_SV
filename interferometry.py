@@ -1376,74 +1376,70 @@ def polariGain( XX, YY, PA, StokesQ, StokesU):
 def XXYY2Stokes(PA, Vis):
     timeNum = Vis.shape[1]
     sinPA2, cosPA2 = np.sin(2.0*PA), np.cos(2.0*PA)
-    solution = np.array([0.1, 0.1, np.angle( np.mean(Vis[1])), 0.0, 0.0, 0.0, 0.0])   # Initial parameters : StokesQ, StokesU, XYphase, Re(Dx+Dy*), Im(Dx+Dy*)
-    for index in range(5):
+    solution = np.array([0.01, 0.01, np.angle( np.mean(Vis[1]))])   # Initial parameters : StokesQ, StokesU, XYphase, Re(Dx+Dy*), Im(Dx+Dy*)
+    Unity, Zeroty = np.ones([timeNum]), np.zeros([timeNum])
+    W = np.r_[0.001* np.ones(timeNum), np.ones(4* timeNum), 0.001*np.ones(timeNum)]/ (np.var(Vis[1].imag) + np.var(Vis[2].imag))
+    P = np.zeros([3, 6* timeNum])       # 7 parameters to solve, 4 (ReXY, ImXY, ReYX, ImYX) * timeNum measurements
+    for index in range(10):
         sinPhi, cosPhi = np.sin(solution[2]), np.cos(solution[2])
         UC_QS = cosPA2* solution[1] - sinPA2* solution[0]   # U cosPA2 - Q sinPA2
         QC_US = cosPA2* solution[0] + sinPA2* solution[1]   # U sinPA2 + Q cosPA2
-        P = np.zeros([7, 6* timeNum])       # 7 parameters to solve, 4 (ReXY, ImXY, ReYX, ImYX) * timeNum measurements
-        W = np.ones([6* timeNum])/ np.var(Vis[1].imag + Vis[2].imag)
         vecVis = np.r_[ Vis[0].real, Vis[1].real, Vis[1].imag, Vis[2].real, Vis[2].imag, Vis[3].real ]
         modelVis = np.r_[
              1.0 + QC_US,                       # Re XX*
-             cosPhi* UC_QS + solution[3],       # Re XY*
-             sinPhi* UC_QS + solution[4],       # Im XY*
-             cosPhi* UC_QS + solution[5],       # Re YX*
-            -sinPhi* UC_QS + solution[6],       # Im YX*
+             cosPhi* UC_QS, # + solution[3],       # Re XY*
+             sinPhi* UC_QS, # + solution[4],       # Im XY*
+             cosPhi* UC_QS, # + solution[5],       # Re YX*
+            -sinPhi* UC_QS, # + solution[6]]       # Im YX*
              1.0 - QC_US]                       # Re YY*
         residual = vecVis - modelVis
+        W[np.where( abs(residual) > 0.1)[0].tolist()] = 0.0
         #-------- Partial matrix
-        P[0] = np.r_[cosPA2, -sinPA2* cosPhi, -sinPA2* sinPhi, -sinPA2* cosPhi,  sinPA2* sinPhi, -cosPA2]
-        P[1] = np.r_[sinPA2,  cosPA2* cosPhi,  cosPA2* sinPhi,  cosPA2* cosPhi, -cosPA2* sinPhi, -sinPA2]
-        P[2] = np.r_[np.zeros([timeNum]),  -sinPhi* UC_QS,  cosPhi* UC_QS,  -sinPhi* UC_QS,  -cosPhi* UC_QS, np.zeros([timeNum])]
-        P[3] = np.r_[np.zeros([timeNum]), np.ones([timeNum]),  np.zeros([timeNum]), np.zeros([timeNum]), np.zeros([timeNum]), np.zeros([timeNum])]
-        P[4] = np.r_[np.zeros([timeNum]), np.zeros([timeNum]), np.ones([timeNum]),  np.zeros([timeNum]), np.zeros([timeNum]), np.zeros([timeNum])]
-        P[5] = np.r_[np.zeros([timeNum]), np.zeros([timeNum]), np.zeros([timeNum]), np.ones([timeNum]),  np.zeros([timeNum]), np.zeros([timeNum])]
-        P[6] = np.r_[np.zeros([timeNum]), np.zeros([timeNum]), np.zeros([timeNum]), np.zeros([timeNum]), np.ones([timeNum]), np.zeros([timeNum]), ]
+        #                 XX                reXY                 imXY             reYX             imYX        YY
+        P[0] = np.r_[ cosPA2,    -sinPA2* cosPhi,     -sinPA2* sinPhi, -sinPA2* cosPhi,  sinPA2* sinPhi,  -cosPA2] # dQ
+        P[1] = np.r_[ sinPA2,     cosPA2* cosPhi,      cosPA2* sinPhi,  cosPA2* cosPhi, -cosPA2* sinPhi,  -sinPA2] # dU
+        P[2] = np.r_[ Zeroty,     -sinPhi* UC_QS,       cosPhi* UC_QS,  -sinPhi* UC_QS,  -cosPhi* UC_QS,   Zeroty] # dPhi
         PTWP_inv = scipy.linalg.inv(np.dot(P, np.dot(np.diag(W), P.T)))
         correction = np.dot( PTWP_inv, np.dot(P, W* residual))
-        # print 'Iteration %d : correction = %e' % (index, np.dot(correction,correction))
+        correction = scipy.linalg.solve(np.dot(P, np.dot(np.diag(W), P.T)), np.dot(P, W* residual))
         solution   = solution + correction
         if np.dot(correction,correction) < 1.0e-15: break
     #
     solution[2] = np.arctan2( np.sin(solution[2]), np.cos(solution[2]) )    # Remove 2pi ambiguity
-    return(solution, np.sqrt(np.diag(PTWP_inv)))
+    return(solution)
 #
-def XY2Stokes(PA, VisXY, VisYX):
+def XY2Stokes(PA, Vis, solution):
     #-------- Least-Square fit for polarizatino parameters (Q, U, XYphase, Dx, Dy)
-    timeNum = len(VisXY)
-    sinPA2 = np.sin(2.0*PA)
-    cosPA2 = np.cos(2.0*PA)
+    timeNum = len(Vis[1])
+    Unity, Zeroty = np.ones([timeNum]), np.zeros([timeNum])
+    sinPA2, cosPA2 = np.sin(2.0*PA), np.cos(2.0*PA)
     P = np.zeros([7, 4* timeNum])       # 7 parameters to solve, 4 (ReXY, ImXY, ReYX, ImYX) * timeNum measurements
-    solution = np.array([0.1, 0.1, np.angle( np.mean(VisXY)), 0.0, 0.0, 0.0, 0.0])   # Initial parameters : StokesQ, StokesU, XYphase, Re(Dx+Dy*), Im(Dx+Dy*)
-    W = np.diag(4.0* np.ones([4* timeNum])/ np.var(VisXY.imag + VisYX.imag))
+    W = np.ones(4* timeNum)/ (np.var(Vis[1].imag) + np.var(Vis[2].imag))
     #-------- Iteration loop
     for index in range(10):
-        sinPhi = np.sin(solution[2])
-        cosPhi = np.cos(solution[2])
+        sinPhi, cosPhi = np.sin(solution[2]), np.cos(solution[2])
         UC_QS = cosPA2* solution[1] - sinPA2* solution[0]   # U cosPA2 - Q sinPA2
         modelVis = np.r_[
              cosPhi* UC_QS + solution[3],       # Re XY*
              sinPhi* UC_QS + solution[4],       # Im XY*
              cosPhi* UC_QS + solution[5],       # Re YX*
             -sinPhi* UC_QS + solution[6] ]      # Im YX*
-        #-------- Partial matrix
-        P[0] = np.r_[-sinPA2* cosPhi, -sinPA2* sinPhi, -sinPA2* cosPhi,  sinPA2* sinPhi]
-        P[1] = np.r_[ cosPA2* cosPhi,  cosPA2* sinPhi,  cosPA2* cosPhi, -cosPA2* sinPhi]
-        P[2] = np.r_[-sinPhi* UC_QS, cosPhi* UC_QS, -sinPhi* UC_QS, -cosPhi* UC_QS]
-        P[3] = np.r_[np.ones([timeNum]),  np.zeros([timeNum]), np.zeros([timeNum]), np.zeros([timeNum])]
-        P[4] = np.r_[np.zeros([timeNum]), np.ones([timeNum]),  np.zeros([timeNum]), np.zeros([timeNum])]
-        P[5] = np.r_[np.zeros([timeNum]), np.zeros([timeNum]), np.ones([timeNum]),  np.zeros([timeNum])]
-        P[6] = np.r_[np.zeros([timeNum]), np.zeros([timeNum]), np.zeros([timeNum]), np.ones([timeNum])]
-        PTWP_inv = scipy.linalg.inv(np.dot(P, np.dot(W, P.T)))
-        vecVis = np.r_[ VisXY.real, VisXY.imag, VisYX.real, VisYX.imag ]
+        vecVis = np.r_[ Vis[1].real, Vis[1].imag, Vis[2].real, Vis[2].imag ]
         residual = vecVis - modelVis
-        correction = np.dot( PTWP_inv, np.dot (P, np.dot(W, residual)))
+        #-------- Partial matrix
+        #                      ReXY             ImXY             ReYX             ImYX
+        P[0] = np.r_[-sinPA2* cosPhi, -sinPA2* sinPhi, -sinPA2* cosPhi,  sinPA2* sinPhi]    # dQ
+        P[1] = np.r_[ cosPA2* cosPhi,  cosPA2* sinPhi,  cosPA2* cosPhi, -cosPA2* sinPhi]    # du
+        P[2] = np.r_[-sinPhi* UC_QS, cosPhi* UC_QS, -sinPhi* UC_QS, -cosPhi* UC_QS]         # dPhi
+        P[3] = np.r_[ Unity, Zeroty,  Zeroty,  Zeroty]  # Leakage
+        P[4] = np.r_[Zeroty,  Unity,  Zeroty,  Zeroty]  # Leakage
+        P[5] = np.r_[Zeroty, Zeroty,   Unity,  Zeroty]  # Leakage
+        P[6] = np.r_[Zeroty, Zeroty,  Zeroty,   Unity]  # Leakage
+        PTWP_inv = scipy.linalg.inv(np.dot(P, np.dot(np.diag(W), P.T)))
+        correction = np.dot( PTWP_inv, np.dot (P, W* residual))
         # print 'Iteration %d : correction = %e' % (index, np.dot(correction,correction))
         solution   = solution + correction
-        if np.dot(correction,correction) < 1.0e-15:
-            break
-        #
+        if np.dot(correction,correction) < 1.0e-15: break
     #
     solution[2] = np.arctan2( np.sin(solution[2]), np.cos(solution[2]) )    # Remove 2pi ambiguity
     return(solution, np.sqrt(np.diag(PTWP_inv)))
