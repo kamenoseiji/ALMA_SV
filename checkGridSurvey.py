@@ -18,7 +18,8 @@ print prefix
 print '---Checking spectral windows'
 spw = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); spw.sort()
 spwNum = len(spw)
-spwNames = msmd.namesforspws(spw)
+#spwNames = msmd.namesforspws(spw)
+spwNames = ['ALMA_RB_03#BB_1#SW-01#FULL_RES', 'ALMA_RB_03#BB_2#SW-01#FULL_RES', 'ALMA_RB_03#BB_3#SW-01#FULL_RES', 'ALMA_RB_03#BB_4#SW-01#FULL_RES']
 BandNames, pattern = [], r'RB_..'
 for spwName in spwNames: BandNames = BandNames + re.findall(pattern, spwName)
 UniqBands = unique(BandNames).tolist(); NumBands = len(UniqBands)
@@ -44,9 +45,12 @@ if FLcal in sourceList:
     if len(SSOList) == 0: print '  No Solar System Object was observed.'; sys.exit()
     #-------- Check MJD for Ambient Load
     print '---Checking time for ambient and hot load'
-    timeOFF = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE")
-    timeAMB = msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT")
-    timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
+    timeOFF, timeAMB, timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
+    if len(timeAMB) == 0:
+        timeON  = msmd.timesforintent("CALIBRATE_ATMOSPHERE#ON_SOURCE")
+        timeAMB = timeON[(np.where( np.diff(timeON) > 20.0)[0] - 8).tolist()]
+        timeHOT = timeON[(np.where( np.diff(timeON) > 20.0)[0] - 2).tolist()]
+    #
     #-------- Configure Array
     print '---Checking array configulation'
     flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
@@ -75,7 +79,9 @@ if FLcal in sourceList:
     antDia = np.ones([UseAntNum])
     for ant_index in range(UseAntNum): antDia[ant_index] = msmd.antennadiameter(antList[antMap[ant_index]])['value']
     #-------- Check Scans of BandPass, EQualization, and FluxScaling
-    FCScans, BPScans, ONScans = msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE"), msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
+    if FCScans == []: FCScans = msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE")
+    if BPScans == []: BPScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
+    ONScans = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
     print '---SPWs and Scans for each receiver band'
     for band_index in range(NumBands):
         #-------- Check Calibrators
@@ -116,3 +122,4 @@ if FLcal in sourceList:
         execfile(SCR_DIR + 'checkSEFD.py')
     #
     msmd.done()
+#

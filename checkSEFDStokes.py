@@ -118,7 +118,8 @@ for ant_index in range(UseAntNum):
                 Pshot = np.mean(hotSpec, axis=1)*SPL_hot(offTime[time_index])/np.mean(hotSpec[chRange])
                 Psoff = OffSpecList[AntSpwIndex][pol_index][:,time_index]
                 Trx[pol_index, :, time_index] = (tempHot[ant_index]* Psamb - Pshot* tempAmb[ant_index]) / (Pshot - Psamb)
-                Tsky[pol_index, :, time_index]= (Psoff* (tempHot[ant_index] - tempAmb[ant_index]) + tempAmb[ant_index]* Pshot - tempHot[ant_index]* Psamb) / (Pshot - Psamb)
+                #Tsky[pol_index, :, time_index]= (Psoff* (tempHot[ant_index] - tempAmb[ant_index]) + tempAmb[ant_index]* Pshot - tempHot[ant_index]* Psamb) / (Pshot - Psamb)
+                Tsky[pol_index, :, time_index]= (Psoff* (tempHot[ant_index] - tempAmb[ant_index]) + tempAmb[ant_index]* Pshot - tempHot[ant_index]* Psamb) / (Pshot - Psamb) + Trx[pol_index, :, time_index]
                 Phot, Pamb, Poff = np.mean(Pshot[chRange]), np.mean(Psamb[chRange]), np.mean(Psoff[chRange])
                 chAvgTrx[ant_index, spw_index, pol_index, time_index] = (tempHot[ant_index]* Pamb - Phot* tempAmb[ant_index]) / (Phot - Pamb)
                 chAvgTsky[ant_index, spw_index, pol_index, time_index]= (Poff* (tempHot[ant_index] - tempAmb[ant_index]) + tempAmb[ant_index]* Phot - tempHot[ant_index]* Pamb) / (Phot - Pamb)
@@ -237,15 +238,32 @@ for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], EQScan)
     chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-    tempSpec = ParaPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)       # Cross Polarization Baseline Mapping
-    Xspec = (tempSpec / (BPList[spw_index][ant0]* BPList[spw_index][ant1].conjugate())).transpose(2,3,1,0) # Bandpass Cal
-    #-------- Antenna-based Gain
-    chAvgVis = np.mean(Xspec[:, chRange], axis=1)
-    GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[0])
-    GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[1])
-    #-------- Phase Cal and channel average
-    BLphsX, BLphsY = GainX[ant0]* GainX[ant1].conjugate() / abs(GainX[ant0]* GainX[ant1]), GainY[ant0]* GainY[ant1].conjugate() / abs(GainY[ant0]* GainY[ant1])
-    pCalVisX, pCalVisY = np.mean(chAvgVis[0] / BLphsX, axis=1), np.mean(chAvgVis[1] / BLphsY, axis=1)
+    if cpolNum == 2:
+        PA = AzEl2PA(np.median(OnAZ[:,scan_index]), np.median(OnEL[:,scan_index]))
+        PS = InvPAMatrix(PA)
+        tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)       # Cross Polarization Baseline Mapping
+        Xspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
+        #-------- XY delay cal
+        XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelayList[spw_index] )
+        Xspec[1] = (Xspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
+        Xspec[2] = (Xspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
+        #-------- Antenna-based Gain
+        chAvgVis = np.mean(Xspec[:, chRange], axis=1)
+        GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[0])
+        GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[3])
+        VisXY = np.array([np.median(gainCalVis( chAvgVis[0], GainX, GainX)), np.median(gainCalVis( chAvgVis[1], GainX, GainY)), np.median(gainCalVis( chAvgVis[2], GainY, GainX)), np.median(gainCalVis( chAvgVis[3], GainY, GainY))])
+        StokesVis = np.dot(PS, VisXY)
+        #print '%f %f %f %f' % (StokesVis[0], StokesVis[1], StokesVis[2], StokesVis[3])
+        #
+        #-------- Phase Cal and channel average
+        BLphsX, BLphsY = GainX[ant0]* GainX[ant1].conjugate() / abs(GainX[ant0]* GainX[ant1]), GainY[ant0]* GainY[ant1].conjugate() / abs(GainY[ant0]* GainY[ant1])
+        pCalVisX, pCalVisY = np.mean(chAvgVis[0] / BLphsX, axis=1), np.mean(chAvgVis[3] / BLphsY, axis=1)
+    else:
+        chAvgVis = np.mean(Xspec[:, chRange], axis=1)
+        GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[0])
+        GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[1])
+        BLphsX, BLphsY = GainX[ant0]* GainX[ant1].conjugate() / abs(GainX[ant0]* GainX[ant1]), GainY[ant0]* GainY[ant1].conjugate() / abs(GainY[ant0]* GainY[ant1])
+        pCalVisX, pCalVisY = np.mean(chAvgVis[0] / BLphsX, axis=1), np.mean(chAvgVis[1] / BLphsY, axis=1)
     #-------- Antenna-based Gain
     GainAnt = GainAnt + [chAvgTsys[:, spw_index, 0, scan_index]* abs(gainComplex(pCalVisX))**2] # Ae/2k assuming 1Jy
     GainAnt = GainAnt + [chAvgTsys[:, spw_index, 1, scan_index]* abs(gainComplex(pCalVisY))**2]
@@ -314,15 +332,30 @@ for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], FCScan)
     chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-    tempSpec = ParaPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1) 
-    Xspec = (tempSpec / (BPList[spw_index][ant0]* BPList[spw_index][ant1].conjugate())).transpose(2,3,1,0)[:,:,SAblMap]
-    #-------- Antenna-based Gain
-    chAvgVis =(np.mean(Xspec[:, chRange], axis=1).transpose(0,2,1) / FCSmodelVis[spw_index, SAblMap]* SAblFlag).transpose(0,2,1)
-    GainX, GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[0]), np.apply_along_axis( gainComplex, 0, chAvgVis[1])
-    #-------- Phase Cal and channel average
-    BLphsX = GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]].conjugate() / abs(GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]])
-    BLphsY = GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]].conjugate() / abs(GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]])
-    pCalVisX, pCalVisY = np.mean(chAvgVis[0] / BLphsX, axis=1), np.mean(chAvgVis[1] / BLphsY, axis=1)
+    if cpolNum == 2:
+        PA = AzEl2PA(np.median(OnAZ[:,scan_index]), np.median(OnEL[:,scan_index]))
+        PS = InvPAMatrix(PA)
+        tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1) 
+        Xspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0)[:,:,SAblMap]
+        #-------- XY delay cal
+        XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelayList[spw_index] )
+        Xspec[1] = (Xspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
+        Xspec[2] = (Xspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
+        #-------- Antenna-based Gain
+        chAvgVis =(np.mean(Xspec[:, chRange], axis=1).transpose(0,2,1) / FCSmodelVis[spw_index, SAblMap]* SAblFlag).transpose(0,2,1)
+        GainX, GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[0]), np.apply_along_axis( gainComplex, 0, chAvgVis[3])
+        #
+        #-------- Phase Cal and channel average
+        BLphsX = GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]].conjugate() / abs(GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]])
+        BLphsY = GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]].conjugate() / abs(GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]])
+        pCalVisX, pCalVisY = np.mean(chAvgVis[0] / BLphsX, axis=1), np.mean(chAvgVis[3] / BLphsY, axis=1)
+    else:
+        chAvgVis =(np.mean(Xspec[:, chRange], axis=1).transpose(0,2,1) / FCSmodelVis[spw_index, SAblMap]* SAblFlag).transpose(0,2,1)
+        GainX, GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[0]), np.apply_along_axis( gainComplex, 0, chAvgVis[1])
+        BLphsX = GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]].conjugate() / abs(GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]])
+        BLphsY = GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]].conjugate() / abs(GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]])
+        pCalVisX, pCalVisY = np.mean(chAvgVis[0] / BLphsX, axis=1), np.mean(chAvgVis[1] / BLphsY, axis=1)
+        #
     #
     Ta = SSOflux[FCS_ID, spw_index]* AeNominal[SAantennas] / (2.0* kb)
     #-------- Antenna-based Gain
@@ -395,23 +428,42 @@ for scan_index in range(scanNum):
         #-------- Baseline-based cross power spectra
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], onsourceScans[scan_index])
         chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-        tempSpec = ParaPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)[:,SAblMap]       # Cross Polarization Baseline Mapping
-        #-------- Bandpass Calibration
-        BP_bl = BPList[spw_index][SAant0]* BPList[spw_index][SAant1].conjugate()
-        Xspec = (tempSpec / BP_bl).transpose(2,3,1,0) # Bandpass Cal
-        #-------- Antenna-based Gain
-        if(SSO_flag):
-            chAvgVis =(np.mean(Xspec[:, chRange], axis=1).transpose(0,2,1) / SSOmodelVis[SSO_ID, spw_index, SAblMap]).transpose(0,2,1)
+        if cpolNum == 2:
+            tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)[:,SAblMap]       # Cross Polarization Baseline Mapping
+            #-------- Bandpass Calibration
+            BP_bl = BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate()
+            Xspec = (tempSpec / BP_bl).transpose(2,3,1,0) # Bandpass Cal
+            #-------- XY delay cal
+            XYdlSpec = delay_cal(np.ones([chNum], dtype=complex), XYdelayList[spw_index])
+            Xspec[1] = (Xspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
+            Xspec[2] = (Xspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
+            #-------- Antenna-based Gain
+            if(SSO_flag):
+                chAvgVis =(np.mean(Xspec[:, chRange], axis=1).transpose(0,2,1) / SSOmodelVis[SSO_ID, spw_index, SAblMap]).transpose(0,2,1)
+            else:
+                chAvgVis = np.mean(Xspec[:, chRange], axis=1)
+            #
+            GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[0]) #; Xflag = np.where( np.std(abs(GainX), axis=0) < np.median(abs(GainX), axis=0))[0]
+            GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[3]) #; Yflag = np.where( np.std(abs(GainY), axis=0) < np.median(abs(GainY), axis=0))[0]
+            #Tflag = list( set(Xflag) & set(Yflag) )
+            #if len(Tflag) < 4: print ' too low SNR  ',; continue
+            #VisXY = np.array([np.median(gainCalVis( chAvgVis[0], GainX, GainX)), np.median(gainCalVis( chAvgVis[1], GainX, GainY)), np.median(gainCalVis( chAvgVis[2], GainY, GainX)), np.median(gainCalVis( chAvgVis[3], GainY, GainY))])
+            #StokesVis = np.dot(PS, VisXY)
+            #print '%f %f %f %f' % (StokesVis[0], StokesVis[1], StokesVis[2], StokesVis[3])
+            #
+            #-------- Phase Cal and channel average
+            BLphsX = GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]].conjugate() / abs(GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]])
+            BLphsY = GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]].conjugate() / abs(GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]])
+            pCalVisX = np.mean((chAvgVis[0]/BLphsX), axis=1)
+            pCalVisY = np.mean((chAvgVis[3]/BLphsY), axis=1)
         else:
-            chAvgVis = np.mean(Xspec[:, chRange], axis=1)
+            GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[0])
+            GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[1])
+            BLphsX = GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]].conjugate() / abs(GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]])
+            BLphsY = GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]].conjugate() / abs(GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]])
+            pCalVisX = np.mean((chAvgVis[0]/BLphsX), axis=1)
+            pCalVisY = np.mean((chAvgVis[1]/BLphsY), axis=1)
         #
-        GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[0]) #; Xflag = np.where( np.std(abs(GainX), axis=0) < np.median(abs(GainX), axis=0))[0]
-        GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[1]) #; Yflag = np.where( np.std(abs(GainY), axis=0) < np.median(abs(GainY), axis=0))[0]
-        #-------- Phase Cal and channel average
-        BLphsX = GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]].conjugate() / abs(GainX[ant0[0:SAblNum]]* GainX[ant1[0:SAblNum]])
-        BLphsY = GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]].conjugate() / abs(GainY[ant0[0:SAblNum]]* GainY[ant1[0:SAblNum]])
-        pCalVisX = np.mean((chAvgVis[0]/BLphsX), axis=1)
-        pCalVisY = np.mean((chAvgVis[1]/BLphsY), axis=1)
         #-------- Antenna-based Gain
         GainAntX, GainAntY = SEFD[SAantennas,0]*abs(gainComplex(pCalVisX))**2, SEFD[SAantennas,1]*abs(gainComplex(pCalVisY))**2
         #-------- Check 

@@ -1471,9 +1471,17 @@ def bestRefant(uvDist):
     #
     return np.argmax(blCounter)
 #
+#-------- ParallelPol Visibility
+def ParaPolBL(Xspec, blInv):
+    Neg, Pos = (0.0 + np.array(blInv)), (1.0 - np.array(blInv))
+    Tspec = Xspec.copy()
+    Tspec[0]   = (Xspec[0].transpose(0,2,1)* Pos + Xspec[0].conjugate().transpose(0,2,1)* Neg).transpose(0,2,1) # XX
+    Tspec[1]   = (Xspec[1].transpose(0,2,1)* Pos + Xspec[1].conjugate().transpose(0,2,1)* Neg).transpose(0,2,1) # XY
+    return Tspec
+#
 #-------- CrossPol Visibility
 def CrossPolBL(Xspec, blInv):
-    Neg, Pos, Sig = (0.0 + np.array(blInv)), (1.0 - np.array(blInv)), (-2.0* np.array(blInv) + 1.0)
+    Neg, Pos = (0.0 + np.array(blInv)), (1.0 - np.array(blInv))
     Tspec = Xspec.copy()
     Tspec[0]   = (Xspec[0].transpose(0,2,1)* Pos + Xspec[0].conjugate().transpose(0,2,1)* Neg).transpose(0,2,1) # XX
     Tspec[1]   = (Xspec[1].transpose(0,2,1)* Pos + Xspec[2].conjugate().transpose(0,2,1)* Neg).transpose(0,2,1) # XY
@@ -1481,7 +1489,6 @@ def CrossPolBL(Xspec, blInv):
     Tspec[3]   = (Xspec[3].transpose(0,2,1)* Pos + Xspec[3].conjugate().transpose(0,2,1)* Neg).transpose(0,2,1) # YY
     return Tspec
 #
-
 #-------- Tool 
 def get_progressbar_str(progress):
     MAX_LEN = 48
