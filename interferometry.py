@@ -1373,13 +1373,49 @@ def polariGain( XX, YY, PA, StokesQ, StokesU):
     ScaledXX, ScaledYY = XX * Xscale, YY* Yscale
     return np.apply_along_axis( gainComplex, 0, ScaledXX), np.apply_along_axis( gainComplex, 0, ScaledYY)
 #
+def XXYY2Stokes(PA, Vis):
+    timeNum = Vis.shape[1]
+    sinPA2, cosPA2 = np.sin(2.0*PA), np.cos(2.0*PA)
+    solution = np.array([0.1, 0.1, np.angle( np.mean(Vis[1])), 0.0, 0.0, 0.0, 0.0])   # Initial parameters : StokesQ, StokesU, XYphase, Re(Dx+Dy*), Im(Dx+Dy*)
+    for index in range(5):
+        sinPhi, cosPhi = np.sin(solution[2]), np.cos(solution[2])
+        UC_QS = cosPA2* solution[1] - sinPA2* solution[0]   # U cosPA2 - Q sinPA2
+        QC_US = cosPA2* solution[0] + sinPA2* solution[1]   # U sinPA2 + Q cosPA2
+        P = np.zeros([7, 6* timeNum])       # 7 parameters to solve, 4 (ReXY, ImXY, ReYX, ImYX) * timeNum measurements
+        W = np.ones([6* timeNum])/ np.var(Vis[1].imag + Vis[2].imag)
+        vecVis = np.r_[ Vis[0].real, Vis[1].real, Vis[1].imag, Vis[2].real, Vis[2].imag, Vis[3].real ]
+        modelVis = np.r_[
+             1.0 + QC_US,                       # Re XX*
+             cosPhi* UC_QS + solution[3],       # Re XY*
+             sinPhi* UC_QS + solution[4],       # Im XY*
+             cosPhi* UC_QS + solution[5],       # Re YX*
+            -sinPhi* UC_QS + solution[6],       # Im YX*
+             1.0 - QC_US]                       # Re YY*
+        residual = vecVis - modelVis
+        #-------- Partial matrix
+        P[0] = np.r_[cosPA2, -sinPA2* cosPhi, -sinPA2* sinPhi, -sinPA2* cosPhi,  sinPA2* sinPhi, -cosPA2]
+        P[1] = np.r_[sinPA2,  cosPA2* cosPhi,  cosPA2* sinPhi,  cosPA2* cosPhi, -cosPA2* sinPhi, -sinPA2]
+        P[2] = np.r_[np.zeros([timeNum]),  -sinPhi* UC_QS,  cosPhi* UC_QS,  -sinPhi* UC_QS,  -cosPhi* UC_QS, np.zeros([timeNum])]
+        P[3] = np.r_[np.zeros([timeNum]), np.ones([timeNum]),  np.zeros([timeNum]), np.zeros([timeNum]), np.zeros([timeNum]), np.zeros([timeNum])]
+        P[4] = np.r_[np.zeros([timeNum]), np.zeros([timeNum]), np.ones([timeNum]),  np.zeros([timeNum]), np.zeros([timeNum]), np.zeros([timeNum])]
+        P[5] = np.r_[np.zeros([timeNum]), np.zeros([timeNum]), np.zeros([timeNum]), np.ones([timeNum]),  np.zeros([timeNum]), np.zeros([timeNum])]
+        P[6] = np.r_[np.zeros([timeNum]), np.zeros([timeNum]), np.zeros([timeNum]), np.zeros([timeNum]), np.ones([timeNum]), np.zeros([timeNum]), ]
+        PTWP_inv = scipy.linalg.inv(np.dot(P, np.dot(np.diag(W), P.T)))
+        correction = np.dot( PTWP_inv, np.dot(P, W* residual))
+        # print 'Iteration %d : correction = %e' % (index, np.dot(correction,correction))
+        solution   = solution + correction
+        if np.dot(correction,correction) < 1.0e-15: break
+    #
+    solution[2] = np.arctan2( np.sin(solution[2]), np.cos(solution[2]) )    # Remove 2pi ambiguity
+    return(solution, np.sqrt(np.diag(PTWP_inv)))
+#
 def XY2Stokes(PA, VisXY, VisYX):
     #-------- Least-Square fit for polarizatino parameters (Q, U, XYphase, Dx, Dy)
     timeNum = len(VisXY)
     sinPA2 = np.sin(2.0*PA)
     cosPA2 = np.cos(2.0*PA)
     P = np.zeros([7, 4* timeNum])       # 7 parameters to solve, 4 (ReXY, ImXY, ReYX, ImYX) * timeNum measurements
-    solution = np.array([0.1, 0.1, np.angle( np.mean(VisXY[1])), 0.0, 0.0, 0.0, 0.0])   # Initial parameters : StokesQ, StokesU, XYphase, Re(Dx+Dy*), Im(Dx+Dy*)
+    solution = np.array([0.1, 0.1, np.angle( np.mean(VisXY)), 0.0, 0.0, 0.0, 0.0])   # Initial parameters : StokesQ, StokesU, XYphase, Re(Dx+Dy*), Im(Dx+Dy*)
     W = np.diag(4.0* np.ones([4* timeNum])/ np.var(VisXY.imag + VisYX.imag))
     #-------- Iteration loop
     for index in range(10):
