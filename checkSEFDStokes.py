@@ -101,8 +101,8 @@ TrxList, TskyList = [], []
 tempAmb, tempHot  = np.zeros([UseAntNum]), np.zeros([UseAntNum])
 for ant_index in range(UseAntNum):
     tempAmb[ant_index], tempHot[ant_index] = GetLoadTemp(msfile, antMap[ant_index], spw[0])
-    tempAmb[ant_index] = tempAmb[ant_index] + 273.15
-    tempHot[ant_index] = tempHot[ant_index] + 273.15
+    tempAmb[ant_index] = tempAmb[ant_index]
+    tempHot[ant_index] = tempHot[ant_index]
     for spw_index in range(spwNum):
         AntSpwIndex = ant_index* spwNum + spw_index
         chNum = AmbSpecList[AntSpwIndex].shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
