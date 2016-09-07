@@ -299,7 +299,10 @@ SSOmodelVis = []
 SSOscanID   = []
 for ssoIndex in range(SSONum):
     UVlimit = 0.32 / SSOshape[ssoIndex][0]  # Maximum uv distane(lambda) available for the SSO size
-    scanID = list(set( msmd.scansforfield(SSOList[ssoIndex]).tolist()) & set(onsourceScans))[0]; SSOscanID.append(scanID)
+    try:
+        scanID = list(set( msmd.scansforfield(SSOList[ssoIndex]).tolist()) & set(onsourceScans))[0]; SSOscanID.append(scanID)
+    except:
+        continue
     if( scanID == FCScan):
         FCS_ID = ssoIndex
         print 'Flux Calibrator is %s at %s' % (sourceList[SSOList[ssoIndex]], timeLabel)
