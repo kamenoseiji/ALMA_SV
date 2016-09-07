@@ -119,7 +119,8 @@ if FLcal in sourceList:
         PolList = ['X', 'Y']
         if polNum == 4: pPol, cPol = [0,3], [1,2]  # parallel and cross pol
         ppolNum, cpolNum = len(pPol), len(cPol)
-        execfile(SCR_DIR + 'checkSEFD.py')
+        #execfile(SCR_DIR + 'checkSEFD.py')
+        execfile(SCR_DIR + 'checkSEFDStokes.py')
     #
     msmd.done()
 #
