@@ -18,8 +18,8 @@ print prefix
 print '---Checking spectral windows'
 spw = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); spw.sort()
 spwNum = len(spw)
-#spwNames = msmd.namesforspws(spw)
-spwNames = ['ALMA_RB_03#BB_1#SW-01#FULL_RES', 'ALMA_RB_03#BB_2#SW-01#FULL_RES', 'ALMA_RB_03#BB_3#SW-01#FULL_RES', 'ALMA_RB_03#BB_4#SW-01#FULL_RES']
+spwNames = msmd.namesforspws(spw)
+#spwNames = ['ALMA_RB_03#BB_1#SW-01#FULL_RES', 'ALMA_RB_03#BB_2#SW-01#FULL_RES', 'ALMA_RB_03#BB_3#SW-01#FULL_RES', 'ALMA_RB_03#BB_4#SW-01#FULL_RES']
 BandNames, pattern = [], r'RB_..'
 for spwName in spwNames: BandNames = BandNames + re.findall(pattern, spwName)
 UniqBands = unique(BandNames).tolist(); NumBands = len(UniqBands)
