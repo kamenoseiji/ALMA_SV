@@ -97,8 +97,8 @@ for spw_index in range(spwNum):
             #
         #
     #
-    PA = AzEl2PA(Az, El, ALMA_lat) - BANDPA
-    PA = np.arctan2( np.sin(PA), np.cos(PA))
+    PA = AzEl2PA(Az, El, ALMA_lat) - BANDPA     # Apply feed orientation
+    PA = np.arctan2( np.sin(PA), np.cos(PA))    # to set in [-pi, pi]
     solution = np.zeros([7])
     for iter_index in range(2):
         print '---- Iteration ' + `iter_index` + ' for Stokes (Q, U) and Gain ----'
@@ -106,21 +106,26 @@ for spw_index in range(spwNum):
         Vis    = np.mean(caledVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate()), axis=1)
         if iter_index == 0: solution[0:3] = XXYY2Stokes(PA, Vis)
         solution, solerr = XY2Stokes(PA, Vis, solution)
-        text_sd = 'Q/I= %6.3f+-%6.4f  U/I= %6.3f+-%6.4f  XYphase= %6.3f+-%6.4f rad EVPA = %6.2f deg' % (solution[0], solerr[0], solution[1], solerr[1], solution[2], solerr[2], np.arctan(solution[1]/solution[0])*90.0/pi)
+        text_sd = 'Q/I= %6.3f+-%6.4f  U/I= %6.3f+-%6.4f  X-Y phase= %6.3f+-%6.4f rad EVPA = %6.2f deg' % (solution[0], solerr[0], solution[1], solerr[1], solution[2], solerr[2], np.arctan2(solution[1],solution[0])*90.0/pi + 90.0)   # EVPA w.r.t the north
         print text_sd
     #
-    plt.plot(PA, Vis[1].real, '.', label = 'ReXY', color='cyan')
-    plt.plot(PA, Vis[1].imag, '.', label = 'ImXY', color='darkblue')
-    plt.plot(PA, Vis[2].real, '.', label = 'ReYX', color='magenta')
-    plt.plot(PA, Vis[2].imag, '.', label = 'ImYX', color='darkred')
     PArange = np.arange(min(PA), max(PA), 0.01)
+    plt.plot(PArange,  np.cos(2.0*PArange)* solution[0] + np.sin(2.0* PArange)* solution[1], '-', color='green')
     plt.plot(PArange,  np.cos(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[3], '-', color='cyan')
     plt.plot(PArange,  np.sin(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[4], '-', color='darkblue')
     plt.plot(PArange,  np.cos(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[5], '-', color='magenta')
     plt.plot(PArange, -np.sin(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[6], '-', color='darkred')
-    plt.xlabel('PA [rad]'); plt.ylabel('XY, YX (real and imaginary)')
+    plt.plot(PArange, -np.cos(2.0*PArange)* solution[0] - np.sin(2.0* PArange)* solution[1], '-', color='orange')
+    plt.plot(PA, Vis[0].real - 1.0, '.', label = 'XX* - 1.0',   color='green')
+    plt.plot(PA, Vis[1].real, '.', label = 'ReXY*', color='cyan')
+    plt.plot(PA, Vis[1].imag, '.', label = 'ImXY*', color='darkblue')
+    plt.plot(PA, Vis[2].real, '.', label = 'ReYX*', color='magenta')
+    plt.plot(PA, Vis[2].imag, '.', label = 'ImYX*', color='darkred')
+    plt.plot(PA, Vis[3].real - 1.0, '.', label = 'YY* - 1.0',   color='orange')
+    plt.xlabel('PA [rad]'); plt.ylabel('Normalized cross correlations')
+    plt.ylim([-0.15,0.15])
     plt.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
-    text_sd = 'Q/I=%6.3f+-%6.3f U/I=%6.3f+-%6.3f XYphase=%6.3f+-%6.3f rad (RefAnt:%s)' % (solution[0], solerr[0], solution[1], solerr[1], solution[2], solerr[2], antList[refAntID]); plt.text(min(PA), min(Vis[1].real), text_sd, size='x-small')
+    text_sd = '(Q, U)/I = (%6.3f+-%6.3f, %6.3f+-%6.3f) X-Y phase=%6.3f+-%6.3f rad (Ref:%s)' % (solution[0], solerr[0], solution[1], solerr[1], solution[2], solerr[2], antList[refAntID]); plt.text(min(PA), 0.16, text_sd, size='x-small')
     plt.savefig(prefixList[0] + '-SPW' + `spw` + '-' + refantName + 'QUXY.pdf', form='pdf')
     #-------- Save Results
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.Ant.npy', antList[antMap])

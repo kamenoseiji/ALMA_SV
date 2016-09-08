@@ -1378,7 +1378,7 @@ def XXYY2Stokes(PA, Vis):
     sinPA2, cosPA2 = np.sin(2.0*PA), np.cos(2.0*PA)
     solution = np.array([0.01, 0.01, np.angle( np.mean(Vis[1]))])   # Initial parameters : StokesQ, StokesU, XYphase, Re(Dx+Dy*), Im(Dx+Dy*)
     Unity, Zeroty = np.ones([timeNum]), np.zeros([timeNum])
-    W = np.r_[0.001* np.ones(timeNum), np.ones(4* timeNum), 0.001*np.ones(timeNum)]/ (np.var(Vis[1].imag) + np.var(Vis[2].imag))
+    W = np.r_[0.1* np.ones(timeNum), np.ones(4* timeNum), 0.1*np.ones(timeNum)]/ (np.var(Vis[1].imag) + np.var(Vis[2].imag))
     P = np.zeros([3, 6* timeNum])       # 7 parameters to solve, 4 (ReXY, ImXY, ReYX, ImYX) * timeNum measurements
     for index in range(10):
         sinPhi, cosPhi = np.sin(solution[2]), np.cos(solution[2])
