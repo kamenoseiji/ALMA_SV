@@ -79,7 +79,7 @@ for spw_index in range(spwNum):
                 BPCaledXspec[1] = (BPCaledXspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
                 BPCaledXspec[2] = (BPCaledXspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
                 #-------- Antenna-based Gain
-                print '  -- Gain cal using tracking antennasl'
+                print '  -- Gain cal using tracking antennas'
                 chAvgVis = np.mean(BPCaledXspec[:,chRange], axis=1)
             #
             timeNum = chAvgVis.shape[2]
