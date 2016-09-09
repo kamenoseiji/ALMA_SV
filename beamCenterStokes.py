@@ -55,6 +55,7 @@ for spw_index in range(spwNum):
         BP_bl = BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate()
     #
 #
+    chAvgVis = np.zeros([4, blNum, 0], dtype=complex)
     for file_index in range(fileNum):
         prefix = prefixList[file_index]
         msfile = wd + prefix + '.ms'
@@ -69,7 +70,7 @@ for spw_index in range(spwNum):
             chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
             if chNum == 1:
                 print '  -- Channel-averaged data: no BP and delay cal'
-                chAvgVis= CrossPolBL(Xspec[:,:,blMap], blInv)[:,0]
+                chAvgVis= np.c_[chAvgVis, CrossPolBL(Xspec[:,:,blMap], blInv)[:,0]]
             else:
                 tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)
                 BPCaledXspec = (tempSpec / BP_bl).transpose(2,3,1,0) 
@@ -79,17 +80,12 @@ for spw_index in range(spwNum):
                 BPCaledXspec[1] = (BPCaledXspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
                 BPCaledXspec[2] = (BPCaledXspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
                 #-------- Antenna-based Gain
-                print '  -- Gain cal using tracking antennas'
-                chAvgVis = np.mean(BPCaledXspec[:,chRange], axis=1)
+                print '  -- Channel-averaging'
+                chAvgVis = np.c_[chAvgVis, np.mean(BPCaledXspec[:,chRange], axis=1)]
             #
-            timeNum = chAvgVis.shape[2]
-            Gain  = np.ones([2, antNum, timeNum], dtype=complex)
-            Gain[0, 0:antNum] = np.apply_along_axis( gainComplex, 0, chAvgVis[0])
-            Gain[1, 0:antNum] = np.apply_along_axis( gainComplex, 0, chAvgVis[3])
-            #-------- Gain-calibrated visibilities
-            print '  -- Calibrated visibilities'
-            caledVis = concatenate([caledVis, chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())], axis=2)
+            #caledVis = concatenate([caledVis, chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())], axis=2)
             #-------- Time index at on axis
+            timeNum = len(timeStamp)
             mjdSec = np.append(mjdSec, timeStamp)
             for time_index in range(timeNum):
                 scanAz, scanEl = AzElMatch(timeStamp[time_index], azelTime, AntID, refAntID, timeThresh, AZ, EL)
@@ -97,6 +93,16 @@ for spw_index in range(spwNum):
             #
         #
     #
+    print '  -- Antenna-based gain solution using tracking antennas'
+    Gain  = np.ones([2, antNum, timeNum], dtype=complex)
+    Gain[0, 0:antNum] = np.apply_along_axis( gainComplex, 0, chAvgVis[0])
+    Gain[1, 0:antNum] = np.apply_along_axis( gainComplex, 0, chAvgVis[3])
+    Gamp = np.sqrt(np.mean(abs(Gain)**2, axis=0))
+    Gain[0, 0:antNum] = Gain[0, 0:antNum] * Gamp / abs(Gain[0, 0:antNum])
+    Gain[1, 0:antNum] = Gain[1, 0:antNum] * Gamp / abs(Gain[1, 0:antNum])
+    #-------- Gain-calibrated visibilities
+    print '  -- Apply gain calibration'
+    caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
     PA = AzEl2PA(Az, El, ALMA_lat) - BANDPA     # Apply feed orientation
     PA = np.arctan2( np.sin(PA), np.cos(PA))    # to set in [-pi, pi]
     solution = np.zeros([7])
