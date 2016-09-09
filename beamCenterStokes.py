@@ -72,6 +72,7 @@ for spw_index in range(spwNum):
                 print '  -- Channel-averaged data: no BP and delay cal'
                 chAvgVis= np.c_[chAvgVis, CrossPolBL(Xspec[:,:,blMap], blInv)[:,0]]
             else:
+                print '  -- Apply bandpass cal'
                 tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)
                 BPCaledXspec = (tempSpec / BP_bl).transpose(2,3,1,0) 
                 #-------- XY delay cal
@@ -83,7 +84,6 @@ for spw_index in range(spwNum):
                 print '  -- Channel-averaging'
                 chAvgVis = np.c_[chAvgVis, np.mean(BPCaledXspec[:,chRange], axis=1)]
             #
-            #caledVis = concatenate([caledVis, chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())], axis=2)
             #-------- Time index at on axis
             timeNum = len(timeStamp)
             mjdSec = np.append(mjdSec, timeStamp)
@@ -93,8 +93,8 @@ for spw_index in range(spwNum):
             #
         #
     #
-    print '  -- Antenna-based gain solution using tracking antennas'
-    Gain  = np.ones([2, antNum, timeNum], dtype=complex)
+    print '---- Antenna-based gain solution using tracking antennas'
+    Gain  = np.ones([2, antNum, len(mjdSec)], dtype=complex)
     Gain[0, 0:antNum] = np.apply_along_axis( gainComplex, 0, chAvgVis[0])
     Gain[1, 0:antNum] = np.apply_along_axis( gainComplex, 0, chAvgVis[3])
     Gamp = np.sqrt(np.mean(abs(Gain)**2, axis=0))
@@ -105,16 +105,18 @@ for spw_index in range(spwNum):
     caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
     PA = AzEl2PA(Az, El, ALMA_lat) - BANDPA     # Apply feed orientation
     PA = np.arctan2( np.sin(PA), np.cos(PA))    # to set in [-pi, pi]
-    solution = np.zeros([7])
-    for iter_index in range(2):
-        print '---- Iteration ' + `iter_index` + ' for Stokes (Q, U) and Gain ----'
-        GainX, GainY = polariGain(caledVis[0], caledVis[3], PA, solution[0], solution[1]); Gain = np.array([GainX, GainY])
-        Vis    = np.mean(caledVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate()), axis=1)
-        if iter_index == 0: solution[0:3] = XXYY2Stokes(PA, Vis)
-        solution, solerr = XY2Stokes(PA, Vis, solution)
-        text_sd = 'Q/I= %6.3f+-%6.4f  U/I= %6.3f+-%6.4f  X-Y phase= %6.3f+-%6.4f rad EVPA = %6.2f deg' % (solution[0], solerr[0], solution[1], solerr[1], solution[2], solerr[2], np.arctan2(solution[1],solution[0])*90.0/pi + 90.0)   # EVPA w.r.t the north
-        print text_sd
+    Vis    = np.mean(caledVis, axis=1)
+    #-------- Solve for Stokes Parameters and XY phase
+    print '  -- Solution for Q and U'
+    solution = np.r_[XXYY2QU(PA, Vis[[0,3]]), np.zeros(5)]              # XX*, YY* to estimate Q, U
+    solution[2] = XY2Phase(PA, solution[0], solution[1], Vis[[1,2]])    # XY*, YX* to estimate X-Y phase
+    solution, solerr = XY2Stokes(PA, Vis[[1,2]], solution)
+    GainX, GainY = polariGain(caledVis[0], caledVis[3], PA, solution[0], solution[1]); Gain = np.array([GainX, GainY])
+    Vis    = np.mean(caledVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate()), axis=1)
+    solution, solerr = XY2Stokes(PA, Vis[[1,2]], solution)
+    text_sd = '  Q/I= %6.3f+-%6.4f  U/I= %6.3f+-%6.4f  X-Y phase= %6.3f+-%6.4f rad EVPA = %6.2f deg' % (solution[0], solerr[0], solution[1], solerr[1], solution[2], solerr[2], np.arctan2(solution[1],solution[0])*90.0/pi); print text_sd
     #
+    #-------- Plot
     PArange = np.arange(min(PA), max(PA), 0.01)
     plt.plot(PArange,  np.cos(2.0*PArange)* solution[0] + np.sin(2.0* PArange)* solution[1], '-', color='green')
     plt.plot(PArange,  np.cos(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[3], '-', color='cyan')
