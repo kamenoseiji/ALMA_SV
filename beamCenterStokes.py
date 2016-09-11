@@ -117,6 +117,7 @@ for spw_index in range(spwNum):
     text_sd = '  Q/I= %6.3f+-%6.4f  U/I= %6.3f+-%6.4f  X-Y phase= %6.3f+-%6.4f rad EVPA = %6.2f deg' % (solution[0], solerr[0], solution[1], solerr[1], solution[2], solerr[2], np.arctan2(solution[1],solution[0])*90.0/pi); print text_sd
     #
     #-------- Plot
+    if np.mean(np.cos(PA)) < 0.0: PA = np.arctan2(-np.sin(PA), -np.cos(PA)) +  np.pi
     PArange = np.arange(min(PA), max(PA), 0.01)
     plt.plot(PArange,  np.cos(2.0*PArange)* solution[0] + np.sin(2.0* PArange)* solution[1], '-', color='green')
     plt.plot(PArange,  np.cos(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[3], '-', color='cyan')
@@ -130,7 +131,7 @@ for spw_index in range(spwNum):
     plt.plot(PA, Vis[2].real, '.', label = 'ReYX*', color='magenta')
     plt.plot(PA, Vis[2].imag, '.', label = 'ImYX*', color='darkred')
     plt.plot(PA, Vis[3].real - 1.0, '.', label = 'YY* - 1.0',   color='orange')
-    plt.xlabel('PA [rad]'); plt.ylabel('Normalized cross correlations')
+    plt.xlabel('X-Feed Position Angle [rad]'); plt.ylabel('Normalized cross correlations')
     plt.ylim([-0.15,0.15])
     plt.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
     text_sd = '(Q, U)/I = (%6.3f+-%6.3f, %6.3f+-%6.3f) X-Y phase=%6.3f+-%6.3f rad (Ref:%s)' % (solution[0], solerr[0], solution[1], solerr[1], solution[2], solerr[2], antList[refAntID]); plt.text(min(PA), 0.16, text_sd, size='x-small')
