@@ -227,7 +227,7 @@ for time_index in range(timeNum):
 azel = np.r_[az[index], el[index]].reshape(2, len(index))
 for time_index in range(timeNum):
     AZ[time_index], EL[time_index] = AzElMatch( timeStamp[time_index], scanTime[index], np.median(diff(timeStamp)), azel)
-    PA[time_index] = AzEl2PA(AZ[time_index], EL[time_index], ALMA_lat) - BANDPA   #
+    PA[time_index] = AzEl2PA(AZ[time_index], EL[time_index], ALMA_lat) + BANDPA   #
 #
 UCmQS = solution[1]* np.cos(2.0*PA) - solution[0]* np.sin(2.0*PA)   # U cos - Q sin
 QCpUS = solution[0]* np.cos(2.0*PA) + solution[1]* np.sin(2.0*PA)   # Q cos + U sin

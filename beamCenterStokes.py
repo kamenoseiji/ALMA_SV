@@ -103,7 +103,7 @@ for spw_index in range(spwNum):
     #-------- Gain-calibrated visibilities
     print '  -- Apply gain calibration'
     caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
-    PA = AzEl2PA(Az, El, ALMA_lat) - BANDPA     # Apply feed orientation
+    PA = AzEl2PA(Az, El, ALMA_lat) + BANDPA     # Apply feed orientation
     PA = np.arctan2( np.sin(PA), np.cos(PA))    # to set in [-pi, pi]
     Vis    = np.mean(caledVis, axis=1)
     #-------- Solve for Stokes Parameters and XY phase

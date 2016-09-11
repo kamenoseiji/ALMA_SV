@@ -108,7 +108,7 @@ Xspec[1] = (Xspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
 Xspec[2] = (Xspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
 print '---- Antenna-based gain correction'
 chAvgVis = np.mean(Xspec[:,chRange], axis=1)
-PA = AzEl2PA(Az, El, ALMA_lat) - BANDPA
+PA = AzEl2PA(Az, El, ALMA_lat) + BANDPA
 PA = np.arctan2( np.sin(PA), np.cos(PA))
 GainX, GainY = polariGain(chAvgVis[0], chAvgVis[3], PA, CalQ, CalU)
 Gain = np.array([GainX, GYtwiddle* GainY])
