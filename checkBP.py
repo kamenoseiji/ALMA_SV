@@ -3,6 +3,7 @@ import sys
 from scipy import stats
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ptick
+from matplotlib.backends.backend_pdf import PdfPages
 execfile(SCR_DIR + 'interferometry.py')
 #
 #-------- Procedures
@@ -54,6 +55,7 @@ for spw_index in range(spwNum):
 #
 #-------- Plots
 if BPPLOT:
+    pp = PdfPages('BP_' + prefix + '_' + '-REF' + antList[UseAnt[refantID]] + '_Scan' + `BPscan` + '.pdf')
     plotMax = 1.5* np.median(abs(BP_ant))
     #-------- Prepare Plots
     for ant_index in range(UseAntNum):
@@ -87,8 +89,10 @@ if BPPLOT:
         if PLOTFMT == 'png':
             figAnt.savefig('BP_' + prefix + '_' + antList[antMap[ant_index]] + '-REF' + antList[UseAnt[refantID]] + '_Scan' + `BPscan` + '.png')
         else :
-            figAnt.savefig('BP_' + prefix + '_' + antList[antMap[ant_index]] + '-REF' + antList[UseAnt[refantID]] + '_Scan' + `BPscan` + '.pdf')
+            #figAnt.savefig('BP_' + prefix + '_' + antList[antMap[ant_index]] + '-REF' + antList[UseAnt[refantID]] + '_Scan' + `BPscan` + '.pdf')
+            figAnt.savefig(pp, format='pdf')
         #
     #
-    plt.close('all')
+    #plt.close('all')
+    pp.close()
 #
