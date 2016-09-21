@@ -364,4 +364,4 @@ text_sd = '%4.1f %8.6f %8.6f %8.6f %8.6f' % (0.0,  StokesFlux[0], StokesFlux[1],
 for time_index in range(timeNum):
     text_sd = '%4.1f %4.1f %8.6f %8.6f %8.6f %8.6f' % (dAz[time_index], dEl[time_index], ScnStokes[time_index, 0], ScnStokes[time_index, 1], ScnStokes[time_index, 2], ScnStokes[time_index, 3])
     logfile.write(text_sd + '\n')
-}
+#
