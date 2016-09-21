@@ -357,3 +357,11 @@ plt.close()
 text_sd = '%8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f %8.6f' % (np.mean(Qerr[IndexCenter]), max(abs(Qerr[Index3dB])), max(abs(Qerr[Index6dB])), np.mean(Uerr[IndexCenter]), max(abs(Uerr[Index3dB])), max(abs(Uerr[Index6dB])), np.mean(Perr[IndexCenter]), max(abs(Perr[Index3dB])), max(abs(Perr[Index6dB])), np.mean(Aerr[IndexCenter]), max(abs(Aerr[Index3dB])), max(abs(Aerr[Index6dB])))
 logfile.write(text_sd + '\n')
 logfile.close()
+#-------- Log Stokes parameters at Beam Position
+logfile = open(prefix + '-SPW' + `spw` + '-StokesChavg.log', 'w')
+text_sd = 'beamoff branch I Q U V ';  logfile.write(text_sd + '\n')
+text_sd = '%4.1f %8.6f %8.6f %8.6f %8.6f' % (0.0,  StokesFlux[0], StokesFlux[1], StokesFlux[2], StokesFlux[3]); logfile.write(text_sd + '\n')
+for time_index in range(timeNum):
+    text_sd = '%4.1f %4.1f %8.6f %8.6f %8.6f %8.6f' % (dAz[time_index], dEl[time_index], ScnStokes[time_index, 0], ScnStokes[time_index, 1], ScnStokes[time_index, 2], ScnStokes[time_index, 3])
+    logfile.write(text_sd + '\n')
+}
