@@ -55,7 +55,6 @@ if PLOTBP:
     #
     plt.close('all')
 #
-#
 #-------- Load autocorrelation power spectra
 print '---Loading autocorr power spectra'
 OnSpecList, OffSpecList, AmbSpecList, HotSpecList = [], [], [], []
