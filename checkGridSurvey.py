@@ -4,7 +4,8 @@ from scipy import stats
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ptick
 execfile(SCR_DIR + 'interferometry.py')
-#
+#---- Definitions
+BANDPA = (np.array([0.0, 45.0, 45.0, 80.0, -80.0, -45.0, 36.45, 45.0, 45.0, 45.0]) + 90.0)*pi/180.0
 ELshadow = np.pi* 40.0 / 180.0
 SSOCatalog = ['Uranus', 'Neptune', 'Titan', 'Callisto', 'Ganymede', 'Io', 'Europa', 'Ceres', 'Pallas', 'Vesta', 'Juno', 'Mars']
 #-------- Procedures
@@ -24,8 +25,9 @@ spwNames = msmd.namesforspws(spw)
 BandNames, pattern = [], r'RB_..'
 for spwName in spwNames: BandNames = BandNames + re.findall(pattern, spwName)
 UniqBands = unique(BandNames).tolist(); NumBands = len(UniqBands)
-spwLists, BandScans = [], []
+spwLists, BandScans, BandPA = [], [], []
 for band_index in range(NumBands):
+    BandPA = BandPA + [BANDPA[int(UniqBands[band_index][3:5])]]
     spwLists = spwLists + [np.array(spw)[indexList( np.array([UniqBands[band_index]]), np.array(BandNames))].tolist()]
     BandScans = BandScans + [msmd.scansforspw(spwLists[band_index][0])]
     print ' ',
@@ -81,14 +83,11 @@ print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 antDia = np.ones([UseAntNum])
 for ant_index in range(UseAntNum): antDia[ant_index] = msmd.antennadiameter(antList[antMap[ant_index]])['value']
 #-------- Check Scans of BandPass, EQualization, and FluxScaling
-#if FCScans == []: FCScans = msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE")
-#if BPScans == []: BPScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
 FCScans = msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE")
 BPScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
 ONScans = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
 print '---SPWs and Scans for each receiver band'
-#for band_index in range(NumBands):
-for band_index in range(1):
+for band_index in range(NumBands):
     #-------- Check Calibrators
     FCScan = BandScans[band_index][indexList( FCScans, BandScans[band_index] )][0]
     BPScan = BandScans[band_index][indexList( BPScans, BandScans[band_index] )][0]

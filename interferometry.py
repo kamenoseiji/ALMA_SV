@@ -852,31 +852,29 @@ def delayCalSpec2( Xspec, chRange, sigma ):  # chRange = [startCH:stopCH] specif
 #
 def BPtable(msfile, spw, BPScan, blMap, blInv):   # 
     blNum = len(blMap); antNum = Bl2Ant(blNum)[0]
-    ant0, ant1 = ANT0[0:blNum], ANT1[0:blNum]
-    pPol, cPol = [0,3], [1,2]  # parallel and cross pol
-    ppolNum, cpolNum = len(pPol), len(cPol)
-    polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
-    #if len(blMap) == 2016:
-    #    blMap, blInv = blMap[0:blNum], blInv[0:blNum]
-    #else:
-    #    blNum = len(blMap); antNum = Bl2Ant(blNum)[0]
-    #
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan)    # Xspec[pol, ch, bl, time]
-    chNum = Pspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))                   # Trim band edge
-    Xspec  = CrossPolBL(Xspec[:,:,blMap], blInv)
+    ant0, ant1, polNum, chNum = ANT0[0:blNum], ANT1[0:blNum], Pspec.shape[0], Pspec.shape[1]
+    chRange = range(int(0.05*chNum), int(0.95*chNum))                   # Trim band edge
+    BP_ant  = np.ones([antNum, 2, chNum], dtype=complex)          # BP_ant[ant, pol, ch]
+    if polNum == 4:
+        polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
+        Xspec  = CrossPolBL(Xspec[:,:,blMap], blInv)
+        Gain = np.array([np.apply_along_axis(gainComplex, 0, np.mean(Xspec[0,chRange], axis=0 )), np.apply_along_axis( gainComplex, 0, np.mean(Xspec[3,chRange], axis=0))])
+        CaledXspec = (Xspec.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())).transpose(1,0,2,3)
+        XPspec = np.mean(CaledXspec, axis=3)  # Time Average
+        BP_ant[:,0], BP_ant[:,1]  = np.apply_along_axis(gainComplex, 0, XPspec[0].T), np.apply_along_axis(gainComplex, 0, XPspec[3].T)
+        BPCaledXspec = XPspec.transpose(2, 0, 1) /(BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate())
+        BPCaledXYSpec = np.mean(BPCaledXspec[:,1], axis=0) +  np.mean(BPCaledXspec[:,2], axis=0).conjugate()
+        XYdelay, amp = delay_search( BPCaledXYSpec[chRange] )
+        XYdelay = (float(chNum) / float(len(chRange)))* XYdelay
+    else:
+        Xspec  = ParaPolBL(Xspec[:,:,blMap], blInv)
+        Gain = np.array([np.apply_along_axis(gainComplex, 0, np.mean(Xspec[0,chRange], axis=0 )), np.apply_along_axis( gainComplex, 0, np.mean(Xspec[1,chRange], axis=0))])
+        CaledXspec = (Xspec.transpose(1,0,2,3) / (Gain[:,ant0]* Gain[:,ant1].conjugate())).transpose(1,0,2,3)
+        XPspec = np.mean(CaledXspec, axis=3)  # Time Average
+        BP_ant[:,0], BP_ant[:,1]  = np.apply_along_axis(gainComplex, 0, XPspec[0].T), np.apply_along_axis(gainComplex, 0, XPspec[1].T)
+        XYdelay = 0.0
     #
-    BP_ant  = np.ones([antNum, ppolNum, chNum], dtype=complex)          # BP_ant[ant, pol, ch]
-    Gain = np.array([np.apply_along_axis(gainComplex, 0, np.mean(Xspec[0,chRange], axis=0 )), np.apply_along_axis( gainComplex, 0, np.mean(Xspec[3,chRange], axis=0))])
-    CaledXspec = (Xspec.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())).transpose(1,0,2,3)
-    #-------- Time Average
-    XPspec = np.mean(CaledXspec, axis=3)  # Time Average
-    #-------- Parallel-pol Solution (BL -> Ant)
-    BP_ant[:,0], BP_ant[:,1]  = np.apply_along_axis(gainComplex, 0, XPspec[pPol[0]].T), np.apply_along_axis(gainComplex, 0, XPspec[pPol[1]].T)
-    #
-    BPCaledXspec = XPspec.transpose(2, 0, 1) /(BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate())
-    BPCaledXYSpec = np.mean(BPCaledXspec[:,1], axis=0) +  np.mean(BPCaledXspec[:,2], axis=0).conjugate()
-    XYdelay, amp = delay_search( BPCaledXYSpec[chRange] )
-    XYdelay = (float(chNum) / float(len(chRange)))* XYdelay
     return BP_ant, XYdelay
 #
 def bpCal(spec, BP0, BP1):      # spec[blNum, chNum, timeNum]

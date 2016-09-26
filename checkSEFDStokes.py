@@ -236,32 +236,13 @@ for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], EQScan)
     chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-    if cpolNum == 2:
-        PA = AzEl2PA(np.median(OnAZ[:,scan_index]), np.median(OnEL[:,scan_index]))
-        PS = InvPAMatrix(PA)
-        tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)       # Cross Polarization Baseline Mapping
-        Xspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
-        #-------- XY delay cal
-        XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelayList[spw_index] )
-        Xspec[1] = (Xspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
-        Xspec[2] = (Xspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
-        #-------- Antenna-based Gain
-        chAvgVis = np.mean(Xspec[:, chRange], axis=1)
-        GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[0])
-        GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[3])
-        VisXY = np.array([np.median(gainCalVis( chAvgVis[0], GainX, GainX)), np.median(gainCalVis( chAvgVis[1], GainX, GainY)), np.median(gainCalVis( chAvgVis[2], GainY, GainX)), np.median(gainCalVis( chAvgVis[3], GainY, GainY))])
-        StokesVis = np.dot(PS, VisXY)
-        #print '%f %f %f %f' % (StokesVis[0], StokesVis[1], StokesVis[2], StokesVis[3])
-        #
-        #-------- Phase Cal and channel average
-        BLphsX, BLphsY = GainX[ant0]* GainX[ant1].conjugate() / abs(GainX[ant0]* GainX[ant1]), GainY[ant0]* GainY[ant1].conjugate() / abs(GainY[ant0]* GainY[ant1])
-        pCalVisX, pCalVisY = np.mean(chAvgVis[0] / BLphsX, axis=1), np.mean(chAvgVis[3] / BLphsY, axis=1)
-    else:
-        chAvgVis = np.mean(Xspec[:, chRange], axis=1)
-        GainX = np.apply_along_axis( gainComplex, 0, chAvgVis[0])
-        GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[1])
-        BLphsX, BLphsY = GainX[ant0]* GainX[ant1].conjugate() / abs(GainX[ant0]* GainX[ant1]), GainY[ant0]* GainY[ant1].conjugate() / abs(GainY[ant0]* GainY[ant1])
-        pCalVisX, pCalVisY = np.mean(chAvgVis[0] / BLphsX, axis=1), np.mean(chAvgVis[1] / BLphsY, axis=1)
+    tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)       # Cross Polarization Baseline Mapping
+    BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
+    #-------- Antenna-based Gain
+    chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)[pPol]
+    GainX, GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[0]), np.apply_along_axis( gainComplex, 0, chAvgVis[1])
+    BLphsX, BLphsY = GainX[ant0]* GainX[ant1].conjugate() / abs(GainX[ant0]* GainX[ant1]), GainY[ant0]* GainY[ant1].conjugate() / abs(GainY[ant0]* GainY[ant1])
+    pCalVisX, pCalVisY = np.mean(chAvgVis[0] / BLphsX, axis=1), np.mean(chAvgVis[1] / BLphsY, axis=1)
     #-------- Antenna-based Gain
     GainAnt = GainAnt + [chAvgTsys[:, spw_index, 0, scan_index]* abs(gainComplex(pCalVisX))**2] # Ae/2k assuming 1Jy
     GainAnt = GainAnt + [chAvgTsys[:, spw_index, 1, scan_index]* abs(gainComplex(pCalVisY))**2]
@@ -270,12 +251,10 @@ GainEq = np.array(GainAnt).reshape([spwNum, 2, UseAntNum]).transpose(2,0,1)    #
 #-------- Flux models for solar system objects
 SSONum = len(SSOList)
 timeLabel = qa.time('%fs' % (timeXY[0]), form='ymd')[0]
-SSOflux0= []
-SSOshape = []
-centerFreqList = []
+SSOflux0, SSOshape, centerFreqList = [], [], []
 primaryBeam = np.ones([UseBlNum])
 for bl_index in range(UseBlNum):
-    beam0, beam1 = 1.0/antDia[ant0[bl_index]], 1.0/antDia[ant1[bl_index]] 
+    beam0, beam1 = 1.0/antDia[ant0[blMap[bl_index]]], 1.0/antDia[ant1[blMap[bl_index]]] 
     primaryBeam[bl_index] = np.sqrt(2.0/ ((beam0)**2 + (beam1)**2 )) * beam0* beam1
 #
 for spw_index in range(spwNum): 
@@ -310,7 +289,7 @@ for ssoIndex in range(SSONum):
     uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     for spw_index in range(spwNum):
         uvWave = uvw[0:2,:]* centerFreqList[spw_index] / 0.299792458    # UV distance in wavelength
-        uvFlag[ssoIndex, spw_index, np.where( uvWave[0]**2 + uvWave[1]**2 > UVlimit**2 )[0].tolist()] = 0.0
+        uvFlag[ssoIndex, spw_index, np.where( uvDist* centerFreqList[spw_index] / 0.299792458 > UVlimit )[0].tolist()] = 0.0
         SSOmodelVis.append(diskVisBeam(SSOshape[ssoIndex], uvWave[0], uvWave[1], 1.13* 0.299792458* primaryBeam/centerFreqList[spw_index]))
     #
 #
@@ -324,8 +303,10 @@ medSF, sdSF = [], []; del GainAnt
 scan_index = onsourceScans.index(FCScan)
 for spw_index in range(spwNum):
     #-------- Sub-array with unflagged antennas (short baselines)
-    SAantennas, SAblMap, SAblFlag, SAant0, SAant1 = subArranIndex(uvFlag[FCS_ID, spw_index])
-    SAantNum = len(SAantennas); SAblNum = SAantNum* (SAantNum - 1)/2
+    SAantennas, SAbl, SAblFlag, SAant0, SAant1 = subArranIndex(FCSFlag[spw_index])
+    SAblMap = np.array(blMap)[SAbl].tolist(); SAblInv = np.array(blInv)[SAbl].tolist(); SAantMap = np.array(antMap)[SAantennas].tolist()
+    SAant0, SAant1 = np.array(ANT0)[SAblMap].tolist(), np.array(ANT1)[SAblMap].tolist()
+    SAantNum = len(SAantMap); SAblNum = len(SAblMap)
     if SAantNum < 3:
         print 'Too few antennas for %s. Change REFANT or Flux Calibrator.'
         sys.exit(0)
@@ -333,9 +314,18 @@ for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], FCScan)
     chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
+    #-------- Baseline-based cross power spectra
+    tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)       # Cross Polarization Baseline Mapping
+    BPCaledXspec = (tempSpec / (BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
+    #-------- Antenna-based Gain
+    chAvgVis = (np.mean(BPCaledXspec[:, chRange], axis=1)[pPol].transpose(0,2,1)/FCSmodelVis[spw_index, SAblMap]).transpose(0,2,1)
+    GainX, GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[0]), np.apply_along_axis( gainComplex, 0, chAvgVis[1])
+    BLphsX = GainX[SAant0]* GainX[SAant1].conjugate() / abs(GainX[SAant0]* GainX[SAant1])
+    BLphsY = GainY[SAant0]* GainY[SAant1].conjugate() / abs(GainY[SAant0]* GainY[SAant1])
+    pCalVisX, pCalVisY = np.mean(chAvgVis[0] / BLphsX, axis=1), np.mean(chAvgVis[1] / BLphsY, axis=1)
+    #
+    """
     if cpolNum == 2:
-        PA = AzEl2PA(np.median(OnAZ[:,scan_index]), np.median(OnEL[:,scan_index]))
-        PS = InvPAMatrix(PA)
         tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1) 
         Xspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0)[:,:,SAblMap]
         #-------- XY delay cal
@@ -358,11 +348,12 @@ for spw_index in range(spwNum):
         pCalVisX, pCalVisY = np.mean(chAvgVis[0] / BLphsX, axis=1), np.mean(chAvgVis[1] / BLphsY, axis=1)
         #
     #
-    Ta = SSOflux[FCS_ID, spw_index]* AeNominal[SAantennas] / (2.0* kb)
+    """
+    Ta = SSOflux[FCS_ID, spw_index]* AeNominal[SAantMap] / (2.0* kb)
     #-------- Antenna-based Gain
-    GainAnt = (chAvgTsys[SAantennas, spw_index, 0, scan_index] + Ta)* abs(gainComplex(pCalVisX))**2 / GainEq[SAantennas, spw_index, 0]
+    GainAnt = (chAvgTsys[SAantMap, spw_index, 0, scan_index] + Ta)* abs(gainComplex(pCalVisX))**2 / GainEq[SAantMap, spw_index, 0]
     medSF = medSF + [np.median(GainAnt)]; sdSF = sdSF + [np.std(GainAnt)/np.sqrt(SAantNum-1)]
-    GainAnt = (chAvgTsys[SAantennas, spw_index, 1, scan_index] + Ta)* abs(gainComplex(pCalVisY))**2 / GainEq[SAantennas, spw_index, 1]
+    GainAnt = (chAvgTsys[SAantMap, spw_index, 1, scan_index] + Ta)* abs(gainComplex(pCalVisY))**2 / GainEq[SAantMap, spw_index, 1]
     medSF = medSF + [np.median(GainAnt)]; sdSF = sdSF + [np.std(GainAnt)/np.sqrt(SAantNum-1)]
 #
 medSF, sdSF = np.array(medSF).reshape([spwNum, 2]), np.array(sdSF).reshape([spwNum, 2])
