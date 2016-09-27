@@ -87,17 +87,19 @@ FCScans = msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE")
 BPScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
 ONScans = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
 print '---SPWs and Scans for each receiver band'
-for band_index in range(NumBands):
+#for band_index in range(NumBands):
+for band_index in range(1):
     #-------- Check Calibrators
-    FCScan = BandScans[band_index][indexList( FCScans, BandScans[band_index] )][0]
+    FCScan = BandScans[band_index][indexList( FCScans, BandScans[band_index] )]
     BPScan = BandScans[band_index][indexList( BPScans, BandScans[band_index] )][0]
     ONScan = BandScans[band_index][indexList( ONScans, BandScans[band_index] )]
     EQScan = BPScan
-    onsourceScans = unique([BPScan] + [FCScan] + ONScan.tolist()).tolist()
+    onsourceScans = unique([BPScan] + FCScan.tolist() + ONScan.tolist()).tolist()
     scanNum = len(onsourceScans)
     #-------- Check AZEL
     azelTime, AntID, AZ, EL = GetAzEl(msfile)
     azelTime_index = np.where( AntID == UseAnt[refantID] )[0].tolist() 
+    azel = np.r_[AZ[azelTime_index], EL[azelTime_index]].reshape(2, len(azelTime_index))
     OnEL, sourceIDscan = [], []
     for scan_index in range(scanNum):
         sourceIDscan.append( msmd.fieldsforscan(onsourceScans[scan_index])[0])
@@ -108,6 +110,8 @@ for band_index in range(NumBands):
     if BPcal in sourceList: BPScan = list(set(msmd.scansforfield(sourceList.index(BPcal))) & set(onsourceScans))[0]
     if FLcal in sourceList: FCScan = list(set(msmd.scansforfield(sourceList.index(FLcal))) & set(onsourceScans))[0]
     if EQcal in sourceList: EQScan = list(set(msmd.scansforfield(sourceList.index(EQcal))) & set(onsourceScans))[0]
+    #-------- SSO in observed source list
+    BandSSOList = list( set(SSOList) & set(sourceIDscan) )
     #-------- Avoid EQ == FL
     if EQScan == FCScan or OnEL[onsourceScans.index(EQScan)] < ELshadow :
         QSOscanIndex = indexList(QSOList, np.array(sourceIDscan))
