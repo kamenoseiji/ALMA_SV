@@ -57,7 +57,7 @@ def Ant2Bl_RevLex(ant1, ant2, antnum):    # Reverse Lexical, without autcorr
     antenna1 = max(ant1, ant2); antenna2 = min(ant1, ant2)
     return int(antnum* antenna2 - (antenna2 + 1)* (antenna2 + 2) / 2  + antenna1)
 #
-def subArranIndex(Flag):          #-------- SubArray Indexing
+def subArrayIndex(Flag):          #-------- SubArray Indexing
     blNum = len(Flag); antNum = Bl2Ant(blNum)[0]; kernelBL = KERNEL_BL[range(antNum-1)].tolist()
     ant0, ant1 = ANT0[0:blNum], ANT1[0:blNum]
     flagIndex = np.where(Flag == 1)[0].tolist()       # Baselines: uvDist < UVlimit

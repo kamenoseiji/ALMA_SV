@@ -87,8 +87,10 @@ FCScans = msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE")
 BPScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
 ONScans = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
 print '---SPWs and Scans for each receiver band'
+msmd.done()
 #for band_index in range(NumBands):
-for band_index in range(1):
+for band_index in range(1,2):
+    msmd.open(msfile)
     #-------- Check Calibrators
     FCScan = BandScans[band_index][indexList( FCScans, BandScans[band_index] )]
     BPScan = BandScans[band_index][indexList( BPScans, BandScans[band_index] )][0]
@@ -127,7 +129,7 @@ for band_index in range(1):
     PolList = ['X', 'Y']
     if polNum == 4: pPol, cPol = [0,3], [1,2]  # parallel and cross pol
     ppolNum, cpolNum = len(pPol), len(cPol)
+    msmd.done()
     #execfile(SCR_DIR + 'checkSEFD.py')
     execfile(SCR_DIR + 'checkSEFDStokes.py')
 #
-msmd.done()
