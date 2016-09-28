@@ -83,7 +83,11 @@ print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 antDia = np.ones([UseAntNum])
 for ant_index in range(UseAntNum): antDia[ant_index] = msmd.antennadiameter(antList[antMap[ant_index]])['value']
 #-------- Check Scans of BandPass, EQualization, and FluxScaling
-FCScans = np.r_[msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("CALIBRATE_AMPLI#ON_SOURCE")]
+try:
+    FCScans = np.r_[msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE")
+except:
+    FCSscans = msmd.scansforintent("CALIBRATE_AMPLI#ON_SOURCE")]
+#
 BPScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
 ONScans = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
 print '---SPWs and Scans for each receiver band'
