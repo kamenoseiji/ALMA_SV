@@ -130,5 +130,5 @@ for band_index in range(NumBands):
     ppolNum, cpolNum = len(pPol), len(cPol)
     msmd.done()
     #execfile(SCR_DIR + 'checkSEFD.py')
-    execfile(SCR_DIR + 'checkSEFDStokes.py')
+    #execfile(SCR_DIR + 'checkSEFDStokes.py')
 #
