@@ -262,7 +262,7 @@ AeX, AeY = [], []
 scan_index = onsourceScans.index(FCScan)
 for spw_index in range(spwNum):
     #-------- Sub-array with unflagged antennas (short baselines)
-    SAantennas, SAbl, SAblFlag, SAant0, SAant1 = subArranIndex(FCSFlag[spw_index])
+    SAantennas, SAbl, SAblFlag, SAant0, SAant1 = subArrayIndex(FCSFlag[spw_index])
     SAsntList = antList[np.array(antMap)[SAantennas]] 
     SAantMap = np.array(antMap)[SAantennas].tolist()
     SAblMap = np.array(blMap)[SAbl].tolist()
@@ -283,7 +283,7 @@ for spw_index in range(spwNum):
 #
 AeX, AeY = np.array(AeX), np.array(AeY)
 ##-------- Flux density of the equalizer, aligned in the power law
-EQflux = np.r_[np.median(AeSeqX[:SAantennas]/AeX, axis=1), np.median(AeSeqY[:,SAantennas]/AeY, axis=1)]
+EQflux = np.r_[np.median(AeSeqX[:,SAantennas]/AeX, axis=1), np.median(AeSeqY[:,SAantennas]/AeY, axis=1)]
 P = np.c_[ np.r_[np.log(centerFreqList),np.log(centerFreqList)], np.r_[np.ones(spwNum), np.zeros(spwNum)], np.r_[np.zeros(spwNum), np.ones(spwNum)]]
 EQmodel = scipy.linalg.solve(np.dot(P.T, P), np.dot(P.T, np.log(EQflux)))   # alpha, logSx, logSy
 EQflux = np.c_[np.exp(EQmodel[0]* np.log(centerFreqList) + EQmodel[1]), np.exp(EQmodel[0]* np.log(centerFreqList) + EQmodel[2])]
@@ -308,8 +308,7 @@ for ant_index in range(UseAntNum):
     print ''
 ##
 #-------- XY phase using EQ scan
-XYphase = []
-caledVis = []
+XYphase, caledVis = [], []
 scan_index = onsourceScans.index(EQScan)
 for spw_index in range(spwNum):
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], EQScan)
@@ -326,8 +325,10 @@ for spw_index in range(spwNum):
     BPCaledXspec[1] = (BPCaledXspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
     BPCaledXspec[2] = (BPCaledXspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
     chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
-    Gain = np.r_[(np.apply_along_axis(gainComplex, 0, chAvgVis[0]).T * np.sqrt(chAvgTsys[:, spw_index, 0, scan_index]/scaleFact[spw_index, 0])).T, (np.apply_along_axis(gainComplex, 0, chAvgVis[3]).T * np.sqrt(chAvgTsys[:, spw_index, 1, scan_index]/scaleFact[spw_index, 0])).T].reshape(2, antNum, timeNum)
-    caledVis.append(np.mean(chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate()), axis=1))
+    Gain = np.r_[np.apply_along_axis(gainComplex, 0, chAvgVis[0]), np.apply_along_axis(gainComplex, 0, chAvgVis[3])].reshape(2, antNum, timeNum)
+    Gain = Gain / abs(Gain)
+    SEFD = 2.0* kb* chAvgTsys[:,spw_index, :,scan_index] / Ae[:,:,spw_index]
+    caledVis.append(np.mean((chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())).transpose(2, 0, 1)* np.sqrt(SEFD[ant0][:,polYindex].T* SEFD[ant1][:,polXindex].T), axis=2).T)
 #
 caledVis = np.array(caledVis)
 QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
@@ -335,42 +336,38 @@ for spw_index in range(spwNum):
     XYphase.append(XY2Phase(PA, QUsolution[0], QUsolution[1], caledVis[spw_index][[1,2]]))
 #
 XYphase = np.array(XYphase)
-"""
 #-------- Flux Density
-ScanFlux = np.zeros([scanNum, spwNum])
-ErrFlux  = np.zeros([scanNum, spwNum])
+ScanFlux = np.zeros([scanNum, spwNum, 4])
+ErrFlux  = np.zeros([scanNum, spwNum, 4])
 ScanEL     = np.zeros([scanNum])
 print '---Flux densities of sources ---'
-print 'Scan   Source  EL   ',
-for spw_index in range(spwNum): print 'SPW%02d         ' % (spw[spw_index]),
-print ' '
-print '                     ',
-for spw_index in range(spwNum): print '%4.1fGHz      ' % (centerFreqList[spw_index]),
-print ' '
 for scan_index in range(scanNum):
     ScanEL[scan_index] = np.median(OnEL[:,scan_index])
-    print '%02d %010s %4.1f ' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi )
+    print '%02d %010s EL=%4.1f deg' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi )
+    print 'SPW   Frequency    I               Q               U               V             | Model I'
+    print '------------------------------------------------------------------------------------------'
     if(onsourceScans[scan_index] in SSOscanID):
         SSO_flag = T
         SSO_ID = SSOscanID.index(onsourceScans[scan_index])
     else:
         SSO_flag = F
     for spw_index in range(spwNum):
+        print 'SPW%02d %5.1f GHz ' % (spw[spw_index], centerFreqList[spw_index]),
         atmCorrect = np.exp(-Tau0med[spw_index]/ np.sin(np.median(OnEL[:, scan_index])))
-        #atmCorrect = np.exp(-onTau[spw_index, scan_index])
         #-------- Sub-array with unflagged antennas (short baselines)
         if SSO_flag:
-            SAantennas, SAblMap, SAblFlag, SAant0, SAant1 = subArranIndex(uvFlag[SSO_ID, spw_index])
-            TA = Ae[:,spw_index]* SSOflux0[SSO_ID, spw_index]* atmCorrect  / (2.0* kb)
+            SAantennas, SAbl, SAblFlag, SAant0, SAant1 = subArrayIndex(uvFlag[SSO_ID, spw_index])
+            SAantMap, SAblMap, SAblInv = np.array(antMap)[SAantennas].tolist(), np.array(blMap)[SAbl].tolist(), np.array(blInv)[SAbl].tolist()
+            TA = Ae[:,:,spw_index]* SSOflux0[SSO_ID, spw_index]* atmCorrect  / (2.0* kb)
         else:
-            SAantennas, SAblMap, SAblFlag, SAant0, SAant1 = range(UseAntNum), range(UseBlNum), np.ones([blNum]), ant0, ant1
+            SAantennas, SAbl, SAblFlag, SAant0, SAant1 = range(UseAntNum), range(UseBlNum), np.ones([blNum]), ant0, ant1
+            SAantMap, SAblMap, SAblInv = antMap, blMap, blInv
             TA = 0.0
         #
-        #TA = Ae[:,spw_index]* SSOflux0[SSO_ID, spw_index]* atmCorrect  / (2.0* kb)
-        SEFD = 2.0* kb* (chAvgTsys[:,spw_index, :,scan_index] + TA) / (Ae[:,spw_index]* atmCorrect)
-        SAantNum = len(SAantennas); SAblNum = SAantNum* (SAantNum - 1)/2
-        if SAantNum < 4:
-            print ' too few ants ',
+        SEFD = 2.0* kb* (chAvgTsys[:,spw_index, :,scan_index] + TA) / (Ae[:,:,spw_index]* atmCorrect)
+        SAantNum = len(SAantennas); SAblNum = len(SAblMap)
+        if SAantNum < 3:
+            print ' Only %d antennas for short enough baselines. Skip!' % (SAantNum)
             continue
         #
         #
@@ -383,44 +380,36 @@ for scan_index in range(scanNum):
             AzScan[time_index], ElScan[time_index] = AzElMatch(timeStamp[time_index], azelTime, AntID, UseAnt[refantID], timeThresh, AZ, EL)
         #
         PA = np.mean(AzEl2PA(AzScan, ElScan)) + BandPA[band_index]; PS = InvPAMatrix(PA)
-        #if cpolNum == 2:
-        tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
+        tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
         #-------- Bandpass Calibration
-        BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
-        #BP_bl = BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate()
-        #Xspec = (tempSpec / BP_bl).transpose(2,3,1,0) # Bandpass Cal
+        BPCaledXspec = (tempSpec / (BPList[spw_index][np.array(ant0)[SAbl].tolist()][:,polYindex]* BPList[spw_index][np.array(ant1)[SAbl].tolist()][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
         #-------- XY delay cal
         XYdlSpec = delay_cal(np.ones([chNum], dtype=complex), XYdelayList[spw_index])
         BPCaledXspec[1] = (BPCaledXspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
         BPCaledXspec[2] = (BPCaledXspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
         #-------- Antenna-based Gain
-        if(SSO_flag): chAvgVis =(np.mean(BPCaledXspec[:, chRange], axis=1).transpose(0,2,1) / SSOmodelVis[SSO_ID, spw_index]).transpose(0,2,1)
+        if(SSO_flag): chAvgVis =(np.mean(BPCaledXspec[:, chRange], axis=1).transpose(0,2,1) / SSOmodelVis[SSO_ID, spw_index][SAbl]).transpose(0,2,1)
         else: chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
-        Gain = np.r_[np.apply_along_axis(gainComplex, 0, chAvgVis[0]), np.apply_along_axis(gainComplex, 0, chAvgVis[3])* np.exp((0.0 + 1.0j)* XYphase[spw_index])].reshape(2, antNum, timeNum)
+        Gain = np.r_[np.apply_along_axis(gainComplex, 0, chAvgVis[0]), np.apply_along_axis(gainComplex, 0, chAvgVis[3])* np.exp((0.0 + 1.0j)* XYphase[spw_index])].reshape(2, SAantNum, timeNum)
         Gain = Gain / abs(Gain)
-        pCalVis = np.mean(chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate()), axis=2)* np.sqrt(SEFD[ant0][:,polYindex].T* SEFD[ant1][:,polXindex].T)
-        StokesVis, StokesErr = np.zeros([4,blNum]), np.zeros([4,blNum])
-        for bl_index in range(blNum):
-            #Minv = InvMullerMatrix(Dx[ant1[bl_index], spw_index], Dy[ant1[bl_index], spw_index], Dx[ant0[bl_index], spw_index], Dy[ant0[bl_index], spw_index])
-            Minv = np.diag(np.ones(4))
+        pCalVis = np.mean(chAvgVis / (Gain[polYindex][:,ant0[0:SAblNum]]* Gain[polXindex][:,ant1[0:SAblNum]].conjugate()), axis=2)* np.sqrt(SEFD[np.array(ant0)[SAbl].tolist()][:,polYindex].T* SEFD[np.array(ant1)[SAbl].tolist()][:,polXindex].T)
+        StokesVis, StokesErr = np.zeros([4,SAblNum]), np.zeros([4,SAblNum])
+        for bl_index in range(SAblNum):
+            Minv = InvMullerMatrix(Dx[SAantMap[ant1[bl_index]], spw_index], Dy[SAantMap[ant1[bl_index]], spw_index], Dx[SAantMap[ant0[bl_index]], spw_index], Dy[SAantMap[ant0[bl_index]], spw_index])
             Stokes = np.dot(PS, np.dot(Minv, pCalVis[:,bl_index]))
             StokesVis[:,bl_index], StokesErr[:,bl_index] = Stokes.real, Stokes.imag
         #
         for pol_index in range(4):
-            print '%6.3f (%.3f) ' % (np.median(StokesVis[pol_index]), np.std(StokesVis[pol_index])/np.sqrt(blNum)),
+            ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index] = np.median(StokesVis[pol_index]), np.std(StokesVis[pol_index])/np.sqrt(SAblNum - 1.0)
+            print '%6.3f (%.3f) ' % (ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index]),
         #
+        if(SSO_flag): print '| %6.3f ' % (SSOflux0[SSO_ID, spw_index]),
         print ' '
-    #
-    if(SSO_flag):
-        for spw_index in range(spwNum):
-            print ' %6.3f ' % (SSOflux0[SSO_ID, spw_index]),
-        #
     #
     print ' '
 #
-#np.save(prefix + '-' + UniqBands[band_index] + '.Flux.npy', ScanFlux)
-#np.save(prefix + '-' + UniqBands[band_index] + '.Ferr.npy', ErrFlux)
-#np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceList)[sourceIDscan])
-#np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', ScanEL)
-"""
+np.save(prefix + '-' + UniqBands[band_index] + '.Flux.npy', ScanFlux)
+np.save(prefix + '-' + UniqBands[band_index] + '.Ferr.npy', ErrFlux)
+np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceList)[sourceIDscan])
+np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', ScanEL)
 msmd.done()

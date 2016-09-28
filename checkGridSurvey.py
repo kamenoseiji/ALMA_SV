@@ -88,8 +88,8 @@ BPScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
 ONScans = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
 print '---SPWs and Scans for each receiver band'
 msmd.done()
-#for band_index in range(NumBands):
-for band_index in range(1,2):
+for band_index in range(NumBands):
+#for band_index in range(1,2):
     msmd.open(msfile)
     #-------- Check Calibrators
     FCScan = BandScans[band_index][indexList( FCScans, BandScans[band_index] )]

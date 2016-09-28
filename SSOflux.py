@@ -48,8 +48,9 @@ for ssoIndex in range(SSONum):
         uvWave = uvw[0:2,:]* centerFreqList[spw_index] / 0.299792458    # UV distance in wavelength
         uvFlag[ssoIndex, spw_index, np.where( uvDist* centerFreqList[spw_index] / 0.299792458 > UVlimit )[0].tolist()] = 0.0
         SSOmodelVis = SSOmodelVis + [diskVisBeam(SSOshape[ssoIndex], uvWave[0], uvWave[1], 1.13* 0.299792458* primaryBeam/centerFreqList[spw_index])]
-        for bl_index in np.where(uvFlag[ssoIndex, spw_index] == 0.0)[0].tolist():
-            print '%s SPW=%d : Flagged BL(%s - %s)' % (sourceList[BandSSOList[ssoIndex]], spw[spw_index], antList[antMap[ant0[bl_index]]],antList[antMap[ant1[bl_index]]]) 
+        #-------- for debug
+        #for bl_index in np.where(uvFlag[ssoIndex, spw_index] == 0.0)[0].tolist():
+        #    print '%s SPW=%d : Flagged BL(%s - %s)' % (sourceList[BandSSOList[ssoIndex]], spw[spw_index], antList[antMap[ant0[bl_index]]],antList[antMap[ant1[bl_index]]]) 
         #
     #
 #
