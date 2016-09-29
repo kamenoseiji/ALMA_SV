@@ -285,7 +285,7 @@ for spw_index in range(spwNum):
 #
 AeX, AeY = np.array(AeX), np.array(AeY)
 ##-------- Flux density of the equalizer, aligned in the power law
-EQflux = np.r_[np.median(AeSeqX[:,SAantennas]/AeX, axis=1), np.median(AeSeqY[:,SAantennas]/AeY, axis=1)]
+EQflux = np.r_[np.median((AeSeqX[:,SAantennas]/AeX), axis=1), np.median((AeSeqY[:,SAantennas]/AeY), axis=1)]
 P = np.c_[ np.r_[np.log(centerFreqList),np.log(centerFreqList)], np.r_[np.ones(spwNum), np.zeros(spwNum)], np.r_[np.zeros(spwNum), np.ones(spwNum)]]
 EQmodel = scipy.linalg.solve(np.dot(P.T, P), np.dot(P.T, np.log(EQflux)))   # alpha, logSx, logSy
 EQflux = np.c_[np.exp(EQmodel[0]* np.log(centerFreqList) + EQmodel[1]), np.exp(EQmodel[0]* np.log(centerFreqList) + EQmodel[2])]
