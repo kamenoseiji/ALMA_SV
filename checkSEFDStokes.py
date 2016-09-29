@@ -24,6 +24,7 @@ Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
 AeNominal = 0.6* 0.25* np.pi* antDia**2      # Nominal Collecting Area
 kb        = 1.38064852e3
 #-------- Check Scans for atmCal
+logfile = open(prefix + '-' + UniqBands[band_index] + '-Flux.log', 'w') 
 print '---Checking time series in MS and atmCal scans'
 tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spw[0]`).getcol('TIME'); tb.close()
 OnTimeIndex = []
@@ -178,8 +179,7 @@ for scan_index in range(scanNum):
     tempTau = -np.log((chAvgTsky[:,:,:,offTimeIndex] - TantN - np.median(tempAmb) + Tatm_OFS) / (2.718 - np.median(tempAmb) + Tatm_OFS))
     onTau[:,scan_index] = np.median(tempTau.transpose(1,2,0).reshape(spwNum, -1), axis=1)
 #
-for spw_index in range(spwNum):
-    print 'SPW=%d : Tau(zenith) = %6.4f +- %6.4f' % (spw[spw_index], Tau0med[spw_index], Tau0err[spw_index])
+for spw_index in range(spwNum): text_sd = 'SPW=%d : Tau(zenith) = %6.4f +- %6.4f' % (spw[spw_index], Tau0med[spw_index], Tau0err[spw_index]); logfile.write(text_sd + '\n'); print text_sd
 #
 np.save(prefix +  '-' + UniqBands[band_index] + '.Trx.npy', TrxList) 
 np.save(prefix +  '-' + UniqBands[band_index] + '.Tsky.npy', TskyList) 
@@ -187,50 +187,52 @@ np.save(prefix +  '-' + UniqBands[band_index] + '.TrxFlag.npy', TrxFlag)
 np.save(prefix +  '-' + UniqBands[band_index] + '.Tau0.npy', Tau0) 
 #-------- Antenna-dependent leakage noise
 param = [0.0]
-print 'TantN: ',
-for spw_index in range(spwNum):
-    print 'PolX    SPW%02d  PolY           |' % (spw[spw_index]),
+text_sd = ' TantN:'; logfile.write(text_sd); print text_sd,
+for spw_index in range(spwNum): text_sd = ' PolX   SPW%02d  PolY           |' % (spw[spw_index]); logfile.write(text_sd); print text_sd,
 #
-print ' '
-print '-----:--------------------------------+-------------------------------+-------------------------------+-------------------------------+'
+logfile.write('\n'); print ' '
+text_sd = ' ----:--------------------------------+-------------------------------+-------------------------------+-------------------------------+'; logfile.write(text_sd + '\n'); print text_sd
 for ant_index in range(UseAntNum):
-    print antList[antMap[ant_index]] + ' : ',
+    text_sd = antList[antMap[ant_index]] + ' : '; logfile.write(text_sd); print text_sd,
     for spw_index in range(spwNum):
         for pol_index in range(2):
             fit = scipy.optimize.leastsq(residTskyTransfer2, param, args=(tempAmb[ant_index]-Tatm_OFS, Tau0med[spw_index], secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
             TantN[ant_index, spw_index, pol_index] = fit[0][0]
             resid = residTskyTransfer([fit[0][0], Tau0med[spw_index]], tempAmb[ant_index]-Tatm_OFS, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index])
             Trms[ant_index, spw_index, pol_index]  = sqrt(np.dot(resid, resid) / len(np.where(TrxFlag[ant_index, spw_index, pol_index] > 0.0)[0]))
-            print '%4.1f (%4.1f) K ' % (TantN[ant_index, spw_index, pol_index], Trms[ant_index, spw_index, pol_index]),
-        print '|',
-    print ' '
-print ' '
+            text_sd = '%4.1f (%4.1f) K ' % (TantN[ant_index, spw_index, pol_index], Trms[ant_index, spw_index, pol_index])
+            logfile.write(text_sd); print text_sd,
+        text_sd = '|'; logfile.write(text_sd); print text_sd,
+    logfile.write('\n'); print ''
+logfile.write('\n'); print ''
 np.save(prefix +  '-' + UniqBands[band_index] + '.TantN.npy', TantN) 
 #-------- Trx
-print 'Trec : ',
-for spw_index in range(spwNum): print 'SPW%02d  X        Y |' % (spw[spw_index]),
-print ' '
-print '-----:--------------------+-------------------+-------------------+-------------------+'
+text_sd = ' Trec: '; logfile.write(text_sd); print text_sd,
+for spw_index in range(spwNum): text_sd = ' SPW%02d X        Y |' % (spw[spw_index]); logfile.write(text_sd); print text_sd,
+logfile.write('\n'); print ' '
+text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; logfile.write(text_sd + '\n'); print text_sd
 for ant_index in range(UseAntNum):
-    print antList[antMap[ant_index]] + ' : ',
+    text_sd =  antList[antMap[ant_index]] + ' : '; logfile.write(text_sd); print text_sd,
     for spw_index in range(spwNum):
         for pol_index in range(2):
-            print '%6.1f K' % (np.median(chAvgTrx[ant_index, spw_index, pol_index])),
-        print '|',
-    print ' '
+            text_sd = '%6.1f K' % (np.median(chAvgTrx[ant_index, spw_index, pol_index]))
+            logfile.write(text_sd); print text_sd,
+        text_sd = '|'; logfile.write(text_sd); print text_sd,
+    logfile.write('\n'); print ' '
 print ' '
 #-------- Tsys
-print 'Tsys : ',
-for spw_index in range(spwNum): print 'SPW%02d  X        Y |' % (spw[spw_index]),
-print ' '
-print '-----:--------------------+-------------------+-------------------+-------------------+'
+text_sd = ' Tsys: '; logfile.write(text_sd); print text_sd,
+for spw_index in range(spwNum): text_sd = ' SPW%02d X        Y |' % (spw[spw_index]); logfile.write(text_sd); print text_sd,
+logfile.write('\n'); print ' '
+text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; logfile.write(text_sd + '\n'); print text_sd
 for ant_index in range(UseAntNum):
-    print antList[antMap[ant_index]] + ' : ',
+    text_sd =  antList[antMap[ant_index]] + ' : '; logfile.write(text_sd); print text_sd,
     for spw_index in range(spwNum):
         for pol_index in range(2):
-            print '%6.1f K' % (np.median(chAvgTrx[ant_index, spw_index, pol_index]) + np.median(chAvgTsky[ant_index, spw_index, pol_index])),
-        print '|',
-    print ' '
+            text_sd = '%6.1f K' % (np.median(chAvgTrx[ant_index, spw_index, pol_index]) + np.median(chAvgTsky[ant_index, spw_index, pol_index]))
+            logfile.write(text_sd); print text_sd,
+        text_sd = '|'; logfile.write(text_sd); print text_sd,
+    logfile.write('\n'); print ' '
 #-------- Plot optical depth
 if PLOTTAU: plotTau(prefix + ' ' + UniqBands[band_index], antList[antMap], spw, secZ, (chAvgTsky.transpose(3,0,1,2) - TantN).transpose(1,2,3,0), np.median(tempAmb) - Tatm_OFS, Tau0med, TrxFlag, 2.0*np.median(chAvgTsky), PLOTFMT) 
 if PLOTTSYS: plotTsys(prefix + ' ' + UniqBands[band_index], antList[antMap], ambTime, spw, TrxList, TskyList, PLOTFMT)
@@ -291,22 +293,24 @@ Ae     = np.c_[AeSeqX.T / EQflux[:,0], AeSeqY.T / EQflux[:,1]].reshape(antNum, p
 AEFF   = (Ae.transpose(1,2,0) / (0.25* pi*antDia**2)).transpose(2,0,1)
 np.save(prefix + '-' + UniqBands[band_index] + '.AntList.npy', antList[antMap]) 
 np.save(prefix + '-' + UniqBands[band_index] + '.Aeff.npy', AEFF) 
-print 'Aeff :',
+text_sd =  ' Aeff:'; logfile.write(text_sd); print text_sd,
 for spw_index in range(spwNum):
     for pol_index in range(2):
-        print 'SPW%02d-%s ' % (spw[spw_index], PolList[pol_index]),
+        text_sd = 'SPW%02d-%s ' % (spw[spw_index], PolList[pol_index])
+        logfile.write(text_sd); print text_sd,
     #
 #
-print ''
+logfile.write('\n'); print ''
 for ant_index in range(UseAntNum):
-    print '%s :' % (antList[antMap[ant_index]]),
+    text_sd = '%s :' % (antList[antMap[ant_index]]); logfile.write(text_sd); print text_sd,
     for spw_index in range(spwNum):
         for pol_index in range(2):
-            print '  %4.1f%% ' % (100.0* AEFF[ant_index, pol_index, spw_index]),
+            text_sd = '  %4.1f%% ' % (100.0* AEFF[ant_index, pol_index, spw_index]); logfile.write(text_sd); print text_sd,
         #
     #
-    print ''
+    logfile.write('\n'); print ''
 ##
+logfile.write('\n'); print ''
 #-------- XY phase using EQ scan
 XYphase, caledVis = [], []
 scan_index = onsourceScans.index(EQScan)
@@ -343,16 +347,16 @@ ScanEL     = np.zeros([scanNum])
 print '---Flux densities of sources ---'
 for scan_index in range(scanNum):
     ScanEL[scan_index] = np.median(OnEL[:,scan_index])
-    print '%02d %010s EL=%4.1f deg' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi )
-    print 'SPW   Frequency    I               Q               U               V             | Model I'
-    print '------------------------------------------------------------------------------------------'
+    text_sd = ' %02d %010s EL=%4.1f deg' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi ); logfile.write(text_sd + '\n'); print text_sd
+    text_sd = ' SPW  Frequency    I               Q               U               V             | Model I'; logfile.write(text_sd + '\n'); print text_sd
+    text_sd = ' -----------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
     if(onsourceScans[scan_index] in SSOscanID):
         SSO_flag = T
         SSO_ID = SSOscanID.index(onsourceScans[scan_index])
     else:
         SSO_flag = F
     for spw_index in range(spwNum):
-        print 'SPW%02d %5.1f GHz ' % (spw[spw_index], centerFreqList[spw_index]),
+        text_sd = 'SPW%02d %5.1f GHz ' % (spw[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
         atmCorrect = np.exp(-Tau0med[spw_index]/ np.sin(np.median(OnEL[:, scan_index])))
         #-------- Sub-array with unflagged antennas (short baselines)
         if SSO_flag:
@@ -367,7 +371,7 @@ for scan_index in range(scanNum):
         SEFD = 2.0* kb* (chAvgTsys[:,spw_index, :,scan_index] + TA) / (Ae[:,:,spw_index]* atmCorrect)
         SAantNum = len(SAantennas); SAblNum = len(SAblMap)
         if SAantNum < 3:
-            print ' Only %d antennas for short enough baselines. Skip!' % (SAantNum)
+            text_sd = ' Only %d antennas for short enough baselines. Skip!' % (SAantNum) ; logfile.write(text_sd + '\n'); print text_sd
             continue
         #
         #
@@ -401,13 +405,14 @@ for scan_index in range(scanNum):
         #
         for pol_index in range(4):
             ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index] = np.median(StokesVis[pol_index]), np.std(StokesVis[pol_index])/np.sqrt(SAblNum - 1.0)
-            print '%6.3f (%.3f) ' % (ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index]),
+            text_sd = '%6.3f (%.3f) ' % (ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index]); logfile.write(text_sd); print text_sd,
         #
-        if(SSO_flag): print '| %6.3f ' % (SSOflux0[SSO_ID, spw_index]),
-        print ' '
+        if(SSO_flag): text_sd = '| %6.3f ' % (SSOflux0[SSO_ID, spw_index]); logfile.write(text_sd); print text_sd,
+        logfile.write('\n'); print ''
     #
-    print ' '
+    logfile.write('\n'); print ''
 #
+logfile.close()
 np.save(prefix + '-' + UniqBands[band_index] + '.Flux.npy', ScanFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Ferr.npy', ErrFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceList)[sourceIDscan])
