@@ -12,7 +12,7 @@ timeLabel = qa.time('%fs' % (timeXY[0]), form='ymd')[0]
 SSOflux0, SSOshape, centerFreqList = [], [], []
 primaryBeam = np.ones([UseBlNum])
 for bl_index in range(UseBlNum):
-    beam0, beam1 = 1.0/antDia[ant0[blMap[bl_index]]], 1.0/antDia[ant1[blMap[bl_index]]] 
+    beam0, beam1 = 1.0/antDia[ant0[bl_index]], 1.0/antDia[ant1[bl_index]] 
     primaryBeam[bl_index] = np.sqrt(2.0/ ((beam0)**2 + (beam1)**2 )) * beam0* beam1
 #
 for spw_index in range(spwNum): 

@@ -265,7 +265,7 @@ AeX, AeY = [], []
 scan_index = onsourceScans.index(FCScan)
 #-------- Sub-array with unflagged antennas (short baselines)
 SAantennas, SAbl, SAblFlag, SAant0, SAant1 = subArrayIndex(FCSFlag[0])
-SAsntList = antList[np.array(antMap)[SAantennas]] 
+SAantList = antList[np.array(antMap)[SAantennas]] 
 SAantMap = np.array(antMap)[SAantennas].tolist()
 SAblMap = np.array(blMap)[SAbl].tolist()
 SAblInv = np.array(blInv)[SAbl].tolist()
@@ -280,8 +280,6 @@ for spw_index in range(spwNum):
     chAvgVis = (np.mean(BPCaledXspec[:, chRange], axis=1)[pPol].transpose(0,2,1)/FCSmodelVis[spw_index,SAbl]).transpose(0,2,1)
     GainX, GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[0]), np.apply_along_axis( gainComplex, 0, chAvgVis[1])
     Ta = SSOflux[FCS_ID, spw_index]* AeNominal[np.array(antMap)[SAantennas]] / (2.0* kb)
-    #AeX = AeX + [2.0* kb* np.median(abs(GainX), axis=1)**2 * (Ta + chAvgTsys[SAantMap, spw_index, 0, scan_index]) / SSOflux[FCS_ID, spw_index]]
-    #AeY = AeY + [2.0* kb* np.median(abs(GainY), axis=1)**2 * (Ta + chAvgTsys[SAantMap, spw_index, 1, scan_index]) / SSOflux[FCS_ID, spw_index]]
     AeX = AeX + (2.0* kb* np.median(abs(GainX), axis=1)**2 * (Ta + chAvgTsys[SAantMap, spw_index, 0, scan_index]) / SSOflux[FCS_ID, spw_index]).tolist()
     AeY = AeY + (2.0* kb* np.median(abs(GainY), axis=1)**2 * (Ta + chAvgTsys[SAantMap, spw_index, 1, scan_index]) / SSOflux[FCS_ID, spw_index]).tolist()
     #
