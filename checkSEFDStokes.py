@@ -370,11 +370,14 @@ for scan_index in range(scanNum):
         #
         SEFD = 2.0* kb* (chAvgTsys[:,spw_index, :,scan_index] + TA) / (Ae[:,:,spw_index]* atmCorrect)
         SAantNum = len(SAantennas); SAblNum = len(SAblMap)
-        if SAantNum < 3:
-            text_sd = ' Only %d antennas for short enough baselines. Skip!' % (SAantNum) ; logfile.write(text_sd + '\n'); print text_sd
+        if SAblNum < 3:
+            text_sd = ' Only %d baselines for short enough sub-array. Skip!' % (SAblNum) ; logfile.write(text_sd + '\n'); print text_sd
             continue
         #
         #
+        #-------- UV distance
+        timeStamp, UVW = GetUVW(msfile, spw[spw_index], onsourceScans[scan_index])
+        uvw = np.mean(UVW[:,SAblMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
         #-------- Baseline-based cross power spectra
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], onsourceScans[scan_index])
         timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
@@ -404,7 +407,11 @@ for scan_index in range(scanNum):
             StokesVis[:,bl_index], StokesErr[:,bl_index] = Stokes.real, Stokes.imag
         #
         for pol_index in range(4):
-            ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index] = np.median(StokesVis[pol_index]), np.std(StokesVis[pol_index])/np.sqrt(SAblNum - 1.0)
+            weight = np.ones(SAblNum)/np.var(StokesVis[pol_index]); weight[np.where(abs(StokesVis[pol_index] - np.median(StokesVis[pol_index]))/np.median(StokesVis[0]) > 0.2 )[0]] = 0.0
+            P, W = np.c_[np.ones(SAblNum), uvDist], np.diag(weight)
+            PtWP_inv = scipy.linalg.inv(np.dot(P.T, np.dot(W, P))) 
+            ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index] = np.dot(PtWP_inv, np.dot(P.T, np.dot(W, StokesVis[pol_index])))[0], np.sqrt(PtWP_inv[0,0])
+            # ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index] = np.median(StokesVis[pol_index]), np.std(StokesVis[pol_index])/np.sqrt(SAblNum - 1.0)
             text_sd = '%6.3f (%.3f) ' % (ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index]); logfile.write(text_sd); print text_sd,
         #
         if(SSO_flag): text_sd = '| %6.3f ' % (SSOflux0[SSO_ID, spw_index]); logfile.write(text_sd); print text_sd,
