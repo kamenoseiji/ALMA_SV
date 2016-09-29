@@ -86,7 +86,7 @@ for ant_index in range(UseAntNum): antDia[ant_index] = msmd.antennadiameter(antL
 try:
     FCScans = msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE")
 except:
-    FCScans = msmd.scansforintent("CALIBRATE_AMPLI#ON_SOURCE")]
+    FCScans = msmd.scansforintent("CALIBRATE_AMPLI#ON_SOURCE")
 #
 BPScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
 ONScans = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
