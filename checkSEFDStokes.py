@@ -2,6 +2,7 @@ import sys
 from scipy import stats
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ptick
+import analysisUtils as au
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Plotters.py')
 #
