@@ -7,7 +7,7 @@ execfile(SCR_DIR + 'interferometry.py')
 #---- Definitions
 BANDPA = [0.0, 45.0, -45.0, 80.0, -80.0, 45.0, -45.0, 36.45, 90.0, 90.0, 0.0]
 ELshadow = np.pi* 40.0 / 180.0
-SSOCatalog = ['Uranus', 'Neptune', 'Titan', 'Callisto', 'Ganymede', 'Io', 'Europa', 'Ceres', 'Pallas', 'Vesta', 'Juno', 'Mars']
+SSOCatalog = ['Uranus', 'Neptune', 'Titan', 'Callisto', 'Ganymede', 'Io', 'Europa', 'Ceres', 'Pallas', 'Vesta', 'Juno', 'Mars', 'Mercury', 'Venus']
 #-------- Procedures
 msfile = wd + prefix + '.ms'
 #-------- Check Antenna List
@@ -133,6 +133,6 @@ for band_index in range(NumBands):
     if polNum == 4: pPol, cPol = [0,3], [1,2]  # parallel and cross pol
     ppolNum, cpolNum = len(pPol), len(cPol)
     msmd.done()
-    #execfile(SCR_DIR + 'checkSEFD.py')
-    execfile(SCR_DIR + 'checkSEFDStokes.py')
+    if polNum == 2: pPol, cPol = [0,1], []   ; ppolNum, cpolNum = len(pPol), len(cPol); execfile(SCR_DIR + 'checkSEFD.py')
+    if polNum == 4: pPol, cPol = [0,3], [1,2]; ppolNum, cpolNum = len(pPol), len(cPol); execfile(SCR_DIR + 'checkSEFDStokes.py')
 #

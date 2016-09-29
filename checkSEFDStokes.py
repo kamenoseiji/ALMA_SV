@@ -262,14 +262,14 @@ SSOflux = SSOflux0* np.exp(-onTau.transpose(1,0)[indexList(np.array(SSOscanID), 
 ##-------- Scaling with the flux calibrator
 AeX, AeY = [], []
 scan_index = onsourceScans.index(FCScan)
+#-------- Sub-array with unflagged antennas (short baselines)
+SAantennas, SAbl, SAblFlag, SAant0, SAant1 = subArrayIndex(FCSFlag[0])
+SAsntList = antList[np.array(antMap)[SAantennas]] 
+SAantMap = np.array(antMap)[SAantennas].tolist()
+SAblMap = np.array(blMap)[SAbl].tolist()
+SAblInv = np.array(blInv)[SAbl].tolist()
+SAantNum = len(SAantMap); SAblNum = len(SAblMap)
 for spw_index in range(spwNum):
-    #-------- Sub-array with unflagged antennas (short baselines)
-    SAantennas, SAbl, SAblFlag, SAant0, SAant1 = subArrayIndex(FCSFlag[spw_index])
-    SAsntList = antList[np.array(antMap)[SAantennas]] 
-    SAantMap = np.array(antMap)[SAantennas].tolist()
-    SAblMap = np.array(blMap)[SAbl].tolist()
-    SAblInv = np.array(blInv)[SAbl].tolist()
-    SAantNum = len(SAantMap); SAblNum = len(SAblMap)
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], FCScan)
     chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
@@ -279,11 +279,13 @@ for spw_index in range(spwNum):
     chAvgVis = (np.mean(BPCaledXspec[:, chRange], axis=1)[pPol].transpose(0,2,1)/FCSmodelVis[spw_index,SAbl]).transpose(0,2,1)
     GainX, GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[0]), np.apply_along_axis( gainComplex, 0, chAvgVis[1])
     Ta = SSOflux[FCS_ID, spw_index]* AeNominal[np.array(antMap)[SAantennas]] / (2.0* kb)
-    AeX = AeX + [2.0* kb* np.median(abs(GainX), axis=1)**2 * (Ta + chAvgTsys[SAantMap, spw_index, 0, scan_index]) / SSOflux[FCS_ID, spw_index]]
-    AeY = AeY + [2.0* kb* np.median(abs(GainY), axis=1)**2 * (Ta + chAvgTsys[SAantMap, spw_index, 1, scan_index]) / SSOflux[FCS_ID, spw_index]]
+    #AeX = AeX + [2.0* kb* np.median(abs(GainX), axis=1)**2 * (Ta + chAvgTsys[SAantMap, spw_index, 0, scan_index]) / SSOflux[FCS_ID, spw_index]]
+    #AeY = AeY + [2.0* kb* np.median(abs(GainY), axis=1)**2 * (Ta + chAvgTsys[SAantMap, spw_index, 1, scan_index]) / SSOflux[FCS_ID, spw_index]]
+    AeX = AeX + (2.0* kb* np.median(abs(GainX), axis=1)**2 * (Ta + chAvgTsys[SAantMap, spw_index, 0, scan_index]) / SSOflux[FCS_ID, spw_index]).tolist()
+    AeY = AeY + (2.0* kb* np.median(abs(GainY), axis=1)**2 * (Ta + chAvgTsys[SAantMap, spw_index, 1, scan_index]) / SSOflux[FCS_ID, spw_index]).tolist()
     #
 #
-AeX, AeY = np.array(AeX), np.array(AeY)
+AeX, AeY = np.array(AeX).reshape(spwNum, SAantNum), np.array(AeY).reshape(spwNum, SAantNum)
 ##-------- Flux density of the equalizer, aligned in the power law
 EQflux = np.r_[np.median((AeSeqX[:,SAantennas]/AeX), axis=1), np.median((AeSeqY[:,SAantennas]/AeY), axis=1)]
 P = np.c_[ np.r_[np.log(centerFreqList),np.log(centerFreqList)], np.r_[np.ones(spwNum), np.zeros(spwNum)], np.r_[np.zeros(spwNum), np.ones(spwNum)]]
