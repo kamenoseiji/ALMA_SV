@@ -409,7 +409,8 @@ for scan_index in range(scanNum):
             StokesVis[:,bl_index], StokesErr[:,bl_index] = Stokes.real, Stokes.imag
         #
         for pol_index in range(4):
-            weight = np.ones(SAblNum)/np.var(StokesVis[pol_index]); weight[np.where(abs(StokesVis[pol_index] - np.median(StokesVis[pol_index]))/np.median(StokesVis[0]) > 0.2 )[0]] = 0.0
+            visFlag = np.where(abs(StokesVis[pol_index] - np.median(StokesVis[pol_index]))/np.median(StokesVis[0]) < 0.2 )[0]
+            weight = np.zeros(SAblNum); weight[visFlag] = 1.0/np.var(StokesVis[pol_index][visFlag])
             P, W = np.c_[np.ones(SAblNum), uvDist], np.diag(weight)
             PtWP_inv = scipy.linalg.inv(np.dot(P.T, np.dot(W, P))) 
             ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index] = np.dot(PtWP_inv, np.dot(P.T, np.dot(W, StokesVis[pol_index])))[0], np.sqrt(PtWP_inv[0,0])
@@ -420,6 +421,13 @@ for scan_index in range(scanNum):
         logfile.write('\n'); print ''
     #
     logfile.write('\n'); print ''
+    if COMPDB:
+        if not SSO_flag:
+            print ' -------- Comparison with ALMA Calibrator Catalog --------'
+            au.searchFlux(sourcename='%s' % (sourceList[sourceIDscan[scan_index]]), band=int(UniqBands[band_index][3:5]), date=timeLabel[0:10], maxrows=3)
+            print '\n'
+        #
+    #
 #
 logfile.close()
 np.save(prefix + '-' + UniqBands[band_index] + '.Flux.npy', ScanFlux)
