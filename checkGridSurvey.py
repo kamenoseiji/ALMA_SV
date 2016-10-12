@@ -21,7 +21,6 @@ print '---Checking spectral windows'
 spw = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); spw.sort()
 spwNum = len(spw)
 spwNames = msmd.namesforspws(spw)
-#spwNames = ['ALMA_RB_03#BB_1#SW-01#FULL_RES', 'ALMA_RB_03#BB_2#SW-01#FULL_RES', 'ALMA_RB_03#BB_3#SW-01#FULL_RES', 'ALMA_RB_03#BB_4#SW-01#FULL_RES']
 BandNames, pattern = [], r'RB_..'
 for spwName in spwNames: BandNames = BandNames + re.findall(pattern, spwName)
 UniqBands = unique(BandNames).tolist(); NumBands = len(UniqBands)
@@ -37,7 +36,6 @@ for band_index in range(NumBands):
 print '---Checking source list'
 sourceList, posList = GetSourceList(msfile) 
 numSource = len(sourceList)
-#SSOList   = np.where( (np.array(posList)[:,0] == 0.0) & (np.array(posList)[:,1] == 0.0) )[0].tolist()   # Solar System Objects
 SSOList   = indexList( np.array(SSOCatalog), np.array(sourceList) ) # Find Solar System Objects in the source list
 if len(SSOList) == 0: print '  No Solar System Object was observed.'; sys.exit()
 QSOList   = list(set(range(numSource)) - set(SSOList))
@@ -76,8 +74,7 @@ antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
 UseAntNum = len(antMap)
 UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
 ant0 = ANT0[0:UseBlNum]; ant1 = ANT1[0:UseBlNum]
-for bl_index in range(UseBlNum):
-    blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
+for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
 #
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 antDia = np.ones([UseAntNum])
