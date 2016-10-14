@@ -1331,21 +1331,10 @@ def polariGain( XX, YY, PA, StokesQ, StokesU):
     ScaledXX, ScaledYY = XX * Xscale, YY* Yscale
     return np.apply_along_axis( gainComplex, 0, ScaledXX), np.apply_along_axis( gainComplex, 0, ScaledYY)
 #
-"""
-def XXYY2QU(PA, Vis):       # <XX*>, <YY*> to determine Q and U
-    timeNum = len(PA)
-    sinPA2, cosPA2 = np.sin(2.0*PA), np.cos(2.0*PA)
-    W = np.ones(2* timeNum) / (np.var(Vis[0].imag) + np.var(Vis[1].imag))
-    residual = np.r_[ Vis[0].real - 1.0, Vis[1].real - 1.0 ]
-    P = np.array([np.r_[cosPA2,  -cosPA2], np.r_[ sinPA2,  -sinPA2]])
-    solution = scipy.linalg.solve(np.dot(P, np.dot(np.diag(W), P.T)), np.dot(P, W* residual))
-    return solution
-#
-"""
 def XXYY2QU(PA, Vis):       # <XX*>, <YY*> to determine Q and U
     timeNum, sinPA2, cosPA2 = len(PA),np.sin(2.0*PA), np.cos(2.0*PA)
     W = np.ones(timeNum) / (np.var(Vis[0].imag) + np.var(Vis[1].imag))   # weight
-    XX_YY = (Vis[0].real - Vis[1].real) / (Vis[0].real + Vis[1].real)
+    XX_YY = Vis[0].real - Vis[1].real
     P = np.array(np.c_[cosPA2, sinPA2]).T
     return scipy.linalg.solve(np.dot(P, np.dot(np.diag(W), P.T)), np.dot(P, W* XX_YY))
 #
