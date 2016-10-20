@@ -49,7 +49,7 @@ for ant_index in range(UseAntNum):
         if antList[antMap[ant_index]] in Aline:
             AeX[ant_index] *= (0.01* float(Aline.split()[1]))
             AeY[ant_index] *= (0.01* float(Aline.split()[2]))
-            WeightX[ant_index], WeightX[ant_index] = 1.0, 1.0
+            WeightX[ant_index], WeightY[ant_index] = AeX[ant_index], AeY[ant_index]
         #
     #
 #
@@ -276,10 +276,12 @@ atmCorrect = np.exp(-Tau0med/ np.sin(np.median(OnEL[:, onsourceScans.index(EQSca
 for spw_index in range(spwNum):
     EQflux[spw_index, 0] = np.median(AeSeqX[spw_index] / AeX)
     EQflux[spw_index, 1] = np.median(AeSeqY[spw_index] / AeY)
-    #WeightX[np.where( abs((AeSeqX[spw_index] - EQflux[spw_index, 0]* AeX)/(EQflux[spw_index, 0]* AeX)) > 0.15)[0]] = 0.01
-    #WeightY[np.where( abs((AeSeqX[spw_index] - EQflux[spw_index, 1]* AeY)/(EQflux[spw_index, 1]* AeY)) > 0.15)[0]] = 0.01
-    #EQflux[spw_index, 0] = np.dot(AeX, WeightX* AeSeqX[spw_index]) / np.dot(AeX, WeightX* AeX) / atmCorrect[spw_index]
-    #EQflux[spw_index, 1] = np.dot(AeY, WeightY* AeSeqY[spw_index]) / np.dot(AeY, WeightY* AeY) / atmCorrect[spw_index]
+    WeightX[np.where( abs((AeSeqX[spw_index] - EQflux[spw_index, 0]* AeX)/(EQflux[spw_index, 0]* AeX)) > 0.1)[0]] *= 0.2
+    WeightY[np.where( abs((AeSeqX[spw_index] - EQflux[spw_index, 1]* AeY)/(EQflux[spw_index, 1]* AeY)) > 0.1)[0]] *= 0.2
+    WeightX[np.where( abs((AeSeqX[spw_index] - EQflux[spw_index, 0]* AeX)/(EQflux[spw_index, 0]* AeX)) > 0.2)[0]] *= 0.0
+    WeightY[np.where( abs((AeSeqX[spw_index] - EQflux[spw_index, 1]* AeY)/(EQflux[spw_index, 1]* AeY)) > 0.2)[0]] *= 0.0
+    EQflux[spw_index, 0] = np.dot(AeX, WeightX* AeSeqX[spw_index]) / np.dot(AeX, WeightX* AeX) / atmCorrect[spw_index]
+    EQflux[spw_index, 1] = np.dot(AeY, WeightY* AeSeqY[spw_index]) / np.dot(AeY, WeightY* AeY) / atmCorrect[spw_index]
 #
 #-------- Flux models for solar system objects
 execfile(SCR_DIR + 'SSOflux.py')
@@ -357,20 +359,21 @@ for scan_index in range(scanNum):
         SSO_ID = SSOscanID.index(onsourceScans[scan_index])
     else:
         SSO_flag = F
+    #
+    atmCorrect = np.exp(-Tau0med/ np.sin(np.median(OnEL[:, scan_index])))
     for spw_index in range(spwNum):
         text_sd = 'SPW%02d %5.1f GHz ' % (spw[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
-        atmCorrect = np.exp(-Tau0med[spw_index]/ np.sin(np.median(OnEL[:, scan_index])))
         #-------- Sub-array with unflagged antennas (short baselines)
         if SSO_flag:
             SAantennas, SAbl, SAblFlag, SAant0, SAant1 = subArrayIndex(uvFlag[SSO_ID, spw_index])
             SAantMap, SAblMap, SAblInv = np.array(antMap)[SAantennas].tolist(), np.array(blMap)[SAbl].tolist(), np.array(blInv)[SAbl].tolist()
-            TA = Ae[:,:,spw_index]* SSOflux0[SSO_ID, spw_index]* atmCorrect  / (2.0* kb)
+            TA = Ae[:,:,spw_index]* SSOflux0[SSO_ID, spw_index]* atmCorrect[spw_index]  / (2.0* kb)
         else:
             SAantennas, SAbl, SAblFlag, SAant0, SAant1 = range(UseAntNum), range(UseBlNum), np.ones([blNum]), ant0, ant1
             SAantMap, SAblMap, SAblInv = antMap, blMap, blInv
             TA = 0.0
         #
-        SEFD = 2.0* kb* (chAvgTsys[:,spw_index, :,scan_index] + TA) / (Ae[:,:,spw_index]* atmCorrect)
+        SEFD = 2.0* kb* (chAvgTsys[:,spw_index, :,scan_index] + TA) / (Ae[:,:,spw_index]* atmCorrect[spw_index])
         SAantNum = len(SAantennas); SAblNum = len(SAblMap)
         if SAblNum < 3:
             text_sd = ' Only %d baselines for short enough sub-array. Skip!' % (SAblNum) ; logfile.write(text_sd + '\n'); print text_sd
