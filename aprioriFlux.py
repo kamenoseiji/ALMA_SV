@@ -44,9 +44,9 @@ Alines = Afile.readlines()
 Afile.close()
 AeX, AeY = 0.25* np.pi* antDia**2, 0.25* np.pi* antDia**2
 WeightX, WeightY = np.zeros(UseAntNum), np.zeros(UseAntNum)
-for ant_index in range(antNum):
+for ant_index in range(UseAntNum):
     for Aline in Alines:
-        if antList[ant_index] in Aline:
+        if antList[antMap[ant_index]] in Aline:
             AeX[ant_index] *= (0.01* float(Aline.split()[1]))
             AeY[ant_index] *= (0.01* float(Aline.split()[2]))
             WeightX[ant_index], WeightX[ant_index] = 1.0, 1.0
