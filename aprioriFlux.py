@@ -277,9 +277,9 @@ for spw_index in range(spwNum):
     EQflux[spw_index, 0] = np.median(AeSeqX[spw_index] / AeX)
     EQflux[spw_index, 1] = np.median(AeSeqY[spw_index] / AeY)
     WeightX[np.where( abs((AeSeqX[spw_index] - EQflux[spw_index, 0]* AeX)/(EQflux[spw_index, 0]* AeX)) > 0.1)[0]] *= 0.2
-    WeightY[np.where( abs((AeSeqX[spw_index] - EQflux[spw_index, 1]* AeY)/(EQflux[spw_index, 1]* AeY)) > 0.1)[0]] *= 0.2
+    WeightY[np.where( abs((AeSeqY[spw_index] - EQflux[spw_index, 1]* AeY)/(EQflux[spw_index, 1]* AeY)) > 0.1)[0]] *= 0.2
     WeightX[np.where( abs((AeSeqX[spw_index] - EQflux[spw_index, 0]* AeX)/(EQflux[spw_index, 0]* AeX)) > 0.2)[0]] *= 0.0
-    WeightY[np.where( abs((AeSeqX[spw_index] - EQflux[spw_index, 1]* AeY)/(EQflux[spw_index, 1]* AeY)) > 0.2)[0]] *= 0.0
+    WeightY[np.where( abs((AeSeqY[spw_index] - EQflux[spw_index, 1]* AeY)/(EQflux[spw_index, 1]* AeY)) > 0.2)[0]] *= 0.0
     EQflux[spw_index, 0] = np.dot(AeX, WeightX* AeSeqX[spw_index]) / np.dot(AeX, WeightX* AeX) / atmCorrect[spw_index]
     EQflux[spw_index, 1] = np.dot(AeY, WeightY* AeSeqY[spw_index]) / np.dot(AeY, WeightY* AeY) / atmCorrect[spw_index]
 #
