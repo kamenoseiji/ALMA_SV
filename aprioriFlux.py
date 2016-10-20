@@ -273,9 +273,10 @@ for spw_index in range(spwNum):
 AeSeqX, AeSeqY = np.array(AeSeqX), np.array(AeSeqY)
 EQflux = np.ones([spwNum, ppolNum])
 atmCorrect = np.exp(-Tau0med/ np.sin(np.median(OnEL[:, onsourceScans.index(EQScan)])))
+aprioriAntIndex = np.where(WeightX > 1.0)[0].tolist()
 for spw_index in range(spwNum):
-    EQflux[spw_index, 0] = np.median(AeSeqX[spw_index] / AeX)
-    EQflux[spw_index, 1] = np.median(AeSeqY[spw_index] / AeY)
+    EQflux[spw_index, 0] = np.median(AeSeqX[spw_index][aprioriAntIndex] / AeX[aprioriAntIndex])
+    EQflux[spw_index, 1] = np.median(AeSeqY[spw_index][aprioriAntIndex] / AeY[aprioriAntIndex])
     WeightX[np.where( abs((AeSeqX[spw_index] - EQflux[spw_index, 0]* AeX)/(EQflux[spw_index, 0]* AeX)) > 0.1)[0]] *= 0.2
     WeightY[np.where( abs((AeSeqY[spw_index] - EQflux[spw_index, 1]* AeY)/(EQflux[spw_index, 1]* AeY)) > 0.1)[0]] *= 0.2
     WeightX[np.where( abs((AeSeqX[spw_index] - EQflux[spw_index, 0]* AeX)/(EQflux[spw_index, 0]* AeX)) > 0.2)[0]] *= 0.0
