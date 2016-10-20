@@ -276,19 +276,20 @@ atmCorrect = np.exp(-Tau0med/ np.sin(np.median(OnEL[:, onsourceScans.index(EQSca
 for spw_index in range(spwNum):
     EQflux[spw_index, 0] = np.median(AeSeqX[spw_index] / AeX)
     EQflux[spw_index, 1] = np.median(AeSeqY[spw_index] / AeY)
-    WeightX[np.where( abs((AeSeqX[spw_index] - EQflux[spw_index, 0]* AeX)/(EQflux[spw_index, 0]* AeX)) > 0.15)[0]] = 0.01
-    WeightY[np.where( abs((AeSeqX[spw_index] - EQflux[spw_index, 1]* AeY)/(EQflux[spw_index, 1]* AeY)) > 0.15)[0]] = 0.01
-    EQflux[spw_index, 0] = np.dot(AeX, WeightX* AeSeqX[spw_index]) / np.dot(AeX, WeightX* AeX) / atmCorrect[spw_index]
-    EQflux[spw_index, 1] = np.dot(AeY, WeightY* AeSeqY[spw_index]) / np.dot(AeY, WeightY* AeY) / atmCorrect[spw_index]
+    #WeightX[np.where( abs((AeSeqX[spw_index] - EQflux[spw_index, 0]* AeX)/(EQflux[spw_index, 0]* AeX)) > 0.15)[0]] = 0.01
+    #WeightY[np.where( abs((AeSeqX[spw_index] - EQflux[spw_index, 1]* AeY)/(EQflux[spw_index, 1]* AeY)) > 0.15)[0]] = 0.01
+    #EQflux[spw_index, 0] = np.dot(AeX, WeightX* AeSeqX[spw_index]) / np.dot(AeX, WeightX* AeX) / atmCorrect[spw_index]
+    #EQflux[spw_index, 1] = np.dot(AeY, WeightY* AeSeqY[spw_index]) / np.dot(AeY, WeightY* AeY) / atmCorrect[spw_index]
 #
+#-------- Flux models for solar system objects
+execfile(SCR_DIR + 'SSOflux.py')
+SSOflux = SSOflux0* np.exp(-onTau.transpose(1,0)[indexList(np.array(SSOscanID), np.array(onsourceScans))])
+msmd.done()
 #-------- Power-law alignment
 P = np.c_[ np.r_[np.log(centerFreqList),np.log(centerFreqList)], np.r_[np.ones(spwNum), np.zeros(spwNum)], np.r_[np.zeros(spwNum), np.ones(spwNum)]]
 EQmodel = scipy.linalg.solve(np.dot(P.T, P), np.dot(P.T, np.log(np.append(EQflux[:,0], EQflux[:,1]))))
 EQflux = np.c_[np.exp(EQmodel[0]* np.log(centerFreqList) + EQmodel[1]), np.exp(EQmodel[0]* np.log(centerFreqList) + EQmodel[2])]
-#-------- Flux models for solar system objects
-msmd.done()
-execfile(SCR_DIR + 'SSOflux.py')
-SSOflux = SSOflux0* np.exp(-onTau.transpose(1,0)[indexList(np.array(SSOscanID), np.array(onsourceScans))])
+#-------- Transfer Aeff
 atmCorrect = np.exp(-Tau0med/ np.sin(np.median(OnEL[:, onsourceScans.index(EQScan)])))
 Ae     = np.c_[AeSeqX.T / (EQflux[:,0]* atmCorrect), AeSeqY.T / (EQflux[:,1]* atmCorrect)].reshape(UseAntNum, ppolNum, spwNum)
 AEFF   = (Ae.transpose(1,2,0) / (0.25* pi*antDia**2)).transpose(2,0,1)
