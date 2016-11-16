@@ -85,7 +85,9 @@ try:
 except:
     FCScans = msmd.scansforintent("CALIBRATE_AMPLI#ON_SOURCE")
 #
-BPScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
+if not 'BPScans' in locals():
+    BPScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
+#
 ONScans = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
 print '---SPWs and Scans for each receiver band'
 msmd.done()
