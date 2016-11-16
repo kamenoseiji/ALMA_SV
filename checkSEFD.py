@@ -319,8 +319,6 @@ for scan_index in range(scanNum):
     else:
         SSO_flag = F
     for spw_index in range(spwNum):
-        #text_sd = (spw[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
-        # text_sd = 'SPW%02d %5.1f GHz ' % (spw[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
         atmCorrect = np.exp(-Tau0med[spw_index]/ np.sin(np.median(OnEL[:, scan_index])))
         #-------- Sub-array with unflagged antennas (short baselines)
         if SSO_flag:
