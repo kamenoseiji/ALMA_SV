@@ -318,7 +318,7 @@ ErrFlux  = np.zeros([scanNum, spwNum])
 ScanEL     = np.zeros([scanNum])
 print '---Flux densities of sources ---'
 text_sd = 'Scan  Source     EL(deg) '
-for spw_index in range(spwNum): text_sd = text_sd + ' SPW%02d %5.1f GHz  ' %  (spw[spw_index], centerFreqList[spw_index])
+for spw_index in range(spwNum): text_sd = text_sd + ' SPW%02d %5.1f GHz ' %  (spw[spw_index], centerFreqList[spw_index])
 logfile.write(text_sd + '\n'); print text_sd
 for scan_index in range(scanNum):
     ScanEL[scan_index] = np.median(OnEL[:,scan_index])
