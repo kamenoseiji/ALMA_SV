@@ -12,6 +12,10 @@ def residTskyTransfer( param, Tamb, secz, Tsky, weight ):
     exp_Tau = np.exp( -param[1]* secz )
     return weight* (Tsky - (param[0] + 2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
 #
+def residTskyTransfer0( param, Tamb, secz, Tsky, weight ):
+    exp_Tau = np.exp( -param[0]* secz )
+    return weight* (Tsky - (2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
+#
 def residTskyTransfer2( param, Tamb, Tau0, secz, Tsky, weight ):
     exp_Tau = np.exp( -Tau0* secz )
     return weight* (Tsky - (param[0] + 2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
@@ -21,7 +25,7 @@ def get_progressbar_str(progress):
     BAR_LEN = int(MAX_LEN * progress)
     return ('[' + '=' * BAR_LEN + ('>' if BAR_LEN < MAX_LEN else '') + ' ' * (MAX_LEN - BAR_LEN) + '] %.1f%%' % (progress * 100.))
 #
-Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
+Tatm_OFS  = 10.0     # Ambient-load temperature - Atmosphere temperature
 AeNominal = 0.6* 0.25* np.pi* antDia**2      # Nominal Collecting Area
 kb        = 1.38064852e3
 #-------- Check Scans for atmCal
@@ -90,7 +94,7 @@ for ant_index in range(UseAntNum):
         OffEL[ant_index, time_index] = EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - offTime[time_index]))]]
     #
 #
-secZ = 1.0 / np.sin( OffEL )
+secZ = 1.0 / np.sin( OffEL ); secZrange = np.max(secZ) - np.min(secZ)
 #-------- Time-interpolation of ambient and hot
 print '---Analyzing Trec and Tsky using atmCal scans'
 chAvgTrx, chAvgTsky, chAvgTsys = np.zeros([UseAntNum, spwNum, 2, len(offTime)]), np.zeros([UseAntNum, spwNum, 2, len(offTime)]), np.zeros([UseAntNum, spwNum, 2, scanNum])
@@ -126,14 +130,21 @@ for ant_index in range(UseAntNum):
     #
 #
 #-------- Tau and TantN fitting
-param = [0.0, 0.05]     # Initial Parameter
 Tau0, TantN, Trms = np.zeros([UseAntNum, spwNum, 2]), np.zeros([UseAntNum, spwNum, 2]), np.zeros([UseAntNum, spwNum, 2])
 for ant_index in range(UseAntNum):
     for spw_index in range(spwNum):
         for pol_index in range(2):
-            fit = scipy.optimize.leastsq(residTskyTransfer, param, args=(tempAmb[ant_index]-Tatm_OFS, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
-            TantN[ant_index, spw_index, pol_index] = fit[0][0]
-            Tau0[ant_index, spw_index, pol_index]  = fit[0][1]
+            if( secZrange > 1.0):
+                param = [0.0, 0.05]     # Initial Parameter
+                fit = scipy.optimize.leastsq(residTskyTransfer, param, args=(tempAmb[ant_index]-Tatm_OFS, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
+                TantN[ant_index, spw_index, pol_index] = fit[0][0]
+                Tau0[ant_index, spw_index, pol_index]  = fit[0][1]
+            else:
+                param = [0.05]     # Initial Parameter
+                fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAmb[ant_index]-Tatm_OFS, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
+                TantN[ant_index, spw_index, pol_index] = Tatm_OFS
+                Tau0[ant_index, spw_index, pol_index]  = fit[0][0]
+            #
         #
     #
     TantN[ant_index] = np.median(TantN[ant_index])* np.ones([spwNum, 2])
@@ -306,20 +317,21 @@ ScanFlux = np.zeros([scanNum, spwNum])
 ErrFlux  = np.zeros([scanNum, spwNum])
 ScanEL     = np.zeros([scanNum])
 print '---Flux densities of sources ---'
-text_sd = 'Scan Source      EL      '
+text_sd = 'Scan  Source     EL(deg) '
 for spw_index in range(spwNum): text_sd = text_sd + ' SPW%02d %5.1f GHz  ' %  (spw[spw_index], centerFreqList[spw_index])
 logfile.write(text_sd + '\n'); print text_sd
 for scan_index in range(scanNum):
     ScanEL[scan_index] = np.median(OnEL[:,scan_index])
     text_sd = ' --------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
-    text_sd = ' %03d %010s  %4.1f deg' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi )
+    text_sd = ' %03d %010s  %4.1f    ' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi )
     if(onsourceScans[scan_index] in SSOscanID):
         SSO_flag = T
         SSO_ID = SSOscanID.index(onsourceScans[scan_index])
     else:
         SSO_flag = F
     for spw_index in range(spwNum):
-        atmCorrect = np.exp(-Tau0med[spw_index]/ np.sin(np.median(OnEL[:, scan_index])))
+        # atmCorrect = np.exp(-Tau0med[spw_index]/ np.sin(np.median(OnEL[:, scan_index])))
+        atmCorrect = np.exp(-onTau[spw_index, scan_index])
         #-------- Sub-array with unflagged antennas (short baselines)
         if SSO_flag:
             SAantennas, SAbl, SAblFlag, SAant0, SAant1 = subArrayIndex(uvFlag[SSO_ID, spw_index])
@@ -372,7 +384,7 @@ for scan_index in range(scanNum):
     #
     logfile.write(text_sd); print text_sd
     if(SSO_flag):
-        text_sd = '  SSO model  '
+        text_sd = '       SSO model         '
         for spw_index in range(spwNum): text_sd = text_sd + '  %6.3f         ' % (SSOflux0[SSO_ID, spw_index])
         logfile.write(text_sd + '\n'); print text_sd
     #
