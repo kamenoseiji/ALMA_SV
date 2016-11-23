@@ -615,6 +615,40 @@ def Vis2solveDD(Vis, PS):
     fit = scipy.optimize.minimize(Dresid, x0=np.zeros(4*antNum), method="tnc")['x']
     return fit[0:antNum] + (0.0+1.0j)*fit[antNum:(2*antNum)], fit[(2*antNum):(3*antNum)] + (0.0+1.0j)*fit[(3*antNum):(4*antNum)]
 #
+def VisPA_solveDM(Vis, PA, Stokes):
+    blNum  = Vis.shape[1]; antNum = Bl2Ant(blNum)[0]; PAnum = len(PA)
+    P = np.zeros([4*antNum, 2*blNum*PAnum])
+    def Dresid(D):
+        antNum = len(D)/4; blNum = antNum* (antNum - 1) /2
+        Dx = D[0:antNum] + (0.0+1.0j)* D[antNum:(2*antNum)]
+        Dy = D[(2*antNum):(3*antNum)] + (0.0+1.0j)*D[(3*antNum):(4*antNum)]
+        resid = np.array([], dtype=complex)
+        for PA_index in range(PAnum):
+            PS = np.dot(PAMatrix(PA[PA_index]), Stokes)
+            resid = np.append(resid, (Vis[:,:,PA_index] - np.dot(MullerVector( Dx[ant0], Dy[ant0], Dx[ant1], Dy[ant1], np.ones(blNum, dtype=complex) ).transpose(2,0,1), PS).T).reshape(4* blNum))
+        #
+        resReal = np.r_[resid.real, resid.imag]
+        return resReal
+    #
+    P[0] = 1.0e3* (Dresid() - Dresid(np.zeros(4*antNum)))
+#
+def VisPA_solveD(Vis, PA, Stokes):
+    PAnum = len(PA)
+    def Dresid(D):
+        antNum = len(D)/4; blNum = antNum* (antNum - 1) /2
+        Dx = D[0:antNum] + (0.0+1.0j)* D[antNum:(2*antNum)]
+        Dy = D[(2*antNum):(3*antNum)] + (0.0+1.0j)*D[(3*antNum):(4*antNum)]
+        resid = np.array([], dtype=complex)
+        for PA_index in range(PAnum):
+            PS = np.dot(PAMatrix(PA[PA_index]), Stokes)
+            resid = np.append(resid, (Vis[:,:,PA_index] - np.dot(MullerVector( Dx[ant0], Dy[ant0], Dx[ant1], Dy[ant1], np.ones(blNum, dtype=complex) ).transpose(2,0,1), PS).T).reshape(4* blNum))
+        #
+        resReal = np.r_[resid.real, resid.imag]
+        return np.dot(resReal, resReal)
+    #
+    fit = scipy.optimize.minimize(Dresid, x0=np.zeros(4*antNum), method="tnc")['x']
+    return fit[0:antNum] + (0.0+1.0j)*fit[antNum:(2*antNum)], fit[(2*antNum):(3*antNum)] + (0.0+1.0j)*fit[(3*antNum):(4*antNum)]
+#
 def Vis2solveDDD(Vis, PS):
     blNum  = Vis.shape[1]; antNum = Bl2Ant(blNum)[0]                   # (I, Q, U, V)
     ant0, ant1 = ANT0[0:blNum], ANT1[0:blNum]
