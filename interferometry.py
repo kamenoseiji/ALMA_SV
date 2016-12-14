@@ -8,6 +8,7 @@ from scipy.interpolate import interp1d
 from scipy.interpolate import UnivariateSpline
 from scipy.interpolate import LSQUnivariateSpline
 from scipy.interpolate import griddata
+from scipy.sparse import lil_matrix
 import scipy.optimize
 import time
 import datetime
@@ -893,20 +894,20 @@ def BPtable(msfile, spw, BPScan, blMap, blInv):   #
     if polNum == 4:
         polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
         Xspec  = CrossPolBL(Xspec[:,:,blMap], blInv)
-        Gain = np.array([np.apply_along_axis(gainComplex, 0, np.mean(Xspec[0,chRange], axis=0 )), np.apply_along_axis( gainComplex, 0, np.mean(Xspec[3,chRange], axis=0))])
+        Gain = np.array([gainComplexVec(np.mean(Xspec[0,chRange], axis=0)), gainComplexVec(np.mean(Xspec[3,chRange], axis=0))])
         CaledXspec = (Xspec.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())).transpose(1,0,2,3)
         XPspec = np.mean(CaledXspec, axis=3)  # Time Average
-        BP_ant[:,0], BP_ant[:,1]  = np.apply_along_axis(gainComplex, 0, XPspec[0].T), np.apply_along_axis(gainComplex, 0, XPspec[3].T)
+        BP_ant[:,0], BP_ant[:,1] = gainComplexVec(XPspec[0].T), gainComplexVec(XPspec[3].T)
         BPCaledXspec = XPspec.transpose(2, 0, 1) /(BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate())
         BPCaledXYSpec = np.mean(BPCaledXspec[:,1], axis=0) +  np.mean(BPCaledXspec[:,2], axis=0).conjugate()
         XYdelay, amp = delay_search( BPCaledXYSpec[chRange] )
         XYdelay = (float(chNum) / float(len(chRange)))* XYdelay
     else:
         Xspec  = ParaPolBL(Xspec[:,:,blMap], blInv)
-        Gain = np.array([np.apply_along_axis(gainComplex, 0, np.mean(Xspec[0,chRange], axis=0 )), np.apply_along_axis( gainComplex, 0, np.mean(Xspec[1,chRange], axis=0))])
+        Gain = np.array([gainComplexVec(np.mean(Xspec[0,chRange], axis=0)), gainComplexVec(np.mean(Xspec[1,chRange], axis=0))])
         CaledXspec = (Xspec.transpose(1,0,2,3) / (Gain[:,ant0]* Gain[:,ant1].conjugate())).transpose(1,0,2,3)
         XPspec = np.mean(CaledXspec, axis=3)  # Time Average
-        BP_ant[:,0], BP_ant[:,1]  = np.apply_along_axis(gainComplex, 0, XPspec[0].T), np.apply_along_axis(gainComplex, 0, XPspec[1].T)
+        BP_ant[:,0], BP_ant[:,1] = gainComplexVec(XPspec[0].T), gainComplexVec(XPspec[1].T)
         XYdelay = 0.0
     #
     return BP_ant, XYdelay
@@ -1276,39 +1277,99 @@ def plotAmphi(fig, freq, spec):
 	phsAxis.axis( [min(freq), max(freq), -pi, pi], size='x-small' )
 	return
 #
+def CMatrix(CompSol):
+    antNum = len(CompSol)
+    blNum = antNum* (antNum-1) / 2
+    CM = lil_matrix((2*blNum, 2*antNum))
+    for bl_index in range(blNum):
+        a0, a1 = ANT0[bl_index], ANT1[bl_index]
+        CM[        bl_index,          a1] = CompSol[a0].real
+        CM[        bl_index,          a0] = CompSol[a1].real
+        CM[        bl_index, antNum + a1] = CompSol[a0].imag
+        CM[        bl_index, antNum + a0] = CompSol[a1].imag
+        CM[blNum + bl_index,          a1] = CompSol[a0].imag
+        CM[blNum + bl_index,          a0] =-CompSol[a1].imag
+        CM[blNum + bl_index, antNum + a1] =-CompSol[a0].real
+        CM[blNum + bl_index, antNum + a0] = CompSol[a1].real
+    #
+    return CM
+#
+def gainComplexVec( bl_vis ):       # bl_vis[baseline, channel]
+    chAvgVis = np.mean(bl_vis, axis=1)
+    blNum, chNum  =  bl_vis.shape[0], bl_vis.shape[1]
+    antNum =  Bl2Ant(blNum)[0]
+    ant0, ant1, kernelBL = ANT0[0:blNum], ANT1[0:blNum], (arange(antNum-1)*(arange(antNum-1)+1)/2).tolist()
+    Solution, CompSol, MMap = np.zeros([antNum, chNum], dtype=complex), np.zeros(antNum, dtype=complex), range(antNum) + range(antNum+1, 2*antNum)
+    W = lil_matrix((2*blNum, 2*blNum))
+    #---- Initial solution
+    CompSol[0] = sqrt(abs(chAvgVis[0])) + 0j
+    CompSol[1:antNum] = chAvgVis[kernelBL] / CompSol[0]
+    Weight = np.abs(chAvgVis); CWeight = np.append(Weight, Weight)
+    for bl_index in range(2*blNum): W[bl_index, bl_index] = CWeight[bl_index]
+    #---- Global iteration
+    PM = CMatrix( CompSol )[:,MMap]
+    PtWP = PM.T.dot(W.dot(PM)).todense()
+    L = np.linalg.cholesky(PtWP)
+    for ch_index in range(chNum):
+        Cresid = bl_vis[:,ch_index] - CompSol[ant0]* CompSol[ant1].conjugate()
+        resid  = np.append( Cresid.real, Cresid.imag )
+        t = np.linalg.solve(L, PM.T.dot(W.dot(resid)))
+        correction = np.linalg.solve(L.T, t)
+        Solution[:,ch_index] = CompSol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
+        #
+        Cresid = bl_vis[:,ch_index] - Solution[ant0, ch_index]* Solution[ant1, ch_index].conjugate()
+        resid  = np.append( Cresid.real, Cresid.imag )
+        t = np.linalg.solve(L, PM.T.dot(W.dot(resid)))
+        correction = np.linalg.solve(L.T, t)
+        Solution[:,ch_index] = CompSol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
+    #
+    #---- Local iteration
+    for ch_index in range(chNum):
+        Cresid = bl_vis[:,ch_index] - Solution[ant0, ch_index]* Solution[ant1, ch_index].conjugate()
+        resid  = np.append( Cresid.real, Cresid.imag )
+        PM = CMatrix( Solution[:,ch_index] )[:,MMap]
+        PtWP = PM.T.dot(W.dot(PM)).todense()
+        L = np.linalg.cholesky(PtWP)
+        t = np.linalg.solve(L, PM.T.dot(W.dot(resid)))
+        correction = np.linalg.solve(L.T, t)
+        Solution[:,ch_index] = Solution[:,ch_index] + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
+    #
+    return Solution
+#
 def gainComplex( bl_vis ):
     blNum  =  len(bl_vis)
     antNum =  Bl2Ant(blNum)[0]
     ant0, ant1, kernelBL = ANT0[0:blNum], ANT1[0:blNum], (arange(antNum-1)*(arange(antNum-1)+1)/2).tolist()
-    CompSol, CM, MMap = np.zeros(antNum, dtype=complex), np.zeros([2*blNum, 2*antNum]), range(antNum) + range(antNum+1, 2*antNum)
+    CompSol, MMap = np.zeros(antNum, dtype=complex), range(antNum) + range(antNum+1, 2*antNum)
+    CM, PM, W = lil_matrix((2*blNum, 2*antNum)), lil_matrix((2*blNum, 2*antNum-1)), lil_matrix((2*blNum, 2*blNum))
     #---- Initial solution
-    CompSol[0] = 0.9* sqrt(abs(bl_vis[0])) + 0j
+    CompSol[0] = sqrt(abs(bl_vis[0])) + 0j
     CompSol[1:antNum] = bl_vis[kernelBL] / CompSol[0]
     Weight = np.abs(bl_vis); CWeight = np.append(Weight, Weight)
-    #---- Residual Visivility
-    for iter_index in range(3):
-        Cresid = bl_vis - CompSol[ant0]* CompSol[ant1].conjugate()
-        resid  = np.append( Cresid.real, Cresid.imag )
-        #---- Matrix
-        for bl_index in range(blNum):
-            a0, a1 = ant0[bl_index], ant1[bl_index]
-            CM[        bl_index,          a1] = CompSol[a0].real
-            CM[        bl_index,          a0] = CompSol[a1].real
-            CM[        bl_index, antNum + a1] = CompSol[a0].imag
-            CM[        bl_index, antNum + a0] = CompSol[a1].imag
-            CM[blNum + bl_index,          a1] = CompSol[a0].imag
-            CM[blNum + bl_index,          a0] =-CompSol[a1].imag
-            CM[blNum + bl_index, antNum + a1] =-CompSol[a0].real
-            CM[blNum + bl_index, antNum + a0] = CompSol[a1].real
-        #
-        PM = CM[:,MMap]
-        PtWP = np.dot( PM.T, np.dot(np.diag(CWeight), PM) )
-        correction = scipy.linalg.solve(PtWP, np.dot(PM.T, CWeight* resid))
-        #PtWP_inv = scipy.linalg.inv(PtWP)
-        #correction = np.dot( PtWP_inv, np.dot(PM.T, CWeight* resid))
-        CompSol = CompSol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
-        # print 'Iter %d : Correction = %e' % (iter_index, np.dot(correction, correction)/np.dot(abs(CompSol), abs(CompSol)))
-        if np.dot(correction, correction) < 1.0e-15* np.dot(abs(CompSol), abs(CompSol)): break
+    for bl_index in range(2*blNum): W[bl_index, bl_index] = CWeight[bl_index]
+    #---- Global Iteration
+    PM = CMatrix(CompSol)[:,MMap]
+    PtWP = PM.T.dot(W.dot(PM)).todense()    # 
+    L    = np.linalg.cholesky(PtWP)         # Cholesky decomposition
+    Cresid = bl_vis - CompSol[ant0]* CompSol[ant1].conjugate()
+    resid  = np.append( Cresid.real, Cresid.imag )
+    t    = np.linalg.solve(L, PM.T.dot(W.dot(resid)))
+    correction = np.linalg.solve(L.T, t)
+    CompSol = CompSol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
+    Cresid = bl_vis - CompSol[ant0]* CompSol[ant1].conjugate()
+    resid  = np.append( Cresid.real, Cresid.imag )
+    t    = np.linalg.solve(L, PM.T.dot(W.dot(resid)))
+    correction = np.linalg.solve(L.T, t)
+    CompSol = CompSol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
+    #---- Local Iteration
+    PM = CMatrix(CompSol)[:,MMap]
+    PtWP = PM.T.dot(W.dot(PM)).todense()    # 
+    L    = np.linalg.cholesky(PtWP)         # Cholesky decomposition
+    Cresid = bl_vis - CompSol[ant0]* CompSol[ant1].conjugate()
+    resid  = np.append( Cresid.real, Cresid.imag )
+    t    = np.linalg.solve(L, PM.T.dot(W.dot(resid)))
+    correction = np.linalg.solve(L.T, t)
+    CompSol = CompSol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
     #
     return CompSol
 #
