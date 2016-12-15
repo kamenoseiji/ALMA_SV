@@ -888,27 +888,55 @@ def delayCalSpec2( Xspec, chRange, sigma ):  # chRange = [startCH:stopCH] specif
 def BPtable(msfile, spw, BPScan, blMap, blInv):   # 
     blNum = len(blMap); antNum = Bl2Ant(blNum)[0]
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan)    # Xspec[pol, ch, bl, time]
-    ant0, ant1, polNum, chNum = ANT0[0:blNum], ANT1[0:blNum], Pspec.shape[0], Pspec.shape[1]
+    ant0, ant1, polNum, chNum, timeNum = ANT0[0:blNum], ANT1[0:blNum], Pspec.shape[0], Pspec.shape[1], Pspec.shape[3]
     chRange = range(int(0.05*chNum), int(0.95*chNum))                   # Trim band edge
     BP_ant  = np.ones([antNum, 2, chNum], dtype=complex)          # BP_ant[ant, pol, ch]
+    kernel_index = KERNEL_BL[0:(antNum-1)]
     if polNum == 4:
         polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
         Xspec  = CrossPolBL(Xspec[:,:,blMap], blInv)
-        Gain = np.array([gainComplexVec(np.mean(Xspec[0,chRange], axis=0)), gainComplexVec(np.mean(Xspec[3,chRange], axis=0))])
+        #---- Delay Cal
+        timeAvgSpecX, timeAvgSpecY = np.mean(Xspec[0,chRange][:,kernel_index], axis=2), np.mean(Xspec[3,chRange][:,kernel_index], axis=2)
+        antDelayX = np.append(np.array([0.0]), len(chRange)* np.apply_along_axis(delay_search, 0, timeAvgSpecX)[0]/chNum)
+        antDelayY = np.append(np.array([0.0]), len(chRange)* np.apply_along_axis(delay_search, 0, timeAvgSpecY)[0]/chNum)
+        delayCalTable = np.ones([2, antNum, chNum], dtype=complex)
+        for ant_index in range(antNum):
+	        delayCalTable[0,ant_index] = np.exp(pi* antDelayX[ant_index]* np.multiply(range(-chNum/2, chNum/2), 1j) / chNum )
+	        delayCalTable[1,ant_index] = np.exp(pi* antDelayY[ant_index]* np.multiply(range(-chNum/2, chNum/2), 1j) / chNum )
+        #
+		delayCaledXspec = (Xspec.transpose(3,0,2,1) * delayCalTable[polYindex][:,ant0] / delayCalTable[polXindex][:,ant1]).transpose(1, 3, 2, 0)
+        #---- Gain Cal
+        Gain = np.array([gainComplexVec(np.mean(delayCaledXspec[0,chRange], axis=0)), gainComplexVec(np.mean(delayCaledXspec[3,chRange], axis=0))])
         CaledXspec = (Xspec.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())).transpose(1,0,2,3)
+        #---- Coherent time-averaging
         XPspec = np.mean(CaledXspec, axis=3)  # Time Average
+        #---- Antenna-based bandpass table
         BP_ant[:,0], BP_ant[:,1] = gainComplexVec(XPspec[0].T), gainComplexVec(XPspec[3].T)
+        #---- XY delay
         BPCaledXspec = XPspec.transpose(2, 0, 1) /(BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate())
         BPCaledXYSpec = np.mean(BPCaledXspec[:,1], axis=0) +  np.mean(BPCaledXspec[:,2], axis=0).conjugate()
         XYdelay, amp = delay_search( BPCaledXYSpec[chRange] )
         XYdelay = (float(chNum) / float(len(chRange)))* XYdelay
     else:
         Xspec  = ParaPolBL(Xspec[:,:,blMap], blInv)
-        Gain = np.array([gainComplexVec(np.mean(Xspec[0,chRange], axis=0)), gainComplexVec(np.mean(Xspec[1,chRange], axis=0))])
+        #---- Delay Cal
+        timeAvgSpecX, timeAvgSpecY = np.mean(Xspec[0,chRange][:,kernel_index], axis=2), np.mean(Xspec[1,chRange][:,kernel_index], axis=2)
+        antDelayX = np.append(np.array([0.0]), len(chRange)* np.apply_along_axis(delay_search, 0, timeAvgSpecX)[0]/chNum)
+        antDelayY = np.append(np.array([0.0]), len(chRange)* np.apply_along_axis(delay_search, 0, timeAvgSpecY)[0]/chNum)
+        delayCalTable = np.ones([2, antNum, chNum], dtype=complex)
+        for ant_index in range(antNum):
+	        delayCalTable[0,ant_index] = np.exp(pi* antDelayX[ant_index]* np.multiply(range(-chNum/2, chNum/2), 1j) / chNum )
+	        delayCalTable[1,ant_index] = np.exp(pi* antDelayY[ant_index]* np.multiply(range(-chNum/2, chNum/2), 1j) / chNum )
+        #
+		delayCaledXspec = (Xspec.transpose(3,0,2,1) * delayCalTable[:,ant0] / delayCalTable[:,ant1]).transpose(1, 3, 2, 0)
+        #---- Gain Cal
+        Gain = np.array([gainComplexVec(np.mean(delayCaledXspec[0,chRange], axis=0)), gainComplexVec(np.mean(delayCaledXspec[1,chRange], axis=0))])
         CaledXspec = (Xspec.transpose(1,0,2,3) / (Gain[:,ant0]* Gain[:,ant1].conjugate())).transpose(1,0,2,3)
+        #---- Coherent time-averaging
         XPspec = np.mean(CaledXspec, axis=3)  # Time Average
+        #---- Antenna-based bandpass table
         BP_ant[:,0], BP_ant[:,1] = gainComplexVec(XPspec[0].T), gainComplexVec(XPspec[1].T)
-        XYdelay = 0.0
+        XYdelay = 0.0   # No XY correlations
     #
     return BP_ant, XYdelay
 #
