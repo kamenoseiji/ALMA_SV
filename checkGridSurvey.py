@@ -107,14 +107,14 @@ for band_index in range(NumBands):
     azel = np.r_[AZ[azelTime_index], EL[azelTime_index]].reshape(2, len(azelTime_index))
     OnEL, sourceIDscan = [], []
     for scan_index in range(scanNum):
-        sourceIDscan.append( msmd.fieldsforscan(onsourceScans[scan_index])[0])
+        sourceIDscan.append( msmd.sourceidforfield(msmd.fieldsforscan(onsourceScans[scan_index])[0]))
         refTime = np.median(msmd.timesforscan(onsourceScans[scan_index]))
         OnEL.append(EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - refTime))]])
         print 'Scan%d : %s EL=%4.1f' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0*OnEL[scan_index]/np.pi)
     #
-    if BPcal in sourceList: BPScan = list(set(msmd.scansforfield(sourceList.index(BPcal))) & set(onsourceScans))[0]
-    if FLcal in sourceList: FCScan = list(set(msmd.scansforfield(sourceList.index(FLcal))) & set(onsourceScans))[0]
-    if EQcal in sourceList: EQScan = list(set(msmd.scansforfield(sourceList.index(EQcal))) & set(onsourceScans))[0]
+    if BPcal in sourceList: BPScan = list(set(msmd.scansforfield(BPcal)) & set(onsourceScans))[0]
+    if FLcal in sourceList: FCScan = list(set(msmd.scansforfield(FLcal)) & set(onsourceScans))[0]
+    if EQcal in sourceList: EQScan = list(set(msmd.scansforfield(EQcal)) & set(onsourceScans))[0]
     #-------- SSO in observed source list
     BandSSOList = list( set(SSOList) & set(sourceIDscan) )
     #-------- Avoid EQ == FL
