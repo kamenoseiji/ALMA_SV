@@ -41,7 +41,6 @@ for ssoIndex in range(SSONum):
         continue
     if( scanID == FCScan):
         FCS_ID = ssoIndex
-        #text_sd = 'Flux Calibrator is %s at %s' % (sourceList[BandSSOList[ssoIndex]], timeLabel); logfile.write(text_sd + '\n'); print text_sd
         text_sd = 'Flux Calibrator is %s at %s' % (sourceList[BandSSOList[ssoIndex]], timeLabel);  print text_sd
     #
     timeStamp, UVW = GetUVW(msfile, spw[spw_index], scanID)
