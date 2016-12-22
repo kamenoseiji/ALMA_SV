@@ -412,7 +412,7 @@ for scan_index in range(scanNum):
         for pol_index in range(4):
             visFlag = np.where(abs(StokesVis[pol_index] - np.median(StokesVis[pol_index]))/np.median(StokesVis[0]) < 0.2 )[0]
             if len(visFlag) < 4:
-                text_sd = ' Only %d baselines are available. Skip!' % (len(visFlag)) ; logfile.write(text_sd + '\n'); print text_sd
+                text_sd = 'Only %d vis, Skip' % (len(visFlag)) ; logfile.write(text_sd + '\n'); print text_sd
                 continue
             #
             weight = np.zeros(SAblNum); weight[visFlag] = 1.0/np.var(StokesVis[pol_index][visFlag])
