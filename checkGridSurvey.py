@@ -122,7 +122,7 @@ for band_index in range(NumBands):
     #
     #if FLcal in sourceList: FCScan = list(set(msmd.scansforfield(FLcal)) & set(onsourceScans))[0]
     FCScan = onsourceScans[np.argmax(FLscore)]; FLcal = sourceList[sourceIDscan[np.argmax(FLscore)]]
-    print 'Use %s [EL = %4.1f] as Flux Equalizer' % (FLcal, 180.0* OnEL[np.argmax(FLscore)]/np.pi)
+    print 'Use %s [EL = %4.1f] as Flux Scaler' % (FLcal, 180.0* OnEL[np.argmax(FLscore)]/np.pi)
     if BPcal in sourceList: BPScan = list(set(msmd.scansforfield(BPcal)) & set(onsourceScans))[0]
     if EQcal in sourceList: EQScan = list(set(msmd.scansforfield(EQcal)) & set(onsourceScans))[0]
     #-------- SSO in observed source list
