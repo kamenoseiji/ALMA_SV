@@ -99,8 +99,6 @@ msmd.done()
 for band_index in range(NumBands):
     bandID = int(UniqBands[band_index][3:5])-1
     msmd.open(msfile)
-    #-------- Select Flux Calibrator
-    #if not FLcal in sourceList: FLcal = sourceList[SSOList[0]]
     #-------- Check Calibrators
     FCScan = BandScans[band_index][indexList( FCScans, BandScans[band_index] )]
     BPScan = BandScans[band_index][indexList( BPScans, BandScans[band_index] )][0]
@@ -120,9 +118,9 @@ for band_index in range(NumBands):
         print 'Scan%d : %s EL=%4.1f' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0*OnEL[scan_index]/np.pi)
         if sourceIDscan[scan_index] in SSOList: FLscore[scan_index] = np.exp(np.log(math.sin(OnEL[scan_index])-0.34))* SSOscore[bandID][SSOCatalog.index(sourceList[sourceIDscan[scan_index]])]
     #
-    #if FLcal in sourceList: FCScan = list(set(msmd.scansforfield(FLcal)) & set(onsourceScans))[0]
-    FCScan = onsourceScans[np.argmax(FLscore)]; FLcal = sourceList[sourceIDscan[np.argmax(FLscore)]]
-    print 'Use %s [EL = %4.1f] as Flux Scaler' % (FLcal, 180.0* OnEL[np.argmax(FLscore)]/np.pi)
+    if FLcal in sourceList: FCScan = list(set(msmd.scansforfield(FLcal)) & set(onsourceScans))[0]; FLsel = FLcal
+    else: FCScan = onsourceScans[np.argmax(FLscore)]; FLsel = sourceList[sourceIDscan[np.argmax(FLscore)]]
+    print 'Use %s [EL = %4.1f] as Flux Scaler' % (FLsel, 180.0* OnEL[np.argmax(FLscore)]/np.pi)
     if BPcal in sourceList: BPScan = list(set(msmd.scansforfield(BPcal)) & set(onsourceScans))[0]
     if EQcal in sourceList: EQScan = list(set(msmd.scansforfield(EQcal)) & set(onsourceScans))[0]
     #-------- SSO in observed source list
