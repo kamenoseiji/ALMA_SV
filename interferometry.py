@@ -1305,37 +1305,36 @@ def plotAmphi(fig, freq, spec):
 	phsAxis.axis( [min(freq), max(freq), -pi, pi], size='x-small' )
 	return
 #
-def CMatrix(CompSol):
-    antNum = len(CompSol)
-    blNum = antNum* (antNum-1) / 2
-    CM = lil_matrix((2*blNum, 2*antNum))
+def CMatrix(CompSol, CM):
+    #antNum = len(CompSol)
+    #blNum = antNum* (antNum-1) / 2
+    #CM = lil_matrix((2*blNum, 2*antNum))
     for bl_index in range(blNum):
-        a0, a1 = ANT0[bl_index], ANT1[bl_index]
-        CM[        bl_index,          a1] = CompSol[a0].real
-        CM[        bl_index,          a0] = CompSol[a1].real
-        CM[        bl_index, antNum + a1] = CompSol[a0].imag
-        CM[        bl_index, antNum + a0] = CompSol[a1].imag
-        CM[blNum + bl_index,          a1] = CompSol[a0].imag
-        CM[blNum + bl_index,          a0] =-CompSol[a1].imag
-        CM[blNum + bl_index, antNum + a1] =-CompSol[a0].real
-        CM[blNum + bl_index, antNum + a0] = CompSol[a1].real
+        CM[        bl_index,          ANT1[bl_index]] = CompSol[ANT0[bl_index]].real
+        CM[        bl_index,          ANT0[bl_index]] = CompSol[ANT1[bl_index]].real
+        CM[        bl_index, antNum + ANT1[bl_index]] = CompSol[ANT0[bl_index]].imag
+        CM[        bl_index, antNum + ANT0[bl_index]] = CompSol[ANT1[bl_index]].imag
+        CM[blNum + bl_index,          ANT1[bl_index]] = CompSol[ANT0[bl_index]].imag
+        CM[blNum + bl_index,          ANT0[bl_index]] =-CompSol[ANT1[bl_index]].imag
+        CM[blNum + bl_index, antNum + ANT1[bl_index]] =-CompSol[ANT0[bl_index]].real
+        CM[blNum + bl_index, antNum + ANT0[bl_index]] = CompSol[ANT1[bl_index]].real
     #
     return CM
 #
-def gainComplexVec( bl_vis ):       # bl_vis[baseline, channel]
+def gainComplexVec( bl_vis, niter=1 ):       # bl_vis[baseline, channel]
     chAvgVis = np.mean(bl_vis, axis=1)
     blNum, chNum  =  bl_vis.shape[0], bl_vis.shape[1]
     antNum =  Bl2Ant(blNum)[0]
     ant0, ant1, kernelBL = ANT0[0:blNum], ANT1[0:blNum], (arange(antNum-1)*(arange(antNum-1)+1)/2).tolist()
     Solution, CompSol, MMap = np.zeros([antNum, chNum], dtype=complex), np.zeros(antNum, dtype=complex), range(antNum) + range(antNum+1, 2*antNum)
-    W = lil_matrix((2*blNum, 2*blNum))
+    CM, W = lil_matrix((2*blNum, 2*antNum)), lil_matrix((2*blNum, 2*blNum))
     #---- Initial solution
     CompSol[0] = sqrt(abs(chAvgVis[0])) + 0j
     CompSol[1:antNum] = chAvgVis[kernelBL] / CompSol[0]
     Weight = np.abs(chAvgVis); CWeight = np.append(Weight, Weight)
     for bl_index in range(2*blNum): W[bl_index, bl_index] = CWeight[bl_index]
     #---- Global iteration
-    PM = CMatrix( CompSol )[:,MMap]
+    PM = CMatrix( CompSol, CM )[:,MMap]
     PtWP = PM.T.dot(W.dot(PM)).todense()
     L = np.linalg.cholesky(PtWP)
     for ch_index in range(chNum):
@@ -1352,15 +1351,17 @@ def gainComplexVec( bl_vis ):       # bl_vis[baseline, channel]
         Solution[:,ch_index] = CompSol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
     #
     #---- Local iteration
-    for ch_index in range(chNum):
-        Cresid = bl_vis[:,ch_index] - Solution[ant0, ch_index]* Solution[ant1, ch_index].conjugate()
-        resid  = np.append( Cresid.real, Cresid.imag )
-        PM = CMatrix( Solution[:,ch_index] )[:,MMap]
-        PtWP = PM.T.dot(W.dot(PM)).todense()
-        L = np.linalg.cholesky(PtWP)
-        t = np.linalg.solve(L, PM.T.dot(W.dot(resid)))
-        correction = np.linalg.solve(L.T, t)
-        Solution[:,ch_index] = Solution[:,ch_index] + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
+    for iter_index in range(niter):
+        for ch_index in range(chNum):
+            Cresid = bl_vis[:,ch_index] - Solution[ant0, ch_index]* Solution[ant1, ch_index].conjugate()
+            resid  = np.append( Cresid.real, Cresid.imag )
+            PM = CMatrix( Solution[:,ch_index], CM )[:,MMap]
+            PtWP = PM.T.dot(W.dot(PM)).todense()
+            L = np.linalg.cholesky(PtWP)
+            t = np.linalg.solve(L, PM.T.dot(W.dot(resid)))
+            correction = np.linalg.solve(L.T, t)
+            Solution[:,ch_index] = Solution[:,ch_index] + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
+        #
     #
     return Solution
 #
@@ -1369,14 +1370,15 @@ def gainComplex( bl_vis ):
     antNum =  Bl2Ant(blNum)[0]
     ant0, ant1, kernelBL = ANT0[0:blNum], ANT1[0:blNum], (arange(antNum-1)*(arange(antNum-1)+1)/2).tolist()
     CompSol, MMap = np.zeros(antNum, dtype=complex), range(antNum) + range(antNum+1, 2*antNum)
-    CM, PM, W = lil_matrix((2*blNum, 2*antNum)), lil_matrix((2*blNum, 2*antNum-1)), lil_matrix((2*blNum, 2*blNum))
+    CM, W = lil_matrix((2*blNum, 2*antNum)), lil_matrix((2*blNum, 2*blNum))
+    #CM, PM, W = lil_matrix((2*blNum, 2*antNum)), lil_matrix((2*blNum, 2*antNum-1)), lil_matrix((2*blNum, 2*blNum))
     #---- Initial solution
     CompSol[0] = sqrt(abs(bl_vis[0])) + 0j
     CompSol[1:antNum] = bl_vis[kernelBL] / CompSol[0]
     Weight = np.abs(bl_vis); CWeight = np.append(Weight, Weight)
     for bl_index in range(2*blNum): W[bl_index, bl_index] = CWeight[bl_index]
     #---- Global Iteration
-    PM = CMatrix(CompSol)[:,MMap]
+    PM = CMatrix(CompSol, CM)[:,MMap]
     PtWP = PM.T.dot(W.dot(PM)).todense()    # 
     L    = np.linalg.cholesky(PtWP)         # Cholesky decomposition
     Cresid = bl_vis - CompSol[ant0]* CompSol[ant1].conjugate()
@@ -1390,7 +1392,7 @@ def gainComplex( bl_vis ):
     correction = np.linalg.solve(L.T, t)
     CompSol = CompSol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
     #---- Local Iteration
-    PM = CMatrix(CompSol)[:,MMap]
+    PM = CMatrix(CompSol, CM)[:,MMap]
     PtWP = PM.T.dot(W.dot(PM)).todense()    # 
     L    = np.linalg.cholesky(PtWP)         # Cholesky decomposition
     Cresid = bl_vis - CompSol[ant0]* CompSol[ant1].conjugate()
@@ -1452,7 +1454,8 @@ def polariGain( XX, YY, PA, StokesQ, StokesU):
     Yscale = 1.0 / (1.0 - StokesQ* csPA - StokesU* snPA)
     #
     ScaledXX, ScaledYY = XX * Xscale, YY* Yscale
-    return np.apply_along_axis( gainComplex, 0, ScaledXX), np.apply_along_axis( gainComplex, 0, ScaledYY)
+    return gainComplexVec(ScaledXX), gainComplexVec(ScaledYY)
+    #return np.apply_along_axis( gainComplex, 0, ScaledXX), np.apply_along_axis( gainComplex, 0, ScaledYY)
 #
 def XXYY2QU(PA, Vis):       # <XX*>, <YY*> to determine Q and U
     timeNum, sinPA2, cosPA2 = len(PA),np.sin(2.0*PA), np.cos(2.0*PA)

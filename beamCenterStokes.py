@@ -95,8 +95,8 @@ for spw_index in range(spwNum):
     #
     print '---- Antenna-based gain solution using tracking antennas'
     Gain  = np.ones([2, antNum, len(mjdSec)], dtype=complex)
-    Gain[0, 0:antNum] = np.apply_along_axis( gainComplex, 0, chAvgVis[0])
-    Gain[1, 0:antNum] = np.apply_along_axis( gainComplex, 0, chAvgVis[3])
+    Gain[0, 0:antNum] = gainComplexVec(chAvgVis[0])
+    Gain[1, 0:antNum] = gainComplexVec(chAvgVis[3])
     Gamp = np.sqrt(np.mean(abs(Gain)**2, axis=0))
     Gain[0, 0:antNum] = Gain[0, 0:antNum] * Gamp / abs(Gain[0, 0:antNum])
     Gain[1, 0:antNum] = Gain[1, 0:antNum] * Gamp / abs(Gain[1, 0:antNum])
