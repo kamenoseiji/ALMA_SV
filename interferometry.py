@@ -1300,35 +1300,6 @@ def plotAmphi(fig, freq, spec):
 	phsAxis.axis( [min(freq), max(freq), -pi, pi], size='x-small' )
 	return
 #
-def AntBlMatrix(antNum):
-    blNum = antNum* (antNum-1) / 2
-    M = -np.ones([antNum, blNum])
-    for ant_index in range(1, antNum):
-        for ant_index2 in range(ant_index):
-            bl_index = Ant2Bl(ant_index2,ant_index)
-            M[ant_index,  bl_index] = ant_index2
-            M[ant_index2, bl_index] = ant_index
-        #
-    #
-    return M
-#
-#
-def CMatrix(CompSol, CM):
-    antNum = len(CompSol)
-    blNum = antNum* (antNum-1) / 2
-    #CM = lil_matrix((2*blNum, 2*antNum))
-    for bl_index in range(blNum):
-        CM[        bl_index,          ANT1[bl_index]] = CompSol[ANT0[bl_index]].real
-        CM[        bl_index,          ANT0[bl_index]] = CompSol[ANT1[bl_index]].real
-        CM[        bl_index, antNum + ANT1[bl_index]] = CompSol[ANT0[bl_index]].imag
-        CM[        bl_index, antNum + ANT0[bl_index]] = CompSol[ANT1[bl_index]].imag
-        CM[blNum + bl_index,          ANT1[bl_index]] = CompSol[ANT0[bl_index]].imag
-        CM[blNum + bl_index,          ANT0[bl_index]] =-CompSol[ANT1[bl_index]].imag
-        CM[blNum + bl_index, antNum + ANT1[bl_index]] =-CompSol[ANT0[bl_index]].real
-        CM[blNum + bl_index, antNum + ANT0[bl_index]] = CompSol[ANT1[bl_index]].real
-    #
-    return CM
-#
 def PMatrix(CompSol):
     antNum = len(CompSol)
     PM = np.zeros([2*antNum-1, 2*antNum-1])
@@ -1339,12 +1310,7 @@ def PMatrix(CompSol):
             PM[ant_index, ant_index2] = CompSol[ant_index].real * CompSol[ant_index2].real - CompSol[ant_index].imag * CompSol[ant_index2].imag
             PM[ant_index2, ant_index] = PM[ant_index, ant_index2]
         #
-        #   Upper right diagnoal = 0
-        for ant_index2 in range(ant_index+1, antNum):                       # Upper right non-diagonal
-            PM[ant_index, ant_index2 + antNum - 1] = CompSol[ant_index].imag* CompSol[ant_index2].real + CompSol[ant_index].real* CompSol[ant_index2].imag
-        for ant_index2 in range(1, ant_index):                              # Upper right non-diagonal
-            PM[ant_index, ant_index2 + antNum - 1] = CompSol[ant_index].imag* CompSol[ant_index2].real + CompSol[ant_index].real* CompSol[ant_index2].imag
-        ##
+        #
     #
     for ant_index in range(1, antNum):
         PM[antNum + ant_index - 1, antNum + ant_index - 1] = PM[ant_index, ant_index]   # Lower right diagnal
@@ -1358,6 +1324,9 @@ def PMatrix(CompSol):
         for ant_index2 in range(0, ant_index):                              # Upper right non-diagonal
             PM[antNum + ant_index - 1, ant_index2] = CompSol[ant_index].imag* CompSol[ant_index2].real + CompSol[ant_index].real* CompSol[ant_index2].imag
         #
+    #
+    for ant_index in range(antNum):  # Upper right
+        PM[ant_index, range(antNum, 2*antNum-1)] = PM[range(antNum, 2*antNum-1), ant_index]
     #
     return PM
 #
