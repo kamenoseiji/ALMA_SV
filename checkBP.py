@@ -93,6 +93,6 @@ if BPPLOT:
             figAnt.savefig(pp, format='pdf')
         #
     #
-    #plt.close('all')
+    plt.close('all')
     pp.close()
 #

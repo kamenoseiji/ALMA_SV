@@ -284,14 +284,9 @@ def GetVisCross(msfile, spwID, scanID):
 	tb.close()
 	polNum, chNum = dataXY.shape[0], dataXY.shape[1]
 	timeStamp = timeXY.reshape(corrNum, timeNum)[0]
-	#acorr_index = range(antNum)
-	#xcorr_index = range(blNum)
-	#for ant_index in range(antNum):
-	#	acorr_index[ant_index] = Ant2Bla_RevLex(ant_index, ant_index, antNum)
 	for bl_index in range(blNum):
 		ant1, ant0 = Bl2Ant(bl_index)
 		xcorr_index[bl_index] = Ant2Bla_RevLex(ant0, ant1, antNum)
-	#Pspec = dataXY.reshape(polNum, chNum, corrNum, timeNum)[:,:,acorr_index,:]
 	Xspec = dataXY.reshape(polNum, chNum, corrNum, timeNum)[:,:,xcorr_index,:]
 	return timeStamp, Xspec
 #
@@ -1305,9 +1300,22 @@ def plotAmphi(fig, freq, spec):
 	phsAxis.axis( [min(freq), max(freq), -pi, pi], size='x-small' )
 	return
 #
+def AntBlMatrix(antNum):
+    blNum = antNum* (antNum-1) / 2
+    M = -np.ones([antNum, blNum])
+    for ant_index in range(1, antNum):
+        for ant_index2 in range(ant_index):
+            bl_index = Ant2Bl(ant_index2,ant_index)
+            M[ant_index,  bl_index] = ant_index2
+            M[ant_index2, bl_index] = ant_index
+        #
+    #
+    return M
+#
+#
 def CMatrix(CompSol, CM):
-    #antNum = len(CompSol)
-    #blNum = antNum* (antNum-1) / 2
+    antNum = len(CompSol)
+    blNum = antNum* (antNum-1) / 2
     #CM = lil_matrix((2*blNum, 2*antNum))
     for bl_index in range(blNum):
         CM[        bl_index,          ANT1[bl_index]] = CompSol[ANT0[bl_index]].real
@@ -1321,85 +1329,100 @@ def CMatrix(CompSol, CM):
     #
     return CM
 #
-def gainComplexVec( bl_vis, niter=1 ):       # bl_vis[baseline, channel]
-    chAvgVis = np.mean(bl_vis, axis=1)
+def PMatrix(CompSol):
+    antNum = len(CompSol)
+    PM = np.zeros([2*antNum-1, 2*antNum-1])
+    SumSqr = CompSol.dot(CompSol.conjugate()).real
+    for ant_index in range(antNum):
+        PM[ant_index, ant_index] = SumSqr - abs(CompSol[ant_index])**2      # Upper left diagnoal
+        for ant_index2 in range(ant_index+1, antNum):                       # Upper left non-diagonal
+            PM[ant_index, ant_index2] = CompSol[ant_index].real * CompSol[ant_index2].real - CompSol[ant_index].imag * CompSol[ant_index2].imag
+            PM[ant_index2, ant_index] = PM[ant_index, ant_index2]
+        #
+        #   Upper right diagnoal = 0
+        for ant_index2 in range(ant_index+1, antNum):                       # Upper right non-diagonal
+            PM[ant_index, ant_index2 + antNum - 1] = CompSol[ant_index].imag* CompSol[ant_index2].real + CompSol[ant_index].real* CompSol[ant_index2].imag
+        for ant_index2 in range(1, ant_index):                              # Upper right non-diagonal
+            PM[ant_index, ant_index2 + antNum - 1] = CompSol[ant_index].imag* CompSol[ant_index2].real + CompSol[ant_index].real* CompSol[ant_index2].imag
+        ##
+    #
+    for ant_index in range(1, antNum):
+        PM[antNum + ant_index - 1, antNum + ant_index - 1] = PM[ant_index, ant_index]   # Lower right diagnal
+        for ant_index2 in range(ant_index+1, antNum):                                   # Lower right non-diagonal
+            PM[antNum + ant_index - 1, antNum + ant_index2 - 1] = CompSol[ant_index].imag * CompSol[ant_index2].imag - CompSol[ant_index].real * CompSol[ant_index2].real
+            PM[antNum + ant_index2 - 1, antNum + ant_index - 1] = PM[antNum + ant_index - 1, antNum + ant_index2 - 1]
+        #
+        #   Lower left diagnoal = 0
+        for ant_index2 in range(ant_index+1, antNum):                       # Lower left non-diagonal
+            PM[antNum + ant_index - 1, ant_index2] = CompSol[ant_index].imag* CompSol[ant_index2].real + CompSol[ant_index].real* CompSol[ant_index2].imag
+        for ant_index2 in range(0, ant_index):                              # Upper right non-diagonal
+            PM[antNum + ant_index - 1, ant_index2] = CompSol[ant_index].imag* CompSol[ant_index2].real + CompSol[ant_index].real* CompSol[ant_index2].imag
+        #
+    #
+    return PM
+#
+def PTdotR(CompSol, Cresid):
+    antNum = len(CompSol)
+    blNum = antNum* (antNum-1) / 2
+    ant0, ant1= np.array(ANT0[0:blNum]), np.array(ANT1[0:blNum])
+    PTR = np.zeros(2*antNum)
+    for ant_index in range(antNum):
+        index0 = np.where(ant0 == ant_index)[0].tolist()
+        index1 = np.where(ant1 == ant_index)[0].tolist()
+        PTR[range(ant_index)]          += (CompSol[ant_index].real* Cresid[index0].real + CompSol[ant_index].imag* Cresid[index0].imag)
+        PTR[range(ant_index+1,antNum)] += (CompSol[ant_index].real* Cresid[index1].real - CompSol[ant_index].imag* Cresid[index1].imag)
+        PTR[range(antNum, antNum+ant_index)]    += (CompSol[ant_index].imag* Cresid[index0].real - CompSol[ant_index].real* Cresid[index0].imag)
+        PTR[range(antNum+ant_index+1,2*antNum)] += (CompSol[ant_index].imag* Cresid[index1].real + CompSol[ant_index].real* Cresid[index1].imag)
+    #
+    return PTR[range(antNum) + range(antNum+1, 2*antNum)]
+#
+def gainComplexVec( bl_vis, niter=2 ):       # bl_vis[baseline, channel]
+    ChavVis = np.mean(bl_vis, axis=1)
     blNum, chNum  =  bl_vis.shape[0], bl_vis.shape[1]
     antNum =  Bl2Ant(blNum)[0]
-    ant0, ant1, kernelBL = ANT0[0:blNum], ANT1[0:blNum], (arange(antNum-1)*(arange(antNum-1)+1)/2).tolist()
-    Solution, CompSol, MMap = np.zeros([antNum, chNum], dtype=complex), np.zeros(antNum, dtype=complex), range(antNum) + range(antNum+1, 2*antNum)
-    CM, W = lil_matrix((2*blNum, 2*antNum)), lil_matrix((2*blNum, 2*blNum))
+    ant0, ant1, kernelBL = ANT0[0:blNum], ANT1[0:blNum], KERNEL_BL[range(antNum-1)].tolist()
+    Solution, CompSol = np.zeros([antNum, chNum], dtype=complex), np.zeros(antNum, dtype=complex)
     #---- Initial solution
-    CompSol[0] = sqrt(abs(chAvgVis[0])) + 0j
-    CompSol[1:antNum] = chAvgVis[kernelBL] / CompSol[0]
-    Weight = np.abs(chAvgVis); CWeight = np.append(Weight, Weight)
-    for bl_index in range(2*blNum): W[bl_index, bl_index] = CWeight[bl_index]
+    CompSol[0] = sqrt(abs(ChavVis[0])) + 0j
+    CompSol[1:antNum] = ChavVis[kernelBL] / CompSol[0]
     #---- Global iteration
-    PM = CMatrix( CompSol, CM )[:,MMap]
-    PtWP = PM.T.dot(W.dot(PM)).todense()
-    L = np.linalg.cholesky(PtWP)
+    PTP = PMatrix(CompSol)
+    L = np.linalg.cholesky(PTP)
     for ch_index in range(chNum):
         Cresid = bl_vis[:,ch_index] - CompSol[ant0]* CompSol[ant1].conjugate()
-        resid  = np.append( Cresid.real, Cresid.imag )
-        t = np.linalg.solve(L, PM.T.dot(W.dot(resid)))
-        correction = np.linalg.solve(L.T, t)
-        Solution[:,ch_index] = CompSol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
-        #
-        Cresid = bl_vis[:,ch_index] - Solution[ant0, ch_index]* Solution[ant1, ch_index].conjugate()
-        resid  = np.append( Cresid.real, Cresid.imag )
-        t = np.linalg.solve(L, PM.T.dot(W.dot(resid)))
+        t = np.linalg.solve(L, PTdotR(CompSol, Cresid))
         correction = np.linalg.solve(L.T, t)
         Solution[:,ch_index] = CompSol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
     #
     #---- Local iteration
     for iter_index in range(niter):
         for ch_index in range(chNum):
+            PTP = PMatrix(Solution[:,ch_index])
             Cresid = bl_vis[:,ch_index] - Solution[ant0, ch_index]* Solution[ant1, ch_index].conjugate()
-            resid  = np.append( Cresid.real, Cresid.imag )
-            PM = CMatrix( Solution[:,ch_index], CM )[:,MMap]
-            PtWP = PM.T.dot(W.dot(PM)).todense()
-            L = np.linalg.cholesky(PtWP)
-            t = np.linalg.solve(L, PM.T.dot(W.dot(resid)))
+            L = np.linalg.cholesky(PTP)
+            t = np.linalg.solve(L, PTdotR(Solution[:,ch_index], Cresid))
             correction = np.linalg.solve(L.T, t)
             Solution[:,ch_index] = Solution[:,ch_index] + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
         #
     #
     return Solution
 #
-def gainComplex( bl_vis ):
+def gainComplex( bl_vis, niter=2 ):
     blNum  =  len(bl_vis)
     antNum =  Bl2Ant(blNum)[0]
-    ant0, ant1, kernelBL = ANT0[0:blNum], ANT1[0:blNum], (arange(antNum-1)*(arange(antNum-1)+1)/2).tolist()
-    CompSol, MMap = np.zeros(antNum, dtype=complex), range(antNum) + range(antNum+1, 2*antNum)
-    CM, W = lil_matrix((2*blNum, 2*antNum)), lil_matrix((2*blNum, 2*blNum))
-    #CM, PM, W = lil_matrix((2*blNum, 2*antNum)), lil_matrix((2*blNum, 2*antNum-1)), lil_matrix((2*blNum, 2*blNum))
+    ant0, ant1, kernelBL = ANT0[0:blNum], ANT1[0:blNum], KERNEL_BL[range(antNum-1)].tolist()
+    CompSol = np.zeros(antNum, dtype=complex)
     #---- Initial solution
     CompSol[0] = sqrt(abs(bl_vis[0])) + 0j
     CompSol[1:antNum] = bl_vis[kernelBL] / CompSol[0]
-    Weight = np.abs(bl_vis); CWeight = np.append(Weight, Weight)
-    for bl_index in range(2*blNum): W[bl_index, bl_index] = CWeight[bl_index]
-    #---- Global Iteration
-    PM = CMatrix(CompSol, CM)[:,MMap]
-    PtWP = PM.T.dot(W.dot(PM)).todense()    # 
-    L    = np.linalg.cholesky(PtWP)         # Cholesky decomposition
-    Cresid = bl_vis - CompSol[ant0]* CompSol[ant1].conjugate()
-    resid  = np.append( Cresid.real, Cresid.imag )
-    t    = np.linalg.solve(L, PM.T.dot(W.dot(resid)))
-    correction = np.linalg.solve(L.T, t)
-    CompSol = CompSol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
-    Cresid = bl_vis - CompSol[ant0]* CompSol[ant1].conjugate()
-    resid  = np.append( Cresid.real, Cresid.imag )
-    t    = np.linalg.solve(L, PM.T.dot(W.dot(resid)))
-    correction = np.linalg.solve(L.T, t)
-    CompSol = CompSol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
-    #---- Local Iteration
-    PM = CMatrix(CompSol, CM)[:,MMap]
-    PtWP = PM.T.dot(W.dot(PM)).todense()    # 
-    L    = np.linalg.cholesky(PtWP)         # Cholesky decomposition
-    Cresid = bl_vis - CompSol[ant0]* CompSol[ant1].conjugate()
-    resid  = np.append( Cresid.real, Cresid.imag )
-    t    = np.linalg.solve(L, PM.T.dot(W.dot(resid)))
-    correction = np.linalg.solve(L.T, t)
-    CompSol = CompSol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
+    #----  Iteration
+    for iter_index in range(niter):
+        PTP        = PMatrix(CompSol)
+        L          = np.linalg.cholesky(PTP)         # Cholesky decomposition
+        Cresid     = bl_vis - CompSol[ant0]* CompSol[ant1].conjugate()
+        t          = np.linalg.solve(L, PTdotR(CompSol, Cresid))
+        correction = np.linalg.solve(L.T, t)
+        CompSol    = CompSol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
     #
     return CompSol
 #
