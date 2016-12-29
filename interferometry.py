@@ -1346,7 +1346,7 @@ def PTdotR(CompSol, Cresid):
     return PTR[range(antNum) + range(antNum+1, 2*antNum)]
 #
 def gainComplexVec( bl_vis, niter=2 ):       # bl_vis[baseline, channel]
-    ChavVis = np.mean(bl_vis, axis=1)
+    ChavVis = np.median(bl_vis.real, axis=1) + (0.0+1.0j)*np.median(bl_vis.imag, axis=1)
     blNum, chNum  =  bl_vis.shape[0], bl_vis.shape[1]
     antNum =  Bl2Ant(blNum)[0]
     ant0, ant1, kernelBL = ANT0[0:blNum], ANT1[0:blNum], KERNEL_BL[range(antNum-1)].tolist()
