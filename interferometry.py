@@ -912,6 +912,7 @@ def BPtable(msfile, spw, BPScan, blMap, blInv):   #
         BPCaledXYSpec = np.mean(BPCaledXspec[:,1], axis=0) +  np.mean(BPCaledXspec[:,2], axis=0).conjugate()
         XYdelay, amp = delay_search( BPCaledXYSpec[chRange] )
         XYdelay = (float(chNum) / float(len(chRange)))* XYdelay
+        BPCaledXYSpec = BPCaledXYSpec / abs(BPCaledXYSpec)
     else:
         Xspec  = ParaPolBL(Xspec[:,:,blMap], blInv)
         #---- Delay Cal
@@ -931,9 +932,10 @@ def BPtable(msfile, spw, BPScan, blMap, blInv):   #
         XPspec = np.mean(CaledXspec, axis=3)  # Time Average
         #---- Antenna-based bandpass table
         BP_ant[:,0], BP_ant[:,1] = gainComplexVec(XPspec[0].T), gainComplexVec(XPspec[1].T)
+        BPCaledXYSpec = np.ones(chNum, dtype=complex)
         XYdelay = 0.0   # No XY correlations
     #
-    return BP_ant, XYdelay
+    return BP_ant, BPCaledXYSpec, XYdelay
 #
 def bpCal(spec, BP0, BP1):      # spec[blNum, chNum, timeNum]
     blnum, chNum, timeNum = len(spec), len(spec[0]), len(spec[0,0])

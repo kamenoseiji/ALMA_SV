@@ -50,7 +50,7 @@ for spw_index in range(spwNum):
     caledVis = np.ones([4,blNum, 0], dtype=complex)
     mjdSec, Az, El = np.ones([0]), np.ones([0]), np.ones([0])
     if BPprefix != '':  # Bandpass file
-        BPantList, BP_ant, XYdelay = np.load(BPprefix + '-REF' + refantName + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYdelay.npy')
+        BPantList, BP_ant, XYspec, XYdelay = np.load(BPprefix + '-REF' + refantName + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYdelay.npy')
         BP_ant = BP_ant[indexList(antList[antMap], BPantList)]
         BP_bl = BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate()
     #
@@ -77,9 +77,11 @@ for spw_index in range(spwNum):
                 BPCaledXspec = (tempSpec / BP_bl).transpose(2,3,1,0) 
                 #-------- XY delay cal
                 print '  -- XY delay cal'
-                XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelay )
-                BPCaledXspec[1] = (BPCaledXspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
-                BPCaledXspec[2] = (BPCaledXspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
+                # XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelay )
+                #BPCaledXspec[1] = (BPCaledXspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
+                #BPCaledXspec[2] = (BPCaledXspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
+                BPCaledXspec[1] = (BPCaledXspec[1].transpose(1,2,0)* XYspec.conjugate()).transpose(2,0,1)
+                BPCaledXspec[2] = (BPCaledXspec[2].transpose(1,2,0)* XYspec).transpose(2,0,1)
                 #-------- Antenna-based Gain
                 print '  -- Channel-averaging'
                 chAvgVis = np.c_[chAvgVis, np.mean(BPCaledXspec[:,chRange], axis=1)]

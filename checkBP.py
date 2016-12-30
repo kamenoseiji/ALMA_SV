@@ -34,15 +34,17 @@ for bl_index in range(UseBlNum):
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 #-------- Bandpass Table
 print '---Generating antenna-based bandpass table'
-BPList, XYdelayList = [], []
+BPList, XYList, XYdelayList = [], [], []
 spwNum = len(spw)
 for spw_index in spw:
-    BP_ant, XYdelay = BPtable(msfile, spw_index, BPscan, blMap, blInv)
+    BP_ant, XY_BP, XYdelay = BPtable(msfile, spw_index, BPscan, blMap, blInv)
     BPList = BPList + [BP_ant]
+    XYList = XYList + [XY_BP]
     XYdelayList = XYdelayList + [XYdelay]
     print 'SPW%d: XY delay [sample] = %f' % (spw_index, XYdelay)
 #
 BP_ant = np.array(BPList).transpose(1,0,2,3)
+XYspec = np.array(XYList)
 XYdelay = np.array(XYdelayList)
 ppolNum = BP_ant.shape[2]
 PolList = ['X', 'Y']
@@ -51,6 +53,7 @@ PolList = ['X', 'Y']
 np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '.Ant.npy', antList[antMap]) 
 for spw_index in range(spwNum):
     np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SPW' + `spw[spw_index]` + '-BPant.npy', BP_ant[:,spw_index]) 
+    np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SPW' + `spw[spw_index]` + '-XYspec.npy', XYspec[spw_index]) 
     np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SPW' + `spw[spw_index]` + '-XYdelay.npy', XYdelay[spw_index]) 
 #
 #-------- Plots

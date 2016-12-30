@@ -53,11 +53,11 @@ for ant_index in range(antNum):
 #
 #-------- Bandpass Table
 print '---Generating antenna-based bandpass table'
-XYdelayList = []
-BPList = []
+XYdelayList, XYList, BPList = [], [], []
 for spw_index in spw:
-    BP_ant, XYdelay = BPtable(msfile, spw_index, BPScan, blMap, blInv)
+    BP_ant, XY_BP, XYdelay = BPtable(msfile, spw_index, BPScan, blMap, blInv)
     BPList = BPList + [BP_ant]
+    XYList = XYList + [XY_BP]
     XYdelayList = XYdelayList + [XYdelay]
 #
 if PLOTBP:
@@ -327,7 +327,8 @@ for spw_index in range(spwNum):
     PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]
     tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
     BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
-    XYdlSpec = delay_cal(np.ones([chNum], dtype=complex), XYdelayList[spw_index])
+    #XYdlSpec = delay_cal(np.ones([chNum], dtype=complex), XYdelayList[spw_index])
+    XYdlSpec = XYList[spw_index].conjugate()
     BPCaledXspec[1] = (BPCaledXspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
     BPCaledXspec[2] = (BPCaledXspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
     chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
@@ -340,6 +341,7 @@ caledVis = np.array(caledVis)
 QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
 for spw_index in range(spwNum):
     XYphase.append(XY2Phase(PA, QUsolution[0], QUsolution[1], caledVis[spw_index][[1,2]]))
+    print 'SPW[%d] : XY phase = %5.1f deg' % (spw[spw_index], 180.0* XYphase[spw_index]/pi)
 #
 XYphase = np.array(XYphase)
 #-------- Flux Density
@@ -394,7 +396,8 @@ for scan_index in range(scanNum):
         #-------- Bandpass Calibration
         BPCaledXspec = (tempSpec / (BPList[spw_index][np.array(ant0)[SAbl].tolist()][:,polYindex]* BPList[spw_index][np.array(ant1)[SAbl].tolist()][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
         #-------- XY delay cal
-        XYdlSpec = delay_cal(np.ones([chNum], dtype=complex), XYdelayList[spw_index])
+        #XYdlSpec = delay_cal(np.ones([chNum], dtype=complex), XYdelayList[spw_index])
+        XYdlSpec = XYList[spw_index].conjugate()
         BPCaledXspec[1] = (BPCaledXspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
         BPCaledXspec[2] = (BPCaledXspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
         #-------- Antenna-based Gain
