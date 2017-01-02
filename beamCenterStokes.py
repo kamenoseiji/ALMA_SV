@@ -77,9 +77,6 @@ for spw_index in range(spwNum):
                 BPCaledXspec = (tempSpec / BP_bl).transpose(2,3,1,0) 
                 #-------- XY delay cal
                 print '  -- XY delay cal'
-                # XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelay )
-                #BPCaledXspec[1] = (BPCaledXspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
-                #BPCaledXspec[2] = (BPCaledXspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
                 BPCaledXspec[1] = (BPCaledXspec[1].transpose(1,2,0)* XYspec.conjugate()).transpose(2,0,1)
                 BPCaledXspec[2] = (BPCaledXspec[2].transpose(1,2,0)* XYspec).transpose(2,0,1)
                 #-------- Antenna-based Gain
