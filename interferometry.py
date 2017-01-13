@@ -401,6 +401,18 @@ def BlAmpMatrix(antNum):
         blamp_matrix[bl_index, ants[1]] = 1
     return blamp_matrix
 #
+def BlPhaseMatrix(antPhs):
+    antNum = len(antPhs)
+    blNum = antNum* (antNum - 1) / 2
+    antGain = np.exp( 1.0j * antPhs)
+    blphs_matrix = np.zeros([blNum, antNum], dtype=complex)
+    for bl_index in range(blNum):
+        blphs_matrix[bl_index, ANT1[bl_index]] = 1.0j* antGain[ANT1[bl_index]]* antGain[ANT0[bl_index]].conjugate()
+        blphs_matrix[bl_index, ANT0[bl_index]] =-1.0j* antGain[ANT1[bl_index]]* antGain[ANT0[bl_index]].conjugate()
+    #
+    return blphs_matrix[:,1:antNum]
+#
+"""
 def BlPhaseMatrix(antNum):
     blNum = antNum* (antNum - 1) / 2
     blphs_matrix = np.zeros([blNum, (antNum - 1)])
@@ -411,6 +423,7 @@ def BlPhaseMatrix(antNum):
             blphs_matrix[bl_index, (ants[1] - 1)] = -1
     return blphs_matrix
 #
+"""
 def DxMatrix(antNum):
     blNum = antNum* (antNum - 1) /2
     Dx_matrix = np.zeros([blNum, antNum])
@@ -478,20 +491,19 @@ def clamp_solve(bl_amp, bl_error):
 	ptwp_inv = scipy.linalg.inv(ptwp)
 	solution = np.exp(np.dot(ptwp_inv,  np.dot(p_matrix.T,  np.dot(np.diag(weight), log_bl))))
 	return solution, solution* np.sqrt(np.diag(ptwp_inv))
-
-def cldelay_solve(bl_delay, bl_error):
-	blnum  =  len(bl_delay)
-	antnum =  Bl2Ant(blnum)[0]
-	weight =  np.divide(1.0, np.multiply(bl_error, bl_error))
-	solution = np.zeros(antnum-1)
-	
-	#---- Partial Matrix
-	p_matrix   = BlPhaseMatrix(antnum)
-	ptwp       = np.dot(p_matrix.T, np.dot(np.diag(weight), p_matrix))
-	ptwp_inv   = scipy.linalg.inv(ptwp)
-	solution   = np.dot(ptwp_inv,  np.dot(p_matrix.T,  np.dot(np.diag(weight), bl_delay)))
-	return np.append(0, solution), np.append(0, np.sqrt(np.diag(ptwp_inv)))
-
+#
+def cldelay_solve(bl_delay):    # see http://qiita.com/kamenoseiji/items/782031a0ce8bbc1dc99c
+    blNum = len(bl_delay); antNum = Bl2Ant(blNum)[0]
+    ant0, ant1 = np.array(ANT0[0:blNum]), np.array(ANT1[0:blNum])
+    PTP_inv = (np.diag(np.ones(antNum - 1)) + 1.0) / antNum
+    PTY = np.zeros(antNum - 1)
+    for ant_index in range(1, antNum):
+        index0 = np.where(ant0 == ant_index)[0].tolist()
+        index1 = np.where(ant1 == ant_index)[0].tolist()
+        PTY[ant_index - 1] += np.sum(bl_delay[index0]) - np.sum(bl_delay[index1])
+    #
+    return np.array( [0.0] + (PTP_inv.dot(PTY)).tolist() )
+#
 def clcomplex_solve(bl_vis, bl_error):
 	blnum  =  len(bl_vis)
 	antnum =  Bl2Ant(blnum)[0]
@@ -547,38 +559,29 @@ def clcomplex_solve(bl_vis, bl_error):
 	#
 	return solution[range(antnum)] + 1j* np.append(0, solution[range(antnum, 2*antnum-1)])
 #
-def clphase_solve(bl_phase, bl_error):
-	blnum  =  len(bl_phase)
-	antnum =  Bl2Ant(blnum)[0]
-	weight =  np.divide(1.0, np.multiply(bl_error, bl_error))
-
-	resid  =  np.zeros(blnum)
-	niter  = 0
-	correction = np.ones(antnum - 1)
-	solution   = np.zeros(antnum - 1)
-	
-	#---- Initial solution
-	for ant_index in range(1,antnum) :
-		solution[ant_index - 1] = bl_phase[Ant2Bl(0, ant_index )]
-	
-	while  (np.dot(correction, correction) > 1e-12) and (niter < 10):	# Loop for iterations
-		#---- Residual Vector
-		for bl_index in range(blnum):
-			ants = Bl2Ant(bl_index)
-			phs_diff  =  bl_phase[bl_index] - solution[ants[0] - 1]
-			if  ants[1] != 0 :
-				phs_diff = phs_diff + solution[ants[1]-1]  	# Baselines without refant
-			resid[bl_index] = atan2( sin(phs_diff), cos(phs_diff) )* weight[bl_index]	# 2pi ambibuity removal
-	
-		#---- Partial Matrix
-		p_matrix   = BlPhaseMatrix(antnum)
-		ptwp       = np.dot(p_matrix.T, np.dot(np.diag(weight), p_matrix))
-		ptwp_inv   = scipy.linalg.inv(ptwp)
-		correction = np.dot(ptwp_inv,  np.dot(p_matrix.T, resid))
-		solution   = np.add(solution, correction)
-		niter      =  niter + 1
+def clphase_solve(Vis, iterNum = 2):
+    Vis = Vis / abs(Vis)    # Normalization
+    blNum = len(Vis); antNum = Bl2Ant(blNum)[0]
+    ant0, ant1 = np.array(ANT0[0:blNum]), np.array(ANT1[0:blNum])
+    PTP_inv = (np.diag(np.ones(antNum - 1)) + 1.0) / antNum
+    antGain = np.append(1.0 + 0.0j, Vis[KERNEL_BL[0:antNum-1]])
     #
-	return np.append(0, solution), np.append(0, np.sqrt(np.diag(ptwp_inv)))
+    for iter_index in range(iterNum):
+        resid = Vis - (antGain[ant0] * antGain[ant1].conjugate())
+        print 'Iter %d: resid = %f' % (iter_index, np.sum(abs(resid)**2))
+        PTY = np.zeros(antNum - 1, dtype=complex)
+        for ant_index in range(1,antNum):
+            index0 = np.where(ant0 == ant_index)[0].tolist()
+            index1 = np.where(ant1 == ant_index)[0].tolist()
+            Y = np.zeros(blNum, dtype=complex)
+            Y[index0] = -1.0j* antGain[ant_index].conjugate()* antGain[ant1[index0]]
+            Y[index1] =  1.0j* antGain[ant_index]* antGain[ant0[index1]].conjugate()
+            PTY[ant_index - 1] += Y.dot(resid)
+        #
+        antPhs  = np.append(0, np.angle(antGain[1:antNum]) + PTP_inv.dot(PTY.real))
+        antGain = np.cos(antPhs) + 1.0j* np.sin(antPhs)
+    #
+    return antPhs
 #
 def MullerVector(Dx0, Dy0, Dx1, Dy1, Unity):
     P = np.array([[Unity,               Dx1.conjugate(),      Dx0,                  Dx0* Dx1.conjugate()],
@@ -630,18 +633,34 @@ def VisPA_solveDM(Vis, PA, Stokes):
 #
 def VisPA_solveD(Vis, PA, Stokes):
     PAnum, blNum = len(PA), Vis.shape[1]; antNum = Bl2Ant(blNum)[0]; PABLnum = PAnum* blNum
+    ant0, ant1 = np.array(ANT0[0:blNum]), np.array(ANT1[0:blNum])
     CS, SN = np.cos(2.0* PA), np.sin(2.0*PA)
     QCpUS = Stokes[1]*CS + Stokes[2]*SN
     UCmQS = Stokes[2]*CS - Stokes[1]*SN
-    Unity = np.ones(PAnum)
+    Unity = np.ones(PAnum); Zeroty = np.zeros(PAnum)
     resid = np.zeros(4* PABLnum, dtype=complex)
     resid[0:PABLnum]          = (Vis[0] - Unity - QCpUS).reshape(PABLnum)
     resid[PABLnum:2*PABLnum]  = (Vis[1] - UCmQS).reshape(PABLnum)
     resid[2*PABLnum:3*PABLnum]= (Vis[2] - UCmQS).reshape(PABLnum)
     resid[3*PABLnum:4*PABLnum]= (Vis[3] - Unity + QCpUS).reshape(PABLnum)
     #
-    pVis0pDx0 = UCmQS
-    pVis0pDx1 = UCmQS
+    P = np.zeros([4, antNum, 4, blNum, PAnum], dtype=complex)   # [(Dx0,Dy0,Dx1,Dy1), ant, (XX,XY,YX,YY), bl, PA]
+    for ant_index in range(antNum):
+        index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
+        P[0, ant_index, 0, index0] = UCmQS      # XX / Dx0
+        P[2, ant_index, 0, index1] = UCmQS      # XX / Dx1
+
+        P[1, ant_index, 1, index0] = Unity + QCpUS      # XY / Dy0
+        P[2, ant_index, 1, index1] = Unity - QCpUS      # XY / Dx1
+
+        P[0, ant_index, 2, index0] = Unity - QCpUS      # YX / Dx0
+        P[3, ant_index, 2, index1] = Unity + QCpUS      # YX / Dy1
+
+        P[2, ant_index, 3, index0] = UCmQS      # YX / Dx0
+        P[3, ant_index, 3, index1] = UCmQS      # YX / Dy1
+    #
+    PM = P.reshape(4*antNum, 4*blNum*PAnum)
+    PTP = PM.dot(PM.T)
     #def Dresid(D):
     #    antNum = len(D)/4; blNum = antNum* (antNum - 1) /2
     #    Dx = D[0:antNum] + (0.0+1.0j)* D[antNum:(2*antNum)]
