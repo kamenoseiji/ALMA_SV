@@ -412,18 +412,6 @@ def BlPhaseMatrix(antPhs):
     #
     return blphs_matrix[:,1:antNum]
 #
-"""
-def BlPhaseMatrix(antNum):
-    blNum = antNum* (antNum - 1) / 2
-    blphs_matrix = np.zeros([blNum, (antNum - 1)])
-    for bl_index in range(blNum):
-        ants = Bl2Ant(bl_index)
-        blphs_matrix[bl_index, (ants[0] - 1)] = 1
-        if(ants[1] > 0):
-            blphs_matrix[bl_index, (ants[1] - 1)] = -1
-    return blphs_matrix
-#
-"""
 def DxMatrix(antNum):
     blNum = antNum* (antNum - 1) /2
     Dx_matrix = np.zeros([blNum, antNum])
@@ -479,19 +467,48 @@ def ant2blamp(ant_amp, antamp_error):
 		bl_amp[bl_index] = sqrt(ant_amp[ants[0]] * ant_amp[ants[1]])
 		bl_amp_err[bl_index] = sqrt( antamp_error[ants[0]]* antamp_error[ants[0]] + antamp_error[ants[1]]* antamp_error[ants[1]])
 	return  bl_amp, bl_amp_err
-
-
-def clamp_solve(bl_amp, bl_error):
-	blnum  =  len(bl_amp)
-	antnum =  Bl2Ant(blnum)[0]		# Number of baselines and antennas
-	weight =  np.divide(1.0, np.multiply(bl_error, bl_error))
-	log_bl =  np.log(bl_amp)	# weights from standard error
-	p_matrix = BlAmpMatrix(antnum)									# Elements of the matrix
-	ptwp     = np.dot(p_matrix.T, np.dot(np.diag(weight), p_matrix))
-	ptwp_inv = scipy.linalg.inv(ptwp)
-	solution = np.exp(np.dot(ptwp_inv,  np.dot(p_matrix.T,  np.dot(np.diag(weight), log_bl))))
-	return solution, solution* np.sqrt(np.diag(ptwp_inv))
 #
+def logamp_solve(bl_amp):
+    blnum  =  len(bl_amp); log_bl =  np.log(bl_amp)
+    antNum =  Bl2Ant(blnum)[0]
+    ant0, ant1 = np.array(ANT0[0:blNum]), np.array(ANT1[0:blNum])
+    PTP_inv = ((2.0* antNum - 2.0)* np.diag(np.ones(antNum)) - 1.0) / (2.0* (antNum - 1.0)* (antNum - 2.0))
+    PTV = np.zeros(antNum)
+    for ant_index in range(antNum):
+        index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
+        PTV[ant_index] += np.sum(log_bl[index0]) + np.sum(log_bl[index1])
+    #
+    return np.exp(PTP_inv.dot(PTV))
+#
+def PTPmatrix(Gain):  # Gain is a vector of antenna-based gain amplitude (real)
+    antNum = len(Gain); normG = Gain.dot(Gain)
+    PTP = np.zeros([antNum, antNum]) + Gain
+    for ant_index in range(antNum): 
+        PTP[ant_index,:] *= Gain[ant_index]
+        PTP[ant_index, ant_index] = normG - Gain[ant_index]**2
+    #
+    return PTP
+#
+def clamp_solve(bl_amp, niter=2):
+    blnum  =  len(bl_amp)
+    antGain = logamp_solve(bl_amp); antNum = len(antGain)
+    ant0, ant1 = np.array(ANT0[0:blNum]), np.array(ANT1[0:blNum])
+    for iter_index in range(niter):
+        resid = bl_amp - antGain[ant0]* antGain[ant1]
+        y = np.zeros(antNum)
+        for ant_index in range(antNum):
+            index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
+            y[ant_index] += antGain[ant1[index0]].dot(resid[index0])
+            y[ant_index] += antGain[ant0[index1]].dot(resid[index1])
+        #
+        L = np.linalg.cholesky(PTPmatrix(antGain))
+        t = np.linalg.solve(L, y)
+        correction = np.linalg.solve(L.T, t)
+        antGain += correction; antGain = abs(antGain)
+    #
+    return antGain
+#
+
 def cldelay_solve(bl_delay):    # see http://qiita.com/kamenoseiji/items/782031a0ce8bbc1dc99c
     blNum = len(bl_delay); antNum = Bl2Ant(blNum)[0]
     ant0, ant1 = np.array(ANT0[0:blNum]), np.array(ANT1[0:blNum])
