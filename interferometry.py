@@ -585,7 +585,7 @@ def clphase_solve(Vis, iterNum = 2):
     #
     for iter_index in range(iterNum):
         resid = Vis - (antGain[ant0] * antGain[ant1].conjugate())
-        print 'Iter %d: resid = %f' % (iter_index, np.sum(abs(resid)**2))
+        # print 'Iter %d: resid = %f' % (iter_index, np.sum(abs(resid)**2))
         PTY = np.zeros(antNum - 1, dtype=complex)
         for ant_index in range(1,antNum):
             index0 = np.where(ant0 == ant_index)[0].tolist()
@@ -598,7 +598,7 @@ def clphase_solve(Vis, iterNum = 2):
         antPhs  = np.append(0, np.angle(antGain[1:antNum]) + PTP_inv.dot(PTY.real))
         antGain = np.cos(antPhs) + 1.0j* np.sin(antPhs)
     #
-    return antPhs
+    return antGain
 #
 def MullerVector(Dx0, Dy0, Dx1, Dy1, Unity):
     P = np.array([[Unity,               Dx1.conjugate(),      Dx0,                  Dx0* Dx1.conjugate()],
