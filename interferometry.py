@@ -480,7 +480,7 @@ def logamp_solve(bl_amp):
     #
     return np.exp(PTP_inv.dot(PTV))
 #
-def PTPmatrix(Gain):  # Gain is a vector of antenna-based gain amplitude (real)
+def ATAmatrix(Gain):  # Gain is a vector of antenna-based gain amplitude (real)
     antNum = len(Gain); normG = Gain.dot(Gain)
     PTP = np.zeros([antNum, antNum]) + Gain
     for ant_index in range(antNum): 
@@ -488,6 +488,24 @@ def PTPmatrix(Gain):  # Gain is a vector of antenna-based gain amplitude (real)
         PTP[ant_index, ant_index] = normG - Gain[ant_index]**2
     #
     return PTP
+#
+def CTCmatrix(Gain):  # Gain is a vector of antenna-based gain amplitude (imag)
+    antNum = len(Gain); normG = Gain.dot(Gain)
+    PTP = np.zeros([antNum, antNum]) + Gain
+    for ant_index in range(antNum): 
+        PTP[ant_index,:] *= (-Gain[ant_index])
+        PTP[ant_index, ant_index] = normG - Gain[ant_index]**2
+    #
+    return PTP
+#
+def ATBmatrix(Gain):  # Gain is a vector of antenna-based complex gain
+    antNum = len(Gain); normG = Gain.real.dot(Gain.imag)
+    PTP = np.zeros([antNum, antNum]) + Gain.imag
+    for ant_index in range(antNum): 
+        PTP[ant_index,:] = Gain.real[ant_index]* Gain.imag + Gain.imag[ant_index]* Gain.real
+        PTP[ant_index, ant_index] = 0.0
+    #
+    return PTP[1:antNum]
 #
 def clamp_solve(bl_amp, niter=2):
     blnum  =  len(bl_amp)
@@ -501,7 +519,7 @@ def clamp_solve(bl_amp, niter=2):
             y[ant_index] += antGain[ant1[index0]].dot(resid[index0])
             y[ant_index] += antGain[ant0[index1]].dot(resid[index1])
         #
-        L = np.linalg.cholesky(PTPmatrix(antGain))
+        L = np.linalg.cholesky(ATAmatrix(antGain))
         t = np.linalg.solve(L, y)
         correction = np.linalg.solve(L.T, t)
         antGain += correction; antGain = abs(antGain)
@@ -1351,33 +1369,12 @@ def plotAmphi(fig, freq, spec):
 	return
 #
 def PMatrix(CompSol):
-    antNum = len(CompSol)
-    PM = np.zeros([2*antNum-1, 2*antNum-1])
-    SumSqr = CompSol.dot(CompSol.conjugate()).real
-    for ant_index in range(antNum):
-        PM[ant_index, ant_index] = SumSqr - abs(CompSol[ant_index])**2      # Upper left diagnoal
-        for ant_index2 in range(ant_index+1, antNum):                       # Upper left non-diagonal
-            PM[ant_index, ant_index2] = CompSol[ant_index].real * CompSol[ant_index2].real - CompSol[ant_index].imag * CompSol[ant_index2].imag
-            PM[ant_index2, ant_index] = PM[ant_index, ant_index2]
-        #
-        #
-    #
-    for ant_index in range(1, antNum):
-        PM[antNum + ant_index - 1, antNum + ant_index - 1] = PM[ant_index, ant_index]   # Lower right diagnal
-        for ant_index2 in range(ant_index+1, antNum):                                   # Lower right non-diagonal
-            PM[antNum + ant_index - 1, antNum + ant_index2 - 1] = CompSol[ant_index].imag * CompSol[ant_index2].imag - CompSol[ant_index].real * CompSol[ant_index2].real
-            PM[antNum + ant_index2 - 1, antNum + ant_index - 1] = PM[antNum + ant_index - 1, antNum + ant_index2 - 1]
-        #
-        #   Lower left diagnoal = 0
-        for ant_index2 in range(ant_index+1, antNum):                       # Lower left non-diagonal
-            PM[antNum + ant_index - 1, ant_index2] = CompSol[ant_index].imag* CompSol[ant_index2].real + CompSol[ant_index].real* CompSol[ant_index2].imag
-        for ant_index2 in range(0, ant_index):                              # Upper right non-diagonal
-            PM[antNum + ant_index - 1, ant_index2] = CompSol[ant_index].imag* CompSol[ant_index2].real + CompSol[ant_index].real* CompSol[ant_index2].imag
-        #
-    #
-    for ant_index in range(antNum):  # Upper right
-        PM[ant_index, range(antNum, 2*antNum-1)] = PM[range(antNum, 2*antNum-1), ant_index]
-    #
+    antNum = len(CompSol); matSize = 2*antNum-1
+    PM = np.zeros([matSize, matSize])
+    PM[0:antNum][:,0:antNum]   = ATAmatrix(CompSol.real) + CTCmatrix(CompSol.imag)
+    PM[antNum:matSize][:,antNum:matSize] = ATAmatrix(CompSol.imag)[1:antNum][:,1:antNum] + CTCmatrix(CompSol.real)[1:antNum][:,1:antNum]
+    PM[antNum:matSize][:,0:antNum]   = ATBmatrix(CompSol)
+    PM[0:antNum][:,antNum:matSize]   = PM[antNum:matSize][:,0:antNum].T
     return PM
 #
 def PTdotR(CompSol, Cresid):
