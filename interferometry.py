@@ -672,30 +672,38 @@ def VisPA_solveD(Vis, PA, Stokes):
     CS, SN = np.cos(2.0* PA), np.sin(2.0*PA)
     QCpUS = Stokes[1]*CS + Stokes[2]*SN
     UCmQS = Stokes[2]*CS - Stokes[1]*SN
-    Unity = np.ones(PAnum); Zeroty = np.zeros(PAnum)
-    resid = np.zeros(4* PABLnum, dtype=complex)
-    resid[0:PABLnum]          = (Vis[0] - Unity - QCpUS).reshape(PABLnum)
-    resid[PABLnum:2*PABLnum]  = (Vis[1] - UCmQS).reshape(PABLnum)
-    resid[2*PABLnum:3*PABLnum]= (Vis[2] - UCmQS).reshape(PABLnum)
-    resid[3*PABLnum:4*PABLnum]= (Vis[3] - Unity + QCpUS).reshape(PABLnum)
-    #
-    P = np.zeros([4, antNum, 4, blNum, PAnum], dtype=complex)   # [(Dx0,Dy0,Dx1,Dy1), ant, (XX,XY,YX,YY), bl, PA]
-    for ant_index in range(antNum):
+    Unity = Stokes[0]* np.zeros(PAnum)
+    ssqQCpUS = QCpUS.dot(QCpUS)
+    #-------- <XX*> to determine Dx (initial value)
+    PTP_inv = np.zeros([2*antNum-1, 2*antNum-1])
+    PTP_inv[0:antNum][:,0:antNum] = ((2.0* antNum - 2.0)* np.diag(np.ones(antNum)) - 1.0) / (2.0* (antNum - 1.0)* (antNum - 2.0))
+    PTP_inv[antNum:(2*antNum-1)][:,antNum:(2*antNum-1)] = (np.diag(np.ones(antNum-1)) + 1.0) / antNum
+    PTP_inv /= ssqQCpUS
+    PTY = np.zeros([2*antNum-1])
+    resid = Vis[0] - (1.0 + QCpUS)
+    for ant_index in range(1,antNum):
         index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
-        P[0, ant_index, 0, index0] = UCmQS      # XX / Dx0
-        P[2, ant_index, 0, index1] = UCmQS      # XX / Dx1
-
-        P[1, ant_index, 1, index0] = Unity + QCpUS      # XY / Dy0
-        P[2, ant_index, 1, index1] = Unity - QCpUS      # XY / Dx1
-
-        P[0, ant_index, 2, index0] = Unity - QCpUS      # YX / Dx0
-        P[3, ant_index, 2, index1] = Unity + QCpUS      # YX / Dy1
-
-        P[2, ant_index, 3, index0] = UCmQS      # YX / Dx0
-        P[3, ant_index, 3, index1] = UCmQS      # YX / Dy1
+        PTY[ant_index] = np.sum(resid[index0].real.dot(QCpUS)) + np.sum(resid[index1].real.dot(QCpUS))
+        PTY[antNum + ant_index - 1] = np.sum(resid[index0].imag.dot(QCpUS)) - np.sum(resid[index1].imag.dot(QCpUS))
     #
-    PM = P.reshape(4*antNum, 4*blNum*PAnum)
-    PTP = PM.dot(PM.T)
+    index1 = np.where(ant1 == 0)[0].tolist(); PTY[0] = np.sum(resid[index1].real.dot(QCpUS))
+    Solution = PTP_inv.dot(PTY); Dx = Solution[0:antNum] + (1.0j)* np.append(0.0, Solution[antNum:2*antNum-1])
+    #-------- <YY*> to determine Dy (initial value)
+    resid = Vis[3] - (1.0 - QCpUS)
+    for ant_index in range(1,antNum):
+        index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
+        PTY[ant_index] = np.sum(resid[index0].real.dot(QCpUS)) + np.sum(resid[index1].real.dot(QCpUS))
+        PTY[antNum + ant_index - 1] = np.sum(resid[index0].imag.dot(QCpUS)) - np.sum(resid[index1].imag.dot(QCpUS))
+    #
+    index1 = np.where(ant1 == 0)[0].tolist(); PTY[0] = np.sum(resid[index1].real.dot(QCpUS))
+    Solution = PTP_inv.dot(PTY); Dy = Solution[0:antNum] + (1.0j)* np.append(0.0, Solution[antNum:2*antNum-1])
+    #-------- <XY*> and <YX*> to determine Dx and Dy
+    resid = Vis[1] - UCmQS
+    for ant_index in range(0,antNum):
+        index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
+        reXYreDx[ant_index][index0] = Unity - QCpUS + Dy[ant_index].real* UCmQS
+    return Dx, Dy
+    """
     #def Dresid(D):
     #    antNum = len(D)/4; blNum = antNum* (antNum - 1) /2
     #    Dx = D[0:antNum] + (0.0+1.0j)* D[antNum:(2*antNum)]
@@ -710,6 +718,7 @@ def VisPA_solveD(Vis, PA, Stokes):
     ##
     #fit = scipy.optimize.minimize(Dresid, x0=np.zeros(4*antNum), method="tnc")['x']
     return fit[0:antNum] + (0.0+1.0j)*fit[antNum:(2*antNum)], fit[(2*antNum):(3*antNum)] + (0.0+1.0j)*fit[(3*antNum):(4*antNum)]
+    """
 #
 def Vis2solveDDD(Vis, PS):
     blNum  = Vis.shape[1]; antNum = Bl2Ant(blNum)[0]                   # (I, Q, U, V)
