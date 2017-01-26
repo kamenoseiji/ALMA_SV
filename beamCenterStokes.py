@@ -118,6 +118,17 @@ for spw_index in range(spwNum):
     #
     #-------- Antenna-based on-axis D-term (chAvg)
     Dx, Dy = VisPA_solveD(caledVis, PA, np.array([1.0, solution[0], solution[1], 0.0]))
+    StokesVis = np.zeros([4, blNum, PAnum])
+    for PA_index in range(PAnum):
+        PS = InvPAMatrix(PA[PA_index])
+        for bl_index in range(blNum):
+            Minv = InvMullerMatrix(Dx[ant1[bl_index]], Dy[ant1[bl_index]], Dx[ant0[bl_index]], Dy[ant0[bl_index]])
+            StokesVis[:, bl_index, PA_index] = np.dot(PS, np.dot(Minv, caledVis[:,bl_index][:,PA_index])).real
+        #
+    #
+    solution[0], solution[1] = np.mean(StokesVis[1]), np.mean(StokesVis[2])
+    solerr[0],   solerr[1]   = np.std(StokesVis[1]) / np.sqrt(PAnum* blNum - 1), np.std(StokesVis[2]) / np.sqrt(PAnum* blNum - 1)
+    text_sd = '  Q/I= %6.3f+-%6.4f  U/I= %6.3f+-%6.4f EVPA = %6.2f deg' % (solution[0], solerr[0], solution[1], solerr[1], np.arctan2(solution[1],solution[0])*90.0/pi); print text_sd
     #-------- Plot
     if np.mean(np.cos(PA)) < 0.0: PA = np.arctan2(-np.sin(PA), -np.cos(PA)) +  np.pi
     PArange = np.arange(min(PA), max(PA), 0.01);  CSrange, SNrange = np.cos(2.0*PArange), np.sin(2.0*PArange)
