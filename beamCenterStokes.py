@@ -179,7 +179,7 @@ for ant_index in range(antNum):
     figAnt = plt.figure(ant_index, figsize = (11, 8))
     figAnt.suptitle(prefixList[0] + ' ' + antList[antMap[ant_index]])
     figAnt.text(0.45, 0.05, 'Frequency [GHz]')
-    figAnt.text(0.03, 0.45, 'D-term Spectra (Amplitude and Phase)', rotation=90)
+    figAnt.text(0.03, 0.45, 'D-term Spectra (Real and Imaginary)', rotation=90)
 #
 #-------- Plot D-spec
 for ant_index in range(antNum):
