@@ -88,6 +88,20 @@ def InvMullerMatrix(Dx0, Dy0, Dx1, Dy1):
         [-Dy0, Dy0* Dx1.conjugate(), 1.0, -Dx1.conjugate()],
         [Dy0* Dy1.conjugate(), -Dy0, -Dy1.conjugate(), 1.0]]) / ((1.0 - Dx0* Dy0)*(1.0 - Dx1.conjugate()* Dy1.conjugate()))
 #
+def MullerVector(Dx0, Dy0, Dx1, Dy1, Unity):
+    P = np.array([[Unity,               Dx1.conjugate(),      Dx0,                  Dx0* Dx1.conjugate()],
+                  [Dy1.conjugate(),     Unity,                Dx0* Dy1.conjugate(), Dx0                 ],
+                  [Dy0,                 Dx1.conjugate()* Dy0, Unity,                Dx1.conjugate()     ],
+                  [Dy0*Dy1.conjugate(), Dy0,                  Dy1.conjugate(),      Unity               ]]) #.transpose(2,0,1)
+    return P
+#
+def InvMullerVector(Dx0, Dy0, Dx1, Dy1, Unity):
+    return np.array([
+        [Unity, -Dx1.conjugate(), -Dx0, Dx0* Dx1.conjugate()],
+        [-Dy1.conjugate(), Unity, Dx0* Dy1.conjugate(), -Dx0],
+        [-Dy0, Dy0* Dx1.conjugate(), Unity, -Dx1.conjugate()],
+        [Dy0* Dy1.conjugate(), -Dy0, -Dy1.conjugate(), Unity]]) / ((Unity - Dx0* Dy0)*(Unity - Dx1.conjugate()* Dy1.conjugate()))
+#
 def PAMatrix(PA):
     cs = math.cos(2.0* PA)
     sn = math.sin(2.0* PA)
@@ -105,6 +119,15 @@ def InvPAMatrix(PA):
         [ cs, -sn, -sn, -cs],
         [ sn,  cs,  cs, -sn],
         [0.0,-1.0j,1.0j, 0.0]])
+#
+def InvPAVector(PA, Unity):
+    cs, sn = np.cos(2.0* PA), np.sin(2.0* PA)
+    Zeroty = 0.0* Unity
+    return 0.5*np.array([
+        [Unity, Zeroty, Zeroty, Unity],
+        [ cs, -sn, -sn, -cs],
+        [ sn,  cs,  cs, -sn],
+        [Zeroty,-1.0j*Unity,1.0j*Unity, Zeroty]])
 #
 def AzEl2PA(az, el, lat=-23.029/180.0*pi): # Azimuth, Elevation, Latitude (default=ALMA) in [rad]
     cos_lat = np.cos(lat)
@@ -617,13 +640,6 @@ def clphase_solve(Vis, iterNum = 2):
         antGain = np.cos(antPhs) + 1.0j* np.sin(antPhs)
     #
     return antGain
-#
-def MullerVector(Dx0, Dy0, Dx1, Dy1, Unity):
-    P = np.array([[Unity,               Dx1.conjugate(),      Dx0,                  Dx0* Dx1.conjugate()],
-                  [Dy1.conjugate(),     Unity,                Dx0* Dy1.conjugate(), Dx0                 ],
-                  [Dy0,                 Dx1.conjugate()* Dy0, Unity,                Dx1.conjugate()     ],
-                  [Dy0*Dy1.conjugate(), Dy0,                  Dy1.conjugate(),      Unity               ]]) #.transpose(2,0,1)
-    return P
 #
 def dMdDVec(Dx1, Dy1, Unity):
     return np.array([

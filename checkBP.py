@@ -58,7 +58,7 @@ for spw_index in range(spwNum):
 #
 #-------- Plots
 if BPPLOT:
-    pp = PdfPages('BP_' + prefix + '_' + '-REF' + antList[UseAnt[refantID]] + '_Scan' + `BPscan` + '.pdf')
+    pp = PdfPages('BP_' + prefix + '_REF' + antList[UseAnt[refantID]] + '_Scan' + `BPscan` + '.pdf')
     plotMax = 1.5* np.median(abs(BP_ant))
     #-------- Prepare Plots
     for ant_index in range(UseAntNum):
