@@ -138,7 +138,7 @@ for spw_index in range(spwNum):
         #GainX, GainY = polariGain(VisSpec[0][ch_index], VisSpec[3][ch_index], PA, solution[0], solution[1])
         #Gain = np.array([GainX,  GainY])
         #VisSpec[:,ch_index] /= (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
-        DxSpec[:,ch_index], DySpec[:,ch_index] = VisPA_solveD(VisSpec[ch_index], PA, np.array([1.0, solution[0], solution[1], 0.0]))
+        DxSpec[:,ch_index], DySpec[:,ch_index] = VisPA_solveD(VisSpec[ch_index], PA, np.array([1.0, solution[0], solution[1], 0.0]), Dx, Dy)
         progress = (ch_index + 1.0) / chNum
         sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
     #
