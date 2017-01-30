@@ -691,7 +691,6 @@ def VisPA_solveD(Vis, PA, Stokes, Dx=[], Dy=[]):
     ssqQCpUS = QCpUS.dot(QCpUS)     # sum( QCpUS^2 )
     sumQCpUS = np.sum(QCpUS)        # sum( QCpUS )
     if len(Dx) == 0 :                    # Start over the initial D-term value
-        print 'Start Over'
         #-------- <XX*> to determine Dx (initial value)
         PTP_inv = np.zeros([2*antNum-1, 2*antNum-1])
         PTP_inv[0:antNum][:,0:antNum] = ((2.0* antNum - 2.0)* np.diag(np.ones(antNum)) - 1.0) / (2.0* (antNum - 1.0)* (antNum - 2.0))
@@ -1543,48 +1542,20 @@ def XXYY2QU(PA, Vis):       # <XX*>, <YY*> to determine Q and U
     W = np.ones(timeNum) / (np.var(Vis[0].imag) + np.var(Vis[1].imag))   # weight
     XX_YY = Vis[0].real - Vis[1].real
     P = np.array(np.c_[cosPA2, sinPA2]).T
-    return scipy.linalg.solve(np.dot(P, np.dot(np.diag(W), P.T)), np.dot(P, W* XX_YY))
+    return 0.5* scipy.linalg.solve(np.dot(P, np.dot(np.diag(W), P.T)), np.dot(P, W* XX_YY))
 #
 def XY2Phase(PA, Q, U, Vis):       # XY*, YX* to determine XYphase
     UC_QS = U* np.cos(2.0* PA) - Q* np.sin(2.0* PA)
     correlation = np.dot(Vis[0], UC_QS) + np.dot(Vis[1].conjugate(), UC_QS)
     return np.angle(correlation)
 #
-def XY2Stokes(PA, Vis, solution):       # XY*, YX* to determine Q, U, XYphase, Dx, Dy
-    #-------- Least-Square fit for polarizatino parameters (Q, U, XYphase, Dx, Dy)
-    timeNum = len(Vis[0])
-    Unity, Zeroty = np.ones([timeNum]), np.zeros([timeNum])
+def XY2Stokes(PA, Vis):            # XY*, YX* to determine Q, U
+    UCmQS = 0.5* (Vis[0] + Vis[1]).real
     sinPA2, cosPA2 = np.sin(2.0*PA), np.cos(2.0*PA)
-    P = np.zeros([7, 4* timeNum])       # 7 parameters to solve, 4 (ReXY, ImXY, ReYX, ImYX) * timeNum measurements
-    W = np.ones(4* timeNum)/ (np.var(Vis[0].imag + Vis[1].imag))
-    #-------- Iteration loop
-    for index in range(10):
-        sinPhi, cosPhi = np.sin(solution[2]), np.cos(solution[2])
-        UC_QS = cosPA2* solution[1] - sinPA2* solution[0]   # U cosPA2 - Q sinPA2
-        modelVis = np.r_[
-             cosPhi* UC_QS + solution[3],       # Re XY*
-             sinPhi* UC_QS + solution[4],       # Im XY*
-             cosPhi* UC_QS + solution[5],       # Re YX*
-            -sinPhi* UC_QS + solution[6] ]      # Im YX*
-        vecVis = np.r_[ Vis[0].real, Vis[0].imag, Vis[1].real, Vis[1].imag ]
-        residual = vecVis - modelVis
-        #-------- Partial matrix
-        #                      ReXY             ImXY             ReYX             ImYX
-        P[0] = np.r_[-sinPA2* cosPhi, -sinPA2* sinPhi, -sinPA2* cosPhi,  sinPA2* sinPhi]    # dQ
-        P[1] = np.r_[ cosPA2* cosPhi,  cosPA2* sinPhi,  cosPA2* cosPhi, -cosPA2* sinPhi]    # du
-        P[2] = np.r_[-sinPhi* UC_QS, cosPhi* UC_QS, -sinPhi* UC_QS, -cosPhi* UC_QS]         # dPhi
-        P[3] = np.r_[ Unity, Zeroty,  Zeroty,  Zeroty]  # Leakage
-        P[4] = np.r_[Zeroty,  Unity,  Zeroty,  Zeroty]  # Leakage
-        P[5] = np.r_[Zeroty, Zeroty,   Unity,  Zeroty]  # Leakage
-        P[6] = np.r_[Zeroty, Zeroty,  Zeroty,   Unity]  # Leakage
-        PTWP_inv = scipy.linalg.inv(np.dot(P, np.dot(np.diag(W), P.T)))
-        correction = np.dot( PTWP_inv, np.dot (P, W* residual))
-        # print 'Iteration %d : correction = %e' % (index, np.dot(correction,correction))
-        solution   = solution + correction
-        if np.dot(correction,correction) < 1.0e-15: break
-    #
-    solution[2] = np.arctan2( np.sin(solution[2]), np.cos(solution[2]) )    # Remove 2pi ambiguity
-    return(solution, np.sqrt(np.diag(PTWP_inv)))
+    SS, CC, SC, SY, CY = sinPA2.dot(sinPA2), cosPA2.dot(cosPA2), sinPA2.dot(cosPA2), sinPA2.dot(UCmQS), cosPA2.dot(UCmQS)
+    PTP_inv = np.array([[CC,SC],[SC,SS]]) / (SS*CC - SC**2)
+    QU = PTP_inv.dot( np.array([-SY, CY]) )
+    return QU[0], QU[1]
 #
 #-------- GridPoint
 def GridPoint( value, samp_x, samp_y, point_x, point_y, kernel ):
