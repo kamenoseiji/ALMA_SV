@@ -36,6 +36,7 @@ for file_index in range(fileNum):
         #
         print '---- Scan %d : %d tracking antennas' % (scan, len(trkAnt))
     #
+    #scanList = [2]
     scansFile.append(scanList)
 #
 antMap = [refAntID] + list(trkAntSet - set([refAntID]))
@@ -170,8 +171,10 @@ for spw_index in range(spwNum):
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.Ant.npy', antList[antMap])
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.Azel.npy', np.array([mjdSec, Az, El, PA]))
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.QUXY.npy', QUsol )
-    np.save(prefixList[0] + '-SPW' + `spw` + '-DxSpec.npy', DxSpec)
-    np.save(prefixList[0] + '-SPW' + `spw` + '-DySpec.npy', DySpec)
+    for ant_index in range(antNum):
+        np.save(prefixList[0] + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DxSpec.npy', np.array([FreqList[spw_index], DxSpec[ant_index]]))
+        np.save(prefixList[0] + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DySpec.npy', np.array([FreqList[spw_index], DySpec[ant_index]]))
+    #
     plt.close('all')
     DxList, DyList = DxList + [DxSpec], DyList + [DySpec]
 #

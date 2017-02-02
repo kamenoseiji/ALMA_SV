@@ -130,9 +130,9 @@ def InvPAVector(PA, Unity):
         [Zeroty,-1.0j*Unity,1.0j*Unity, Zeroty]])
 #
 def AzEl2PA(az, el, lat=-23.029/180.0*pi): # Azimuth, Elevation, Latitude (default=ALMA) in [rad]
-    cos_lat = np.cos(lat)
+    cos_lat, sin_lat = np.cos(lat), np.sin(lat)
     #return np.arctan( -cos_lat* np.sin(az) / (np.sin(lat)* np.cos(el) - cos_lat* np.sin(el)* np.cos(az)) )
-    return np.arctan2( -cos_lat* np.sin(az), (np.sin(lat)* np.cos(el) - cos_lat* np.sin(el)* np.cos(az)) )
+    return np.arctan2( -cos_lat* np.sin(az), (sin_lat* np.cos(el) - cos_lat* np.sin(el)* np.cos(az)) )
 #
 #-------- Greenwidge Mean Sidereal Time
 def mjd2gmst( mjd, ut1utc ):        # mjd in [day], ut1utc in [sec]
@@ -180,10 +180,14 @@ def ecliptic2radec( longitude, latitude, mjd ):          # ecliptic -> J2000, mj
     return np.arctan2(Yb, Xb), np.arcsin(Zb)
 #
 #======== MS data interface
-def AzElMatch( refTime, scanTime, AntID, targetAnt, thresh, Az, El ):
+def AzElMatch( refTime, scanTime, AntID, targetAnt, Az, El ):
     antTimeIndex = np.where(AntID == targetAnt)[0].tolist()
-    time_pointer = np.array(antTimeIndex)[np.where( abs(scanTime[antTimeIndex] - refTime) < thresh)[0].tolist()].tolist()
-    return np.median(Az[time_pointer]), np.median(El[time_pointer])
+    timeNum = len(refTime)
+    az, el = np.zeros(timeNum), np.zeros(timeNum)
+    for time_index in range(timeNum):
+        time_ptr = np.argmin( abs(scanTime[antTimeIndex] - refTime[time_index]) )
+        az[time_index], el[time_index] = np.median(Az[time_ptr]), np.median(El[time_ptr])
+    return az, el
 #
 def GetAntD(antName):
     antD = 12.0
@@ -398,8 +402,8 @@ def antRefScan( msfile, timeRange ):    # Check scanning and tracking antennas
     Time, AntID, Offset = GetAzOffset(msfile)
     for ant_index in range(antNum):
         time_index = np.where( (AntID == ant_index) )[0]
-        time_index = time_index[np.where( (Time[time_index] >= timeRange[0]))[0]]
-        time_index = time_index[np.where( (Time[time_index] <= timeRange[1]))[0]]
+        time_index = time_index[np.where( (Time[time_index] - timeRange[0]) > -24e-3)[0]]
+        time_index = time_index[np.where( (Time[time_index] - timeRange[1]) <  24e-3)[0]]
         scanRange[ant_index] = max( Offset[0, time_index] ) - min( Offset[0, time_index] )
     #
     trkAntIndex  = np.where( scanRange == 0.0 )[0]
@@ -831,9 +835,13 @@ def Vis2solveDS(Vis, DtX, DtY, PS ):
     fit = scipy.optimize.minimize(DTresid, x0=np.zeros(4), method="tnc")['x']
     return fit[0]+(0.0+1.0j)*fit[1], fit[2]+(0.0+1.0j)*fit[3]
 #
+def TransferD(Vis, DtX, DtY, PS ):
+    PTP = np.zeros([4,4])
+    PTP[0,0 = PS[2] 
+#
+
 def Vis2solveD(Vis, DtX, DtY, PS ):
     trkAntNum = len(DtX)  # Number of tracking antennas
-    #weight = np.r_[0.1*np.ones(trkAntNum), np.ones(trkAntNum), np.ones(trkAntNum), 0.1*np.ones(trkAntNum), 0.1*np.ones(trkAntNum), np.ones(trkAntNum), np.ones(trkAntNum), 0.1*np.ones(trkAntNum)]
     weight = np.ones(8* trkAntNum)
     Dx, Dy = 0.0 + 0.0j, 0.0 + 0.0j
     Unity = np.ones(trkAntNum)
@@ -856,7 +864,9 @@ def Vis2solveD(Vis, DtX, DtY, PS ):
             np.r_[Zeros, Zeros, -dVis[:, 2].imag, -dVis[:, 3].imag, Zeros, Zeros, dVis[:, 2].real, dVis[:, 3].real]]
         #
         tPWP = np.dot(P.T, np.dot(np.diag(weight), P))
-        correction = scipy.linalg.solve( tPWP, np.dot(P.T, weight* np.r_[residVis.real, residVis.imag]))
+        L = np.linalg.cholesky(tPWP)
+        t = np.linalg.solve(L, np.dot(P.T, weight* np.r_[residVis.real, residVis.imag]))
+        correction = np.linalg.solve( L.T, t )
         Dx += (correction[0] + 1.0j*correction[1])
         Dy += (correction[2] + 1.0j*correction[3])
         # print 'Iter%d : Residual = %e' % (loop_index, np.dot(np.r_[residVis.real, residVis.imag], np.r_[residVis.real, residVis.imag]))
@@ -1042,7 +1052,7 @@ def BPtable(msfile, spw, BPScan, blMap, blInv):   #
         BPCaledXYSpec = np.ones(chNum, dtype=complex)
         XYdelay = 0.0   # No XY correlations
     #
-    return BP_ant, BPCaledXYSpec, XYdelay
+    return BP_ant, BPCaledXYSpec, XYdelay, Gain
 #
 def bpCal(spec, BP0, BP1):      # spec[blNum, chNum, timeNum]
     blnum, chNum, timeNum = len(spec), len(spec[0]), len(spec[0,0])

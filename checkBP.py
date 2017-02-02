@@ -37,7 +37,7 @@ print '---Generating antenna-based bandpass table'
 BPList, XYList, XYdelayList = [], [], []
 spwNum = len(spw)
 for spw_index in spw:
-    BP_ant, XY_BP, XYdelay = BPtable(msfile, spw_index, BPscan, blMap, blInv)
+    BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPscan, blMap, blInv)
     BPList = BPList + [BP_ant]
     XYList = XYList + [XY_BP]
     XYdelayList = XYdelayList + [XYdelay]
