@@ -1,6 +1,7 @@
 execfile(SCR_DIR + 'interferometry.py')
-from scipy.constants import constants
-from scipy.interpolate import UnivariateSpline
+import sys
+#from scipy.constants import constants
+#from scipy.interpolate import UnivariateSpline
 ALMA_lat = -23.029/180.0*pi     # ALMA AOS Latitude
 #
 #-------- For Plot
@@ -49,21 +50,30 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
 # scnAnt  : (eg.) [33,3,38,...]                             : subset of antID for scanning antennas
 #----------------------------------------- Procedures
 msfile = wd + prefix + '.ms'
-BPantList, BP_ant, XYdelay, solution = np.load(BPprefix + '-REF' + refantName + '.Ant.npy'), np.load(wd + BPfile), np.load(wd + XYdelayfile), np.load(wd + QUXYfile)
-GYtwiddle = np.exp( (0.0 + 1.0j)* solution[2])
-if QUmodel: CalQ, CalU = solution[0], solution[1]
+antList = GetAntName(msfile); antNum = len(antList); blNum = antNum* (antNum - 1)/2
+flagAnt = indexList(antFlag, antList)
+UseAnt = sort(list(set(range(antNum)) - set(flagAnt))).tolist()
+UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
+print '-- Loading Bandpass table %s SPW=%d ...' % (prefix, spw)
+BPpath = BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'
+XYpath = BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy'
+QUpath = QUprefix + '-SPW' + `spw` + '-' + refantName +'.QUXY.npy'
+if not os.path.exists(BPpath): sys.exit('No BP table [%s]' % (BPpath))
+if not os.path.exists(XYpath): sys.exit('No XY table [%s]' % (XYpath))
+if not os.path.exists(QUpath): sys.exit('No QU table [%s]' % (QUpath))
+refAntID = np.where(antList == refantName)[0][0]
+#----------------------------------------- Load BP tables
+BPantList = np.load(BPprefix + '-REF' + refantName + '.Ant.npy')
+BP_ant, XYspec, QUsol = np.load(BPpath), np.load(XYpath), np.load(QUpath)
+if QUmodel: CalQ, CalU = QUsol[0], QUsol[1]
 mjdSec, Az, El, dAz, dEl = np.ones([0]), np.ones([0]), np.ones([0]), np.ones([0]), np.ones([0])
 chNum, chWid, Freq = GetChNum(msfile, spw); Freq = Freq* 1.0e-9
-##-------- Antenna List
-antList = GetAntName(msfile)
-flagAnt = indexList(antFlag, antList)
+#-------- Antenna List
 interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw, scan); timeNum = len(timeStamp)
 trkAnt, scnAnt, scanTime, AzElOffset = antRefScan(msfile, [min(timeStamp), max(timeStamp)])
 trkAnt, scnAnt  = list(set(trkAnt) - set(flagAnt)), list(set(scnAnt) - set(flagAnt))
-if refantName not in antList[trkAnt]:
-    print refantName + ' does not exist in this MS.'
-    sys.exit()
-#
+if refantName not in antList[trkAnt]: sys.exit('%s does not exist in this MS.' % refantName)
+#-------- Tracking and Scanning antennas
 refantID = np.where( antList == refantName)[0][0]
 trkAntMap = [refantID] + np.array(trkAnt)[range(trkAnt.index(refantID))].tolist() + np.array(trkAnt)[range(trkAnt.index(refantID)+1, len(trkAnt))].tolist()
 antMap = trkAntMap + scnAnt
@@ -73,120 +83,88 @@ blMap, blInv = range(blNum), [False]* blNum
 #-------- Baseline Indexing
 ant0, ant1, antWeight = ANT0[0:blNum], ANT1[0:blNum], np.ones([antNum])
 antWeight[range(trkAntNum, antNum)] = 0.5
-for bl_index in range(blNum):    blMap[bl_index], blInv[bl_index] = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
+for bl_index in range(blNum): blMap[bl_index], blInv[bl_index] = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
 blWeight = antWeight[ant0]* antWeight[ant1]
+#----------------------------------------- Load D-term tables
+print '-- Loading D-term table %s SPW=%d ...' % (prefix, spw)
+DxList, DyList = [], []
+for ant_index in range(antNum):
+    Dxpath = Dprefix + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DxSpec.npy'
+    Dypath = Dprefix + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DySpec.npy'
+    DxList = DxList+[np.load(Dxpath)[1]]
+    DyList = DyList+[np.load(Dypath)[1]]
+#
+Dx, Dy = np.array(DxList), np.array(DyList)
 #-------- BP table
 BP_ant = BP_ant[indexList(antList[antMap], BPantList)]
+BP_ant[:,1] *= XYspec
 polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
+BP_bl = BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate()
 #-------- scan pattern
 AntD = np.zeros([antNum])
 for ant_index in range(antNum): AntD[ant_index] = GetAntD(antList[antMap[ant_index]])
-scanTime, AntID, AZ, EL = GetAzEl(msfile)
+scanTime, AntID, az, el = GetAzEl(msfile)
 azelTime_index = np.where( AntID == refantID )[0].tolist()
 timeThresh = np.median( np.diff( scanTime[azelTime_index]))
 FWHM = GetFWHM(msfile, spw, AntD)      # FWHM in arcsec
 centerIndex = scanThresh(msfile, scnAnt[0], FWHM[scnAnt[0]]/10.0); centerTime = scanTime[centerIndex]
 matchNum  = np.zeros([timeNum])
-for time_index in range(timeNum):
-    matchNum[time_index] = timeMatch(timeStamp[time_index], centerTime, np.median(interval))
-    scanAz, scanEl = AzElMatch(timeStamp[time_index], scanTime, AntID, refantID, timeThresh, AZ, EL)
-    diffAz, diffEl = AzElMatch(timeStamp[time_index], scanTime, AntID, scnAnt[0], timeThresh, AzElOffset[0], AzElOffset[1])
-    Az, El = np.append(Az, scanAz), np.append(El, scanEl)
-    dAz, dEl = np.append(dAz, diffAz), np.append(dEl, diffEl) 
-#
-onAxisIndex = np.where( matchNum > 0 )[0].tolist()
+Az, El = AzElMatch(timeStamp, scanTime, AntID, refantID, az, el)
+dAz, dEl = AzElMatch(timeStamp, scanTime, AntID, scnAnt[0], AzElOffset[0], AzElOffset[1])
+PA = AzEl2PA(Az, El, ALMA_lat) + BANDPA; PAnum = len(PA)
+PA = np.arctan2( np.sin(PA), np.cos(PA))
 #-------- Visibility self-cal
 print '-- Loading visibility data %s SPW=%d ...' % (prefix, spw)
 timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)
 chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
 print '---- Bandpass cal'
 tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)
-Xspec = (tempSpec / (BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate())).transpose(2,3,1,0)
-print '---- XY delay cal'
-XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelay )
-Xspec[1] = (Xspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
-Xspec[2] = (Xspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
+BPCaledXspec = (tempSpec / BP_bl).transpose(2,3,1,0)
 print '---- Antenna-based gain correction'
-chAvgVis = np.mean(Xspec[:,chRange], axis=1)
-PA = AzEl2PA(Az, El, ALMA_lat) + BANDPA
-PA = np.arctan2( np.sin(PA), np.cos(PA))
+chAvgVis = np.mean(BPCaledXspec[:,chRange], axis=1)
 GainX, GainY = polariGain(chAvgVis[0], chAvgVis[3], PA, CalQ, CalU)
-Gain = np.array([GainX, GYtwiddle* GainY])
-CaledXspec = (Xspec.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())).transpose(1,0,2,3)
-#-------- D-term of tracking antennas
-Dx, Dy = np.zeros([antNum, timeNum, chNum], dtype=complex), np.zeros([antNum, timeNum, chNum], dtype=complex)
-print('-------- Determining Antenna-based D-terms (refants) ----')
-PAwidth = 0.01; PAsegNum = int((max(PA) - min(PA))/PAwidth) + 1
-if max(np.diff(PA)) > np.pi: PAsegNum = int((max(np.sin(PA)) - min(np.sin(PA)))/PAwidth) + 1 # for +/-pi gap
-if PAsegNum > timeNum/2: PAsegNum = timeNum/2
+Gain = np.array([GainX, GainY])
+caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
+Gain[1] *= np.sign(np.cos( XY2Phase(PA, QUsol[0], QUsol[1], np.mean(caledVis, axis=1)[[1,2]]) ))
+VisSpec = BPCaledXspec.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
+#-------- D-term corrected Stokes Visibilities
+ant0, ant1 = ANT0[0:trkBlNum], ANT1[0:trkBlNum]
+PS = InvPAVector(PA, np.ones(PAnum))
+StokesVis = np.zeros([4, chNum], dtype=complex)
+for ch_index in range(chNum):
+    Minv = InvMullerVector(Dx[ant1, ch_index], Dy[ant1, ch_index], Dx[ant0, ch_index], Dy[ant0, ch_index], np.ones(trkBlNum))
+    StokesVis[:,ch_index] = PS.reshape(4, 4*PAnum).dot(Minv.reshape(4, 4*trkBlNum).dot(VisSpec[ch_index][:,0:trkBlNum].reshape(4*trkBlNum, PAnum)).reshape(4*PAnum)) / (PAnum* trkBlNum)
 #
-trkDx, trkDy = np.zeros([trkAntNum, PAsegNum, chNum], dtype=complex), np.zeros([trkAntNum, PAsegNum, chNum], dtype=complex)
-for seg_index in range(PAsegNum):
-    progress = (seg_index + 1.0) / PAsegNum
-    sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
-    timeIndexRange = range( (seg_index* timeNum/PAsegNum), ((seg_index + 1)* timeNum/PAsegNum) )
-    PS = np.dot(PAMatrix(np.mean(PA[timeIndexRange])), np.array([1.0, CalQ, CalU, 0.0])).real
-    for ch_index in range(chNum):
-        VisTime = np.mean(CaledXspec[:, ch_index][:,range(trkBlNum)][:,:,timeIndexRange], axis=2)
-        trkDx[:,seg_index,ch_index], trkDy[:,seg_index,ch_index]  = Vis2solveDD(VisTime, PS)
-    #
-#
-sys.stderr.write('\n'); sys.stderr.flush()
-DxMean, DyMean = np.mean(trkDx, axis=1), np.mean(trkDy, axis=1)
-Dx[range(trkAntNum)] = (Dx[range(trkAntNum)].transpose(1,0,2) + DxMean).transpose(1,0,2)
-Dy[range(trkAntNum)] = (Dy[range(trkAntNum)].transpose(1,0,2) + DyMean).transpose(1,0,2)
-#-------- Record on-axis D-term spectrum
-logfile = open(prefix + '-SPW' + `spw` + '-TrkDtermSpec.log', 'w')
-text_sd = 'ant ch ReDx ImDx ReDy ImDy'
-logfile.write(text_sd + '\n')
-for ant_index in range(trkAntNum):
-    for ch_index in range(chNum):
-        text_sd = '%s %d %8.6f %8.6f %8.6f %8.6f' % (antList[trkAntMap[ant_index]], ch_index, DxMean[ant_index, ch_index].real, DxMean[ant_index, ch_index].imag, DyMean[ant_index, ch_index].real, DyMean[ant_index, ch_index].imag)
-        logfile.write(text_sd + '\n')
-    #
-#
-logfile.close()
-#-------- Stokes Parameters measured by tracking antennas
-StokesVis = np.zeros([trkBlNum, PAsegNum, chNum, 4], dtype=complex) 
-for seg_index in range(PAsegNum):
-    timeIndexRange = range( (seg_index* timeNum/PAsegNum), ((seg_index + 1)* timeNum/PAsegNum) )
-    Pinv = InvPAMatrix( np.mean(PA[timeIndexRange] ))
-    for bl_index in range(trkBlNum):
-        for ch_index in range(chNum):
-            Minv = InvMullerMatrix(DxMean[ant1[bl_index], ch_index], DyMean[ant1[bl_index], ch_index], DxMean[ant0[bl_index], ch_index], DyMean[ant0[bl_index], ch_index])
-            StokesVis[bl_index, seg_index, ch_index] = np.dot(Pinv, np.dot(Minv, np.mean(CaledXspec[:,ch_index][:,bl_index][:,timeIndexRange], axis=1)))
-        #
-    #
-#
+QUsol = np.mean(StokesVis[[1,2]][:,chRange], axis=1).real
+print 'Stokes Measurement: (Q, U) = (%6.3f, %6.3f)' % (QUsol[0], QUsol[1])
 #-------- Record Stokes Fluxes measured by tracking antennas
-StokesFlux = np.mean(StokesVis[:, :, chRange], axis=(0,1,2)).real
-text_sd = 'TrkMeas / Model: I=%6.4f / %6.4f  Q=%6.4f / %6.4f U=%6.4f / %6.4f V=%6.4f / %6.4f' % (StokesFlux[0], 1.0, StokesFlux[1], CalQ, StokesFlux[2], CalU, StokesFlux[3], 0.0); print text_sd
-UCmQS = StokesFlux[2]* np.cos(2.0*PA) - StokesFlux[1]* np.sin(2.0*PA)   # U cos - Q sin
-QCpUS = StokesFlux[1]* np.cos(2.0*PA) + StokesFlux[2]* np.sin(2.0*PA)   # Q cos + U sin
 logfile = open(prefix + '-SPW' + `spw` + '-trkStokes.log', 'w')
 text_sd = 'CH I Q U V'; logfile.write(text_sd + '\n')
 for ch_index in range(chNum):
-    text_sd = '%d %8.6f %8.6f %8.6f %8.6f' % (ch_index, np.mean(StokesVis[:,:,ch_index,0]).real, np.mean(StokesVis[:,:,ch_index,1]).real, np.mean(StokesVis[:,:,ch_index,2]).real, np.mean(StokesVis[:,:,ch_index,3]).real)
+    text_sd = '%d %8.6f %8.6f %8.6f %8.6f' % (ch_index, StokesVis[0,ch_index].real, StokesVis[1,ch_index].real, StokesVis[2,ch_index].real, StokesVis[3,ch_index].real)
     logfile.write(text_sd + '\n')
 #
 logfile.close()
 #-------- Determination of D-terms in scanning antennas
 print('-------- Determining Antenna-based D-terms (scan ants) ----')
-for ant_index in range(scnAntNum):
-    antID = trkAntNum + ant_index
-    print 'Determining D-term of ' + antList[antMap[antID]]
-    TrkScnBL = range(antID* (antID - 1) / 2, antID* (antID - 1) / 2 + trkAntNum)
+DxScn, DyScn = np.zeros([scnAntNum, timeNum, chNum], dtype=complex), np.zeros([scnAntNum, timeNum, chNum], dtype=complex)
+for ant_index in range(trkAntNum, antNum):
+    print 'Determining D-term of ' + antList[antMap[ant_index]]
+    TrkScnBL = range(ant_index* (ant_index - 1) / 2, ant_index* (ant_index - 1) / 2 + trkAntNum)
     for time_index in range(timeNum):
-        PS = np.dot(PAMatrix(PA[time_index]), np.array([1.0, StokesFlux[1], StokesFlux[2], 0.0])).real
+        PS = np.dot(PAMatrix(PA[time_index]), np.array([1.0, QUsol[0], QUsol[1], 0.0])).real
+        #PS = PSvector(PA, np.array([1.0, QUsol[0], QUsol[1], 0.0])).real
         for ch_index in range(chNum):
             progress = (time_index* chNum + ch_index + 1.0) / (timeNum* chNum)
             sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
-            VisTime = CaledXspec[:, ch_index, TrkScnBL, time_index]
-            Dx[antID, time_index, ch_index], Dy[antID, time_index, ch_index] = Vis2solveD(VisTime, Dx[0:trkAntNum, time_index, ch_index], Dy[0:trkAntNum, time_index, ch_index], PS )
+            #VisTime = CaledXspec[:, ch_index, TrkScnBL, time_index]
+            #Dx[antID, time_index, ch_index], Dy[antID, time_index, ch_index] = Vis2solveD(VisTime, Dx[0:trkAntNum, time_index, ch_index], Dy[0:trkAntNum, time_index, ch_index], PS )
+            DxScn[ant_index - trkAntNum, time_index, ch_index], DyScn[ant_index - trkAntNum, time_index, ch_index] = Vis2solveD(VisSpec[ch_index][:, TrkScnBL][:,:,time_index], Dx[0:trkAntNum, ch_index], Dy[0:trkAntNum, ch_index], PS)
         #
     #
     sys.stderr.write('\n'); sys.stderr.flush()
 #
+"""
 trkBlIndex  = np.where(blWeight == 1.0)[0].tolist(); trkBlNum  = len(trkBlIndex)        # Ref-Ref baselines
 ScTrBlIndex = np.where(blWeight == 0.5)[0].tolist(); ScTrBlNum = len(ScTrBlIndex)       # Ref-Scan baselines
 ScScBlIndex = np.where(blWeight == 0.25)[0].tolist(); ScScBlNum = len(ScScBlIndex)      # Scan-Scan baselines
@@ -509,3 +487,4 @@ for thresh_index in range(7):
     plt.savefig( prefix + '-' + '-SPW' + `spw` + '-OFF' + `round(np.median(OffBeam[time_index]),1)` + '-StokesSpec.pdf', form='pdf'); plt.close()
 #
 logfile.close()
+"""

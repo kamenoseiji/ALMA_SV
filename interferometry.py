@@ -194,7 +194,7 @@ def AzElMatch( refTime, scanTime, AntID, targetAnt, Az, El ):
     az, el = np.zeros(timeNum), np.zeros(timeNum)
     for time_index in range(timeNum):
         time_ptr = np.argmin( abs(scanTime[antTimeIndex] - refTime[time_index]) )
-        az[time_index], el[time_index] = np.median(Az[time_ptr]), np.median(El[time_ptr])
+        az[time_index], el[time_index] = np.median(Az[antTimeIndex[time_ptr]]), np.median(El[antTimeIndex[time_ptr]])
     return az, el
 #
 def GetAntD(antName):
@@ -851,10 +851,10 @@ def TransferD(Vis, DtX, DtY, PS):
     A2 = -np.outer(PS[3], DtX.imag).reshape(PAnum* refAntNum)
     A3 = -np.outer(PS[2], DtY.imag).reshape(PAnum* refAntNum)
     #
-    B0 = np.repeat(PS[0], refAntNum)  +  np.outer(PS[1], DtY.real).reshape(PAnum* refAntNum)
+    B0 = np.repeat(PS[0], refAntNum)  +  np.outer(PS[1], DtX.real).reshape(PAnum* refAntNum)
     B1 = np.repeat(PS[1], refAntNum)  +  np.outer(PS[0], DtY.real).reshape(PAnum* refAntNum)
     B3 = -np.outer(PS[1], DtX.imag).reshape(PAnum* refAntNum)
-    B2 = -np.outer(PS[0], DtX.imag).reshape(PAnum* refAntNum)
+    B2 = -np.outer(PS[0], DtY.imag).reshape(PAnum* refAntNum)
     #
     resid = Vis.transpose(0,2,1).reshape(4, PAnum* refAntNum)
     resid[0] -= (np.repeat(PS[0], refAntNum) + np.outer(PS[1], DtX.conjugate()).reshape(PAnum* refAntNum))
@@ -877,6 +877,41 @@ def TransferD(Vis, DtX, DtY, PS):
     Solution = PTdotR / PTP_diag
     return Solution[0] + 1.0j* Solution[1], Solution[2] + 1.0j* Solution[3]
 #
+def Vis2solveD(Vis, DtX, DtY, PS):
+    refAntNum = len(DtX)
+    #
+    A0 =  PS[3]* DtX.real + PS[2]
+    A1 =  PS[2]* DtY.real + PS[3]
+    A2 = -PS[3]* DtX.imag
+    A3 = -PS[2]* DtY.imag
+    #
+    B0 =  PS[1]* DtX.real + PS[0]
+    B1 =  PS[0]* DtY.real + PS[1]
+    B3 = -PS[1]* DtX.imag
+    B2 = -PS[0]* DtY.imag
+    #
+    resid = Vis
+    resid[0] -= (PS[0] + PS[1]* DtX.conjugate())
+    resid[1] -= (PS[1] + PS[0]* DtY.conjugate())
+    resid[2] -= (PS[2] + PS[3]* DtX.conjugate())
+    resid[3] -= (PS[3] + PS[2]* DtY.conjugate())
+    #
+    PTP_diag = np.array([
+        A0.dot(A0) + A1.dot(A1) + A2.dot(A2) + A3.dot(A3), 
+        A0.dot(A0) + A1.dot(A1) + A2.dot(A2) + A3.dot(A3), 
+        B0.dot(B0) + B1.dot(B1) + B2.dot(B2) + B3.dot(B3),
+        B0.dot(B0) + B1.dot(B1) + B2.dot(B2) + B3.dot(B3)])
+    #
+    PTdotR = np.array([
+        A0.dot(resid[0].real) + A1.dot(resid[1].real) + A2.dot(resid[0].imag) + A3.dot(resid[1].imag),
+       -A2.dot(resid[0].real) - A3.dot(resid[1].real) + A0.dot(resid[0].imag) + A1.dot(resid[1].imag),
+        B0.dot(resid[2].real) + B1.dot(resid[3].real) + B2.dot(resid[2].imag) + B3.dot(resid[3].imag),
+       -B2.dot(resid[2].real) - B3.dot(resid[3].real) + B0.dot(resid[2].imag) + B1.dot(resid[3].imag)])
+    #
+    Solution = PTdotR / PTP_diag
+    return Solution[0] + 1.0j* Solution[1], Solution[2] + 1.0j* Solution[3]
+#
+"""
 def Vis2solveD(Vis, DtX, DtY, PS ):
     trkAntNum = len(DtX)  # Number of tracking antennas
     weight = np.ones(8* trkAntNum)
@@ -910,6 +945,7 @@ def Vis2solveD(Vis, DtX, DtY, PS ):
     #
     return Dx, Dy
 #
+"""
 def beamF(disk2FWHMratio):     # diskR / FWHM ratio
     disk2sigma = disk2FWHMratio * 2.3548200450309493   # FWHM / (2.0* sqrt(2.0* log(2.0)))
     return( 2.0* (1.0 - exp(-0.5* (disk2sigma)**2)) / (disk2sigma**2) )

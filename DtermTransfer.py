@@ -105,7 +105,6 @@ Gain[1] *= np.sign(np.cos( XY2Phase(PA, QUsol[0], QUsol[1], np.mean(caledVis, ax
 VisSpec = BPCaledXspec.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
 #-------- get D-term spectra
 PS = PSvector(PA, np.array([1.0, QUsol[0], QUsol[1], 0.0])).real
-DxTemp, DyTemp = np.zeros([chNum, PAnum], dtype=complex), np.zeros([chNum, PAnum], dtype=complex)
 for ant_index in range(DantNum, UseAntNum):
     print 'Determining D-term of ' + antList[antMap[ant_index]]
     DtransBL = range(ant_index* (ant_index - 1) / 2, ant_index* (ant_index - 1) / 2 + DantNum)
@@ -113,10 +112,15 @@ for ant_index in range(DantNum, UseAntNum):
         Dx[ant_index, ch_index], Dy[ant_index, ch_index] = TransferD(VisSpec[ch_index][:, DtransBL], Dx[0:DantNum, ch_index], Dy[0:DantNum, ch_index], PS) 
     #
 #
-spwNum = 1
+#-------- Save D-term spectra
+np.save(prefix + '-SPW' + `spw` + '-' + refantName + '.Ant.npy', antList[antMap])
+np.save(prefix + '-SPW' + `spw` + '-' + refantName + '.QUXY.npy', QUsol )
+for ant_index in range(UseAntNum):
+    np.save(prefix + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DxSpec.npy', np.array([Freq, Dx[ant_index]]))
+    np.save(prefix + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DySpec.npy', np.array([Freq, Dy[ant_index]]))
+#
 #-------- Plot D-term spectra
 pp = PdfPages('D_' + prefix + '-Dspec.pdf')
-#for ant_index in range(UseAntNum):
 for ant_index in range(DantNum, UseAntNum):
     figAnt = plt.figure(ant_index, figsize = (11, 8))
     figAnt.suptitle(prefix + ' ' + antList[antMap[ant_index]])
@@ -124,7 +128,6 @@ for ant_index in range(DantNum, UseAntNum):
     figAnt.text(0.03, 0.45, 'D-term Spectra (Real and Imaginary)', rotation=90)
 #
 #-------- Plot D-spec
-#for ant_index in range(UseAntNum):
 for ant_index in range(DantNum, UseAntNum):
     figAnt = plt.figure(ant_index)
     DxPL = figAnt.add_subplot( 2, 1, 1 )
