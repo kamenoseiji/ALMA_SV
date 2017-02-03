@@ -58,6 +58,7 @@ if (DantNum * noDantnum) !=  0:
 else: sys.exit('Numbers of [Dant] and [noDant] = %d and %d' % (DantNum, noDantnum))
 #----------------------------------------- QU table
 QUsol = np.load(QUpath)     # [Q, U]
+#QUsol = np.array([0.0, 0.0])     # [Q, U]
 #----------------------------------------- BP table
 blMap, blInv= range(UseBlNum), [False]* UseBlNum
 for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
@@ -94,6 +95,7 @@ for ch_index in range(chNum):
     Minv = InvMullerVector(Dx[ant1, ch_index], Dy[ant1, ch_index], Dx[ant0, ch_index], Dy[ant0, ch_index], np.ones(DblNum))
     StokesVis[:,ch_index] = PS.reshape(4, 4*PAnum).dot(Minv.reshape(4, 4*DblNum).dot(VisSpec[ch_index][:,0:DblNum].reshape(4*DblNum, PAnum)).reshape(4*PAnum)) / (PAnum* DblNum)
 QUsol = np.mean(StokesVis[[1,2]][:,chRange], axis=1).real
+print 'Stokes Measurement: (Q, U) = (%6.3f, %6.3f)' % (QUsol[0], QUsol[1])
 #----------------------------------------- Improved Gain using improved (Q,U)
 ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
 GainX, GainY = polariGain( chAvgVis[0], chAvgVis[3], PA, QUsol[0], QUsol[1])
@@ -102,25 +104,19 @@ caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugat
 Gain[1] *= np.sign(np.cos( XY2Phase(PA, QUsol[0], QUsol[1], np.mean(caledVis, axis=1)[[1,2]]) ))
 VisSpec = BPCaledXspec.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
 #-------- get D-term spectra
-PS = np.zeros([4, PAnum])
+PS = PSvector(PA, np.array([1.0, QUsol[0], QUsol[1], 0.0])).real
 DxTemp, DyTemp = np.zeros([chNum, PAnum], dtype=complex), np.zeros([chNum, PAnum], dtype=complex)
 for ant_index in range(DantNum, UseAntNum):
     print 'Determining D-term of ' + antList[antMap[ant_index]]
     DtransBL = range(ant_index* (ant_index - 1) / 2, ant_index* (ant_index - 1) / 2 + DantNum)
-    for PA_index in range(PAnum):
-        PS[:,PA_index] = PAMatrix(PA[PA_index]).dot(np.array([1.0, QUsol[0], QUsol[1], 0.0])).real
-    #
     for ch_index in range(chNum):
-        for PA_index in range(PAnum):
-            VisTime = VisSpec[ch_index][:, DtransBL, PA_index]
-            DxTemp[ch_index, PA_index], DyTemp[ch_index, PA_index] = Vis2solveD(VisTime, Dx[0:DantNum, ch_index], Dy[0:DantNum,ch_index], PS[:,PA_index])
-        #
+        Dx[ant_index, ch_index], Dy[ant_index, ch_index] = TransferD(VisSpec[ch_index][:, DtransBL], Dx[0:DantNum, ch_index], Dy[0:DantNum, ch_index], PS) 
     #
-    Dx[ant_index], Dy[ant_index] = np.mean(DxTemp, axis=1), np.mean(DyTemp, axis=1)
 #
 spwNum = 1
 #-------- Plot D-term spectra
 pp = PdfPages('D_' + prefix + '-Dspec.pdf')
+#for ant_index in range(UseAntNum):
 for ant_index in range(DantNum, UseAntNum):
     figAnt = plt.figure(ant_index, figsize = (11, 8))
     figAnt.suptitle(prefix + ' ' + antList[antMap[ant_index]])
@@ -128,6 +124,7 @@ for ant_index in range(DantNum, UseAntNum):
     figAnt.text(0.03, 0.45, 'D-term Spectra (Real and Imaginary)', rotation=90)
 #
 #-------- Plot D-spec
+#for ant_index in range(UseAntNum):
 for ant_index in range(DantNum, UseAntNum):
     figAnt = plt.figure(ant_index)
     DxPL = figAnt.add_subplot( 2, 1, 1 )

@@ -102,6 +102,14 @@ def InvMullerVector(Dx0, Dy0, Dx1, Dy1, Unity):
         [-Dy0, Dy0* Dx1.conjugate(), Unity, -Dx1.conjugate()],
         [Dy0* Dy1.conjugate(), -Dy0, -Dy1.conjugate(), Unity]]) / ((Unity - Dx0* Dy0)*(Unity - Dx1.conjugate()* Dy1.conjugate()))
 #
+def PSvector(PA, Stokes):
+    """
+    PSvector returns a vector of Stokes parameters observced at specified parallactic angle
+    """
+    cs, sn = np.cos(2.0* PA), np.sin(2.0* PA)
+    QCpUS, UCmQS = Stokes[1]* cs + Stokes[2]* sn, Stokes[2]* cs - Stokes[1]* sn
+    return np.array([ Stokes[0] + QCpUS, UCmQS + (1.0j* Stokes[3]), UCmQS - (1.0j* Stokes[3]), Stokes[0] - QCpUS])
+#
 def PAMatrix(PA):
     cs = math.cos(2.0* PA)
     sn = math.sin(2.0* PA)
@@ -835,11 +843,40 @@ def Vis2solveDS(Vis, DtX, DtY, PS ):
     fit = scipy.optimize.minimize(DTresid, x0=np.zeros(4), method="tnc")['x']
     return fit[0]+(0.0+1.0j)*fit[1], fit[2]+(0.0+1.0j)*fit[3]
 #
-def TransferD(Vis, DtX, DtY, PS ):
-    PTP = np.zeros([4,4])
-    PTP[0,0 = PS[2] 
+def TransferD(Vis, DtX, DtY, PS):
+    refAntNum, PAnum = len(DtX), PS.shape[1]
+    #
+    A0 = np.repeat(PS[2], refAntNum)  +  np.outer(PS[3], DtX.real).reshape(PAnum* refAntNum)
+    A1 = np.repeat(PS[3], refAntNum)  +  np.outer(PS[2], DtY.real).reshape(PAnum* refAntNum)
+    A2 = -np.outer(PS[3], DtX.imag).reshape(PAnum* refAntNum)
+    A3 = -np.outer(PS[2], DtY.imag).reshape(PAnum* refAntNum)
+    #
+    B0 = np.repeat(PS[0], refAntNum)  +  np.outer(PS[1], DtY.real).reshape(PAnum* refAntNum)
+    B1 = np.repeat(PS[1], refAntNum)  +  np.outer(PS[0], DtY.real).reshape(PAnum* refAntNum)
+    B3 = -np.outer(PS[1], DtX.imag).reshape(PAnum* refAntNum)
+    B2 = -np.outer(PS[0], DtX.imag).reshape(PAnum* refAntNum)
+    #
+    resid = Vis.transpose(0,2,1).reshape(4, PAnum* refAntNum)
+    resid[0] -= (np.repeat(PS[0], refAntNum) + np.outer(PS[1], DtX.conjugate()).reshape(PAnum* refAntNum))
+    resid[1] -= (np.repeat(PS[1], refAntNum) + np.outer(PS[0], DtY.conjugate()).reshape(PAnum* refAntNum))
+    resid[2] -= (np.repeat(PS[2], refAntNum) + np.outer(PS[3], DtX.conjugate()).reshape(PAnum* refAntNum))
+    resid[3] -= (np.repeat(PS[3], refAntNum) + np.outer(PS[2], DtY.conjugate()).reshape(PAnum* refAntNum))
+    #
+    PTP_diag = np.array([
+        A0.dot(A0) + A1.dot(A1) + A2.dot(A2) + A3.dot(A3), 
+        A0.dot(A0) + A1.dot(A1) + A2.dot(A2) + A3.dot(A3), 
+        B0.dot(B0) + B1.dot(B1) + B2.dot(B2) + B3.dot(B3),
+        B0.dot(B0) + B1.dot(B1) + B2.dot(B2) + B3.dot(B3)])
+    #
+    PTdotR = np.array([
+        A0.dot(resid[0].real) + A1.dot(resid[1].real) + A2.dot(resid[0].imag) + A3.dot(resid[1].imag),
+       -A2.dot(resid[0].real) - A3.dot(resid[1].real) + A0.dot(resid[0].imag) + A1.dot(resid[1].imag),
+        B0.dot(resid[2].real) + B1.dot(resid[3].real) + B2.dot(resid[2].imag) + B3.dot(resid[3].imag),
+       -B2.dot(resid[2].real) - B3.dot(resid[3].real) + B0.dot(resid[2].imag) + B1.dot(resid[3].imag)])
+    #
+    Solution = PTdotR / PTP_diag
+    return Solution[0] + 1.0j* Solution[1], Solution[2] + 1.0j* Solution[3]
 #
-
 def Vis2solveD(Vis, DtX, DtY, PS ):
     trkAntNum = len(DtX)  # Number of tracking antennas
     weight = np.ones(8* trkAntNum)
