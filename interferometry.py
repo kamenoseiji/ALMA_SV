@@ -663,186 +663,186 @@ def dMdDVec(Dx1, Dy1, Unity):
 def KMvec(Dx, Dy, Unity):
     return np.array([[ Unity, Dx ], [Dy, Unity]] )
 #
-def Vis2solveDD(Vis, PS):
-    blNum  = Vis.shape[1]; antNum = Bl2Ant(blNum)[0]                   # (I, Q, U, V)
-    ant0, ant1 = ANT0[0:blNum], ANT1[0:blNum]
-    def Dresid( D ):
-        antNum = len(D)/4; blNum = antNum* (antNum - 1) /2
-        Dx = D[0:antNum] + (0.0+1.0j)* D[antNum:(2*antNum)]
-        Dy = D[(2*antNum):(3*antNum)] + (0.0+1.0j)*D[(3*antNum):(4*antNum)]
-        resid   = (Vis - np.dot(MullerVector( Dx[ant0], Dy[ant0], Dx[ant1], Dy[ant1], np.ones(blNum, dtype=complex) ).transpose(2,0,1), PS).T).reshape(4* blNum)
-        resReal = np.r_[resid.real, resid.imag]
-        return np.dot(resReal, resReal)
-    #
-    fit = scipy.optimize.minimize(Dresid, x0=np.zeros(4*antNum), method="tnc")['x']
-    return fit[0:antNum] + (0.0+1.0j)*fit[antNum:(2*antNum)], fit[(2*antNum):(3*antNum)] + (0.0+1.0j)*fit[(3*antNum):(4*antNum)]
+#def Vis2solveDD(Vis, PS):
+#    blNum  = Vis.shape[1]; antNum = Bl2Ant(blNum)[0]                   # (I, Q, U, V)
+#    ant0, ant1 = ANT0[0:blNum], ANT1[0:blNum]
+#    def Dresid( D ):
+#        antNum = len(D)/4; blNum = antNum* (antNum - 1) /2
+#        Dx = D[0:antNum] + (0.0+1.0j)* D[antNum:(2*antNum)]
+#        Dy = D[(2*antNum):(3*antNum)] + (0.0+1.0j)*D[(3*antNum):(4*antNum)]
+#        resid   = (Vis - np.dot(MullerVector( Dx[ant0], Dy[ant0], Dx[ant1], Dy[ant1], np.ones(blNum, dtype=complex) ).transpose(2,0,1), PS).T).reshape(4* blNum)
+#        resReal = np.r_[resid.real, resid.imag]
+#        return np.dot(resReal, resReal)
+#    #
+#    fit = scipy.optimize.minimize(Dresid, x0=np.zeros(4*antNum), method="tnc")['x']
+#    return fit[0:antNum] + (0.0+1.0j)*fit[antNum:(2*antNum)], fit[(2*antNum):(3*antNum)] + (0.0+1.0j)*fit[(3*antNum):(4*antNum)]
 #
-def VisPA_solveDM(Vis, PA, Stokes):
-    blNum  = Vis.shape[1]; antNum = Bl2Ant(blNum)[0]; PAnum = len(PA)
-    P = np.zeros([4*antNum, 2*blNum*PAnum])
-    def Dresid(D):
-        antNum = len(D)/4; blNum = antNum* (antNum - 1) /2
-        Dx = D[0:antNum] + (0.0+1.0j)* D[antNum:(2*antNum)]
-        Dy = D[(2*antNum):(3*antNum)] + (0.0+1.0j)*D[(3*antNum):(4*antNum)]
-        resid = np.array([], dtype=complex)
-        for PA_index in range(PAnum):
-            PS = np.dot(PAMatrix(PA[PA_index]), Stokes)
-            resid = np.append(resid, (Vis[:,:,PA_index] - np.dot(MullerVector( Dx[ant0], Dy[ant0], Dx[ant1], Dy[ant1], np.ones(blNum, dtype=complex) ).transpose(2,0,1), PS).T).reshape(4* blNum))
-        #
-        resReal = np.r_[resid.real, resid.imag]
-        return resReal
-    #
-    P[0] = 1.0e3* (Dresid() - Dresid(np.zeros(4*antNum)))
-#
-def VisPA_solveD(Vis, PA, Stokes, Dx=[], Dy=[]):
-    PAnum, blNum = len(PA), Vis.shape[1]; antNum = Bl2Ant(blNum)[0]; PABLnum = PAnum* blNum
-    ant0, ant1 = np.array(ANT0[0:blNum]), np.array(ANT1[0:blNum])
-    CS, SN = np.cos(2.0* PA), np.sin(2.0*PA)
-    QCpUS = Stokes[1]*CS + Stokes[2]*SN
-    UCmQS = Stokes[2]*CS - Stokes[1]*SN
-    ssqQCpUS = QCpUS.dot(QCpUS)     # sum( QCpUS^2 )
-    sumQCpUS = np.sum(QCpUS)        # sum( QCpUS )
-    if len(Dx) == 0 :                    # Start over the initial D-term value
-        #-------- <XX*> to determine Dx (initial value)
-        PTP_inv = np.zeros([2*antNum-1, 2*antNum-1])
-        PTP_inv[0:antNum][:,0:antNum] = ((2.0* antNum - 2.0)* np.diag(np.ones(antNum)) - 1.0) / (2.0* (antNum - 1.0)* (antNum - 2.0))
-        PTP_inv[antNum:(2*antNum-1)][:,antNum:(2*antNum-1)] = (np.diag(np.ones(antNum-1)) + 1.0) / antNum
-        PTP_inv /= ssqQCpUS
-        PTY = np.zeros([2*antNum-1])
-        resid = Vis[0] - (1.0 + QCpUS)
-        for ant_index in range(1,antNum):
-            index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
-            PTY[ant_index] = np.sum(resid[index0].real.dot(QCpUS)) + np.sum(resid[index1].real.dot(QCpUS))
-            PTY[antNum + ant_index - 1] = np.sum(resid[index0].imag.dot(QCpUS)) - np.sum(resid[index1].imag.dot(QCpUS))
-        #
-        index1 = np.where(ant1 == 0)[0].tolist(); PTY[0] = np.sum(resid[index1].real.dot(QCpUS))
-        Solution = PTP_inv.dot(PTY); Dx = Solution[0:antNum] + (1.0j)* np.append(0.0, Solution[antNum:2*antNum-1])
-        #
-        #-------- <YY*> to determine Dy (initial value)
-        resid = Vis[3] - (1.0 - QCpUS)
-        for ant_index in range(1,antNum):
-            index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
-            PTY[ant_index] = np.sum(resid[index0].real.dot(QCpUS)) + np.sum(resid[index1].real.dot(QCpUS))
-            PTY[antNum + ant_index - 1] = np.sum(resid[index0].imag.dot(QCpUS)) - np.sum(resid[index1].imag.dot(QCpUS))
-        #
-        index1 = np.where(ant1 == 0)[0].tolist(); PTY[0] = np.sum(resid[index1].real.dot(QCpUS))
-        Solution = PTP_inv.dot(PTY); Dy = Solution[0:antNum] + (1.0j)* np.append(0.0, Solution[antNum:2*antNum-1])
-    #
-    #-------- <XY*> and <YX*> to determine Dx and Dy
-    PTP = np.zeros([4*antNum, 4*antNum])            # (Dx.real, Dx.imag, Dy.real, Dy.imag)^2
-    PTP[0:2*antNum][:,0:2*antNum] = (ssqQCpUS - 2.0*sumQCpUS + PAnum)* (antNum - 1.0)* np.identity(2*antNum)
-    PTP[2*antNum:4*antNum][:,2*antNum:4*antNum] = (ssqQCpUS + 2.0*sumQCpUS + PAnum)* (antNum - 1.0)* np.identity(2*antNum)
-    PTP[2*antNum:3*antNum][:,0:antNum] = (PAnum - ssqQCpUS) * (1.0 - np.identity(antNum))
-    PTP[0:antNum][:,2*antNum:3*antNum] = PTP[2*antNum:3*antNum][:,0:antNum]
-    PTP[3*antNum:4*antNum][:,antNum:2*antNum] = -PTP[2*antNum:3*antNum][:,0:antNum]
-    PTP[antNum:2*antNum][:,3*antNum:4*antNum] = -PTP[2*antNum:3*antNum][:,0:antNum]
-    #-------- Residual Vector
-    residXY, residYX = Vis[1] - UCmQS, Vis[2] - UCmQS
-    PTRX, PTRY = np.zeros(antNum, dtype=complex), np.zeros(antNum, dtype=complex)
-    for ant_index in range(antNum):
-        index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
-        residXY[index0] -= Dx[ant_index]* (Stokes[0] - QCpUS)
-        residXY[index1] -= Dy[ant_index].conjugate()* (Stokes[0] + QCpUS)
-        residYX[index0] -= Dy[ant_index]* (Stokes[0] + QCpUS)
-        residYX[index1] -= Dx[ant_index].conjugate()* (Stokes[0] - QCpUS)
-    #
-    #-------- PTR vector
-    for ant_index in range(antNum):
-        index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
-        PTRX[ant_index] += (Stokes[0] - QCpUS).dot(np.sum(residXY[index0], axis=0))
-        PTRX[ant_index] += (Stokes[0] - QCpUS).dot(np.sum(residYX[index1], axis=0).conjugate())
-        PTRY[ant_index] += (Stokes[0] + QCpUS).dot(np.sum(residYX[index0], axis=0))
-        PTRY[ant_index] += (Stokes[0] + QCpUS).dot(np.sum(residXY[index1], axis=0).conjugate())
-    #
-    resid = np.array([PTRX.real, PTRX.imag, PTRY.real, PTRY.imag]).reshape(4*antNum)
-    #-------- Solution
-    L = np.linalg.cholesky(PTP)
-    t = np.linalg.solve(L, resid)
-    Solution = np.linalg.solve(L.T, t)
-    #-------- Correction
-    Dx += Solution[0:antNum] + (1.0j)* Solution[antNum:2*antNum]
-    Dy += Solution[2*antNum:3*antNum] + (1.0j)* Solution[3*antNum:4*antNum]
-    return Dx, Dy
-#
-def Vis2solveDDD(Vis, PS):
-    blNum  = Vis.shape[1]; antNum = Bl2Ant(blNum)[0]                   # (I, Q, U, V)
-    ant0, ant1 = ANT0[0:blNum], ANT1[0:blNum]
-    dSolMap = range(2* antNum) + range(2*antNum+1, 4*antNum)
-    Dx, Dy, Unity = np.zeros(antNum, dtype=complex), np.zeros(antNum, dtype=complex), np.ones(blNum, dtype=complex)     # Dx, Dy solutions for scanning antenna
-    #weight = np.r_[0.01*np.ones(blNum), np.ones(blNum), np.ones(blNum), 0.01*np.ones(blNum), 0.01*np.ones(blNum), np.ones(blNum), np.ones(blNum), 0.1*np.ones(blNum)]
-    weight = np.ones(8*blNum)
-    for loop_index in range(2):
-        resid   = (Vis - np.dot(MullerVector( Dx[ant0], Dy[ant0], Dx[ant1], Dy[ant1], Unity ).transpose(2,0,1), PS).T).reshape(4* blNum)
-        resReal = np.r_[resid.real, resid.imag]
-        #
-        P = np.zeros( [4*antNum, 8*blNum] )
-        K0, K1 = KMvec(Dx[ant0], Dy[ant0], Unity).transpose(2,0,1), KMvec(Dx[ant1], Dy[ant1], Unity).transpose(2,0,1)
-        dVisX0 = np.dot(K1, PS[2:4])  # dM/dX0
-        dVisY0 = np.dot(K1, PS[0:2])  # dM/dY0
-        dVisX1 = np.dot(K0, PS[[1,3]])# dM/dX1
-        dVisY1 = np.dot(K0, PS[[0,2]])# dM/dX1
-        #
-        for bl_index in range(blNum):
-            a0, a1 = ant0[bl_index], ant1[bl_index]
-            #-------- Derivative by real
-            P[0*antNum + a0, 0*blNum + bl_index] += dVisX0[bl_index,0].real # /reX0
-            P[0*antNum + a0, 1*blNum + bl_index] += dVisX0[bl_index,1].real # /reX0
-            P[1*antNum + a0, 2*blNum + bl_index] += dVisY0[bl_index,0].real # /reY0
-            P[1*antNum + a0, 3*blNum + bl_index] += dVisY0[bl_index,1].real # /reY0
-            P[0*antNum + a1, 0*blNum + bl_index] += dVisX1[bl_index,0].real # /reX1
-            P[0*antNum + a1, 2*blNum + bl_index] += dVisX1[bl_index,1].real # /reX1
-            P[1*antNum + a1, 1*blNum + bl_index] += dVisY1[bl_index,0].real # /reY1
-            P[1*antNum + a1, 3*blNum + bl_index] += dVisY1[bl_index,1].real # /reY1
-            P[0*antNum + a0, 4*blNum + bl_index] += dVisX0[bl_index,0].imag # /reX0
-            P[0*antNum + a0, 5*blNum + bl_index] += dVisX0[bl_index,1].imag # /reX0
-            P[1*antNum + a0, 6*blNum + bl_index] += dVisY0[bl_index,0].imag # /reY0
-            P[1*antNum + a0, 7*blNum + bl_index] += dVisY0[bl_index,1].imag # /reY0
-            P[0*antNum + a1, 4*blNum + bl_index] += dVisX1[bl_index,0].imag # /reX1
-            P[0*antNum + a1, 6*blNum + bl_index] += dVisX1[bl_index,1].imag # /reX1
-            P[1*antNum + a1, 5*blNum + bl_index] += dVisY1[bl_index,0].imag # /reY1
-            P[1*antNum + a1, 7*blNum + bl_index] += dVisY1[bl_index,1].imag # /reY1
-            P[2*antNum + a0, 0*blNum + bl_index] -= dVisX0[bl_index,0].imag # /imX0
-            P[2*antNum + a0, 1*blNum + bl_index] -= dVisX0[bl_index,1].imag # /imX0
-            P[3*antNum + a0, 2*blNum + bl_index] -= dVisY0[bl_index,0].imag # /imY0
-            P[3*antNum + a0, 3*blNum + bl_index] -= dVisY0[bl_index,1].imag # /imY0
-            P[2*antNum + a1, 0*blNum + bl_index] += dVisX1[bl_index,0].imag # /imX1
-            P[2*antNum + a1, 2*blNum + bl_index] += dVisX1[bl_index,1].imag # /imX1
-            P[3*antNum + a1, 1*blNum + bl_index] += dVisY1[bl_index,0].imag # /imY1
-            P[3*antNum + a1, 3*blNum + bl_index] += dVisY1[bl_index,1].imag # /imY1
-            P[2*antNum + a0, 4*blNum + bl_index] += dVisX0[bl_index,0].real # /imX0
-            P[2*antNum + a0, 5*blNum + bl_index] += dVisX0[bl_index,1].real # /imX0
-            P[3*antNum + a0, 6*blNum + bl_index] += dVisY0[bl_index,0].real # /imY0
-            P[3*antNum + a0, 7*blNum + bl_index] += dVisY0[bl_index,1].real # /imY0
-            P[2*antNum + a1, 4*blNum + bl_index] -= dVisX1[bl_index,0].real # /imX1
-            P[2*antNum + a1, 6*blNum + bl_index] -= dVisX1[bl_index,1].real # /imX1
-            P[3*antNum + a1, 5*blNum + bl_index] -= dVisY1[bl_index,0].real # /imY1
-            P[3*antNum + a1, 7*blNum + bl_index] -= dVisY1[bl_index,1].real # /imY1
-        #
-        #P = P[dSolMap]
-        PWtP = np.dot(P, np.dot(np.diag(weight), P.T))
-        # correction = np.dot(scipy.linalg.inv(PWtP), np.dot(P, weight* resReal))
-        correction = scipy.linalg.solve(PWtP, np.dot(P, weight* resReal))
-        #Dx += correction[range(antNum)]           + 1.0j* np.append(0, correction[range(2*antNum, 3*antNum-1)])
-        #Dy += correction[range(antNum, 2*antNum)] + 1.0j* correction[range(3*antNum-1, 4*antNum-1)]
-        Dx += correction[range(antNum)]           + 1.0j* correction[range(2*antNum, 3*antNum)]
-        Dy += correction[range(antNum, 2*antNum)] + 1.0j* correction[range(3*antNum, 4*antNum)]
-    #
-    return Dx, Dy
-#
-def Vis2solveDS(Vis, DtX, DtY, PS ):
-    def DTresid( D ):
-        Dx, Dy = D[0] + (0.0 + 1.0j)*D[1], D[2] + (0.0 + 1.0j)*D[3]
-        ModelVis = np.array([
-           PS[0] + PS[1]*DtX.conjugate() + PS[2]*Dx + PS[3]*Dx*DtX.conjugate(),
-           PS[0]*DtY.conjugate() + PS[1] + PS[2]*Dx*DtY.conjugate() + PS[3]*Dx,
-           PS[0]*Dy + PS[1]*Dy*DtX.conjugate() + PS[2] + PS[3]*DtX.conjugate(),
-           PS[0]*Dy*DtY.conjugate() + PS[1]*Dy + PS[2]*DtY.conjugate() + PS[3]])
-        residVis = (Vis - ModelVis).reshape(4*trkAntNum)
-        return np.dot( residVis, residVis.conjugate() ).real
-    #
-    fit = scipy.optimize.minimize(DTresid, x0=np.zeros(4), method="tnc")['x']
-    return fit[0]+(0.0+1.0j)*fit[1], fit[2]+(0.0+1.0j)*fit[3]
-#
+#def VisPA_solveDM(Vis, PA, Stokes):
+#    blNum  = Vis.shape[1]; antNum = Bl2Ant(blNum)[0]; PAnum = len(PA)
+#    P = np.zeros([4*antNum, 2*blNum*PAnum])
+#    def Dresid(D):
+#        antNum = len(D)/4; blNum = antNum* (antNum - 1) /2
+#        Dx = D[0:antNum] + (0.0+1.0j)* D[antNum:(2*antNum)]
+#        Dy = D[(2*antNum):(3*antNum)] + (0.0+1.0j)*D[(3*antNum):(4*antNum)]
+#        resid = np.array([], dtype=complex)
+#        for PA_index in range(PAnum):
+#            PS = np.dot(PAMatrix(PA[PA_index]), Stokes)
+#            resid = np.append(resid, (Vis[:,:,PA_index] - np.dot(MullerVector( Dx[ant0], Dy[ant0], Dx[ant1], Dy[ant1], np.ones(blNum, dtype=complex) ).transpose(2,0,1), PS).T).reshape(4* blNum))
+#        #
+#        resReal = np.r_[resid.real, resid.imag]
+#        return resReal
+#    #
+#    P[0] = 1.0e3* (Dresid() - Dresid(np.zeros(4*antNum)))
+##
+#def VisPA_solveD(Vis, PA, Stokes, Dx=[], Dy=[]):
+#    PAnum, blNum = len(PA), Vis.shape[1]; antNum = Bl2Ant(blNum)[0]; PABLnum = PAnum* blNum
+#    ant0, ant1 = np.array(ANT0[0:blNum]), np.array(ANT1[0:blNum])
+#    CS, SN = np.cos(2.0* PA), np.sin(2.0*PA)
+#    QCpUS = Stokes[1]*CS + Stokes[2]*SN
+#    UCmQS = Stokes[2]*CS - Stokes[1]*SN
+#    ssqQCpUS = QCpUS.dot(QCpUS)     # sum( QCpUS^2 )
+#    sumQCpUS = np.sum(QCpUS)        # sum( QCpUS )
+#    if len(Dx) == 0 :                    # Start over the initial D-term value
+#        #-------- <XX*> to determine Dx (initial value)
+#        PTP_inv = np.zeros([2*antNum-1, 2*antNum-1])
+#        PTP_inv[0:antNum][:,0:antNum] = ((2.0* antNum - 2.0)* np.diag(np.ones(antNum)) - 1.0) / (2.0* (antNum - 1.0)* (antNum - 2.0))
+#        PTP_inv[antNum:(2*antNum-1)][:,antNum:(2*antNum-1)] = (np.diag(np.ones(antNum-1)) + 1.0) / antNum
+#        PTP_inv /= ssqQCpUS
+#        PTY = np.zeros([2*antNum-1])
+#        resid = Vis[0] - (1.0 + QCpUS)
+#        for ant_index in range(1,antNum):
+#            index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
+#            PTY[ant_index] = np.sum(resid[index0].real.dot(QCpUS)) + np.sum(resid[index1].real.dot(QCpUS))
+#            PTY[antNum + ant_index - 1] = np.sum(resid[index0].imag.dot(QCpUS)) - np.sum(resid[index1].imag.dot(QCpUS))
+#        #
+#        index1 = np.where(ant1 == 0)[0].tolist(); PTY[0] = np.sum(resid[index1].real.dot(QCpUS))
+#        Solution = PTP_inv.dot(PTY); Dx = Solution[0:antNum] + (1.0j)* np.append(0.0, Solution[antNum:2*antNum-1])
+#        #
+#        #-------- <YY*> to determine Dy (initial value)
+#        resid = Vis[3] - (1.0 - QCpUS)
+#        for ant_index in range(1,antNum):
+#            index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
+#            PTY[ant_index] = np.sum(resid[index0].real.dot(QCpUS)) + np.sum(resid[index1].real.dot(QCpUS))
+#            PTY[antNum + ant_index - 1] = np.sum(resid[index0].imag.dot(QCpUS)) - np.sum(resid[index1].imag.dot(QCpUS))
+#        #
+#        index1 = np.where(ant1 == 0)[0].tolist(); PTY[0] = np.sum(resid[index1].real.dot(QCpUS))
+#        Solution = PTP_inv.dot(PTY); Dy = Solution[0:antNum] + (1.0j)* np.append(0.0, Solution[antNum:2*antNum-1])
+#    #
+#    #-------- <XY*> and <YX*> to determine Dx and Dy
+#    PTP = np.zeros([4*antNum, 4*antNum])            # (Dx.real, Dx.imag, Dy.real, Dy.imag)^2
+#    PTP[0:2*antNum][:,0:2*antNum] = (ssqQCpUS - 2.0*sumQCpUS + PAnum)* (antNum - 1.0)* np.identity(2*antNum)
+#    PTP[2*antNum:4*antNum][:,2*antNum:4*antNum] = (ssqQCpUS + 2.0*sumQCpUS + PAnum)* (antNum - 1.0)* np.identity(2*antNum)
+#    PTP[2*antNum:3*antNum][:,0:antNum] = (PAnum - ssqQCpUS) * (1.0 - np.identity(antNum))
+#    PTP[0:antNum][:,2*antNum:3*antNum] = PTP[2*antNum:3*antNum][:,0:antNum]
+#    PTP[3*antNum:4*antNum][:,antNum:2*antNum] = -PTP[2*antNum:3*antNum][:,0:antNum]
+#    PTP[antNum:2*antNum][:,3*antNum:4*antNum] = -PTP[2*antNum:3*antNum][:,0:antNum]
+#    #-------- Residual Vector
+#    residXY, residYX = Vis[1] - UCmQS, Vis[2] - UCmQS
+#    PTRX, PTRY = np.zeros(antNum, dtype=complex), np.zeros(antNum, dtype=complex)
+#    for ant_index in range(antNum):
+#        index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
+#        residXY[index0] -= Dx[ant_index]* (Stokes[0] - QCpUS)
+#        residXY[index1] -= Dy[ant_index].conjugate()* (Stokes[0] + QCpUS)
+#        residYX[index0] -= Dy[ant_index]* (Stokes[0] + QCpUS)
+#        residYX[index1] -= Dx[ant_index].conjugate()* (Stokes[0] - QCpUS)
+#    #
+#    #-------- PTR vector
+#    for ant_index in range(antNum):
+#        index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
+#        PTRX[ant_index] += (Stokes[0] - QCpUS).dot(np.sum(residXY[index0], axis=0))
+#        PTRX[ant_index] += (Stokes[0] - QCpUS).dot(np.sum(residYX[index1], axis=0).conjugate())
+#        PTRY[ant_index] += (Stokes[0] + QCpUS).dot(np.sum(residYX[index0], axis=0))
+#        PTRY[ant_index] += (Stokes[0] + QCpUS).dot(np.sum(residXY[index1], axis=0).conjugate())
+#    #
+#    resid = np.array([PTRX.real, PTRX.imag, PTRY.real, PTRY.imag]).reshape(4*antNum)
+#    #-------- Solution
+#    L = np.linalg.cholesky(PTP)
+#    t = np.linalg.solve(L, resid)
+#    Solution = np.linalg.solve(L.T, t)
+#    #-------- Correction
+#    Dx += Solution[0:antNum] + (1.0j)* Solution[antNum:2*antNum]
+#    Dy += Solution[2*antNum:3*antNum] + (1.0j)* Solution[3*antNum:4*antNum]
+#    return Dx, Dy
+##
+#def Vis2solveDDD(Vis, PS):
+#    blNum  = Vis.shape[1]; antNum = Bl2Ant(blNum)[0]                   # (I, Q, U, V)
+#    ant0, ant1 = ANT0[0:blNum], ANT1[0:blNum]
+#    dSolMap = range(2* antNum) + range(2*antNum+1, 4*antNum)
+#    Dx, Dy, Unity = np.zeros(antNum, dtype=complex), np.zeros(antNum, dtype=complex), np.ones(blNum, dtype=complex)     # Dx, Dy solutions for scanning antenna
+#    #weight = np.r_[0.01*np.ones(blNum), np.ones(blNum), np.ones(blNum), 0.01*np.ones(blNum), 0.01*np.ones(blNum), np.ones(blNum), np.ones(blNum), 0.1*np.ones(blNum)]
+#    weight = np.ones(8*blNum)
+#    for loop_index in range(2):
+#        resid   = (Vis - np.dot(MullerVector( Dx[ant0], Dy[ant0], Dx[ant1], Dy[ant1], Unity ).transpose(2,0,1), PS).T).reshape(4* blNum)
+#        resReal = np.r_[resid.real, resid.imag]
+#        #
+#        P = np.zeros( [4*antNum, 8*blNum] )
+#        K0, K1 = KMvec(Dx[ant0], Dy[ant0], Unity).transpose(2,0,1), KMvec(Dx[ant1], Dy[ant1], Unity).transpose(2,0,1)
+#        dVisX0 = np.dot(K1, PS[2:4])  # dM/dX0
+#        dVisY0 = np.dot(K1, PS[0:2])  # dM/dY0
+#        dVisX1 = np.dot(K0, PS[[1,3]])# dM/dX1
+#        dVisY1 = np.dot(K0, PS[[0,2]])# dM/dX1
+#        #
+#        for bl_index in range(blNum):
+#            a0, a1 = ant0[bl_index], ant1[bl_index]
+#            #-------- Derivative by real
+#            P[0*antNum + a0, 0*blNum + bl_index] += dVisX0[bl_index,0].real # /reX0
+#            P[0*antNum + a0, 1*blNum + bl_index] += dVisX0[bl_index,1].real # /reX0
+#            P[1*antNum + a0, 2*blNum + bl_index] += dVisY0[bl_index,0].real # /reY0
+#            P[1*antNum + a0, 3*blNum + bl_index] += dVisY0[bl_index,1].real # /reY0
+#            P[0*antNum + a1, 0*blNum + bl_index] += dVisX1[bl_index,0].real # /reX1
+#            P[0*antNum + a1, 2*blNum + bl_index] += dVisX1[bl_index,1].real # /reX1
+#            P[1*antNum + a1, 1*blNum + bl_index] += dVisY1[bl_index,0].real # /reY1
+#            P[1*antNum + a1, 3*blNum + bl_index] += dVisY1[bl_index,1].real # /reY1
+#            P[0*antNum + a0, 4*blNum + bl_index] += dVisX0[bl_index,0].imag # /reX0
+#            P[0*antNum + a0, 5*blNum + bl_index] += dVisX0[bl_index,1].imag # /reX0
+#            P[1*antNum + a0, 6*blNum + bl_index] += dVisY0[bl_index,0].imag # /reY0
+#            P[1*antNum + a0, 7*blNum + bl_index] += dVisY0[bl_index,1].imag # /reY0
+#            P[0*antNum + a1, 4*blNum + bl_index] += dVisX1[bl_index,0].imag # /reX1
+#            P[0*antNum + a1, 6*blNum + bl_index] += dVisX1[bl_index,1].imag # /reX1
+#            P[1*antNum + a1, 5*blNum + bl_index] += dVisY1[bl_index,0].imag # /reY1
+#            P[1*antNum + a1, 7*blNum + bl_index] += dVisY1[bl_index,1].imag # /reY1
+#            P[2*antNum + a0, 0*blNum + bl_index] -= dVisX0[bl_index,0].imag # /imX0
+#            P[2*antNum + a0, 1*blNum + bl_index] -= dVisX0[bl_index,1].imag # /imX0
+#            P[3*antNum + a0, 2*blNum + bl_index] -= dVisY0[bl_index,0].imag # /imY0
+#            P[3*antNum + a0, 3*blNum + bl_index] -= dVisY0[bl_index,1].imag # /imY0
+#            P[2*antNum + a1, 0*blNum + bl_index] += dVisX1[bl_index,0].imag # /imX1
+#            P[2*antNum + a1, 2*blNum + bl_index] += dVisX1[bl_index,1].imag # /imX1
+#            P[3*antNum + a1, 1*blNum + bl_index] += dVisY1[bl_index,0].imag # /imY1
+#            P[3*antNum + a1, 3*blNum + bl_index] += dVisY1[bl_index,1].imag # /imY1
+#            P[2*antNum + a0, 4*blNum + bl_index] += dVisX0[bl_index,0].real # /imX0
+#            P[2*antNum + a0, 5*blNum + bl_index] += dVisX0[bl_index,1].real # /imX0
+#            P[3*antNum + a0, 6*blNum + bl_index] += dVisY0[bl_index,0].real # /imY0
+#            P[3*antNum + a0, 7*blNum + bl_index] += dVisY0[bl_index,1].real # /imY0
+#            P[2*antNum + a1, 4*blNum + bl_index] -= dVisX1[bl_index,0].real # /imX1
+#            P[2*antNum + a1, 6*blNum + bl_index] -= dVisX1[bl_index,1].real # /imX1
+#            P[3*antNum + a1, 5*blNum + bl_index] -= dVisY1[bl_index,0].real # /imY1
+#            P[3*antNum + a1, 7*blNum + bl_index] -= dVisY1[bl_index,1].real # /imY1
+#        #
+#        #P = P[dSolMap]
+#        PWtP = np.dot(P, np.dot(np.diag(weight), P.T))
+#        # correction = np.dot(scipy.linalg.inv(PWtP), np.dot(P, weight* resReal))
+#        correction = scipy.linalg.solve(PWtP, np.dot(P, weight* resReal))
+#        #Dx += correction[range(antNum)]           + 1.0j* np.append(0, correction[range(2*antNum, 3*antNum-1)])
+#        #Dy += correction[range(antNum, 2*antNum)] + 1.0j* correction[range(3*antNum-1, 4*antNum-1)]
+#        Dx += correction[range(antNum)]           + 1.0j* correction[range(2*antNum, 3*antNum)]
+#        Dy += correction[range(antNum, 2*antNum)] + 1.0j* correction[range(3*antNum, 4*antNum)]
+#    #
+#    return Dx, Dy
+##
+#def Vis2solveDS(Vis, DtX, DtY, PS ):
+#    def DTresid( D ):
+#        Dx, Dy = D[0] + (0.0 + 1.0j)*D[1], D[2] + (0.0 + 1.0j)*D[3]
+#        ModelVis = np.array([
+#           PS[0] + PS[1]*DtX.conjugate() + PS[2]*Dx + PS[3]*Dx*DtX.conjugate(),
+#           PS[0]*DtY.conjugate() + PS[1] + PS[2]*Dx*DtY.conjugate() + PS[3]*Dx,
+#           PS[0]*Dy + PS[1]*Dy*DtX.conjugate() + PS[2] + PS[3]*DtX.conjugate(),
+#           PS[0]*Dy*DtY.conjugate() + PS[1]*Dy + PS[2]*DtY.conjugate() + PS[3]])
+#        residVis = (Vis - ModelVis).reshape(4*trkAntNum)
+#        return np.dot( residVis, residVis.conjugate() ).real
+#    #
+#    fit = scipy.optimize.minimize(DTresid, x0=np.zeros(4), method="tnc")['x']
+#    return fit[0]+(0.0+1.0j)*fit[1], fit[2]+(0.0+1.0j)*fit[3]
+##
 def TransferD(Vis, DtX, DtY, PS):
     refAntNum, PAnum = len(DtX), PS.shape[1]
     #
@@ -853,8 +853,8 @@ def TransferD(Vis, DtX, DtY, PS):
     #
     B0 = np.repeat(PS[0], refAntNum)  +  np.outer(PS[1], DtX.real).reshape(PAnum* refAntNum)
     B1 = np.repeat(PS[1], refAntNum)  +  np.outer(PS[0], DtY.real).reshape(PAnum* refAntNum)
-    B3 = -np.outer(PS[1], DtX.imag).reshape(PAnum* refAntNum)
-    B2 = -np.outer(PS[0], DtY.imag).reshape(PAnum* refAntNum)
+    B2 = -np.outer(PS[1], DtX.imag).reshape(PAnum* refAntNum)
+    B3 = -np.outer(PS[0], DtY.imag).reshape(PAnum* refAntNum)
     #
     resid = Vis.transpose(0,2,1).reshape(4, PAnum* refAntNum)
     resid[0] -= (np.repeat(PS[0], refAntNum) + np.outer(PS[1], DtX.conjugate()).reshape(PAnum* refAntNum))
@@ -879,73 +879,21 @@ def TransferD(Vis, DtX, DtY, PS):
 #
 def Vis2solveD(Vis, DtX, DtY, PS):
     refAntNum = len(DtX)
+    A = np.array([ PS[3]* DtX.real + PS[2], PS[2]* DtY.real + PS[3], -PS[3]* DtX.imag, -PS[2]* DtY.imag])
+    B = np.array([ PS[1]* DtX.real + PS[0], PS[0]* DtY.real + PS[1], -PS[1]* DtX.imag, -PS[0]* DtY.imag])
     #
-    A0 =  PS[3]* DtX.real + PS[2]
-    A1 =  PS[2]* DtY.real + PS[3]
-    A2 = -PS[3]* DtX.imag
-    A3 = -PS[2]* DtY.imag
+    resid = Vis - np.array([ PS[0] + PS[1]* DtX.conjugate(), PS[1] + PS[0]* DtY.conjugate(), PS[2] + PS[3]* DtX.conjugate(), PS[3] + PS[2]* DtY.conjugate()])
     #
-    B0 =  PS[1]* DtX.real + PS[0]
-    B1 =  PS[0]* DtY.real + PS[1]
-    B3 = -PS[1]* DtX.imag
-    B2 = -PS[0]* DtY.imag
-    #
-    resid = Vis
-    resid[0] -= (PS[0] + PS[1]* DtX.conjugate())
-    resid[1] -= (PS[1] + PS[0]* DtY.conjugate())
-    resid[2] -= (PS[2] + PS[3]* DtX.conjugate())
-    resid[3] -= (PS[3] + PS[2]* DtY.conjugate())
-    #
-    PTP_diag = np.array([
-        A0.dot(A0) + A1.dot(A1) + A2.dot(A2) + A3.dot(A3), 
-        A0.dot(A0) + A1.dot(A1) + A2.dot(A2) + A3.dot(A3), 
-        B0.dot(B0) + B1.dot(B1) + B2.dot(B2) + B3.dot(B3),
-        B0.dot(B0) + B1.dot(B1) + B2.dot(B2) + B3.dot(B3)])
-    #
+    PTP_diag = np.array([np.sum(np.diag(A.dot(A.T))), np.sum(np.diag(B.dot(B.T)))]).repeat(2)
     PTdotR = np.array([
-        A0.dot(resid[0].real) + A1.dot(resid[1].real) + A2.dot(resid[0].imag) + A3.dot(resid[1].imag),
-       -A2.dot(resid[0].real) - A3.dot(resid[1].real) + A0.dot(resid[0].imag) + A1.dot(resid[1].imag),
-        B0.dot(resid[2].real) + B1.dot(resid[3].real) + B2.dot(resid[2].imag) + B3.dot(resid[3].imag),
-       -B2.dot(resid[2].real) - B3.dot(resid[3].real) + B0.dot(resid[2].imag) + B1.dot(resid[3].imag)])
+        A.reshape(4*refAntNum).dot( np.r_[resid[0].real, resid[1].real, resid[0].imag, resid[1].imag]),
+        A.reshape(4*refAntNum).dot( np.r_[resid[0].imag, resid[1].imag,-resid[0].real,-resid[1].real]),
+        B.reshape(4*refAntNum).dot( np.r_[resid[2].real, resid[3].real, resid[2].imag, resid[3].imag]),
+        B.reshape(4*refAntNum).dot( np.r_[resid[2].imag, resid[3].imag,-resid[2].real,-resid[2].real])])
     #
     Solution = PTdotR / PTP_diag
     return Solution[0] + 1.0j* Solution[1], Solution[2] + 1.0j* Solution[3]
 #
-"""
-def Vis2solveD(Vis, DtX, DtY, PS ):
-    trkAntNum = len(DtX)  # Number of tracking antennas
-    weight = np.ones(8* trkAntNum)
-    Dx, Dy = 0.0 + 0.0j, 0.0 + 0.0j
-    Unity = np.ones(trkAntNum)
-    Zeros = 0.0* Unity
-    for loop_index in range(2):
-        #-------- Determine P matrix
-        ModelVis = np.array([
-            PS[0] + PS[1]*DtX.conjugate() + PS[2]*Dx + PS[3]*Dx*DtX.conjugate(),
-            PS[0]*DtY.conjugate() + PS[1] + PS[2]*Dx*DtY.conjugate() + PS[3]*Dx,
-            PS[0]*Dy + PS[1]*Dy*DtX.conjugate() + PS[2] + PS[3]*DtX.conjugate(),
-            PS[0]*Dy*DtY.conjugate() + PS[1]*Dy + PS[2]*DtY.conjugate() + PS[3]])
-        residVis = (Vis - ModelVis).reshape(4*trkAntNum)
-        M = dMdDVec(DtX, DtY, Unity).transpose(2,0,1)
-        dVis = np.dot( M, PS )
-        #
-        P = np.c_[
-            np.r_[ dVis[:, 0].real,  dVis[:, 1].real, Zeros, Zeros, dVis[:, 0].imag, dVis[:, 1].imag, Zeros, Zeros],
-            np.r_[-dVis[:, 0].imag, -dVis[:, 1].imag, Zeros, Zeros, dVis[:, 0].real, dVis[:, 1].real, Zeros, Zeros],
-            np.r_[Zeros, Zeros,  dVis[:, 2].real,  dVis[:, 3].real, Zeros, Zeros, dVis[:, 2].imag, dVis[:, 3].imag],
-            np.r_[Zeros, Zeros, -dVis[:, 2].imag, -dVis[:, 3].imag, Zeros, Zeros, dVis[:, 2].real, dVis[:, 3].real]]
-        #
-        tPWP = np.dot(P.T, np.dot(np.diag(weight), P))
-        L = np.linalg.cholesky(tPWP)
-        t = np.linalg.solve(L, np.dot(P.T, weight* np.r_[residVis.real, residVis.imag]))
-        correction = np.linalg.solve( L.T, t )
-        Dx += (correction[0] + 1.0j*correction[1])
-        Dy += (correction[2] + 1.0j*correction[3])
-        # print 'Iter%d : Residual = %e' % (loop_index, np.dot(np.r_[residVis.real, residVis.imag], np.r_[residVis.real, residVis.imag]))
-    #
-    return Dx, Dy
-#
-"""
 def beamF(disk2FWHMratio):     # diskR / FWHM ratio
     disk2sigma = disk2FWHMratio * 2.3548200450309493   # FWHM / (2.0* sqrt(2.0* log(2.0)))
     return( 2.0* (1.0 - exp(-0.5* (disk2sigma)**2)) / (disk2sigma**2) )
