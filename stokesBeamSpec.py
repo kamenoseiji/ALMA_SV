@@ -241,7 +241,7 @@ print('-------- Plot D-term Maps for scan ants ----')
 chAvgDx, chAvgDy = np.mean(Dx[:,:,chRange], axis=2), np.mean(Dy[:,:,chRange], axis=2)
 for ant_index in range(scnAntNum):
     antID = scnAnt[ant_index]
-    #DantID = trkAntNum + ant_index
+    DantID = trkAntNum + ant_index
     fwhm = FWHM[antID]
     #-------- Plot
     fig = plt.figure( figsize = (10,10))
