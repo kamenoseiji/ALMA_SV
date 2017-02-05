@@ -1,8 +1,5 @@
 execfile(SCR_DIR + 'interferometry.py')
 from matplotlib.backends.backend_pdf import PdfPages
-#from scipy.constants import constants
-#from scipy.interpolate import UnivariateSpline
-#from scipy.interpolate import griddata
 ALMA_lat = -23.029/180.0*pi     # ALMA AOS Latitude
 #----------------------------------------- Procedures
 fileNum, spwNum = len(prefixList), len(spwList)
@@ -36,7 +33,6 @@ for file_index in range(fileNum):
         #
         print '---- Scan %d : %d tracking antennas' % (scan, len(trkAnt))
     #
-    #scanList = [2]
     scansFile.append(scanList)
 #
 antMap = [refAntID] + list(trkAntSet - set([refAntID]))
@@ -53,7 +49,6 @@ for spw_index in range(spwNum):
     chNum, chWid, Freq = GetChNum(msfile, spw); chRange = range(int(0.05*chNum), int(0.95*chNum)); FreqList = FreqList + [1.0e-9* Freq]
     DxSpec, DySpec = np.zeros([antNum, chNum], dtype=complex), np.zeros([antNum, chNum], dtype=complex)
     caledVis = np.ones([4,blNum, 0], dtype=complex)
-    mjdSec, Az, El = np.ones([0]), np.ones([0]), np.ones([0])
     if BPprefix != '':  # Bandpass file
         BPantList, BP_ant, XYspec = np.load(BPprefix + '-REF' + refantName + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy')
         BP_ant = BP_ant[indexList(antList[antMap], BPantList)]      # BP antenna mapping
@@ -63,6 +58,7 @@ for spw_index in range(spwNum):
     #
     chAvgVis = np.zeros([4, blNum, 0], dtype=complex)
     VisSpec  = np.zeros([4, chNum, blNum, 0], dtype=complex)
+    mjdSec, Az, El = [], [], []
     for file_index in range(fileNum):
         prefix = prefixList[file_index]
         msfile = wd + prefix + '.ms'
@@ -87,14 +83,19 @@ for spw_index in range(spwNum):
                 VisSpec  = np.c_[VisSpec, BPCaledXspec]
             #
             #-------- Time index at on axis
-            timeNum = len(timeStamp)
-            mjdSec = np.append(mjdSec, timeStamp)
-            for time_index in range(timeNum):
-                scanAz, scanEl = AzElMatch(timeStamp[time_index], azelTime, AntID, refAntID, timeThresh, AZ, EL)
-                Az, El = np.append(Az, scanAz), np.append(El, scanEl)
+            scanAz, scanEl = AzElMatch(timeStamp, azelTime, AntID, refAntID, AZ, EL)
+            mjdSec = mjdSec + timeStamp.tolist()
+            Az = Az + scanAz.tolist()
+            El = El + scanEl.tolist()
+            #for time_index in range(timeNum):
+            #    scanAz, scanEl = AzElMatch(timeStamp[time_index], azelTime, AntID, refAntID, AZ, EL)
+            #    Az, El = np.append(Az, scanAz), np.append(El, scanEl)
             #
         #
     #
+    mjdSec = np.array(mjdSec)
+    Az = np.array(Az)
+    El = np.array(El)
     print '---- Antenna-based gain solution using tracking antennas'
     Gain  = np.ones([2, antNum, len(mjdSec)], dtype=complex)
     Gain[0, 0:antNum] = gainComplexVec(chAvgVis[0])

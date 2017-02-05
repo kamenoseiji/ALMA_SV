@@ -88,13 +88,13 @@ blWeight = antWeight[ant0]* antWeight[ant1]
 #----------------------------------------- Load D-term tables
 print '-- Loading D-term table %s SPW=%d ...' % (prefix, spw)
 DxList, DyList = [], []
-for ant_index in range(antNum):
-    Dxpath = Dprefix + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DxSpec.npy'
-    Dypath = Dprefix + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DySpec.npy'
+for ant_index in range(trkAntNum):
+    Dxpath = Dprefix + '-SPW' + `spw` + '-' + antList[trkAntMap[ant_index]] + '.DxSpec.npy'
+    Dypath = Dprefix + '-SPW' + `spw` + '-' + antList[trkAntMap[ant_index]] + '.DySpec.npy'
     DxList = DxList+[np.load(Dxpath)[1]]
     DyList = DyList+[np.load(Dypath)[1]]
 #
-Dx, Dy = np.array(DxList), np.array(DyList)
+DtX, DtY = np.array(DxList), np.array(DyList)
 #-------- BP table
 BP_ant = BP_ant[indexList(antList[antMap], BPantList)]
 BP_ant[:,1] *= XYspec
@@ -132,11 +132,12 @@ ant0, ant1 = ANT0[0:trkBlNum], ANT1[0:trkBlNum]
 PS = InvPAVector(PA, np.ones(PAnum))
 StokesVis = np.zeros([4, chNum], dtype=complex)
 for ch_index in range(chNum):
-    Minv = InvMullerVector(Dx[ant1, ch_index], Dy[ant1, ch_index], Dx[ant0, ch_index], Dy[ant0, ch_index], np.ones(trkBlNum))
+    Minv = InvMullerVector(DtX[ant1, ch_index], DtY[ant1, ch_index], DtX[ant0, ch_index], DtY[ant0, ch_index], np.ones(trkBlNum))
     StokesVis[:,ch_index] = PS.reshape(4, 4*PAnum).dot(Minv.reshape(4, 4*trkBlNum).dot(VisSpec[ch_index][:,0:trkBlNum].reshape(4*trkBlNum, PAnum)).reshape(4*PAnum)) / (PAnum* trkBlNum)
 #
-QUsol = np.mean(StokesVis[[1,2]][:,chRange], axis=1).real
-print 'Stokes Measurement: (Q, U) = (%6.3f, %6.3f)' % (QUsol[0], QUsol[1])
+StokesFlux = np.mean(StokesVis[:,chRange], axis=1).real
+QUsol = StokesFlux[[1,2]]
+print 'Stokes Measurement: (I, Q, U, V) = (%6.3f, %6.3f, %6.3f, %6.3f)' % (StokesFlux[0], StokesFlux[1], StokesFlux[2], StokesFlux[3])
 #-------- Record Stokes Fluxes measured by tracking antennas
 logfile = open(prefix + '-SPW' + `spw` + '-trkStokes.log', 'w')
 text_sd = 'CH I Q U V'; logfile.write(text_sd + '\n')
@@ -147,24 +148,20 @@ for ch_index in range(chNum):
 logfile.close()
 #-------- Determination of D-terms in scanning antennas
 print('-------- Determining Antenna-based D-terms (scan ants) ----')
-DxScn, DyScn = np.zeros([scnAntNum, timeNum, chNum], dtype=complex), np.zeros([scnAntNum, timeNum, chNum], dtype=complex)
+Dx, Dy = np.zeros([scnAntNum, timeNum, chNum], dtype=complex), np.zeros([scnAntNum, timeNum, chNum], dtype=complex)
 for ant_index in range(trkAntNum, antNum):
     print 'Determining D-term of ' + antList[antMap[ant_index]]
     TrkScnBL = range(ant_index* (ant_index - 1) / 2, ant_index* (ant_index - 1) / 2 + trkAntNum)
     for time_index in range(timeNum):
         PS = np.dot(PAMatrix(PA[time_index]), np.array([1.0, QUsol[0], QUsol[1], 0.0])).real
-        #PS = PSvector(PA, np.array([1.0, QUsol[0], QUsol[1], 0.0])).real
         for ch_index in range(chNum):
             progress = (time_index* chNum + ch_index + 1.0) / (timeNum* chNum)
             sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
-            #VisTime = CaledXspec[:, ch_index, TrkScnBL, time_index]
-            #Dx[antID, time_index, ch_index], Dy[antID, time_index, ch_index] = Vis2solveD(VisTime, Dx[0:trkAntNum, time_index, ch_index], Dy[0:trkAntNum, time_index, ch_index], PS )
-            DxScn[ant_index - trkAntNum, time_index, ch_index], DyScn[ant_index - trkAntNum, time_index, ch_index] = Vis2solveD(VisSpec[ch_index][:, TrkScnBL][:,:,time_index], Dx[0:trkAntNum, ch_index], Dy[0:trkAntNum, ch_index], PS)
+            Dx[ant_index - trkAntNum, time_index, ch_index], Dy[ant_index - trkAntNum, time_index, ch_index] = Vis2solveD(VisSpec[ch_index][:, TrkScnBL][:,:,time_index], DtX[:, ch_index], DtY[:, ch_index], PS)
         #
     #
     sys.stderr.write('\n'); sys.stderr.flush()
 #
-"""
 trkBlIndex  = np.where(blWeight == 1.0)[0].tolist(); trkBlNum  = len(trkBlIndex)        # Ref-Ref baselines
 ScTrBlIndex = np.where(blWeight == 0.5)[0].tolist(); ScTrBlNum = len(ScTrBlIndex)       # Ref-Scan baselines
 ScScBlIndex = np.where(blWeight == 0.25)[0].tolist(); ScScBlNum = len(ScScBlIndex)      # Scan-Scan baselines
@@ -184,8 +181,8 @@ thresh = np.r_[0.1, 0.5*( SortOffBeam[BreakIndex] + SortOffBeam[BreakIndex + 1])
 xrange, yrange = [min(Freq[chRange]), max(Freq[chRange])], [-0.1, 0.1]
 for ant_index in range(scnAntNum):
     antID = scnAnt[ant_index]
-    DantID = trkAntNum + ant_index
-    fwhm = FWHM[DantID]
+    #DantID = trkAntNum + ant_index
+    fwhm = FWHM[trkAntNum + ant_index]
     for thresh_index in range(7):
         time_index = list(set(np.where(OffBeam > thresh[thresh_index])[0]) & set(np.where(OffBeam < thresh[thresh_index + 1])[0]))  # Select time-points between thresholds
         if(len(time_index) != 48): continue
@@ -208,30 +205,30 @@ for ant_index in range(scnAntNum):
         plt.subplot2grid( (9,6), (0,0), colspan=4)
         fill_color='g'
         plt.fill([xrange[0], xrange[0], xrange[1], xrange[1]], [yrange[1], yrange[0], yrange[0], yrange[1]], fill_color, alpha=0.1)
-        plt.plot( Freq, np.mean(Dx[DantID, time_index], axis=0).real, color='cyan',     label = 'ReDx', ls='steps-mid')
-        plt.plot( Freq, np.mean(Dx[DantID, time_index], axis=0).imag, color='darkblue', label = 'ImDx', ls='steps-mid')
-        plt.plot( Freq, np.mean(Dy[DantID, time_index], axis=0).real, color='magenta',  label = 'ReDy', ls='steps-mid')
-        plt.plot( Freq, np.mean(Dy[DantID, time_index], axis=0).imag, color='darkred',  label = 'ImDy', ls='steps-mid')
+        plt.plot( Freq, np.mean(Dx[ant_index, time_index], axis=0).real, color='cyan',     label = 'ReDx', ls='steps-mid')
+        plt.plot( Freq, np.mean(Dx[ant_index, time_index], axis=0).imag, color='darkblue', label = 'ImDx', ls='steps-mid')
+        plt.plot( Freq, np.mean(Dy[ant_index, time_index], axis=0).real, color='magenta',  label = 'ReDy', ls='steps-mid')
+        plt.plot( Freq, np.mean(Dy[ant_index, time_index], axis=0).imag, color='darkred',  label = 'ImDy', ls='steps-mid')
         plt.axis([min(Freq), max(Freq), -0.2,0.2], fontsize=3)
         plt.legend(loc = 'best', prop={'size' :6}, numpoints = 1)
         plt.tick_params(labelsize = 6)
         for index in range(48):
             fill_color='g'
-            if max(abs(Dx[DantID, time_index[index], chRange].real)) > yrange[1]: fill_color = 'r'
-            if max(abs(Dx[DantID, time_index[index], chRange].imag)) > yrange[1]: fill_color = 'r'
-            if max(abs(Dy[DantID, time_index[index], chRange].real)) > yrange[1]: fill_color = 'r'
-            if max(abs(Dy[DantID, time_index[index], chRange].imag)) > yrange[1]: fill_color = 'r'
+            if max(abs(Dx[ant_index, time_index[index], chRange].real)) > yrange[1]: fill_color = 'r'
+            if max(abs(Dx[ant_index, time_index[index], chRange].imag)) > yrange[1]: fill_color = 'r'
+            if max(abs(Dy[ant_index, time_index[index], chRange].real)) > yrange[1]: fill_color = 'r'
+            if max(abs(Dy[ant_index, time_index[index], chRange].imag)) > yrange[1]: fill_color = 'r'
             plt.subplot2grid( (9,6), (int(index/6)+1, index%6))
             plt.fill([xrange[0], xrange[0], xrange[1], xrange[1]], [yrange[1], yrange[0], yrange[0], yrange[1]], fill_color, alpha=0.1)
-            plt.plot( Freq, Dx[DantID, time_index[index]].real, ls='steps-mid', color='cyan',     label = 'ReDx')
-            plt.plot( Freq, Dx[DantID, time_index[index]].imag, ls='steps-mid', color='darkblue', label = 'ImDx')
-            plt.plot( Freq, Dy[DantID, time_index[index]].real, ls='steps-mid', color='magenta',  label = 'ReDy')
-            plt.plot( Freq, Dy[DantID, time_index[index]].imag, ls='steps-mid', color='darkred',  label = 'ImDy')
+            plt.plot( Freq, Dx[ant_index, time_index[index]].real, ls='steps-mid', color='cyan',     label = 'ReDx')
+            plt.plot( Freq, Dx[ant_index, time_index[index]].imag, ls='steps-mid', color='darkblue', label = 'ImDx')
+            plt.plot( Freq, Dy[ant_index, time_index[index]].real, ls='steps-mid', color='magenta',  label = 'ReDy')
+            plt.plot( Freq, Dy[ant_index, time_index[index]].imag, ls='steps-mid', color='darkred',  label = 'ImDy')
             plt.axis([min(Freq), max(Freq), -0.2,0.2], fontsize=3)
             plt.tick_params(labelsize = 6)
             text_sd = 'PA=%.1f deg' % (BeamPA[time_index[index]]); plt.text(min(Freq), 0.16, text_sd, size='x-small')
             for ch_index in range(chNum):
-                text_sd = '%s %4.1f %4.1f %d %8.6f %8.6f %8.6f %8.6f' % (antList[antID], np.median(OffBeam[time_index]), BeamPA[time_index[index]], ch_index, Dx[DantID, time_index[index], ch_index].real, Dx[DantID, time_index[index], ch_index].imag, Dy[DantID, time_index[index], ch_index].real, Dy[DantID, time_index[index], ch_index].imag)
+                text_sd = '%s %4.1f %4.1f %d %8.6f %8.6f %8.6f %8.6f' % (antList[antID], np.median(OffBeam[time_index]), BeamPA[time_index[index]], ch_index, Dx[ant_index, time_index[index], ch_index].real, Dx[ant_index, time_index[index], ch_index].imag, Dy[ant_index, time_index[index], ch_index].real, Dy[ant_index, time_index[index], ch_index].imag)
                 logfile.write(text_sd + '\n')
             #
         #
@@ -244,8 +241,8 @@ print('-------- Plot D-term Maps for scan ants ----')
 chAvgDx, chAvgDy = np.mean(Dx[:,:,chRange], axis=2), np.mean(Dy[:,:,chRange], axis=2)
 for ant_index in range(scnAntNum):
     antID = scnAnt[ant_index]
-    DantID = trkAntNum + ant_index
-    fwhm = FWHM[DantID]
+    #DantID = trkAntNum + ant_index
+    fwhm = FWHM[antID]
     #-------- Plot
     fig = plt.figure( figsize = (10,10))
     fig.suptitle(prefix + ' ' + antList[antID] + ' SPW=' + `spw` + ' Scan=' + `scan`)
@@ -266,42 +263,42 @@ for ant_index in range(scnAntNum):
     text_sd = '#dAZ   dEL    ReGX    ImGX     ReGY     ImGY     ReDX     ImDX      RdDY     ImDY   '; logfile.write(text_sd + '\n')
     text_sd = '#-----------------------------------------------------------------------------------'; logfile.write(text_sd + '\n')
     for time_index in range(timeNum):
-        text_sd = '%4.1f %4.1f %8.5f %8.5f %8.5f %8.5f %8.5f %8.5f %8.5f %8.5f' % (dAz[time_index], dEl[time_index], NormGX[time_index].real, NormGX[time_index].imag, NormGY[time_index].real, NormGY[time_index].imag, chAvgDx[DantID,time_index].real, chAvgDx[DantID,time_index].imag, chAvgDy[DantID,time_index].real, chAvgDy[DantID,time_index].imag)
+        text_sd = '%4.1f %4.1f %8.5f %8.5f %8.5f %8.5f %8.5f %8.5f %8.5f %8.5f' % (dAz[time_index], dEl[time_index], NormGX[time_index].real, NormGX[time_index].imag, NormGY[time_index].real, NormGY[time_index].imag, chAvgDx[ant_index,time_index].real, chAvgDx[ant_index,time_index].imag, chAvgDy[ant_index,time_index].real, chAvgDy[ant_index,time_index].imag)
         logfile.write(text_sd + '\n')
     #
     logfile.close()
-    Dx3dB, Dy3dB = chAvgDx[DantID][Index3dB], chAvgDy[DantID][Index3dB]
-    Dx6dB, Dy6dB = chAvgDx[DantID][Index6dB], chAvgDy[DantID][Index6dB]
-    ReDxmap = GridData( chAvgDx[DantID].real, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), fwhm/16).reshape(len(xi), len(xi))
-    ImDxmap = GridData( chAvgDx[DantID].imag, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), fwhm/16).reshape(len(xi), len(xi))
-    ReDymap = GridData( chAvgDy[DantID].real, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), fwhm/16).reshape(len(xi), len(xi))
-    ImDymap = GridData( chAvgDy[DantID].imag, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), fwhm/16).reshape(len(xi), len(xi))
+    Dx3dB, Dy3dB = chAvgDx[ant_index][Index3dB], chAvgDy[ant_index][Index3dB]
+    Dx6dB, Dy6dB = chAvgDx[ant_index][Index6dB], chAvgDy[ant_index][Index6dB]
+    ReDxmap = GridData( chAvgDx[ant_index].real, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), fwhm/16).reshape(len(xi), len(xi))
+    ImDxmap = GridData( chAvgDx[ant_index].imag, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), fwhm/16).reshape(len(xi), len(xi))
+    ReDymap = GridData( chAvgDy[ant_index].real, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), fwhm/16).reshape(len(xi), len(xi))
+    ImDymap = GridData( chAvgDy[ant_index].imag, dAz, dEl, xi.reshape(xi.size), yi.reshape(xi.size), fwhm/16).reshape(len(xi), len(xi))
     #---- plot Re(Dx)
     plt.subplot( 2, 2, 1, aspect=1); plt.contourf(xi, yi, ReDxmap, np.linspace(-0.10, 0.10, 11)); plt.colorbar(); plt.title('Re(Dx)')
     circle_x, circle_y = circlePoints(0, 0, fwhm/2); plt.plot( circle_x, circle_y )
     circle_x, circle_y = circlePoints(0, 0, fwhm/sqrt(2)); plt.plot( circle_x, circle_y )
-    text_sd = 'Re(Dx) at Center = %5.3f' % ( np.mean(Dx[DantID, IndexCenter].real) ); plt.text(-1.6*fwhm, -1.5*fwhm, text_sd, size='x-small')
+    text_sd = 'Re(Dx) at Center = %5.3f' % ( np.mean(Dx[ant_index, IndexCenter].real) ); plt.text(-1.6*fwhm, -1.5*fwhm, text_sd, size='x-small')
     text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( max(Dx3dB.real), min(Dx3dB.real) ); plt.text(-1.6*fwhm, -1.7*fwhm, text_sd, size='x-small')
     text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( max(Dx6dB.real), min(Dx6dB.real) ); plt.text(-1.6*fwhm, -1.9*fwhm, text_sd, size='x-small')
     #---- plot Im(Dx)
     plt.subplot( 2, 2, 2, aspect=1); plt.contourf(xi, yi, ImDxmap, np.linspace(-0.10, 0.10, 11)); plt.colorbar(); plt.title('Im(Dx)')
     circle_x, circle_y = circlePoints(0, 0, fwhm/2); plt.plot( circle_x, circle_y )
     circle_x, circle_y = circlePoints(0, 0, fwhm/sqrt(2)); plt.plot( circle_x, circle_y )
-    text_sd = 'Im(Dx) at Center = %5.3f' % ( np.mean(Dx[DantID, IndexCenter].imag) ); plt.text(-1.6*fwhm, -1.5*fwhm, text_sd, size='x-small')
+    text_sd = 'Im(Dx) at Center = %5.3f' % ( np.mean(Dx[ant_index, IndexCenter].imag) ); plt.text(-1.6*fwhm, -1.5*fwhm, text_sd, size='x-small')
     text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( max(Dx3dB.imag), min(Dx3dB.imag) ); plt.text(-1.6*fwhm, -1.7*fwhm, text_sd, size='x-small')
     text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( max(Dx6dB.imag), min(Dx6dB.imag) ); plt.text(-1.6*fwhm, -1.9*fwhm, text_sd, size='x-small')
     #---- plot Re(Dy)
     plt.subplot( 2, 2, 3, aspect=1); plt.contourf(xi, yi, ReDymap, np.linspace(-0.10, 0.10, 11)); plt.colorbar(); plt.title('Re(Dy)')
     circle_x, circle_y = circlePoints(0, 0, fwhm/2); plt.plot( circle_x, circle_y )
     circle_x, circle_y = circlePoints(0, 0, fwhm/sqrt(2)); plt.plot( circle_x, circle_y )
-    text_sd = 'Re(Dy) at Center = %5.3f' % ( np.mean(Dy[DantID, IndexCenter].real) ); plt.text(-1.6*fwhm, -1.5*fwhm, text_sd, size='x-small')
+    text_sd = 'Re(Dy) at Center = %5.3f' % ( np.mean(Dy[ant_index, IndexCenter].real) ); plt.text(-1.6*fwhm, -1.5*fwhm, text_sd, size='x-small')
     text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( max(Dy3dB.real), min(Dy3dB.real) ); plt.text(-1.6*fwhm, -1.7*fwhm, text_sd, size='x-small')
     text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( max(Dy6dB.real), min(Dy6dB.real) ); plt.text(-1.6*fwhm, -1.9*fwhm, text_sd, size='x-small')
     #---- plot Im(Dy)
     plt.subplot( 2, 2, 4, aspect=1); plt.contourf(xi, yi, ImDymap, np.linspace(-0.10, 0.10, 11)); plt.colorbar(); plt.title('Im(Dy)')
     circle_x, circle_y = circlePoints(0, 0, fwhm/2); plt.plot( circle_x, circle_y )
     circle_x, circle_y = circlePoints(0, 0, fwhm/sqrt(2)); plt.plot( circle_x, circle_y )
-    text_sd = 'Im(Dy) at Center = %5.3f' % ( np.mean(Dy[DantID, IndexCenter].imag) ); plt.text(-1.6*fwhm, -1.5*fwhm, text_sd, size='x-small')
+    text_sd = 'Im(Dy) at Center = %5.3f' % ( np.mean(Dy[ant_index, IndexCenter].imag) ); plt.text(-1.6*fwhm, -1.5*fwhm, text_sd, size='x-small')
     text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( max(Dy3dB.imag), min(Dy3dB.imag) ); plt.text(-1.6*fwhm, -1.7*fwhm, text_sd, size='x-small')
     text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( max(Dy6dB.imag), min(Dy6dB.imag) ); plt.text(-1.6*fwhm, -1.9*fwhm, text_sd, size='x-small')
     plt.plot( dAz, dEl, '.', color='k', alpha=0.1)
@@ -311,26 +308,23 @@ for ant_index in range(scnAntNum):
 #
 #-------- D-term-corrected Stokes parameters --------
 print('-------- D-term-corrected Stokes parameters ----')
-StokesVis = np.zeros([ScScBlNum, timeNum, chNum, 4], dtype=complex) 
+ScnStokesSpec = np.zeros([timeNum, chNum, 4]) 
+ant0, ant1 = ANT0[0:ScScBlNum], ANT1[0:ScScBlNum]
+PS = InvPAVector(PA, np.ones(PAnum))
 for time_index in range(timeNum):
     progress = (time_index + 1.0) / timeNum
     sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
-    Pinv = InvPAMatrix( PA[time_index] )
-    for bl_index in range(ScScBlNum):
-        BlID = ScScBlIndex[bl_index]
-        for ch_index in range(chNum):
-            Minv = InvMullerMatrix( Dx[ant1[BlID], time_index, ch_index], Dy[ant1[BlID], time_index, ch_index], Dx[ant0[BlID], time_index, ch_index], Dy[ant0[BlID], time_index, ch_index])
-            StokesVis[bl_index, time_index, ch_index] = np.dot(Pinv, np.dot(Minv, CaledXspec[:,ch_index, BlID, time_index]))
-        #
+    for ch_index in range(chNum):
+        Minv = InvMullerVector(Dx[ant1,time_index,ch_index], Dy[ant1,time_index,ch_index], Dx[ant0,time_index,ch_index], Dy[ant0,time_index,ch_index], np.ones(ScScBlNum))
+        ScnStokesSpec[time_index, ch_index] = (PS[:,:,time_index].dot(Minv.reshape(4,4*ScScBlNum).dot(VisSpec[ch_index][:,ScScBlIndex, time_index].reshape(4*ScScBlNum)) / ScScBlNum)).real
     #
 #
 sys.stderr.write('\n'); sys.stderr.flush()
-ScnStokesSpec = np.mean(StokesVis, axis=0).real
 ScnStokes = np.mean(ScnStokesSpec[:,chRange], axis=1)
-Qerr = ScnStokes[:,1] - StokesFlux[1]
-Uerr = ScnStokes[:,2] - StokesFlux[2]
-Perr = sqrt(ScnStokes[:,1]**2 + ScnStokes[:,2]**2) - sqrt(StokesFlux[1]**2 + StokesFlux[2]**2)
-Aerr = np.arctan( (ScnStokes[:,2]* StokesFlux[1] - ScnStokes[:,1]* StokesFlux[2]) / (ScnStokes[:,1]* StokesFlux[1] + ScnStokes[:,2]* StokesFlux[2]) )* 90.0/math.pi
+Qerr = ScnStokes[:,1] - QUsol[0]
+Uerr = ScnStokes[:,2] - QUsol[1]
+Perr = sqrt(ScnStokes[:,1]**2 + ScnStokes[:,2]**2) - sqrt(QUsol[0]**2 + QUsol[1]**2)
+Aerr = np.arctan( (ScnStokes[:,2]* QUsol[0] - ScnStokes[:,1]* QUsol[1]) / (ScnStokes[:,1]* QUsol[0] + ScnStokes[:,2]* QUsol[1]) )* 90.0/math.pi
 #-------- Plot Stokes Beam Map
 logfile = open(prefix + '-SPW' + `spw` + '-Stokes.log', 'w')
 text_sd = 'I I3max I3min I6max I6min Q Q3max Q3min Q6max Q6min U U3max U3min U6max U6min V V3max V3min V6max V6min'
@@ -360,14 +354,14 @@ text_sd = 'I at Center   = %5.3f' % ( np.mean(ScnStokes[IndexCenter, 0]) ); plt.
 text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( np.max(ScnStokes[Index3dB, 0]), np.min(ScnStokes[Index3dB, 0]) ); plt.text(-0.8*mapW, -0.85*mapW, text_sd, size='x-small')
 text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(ScnStokes[Index6dB, 0]), np.min(ScnStokes[Index6dB, 0]) ); plt.text(-0.8*mapW, -0.95*mapW, text_sd, size='x-small')
 #---- Plot Q map
-plt.subplot(2, 2, 2, aspect=1); plt.contourf(xi, yi, Qmap, np.linspace(0.01*(floor(StokesFlux[1]* 100)-5), 0.01*(floor(StokesFlux[1]* 100)+5), 21)); plt.colorbar(); plt.title('Stokes Q')
+plt.subplot(2, 2, 2, aspect=1); plt.contourf(xi, yi, Qmap, np.linspace(0.01*(floor(QUsol[0]* 100)-5), 0.01*(floor(QUsol[0]* 100)+5), 21)); plt.colorbar(); plt.title('Stokes Q')
 circle_x, circle_y = circlePoints(0, 0, mapW/2); plt.plot( circle_x, circle_y )
 circle_x, circle_y = circlePoints(0, 0, mapW/sqrt(2));   plt.plot( circle_x, circle_y )
 text_sd = 'Q at Center   = %5.3f' % ( np.mean(ScnStokes[IndexCenter, 1]) ); plt.text(-0.8*mapW, -0.75*mapW, text_sd, size='x-small')
 text_sd = '(max,min)_3dB = (%5.3f %5.3f) ' % ( np.max(ScnStokes[Index3dB, 1]), np.min(ScnStokes[Index3dB, 1]) ); plt.text(-0.8*mapW, -0.85*mapW, text_sd, size='x-small')
 text_sd = '(max,min)_6dB = (%5.3f %5.3f) ' % ( np.max(ScnStokes[Index6dB, 1]), np.min(ScnStokes[Index6dB, 1]) ); plt.text(-0.8*mapW, -0.95*mapW, text_sd, size='x-small')
 #---- Plot U map
-plt.subplot(2, 2, 3, aspect=1); plt.contourf(xi, yi, Umap, np.linspace(0.01*(floor(StokesFlux[2]* 100)-5), 0.01*(floor(StokesFlux[2]* 100)+5), 21)); plt.colorbar(); plt.title('Stokes U')
+plt.subplot(2, 2, 3, aspect=1); plt.contourf(xi, yi, Umap, np.linspace(0.01*(floor(QUsol[1]* 100)-5), 0.01*(floor(QUsol[1]* 100)+5), 21)); plt.colorbar(); plt.title('Stokes U')
 circle_x, circle_y = circlePoints(0, 0, mapW/2); plt.plot( circle_x, circle_y )
 circle_x, circle_y = circlePoints(0, 0, mapW/sqrt(2));   plt.plot( circle_x, circle_y )
 text_sd = 'U at Center   = %5.3f' % ( np.mean(ScnStokes[IndexCenter, 2]) ); plt.text(-0.8*mapW, -0.75*mapW, text_sd, size='x-small')
@@ -487,4 +481,3 @@ for thresh_index in range(7):
     plt.savefig( prefix + '-' + '-SPW' + `spw` + '-OFF' + `round(np.median(OffBeam[time_index]),1)` + '-StokesSpec.pdf', form='pdf'); plt.close()
 #
 logfile.close()
-"""
