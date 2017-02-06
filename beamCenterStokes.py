@@ -33,6 +33,7 @@ for file_index in range(fileNum):
         #
         print '---- Scan %d : %d tracking antennas' % (scan, len(trkAnt))
     #
+    scanList = [1]
     scansFile.append(scanList)
 #
 antMap = [refAntID] + list(trkAntSet - set([refAntID]))
