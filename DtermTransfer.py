@@ -26,7 +26,6 @@ XYpath = BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy'
 QUpath = QUprefix + '-SPW' + `spw` + '-' + refantName +'.QUXY.npy'
 if not os.path.exists(BPpath): sys.exit('No BP table [%s]' % (BPpath))
 if not os.path.exists(XYpath): sys.exit('No XY table [%s]' % (XYpath))
-if not os.path.exists(QUpath): sys.exit('No QU table [%s]' % (QUpath))
 refAntID = np.where(antList == refantName)[0][0]
 #----------------------------------------- Find BP and D-term references
 for ant_index in range(UseAntNum):
@@ -57,8 +56,7 @@ if (DantNum * noDantnum) !=  0:
     print ''
 else: sys.exit('Numbers of [Dant] and [noDant] = %d and %d' % (DantNum, noDantnum))
 #----------------------------------------- QU table
-QUsol = np.load(QUpath)     # [Q, U]
-#QUsol = np.array([0.0, 0.0])     # [Q, U]
+if os.path.exists(QUpath): QUsol = np.load(QUpath)     # [Q, U]
 #----------------------------------------- BP table
 blMap, blInv= range(UseBlNum), [False]* UseBlNum
 for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
@@ -120,7 +118,7 @@ for ant_index in range(UseAntNum):
     np.save(prefix + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DySpec.npy', np.array([Freq, Dy[ant_index]]))
 #
 #-------- Plot D-term spectra
-pp = PdfPages('D_' + prefix + '-Dspec.pdf')
+pp = PdfPages('D_' + prefix + '-SPW' + `spw` + '-Dspec.pdf')
 for ant_index in range(DantNum, UseAntNum):
     figAnt = plt.figure(ant_index, figsize = (11, 8))
     figAnt.suptitle(prefix + ' ' + antList[antMap[ant_index]])

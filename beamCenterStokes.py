@@ -181,7 +181,7 @@ for spw_index in range(spwNum):
 #
 #-------- Plot D-term spectra
 DxList, DyList = np.array(DxList).transpose(1,0,2), np.array(DyList).transpose(1,0,2)
-pp = PdfPages('D_' + prefixList[0] + '-Dspec.pdf')
+pp = PdfPages('D_' + prefixList[0] + '-REF' + `refantName` + '-Dspec.pdf')
 for ant_index in range(antNum):
     figAnt = plt.figure(ant_index, figsize = (11, 8))
     figAnt.suptitle(prefixList[0] + ' ' + antList[antMap[ant_index]])
