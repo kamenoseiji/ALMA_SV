@@ -29,8 +29,8 @@ if not os.path.exists(XYpath): sys.exit('No XY table [%s]' % (XYpath))
 refAntID = np.where(antList == refantName)[0][0]
 #----------------------------------------- Find BP and D-term references
 for ant_index in range(UseAntNum):
-    Dxpath = Dprefix + '-SPW' + `spw` + '-' + antList[UseAnt[ant_index]] + '.DxSpec.npy'
-    if os.path.exists(Dxpath): DantList += [UseAnt[ant_index]]
+    Dpath = Dprefix + '-SPW' + `spw` + '-' + antList[UseAnt[ant_index]] + '.DSpec.npy'
+    if os.path.exists(Dpath): DantList += [UseAnt[ant_index]]
     else: noDlist += [UseAnt[ant_index]]
     #
 #
@@ -43,10 +43,10 @@ if (DantNum * noDantnum) !=  0:
     print 'Antennas with D-term (%d):' % DantNum,
     for ant_index in range(DantNum):
         print '%s' % (antList[antMap[ant_index]]),
-        Dxpath = Dprefix + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DxSpec.npy'
-        Dypath = Dprefix + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DySpec.npy'
-        DxList = DxList+[np.load(Dxpath)[1]]
-        DyList = DyList+[np.load(Dypath)[1]]
+        Dpath = Dprefix + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DSpec.npy'
+        Dspec = np.load(Dpath)
+        DxList = DxList + [Dspec[1] + (0.0+1.0j)* Dspec[2]]
+        DyList = DyList + [Dspec[3] + (0.0+1.0j)* Dspec[4]]
     #
     print ''
     print 'Antennas without D-term (%d):' % noDantnum,
