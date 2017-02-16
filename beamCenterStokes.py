@@ -174,8 +174,8 @@ for spw_index in range(spwNum):
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.Azel.npy', np.array([mjdSec, Az, El, PA]))
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.QUXY.npy', QUsol )
     for ant_index in range(antNum):
-        np.save(prefixList[0] + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DxSpec.npy', np.array([FreqList[spw_index], DxSpec[ant_index]]))
-        np.save(prefixList[0] + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DySpec.npy', np.array([FreqList[spw_index], DySpec[ant_index]]))
+        DtermFile = np.array([FreqList[spw_index], DxSpec[ant_index].real, DxSpec[ant_index].imag, DySpec[ant_index].real, DySpec[ant_index].imag])
+        np.save(prefixList[0] + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DSpec.npy', DtermFile)
     #
     plt.close('all')
     DxList, DyList = DxList + [DxSpec], DyList + [DySpec]

@@ -114,8 +114,8 @@ for ant_index in range(DantNum, UseAntNum):
 np.save(prefix + '-SPW' + `spw` + '-' + refantName + '.Ant.npy', antList[antMap])
 np.save(prefix + '-SPW' + `spw` + '-' + refantName + '.QUXY.npy', QUsol )
 for ant_index in range(UseAntNum):
-    np.save(prefix + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DxSpec.npy', np.array([Freq, Dx[ant_index]]))
-    np.save(prefix + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DySpec.npy', np.array([Freq, Dy[ant_index]]))
+    DtermFile = np.array([Freq, Dx[ant_index].real, Dx[ant_index].imag, Dy[ant_index].real, Dy[ant_index].imag])
+    np.save(prefix + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DSpec.npy', DtermFile)
 #
 #-------- Plot D-term spectra
 pp = PdfPages('D_' + prefix + '-SPW' + `spw` + '-Dspec.pdf')
