@@ -50,7 +50,7 @@ for ant_index in range(UseAntNum):
     #
 #
 chNum = np.array(DxList).shape[1]
-DxSpec, DySpec = np.array(DxList).reshape([antNum, spwNum, chNum]), np.array(DyList).reshape([antNum, spwNum, chNum])
+DxSpec, DySpec = np.array(DxList).reshape([UseAntNum, spwNum, chNum]), np.array(DyList).reshape([UseAntNum, spwNum, chNum])
 #-------- Bandpass Table
 print '---Generating antenna-based bandpass table'
 XYdelayList, BPList = [], []
