@@ -1456,7 +1456,6 @@ def polariGain( XX, YY, PA, StokesQ, StokesU):
     #
     ScaledXX, ScaledYY = XX * Xscale, YY* Yscale
     return gainComplexVec(ScaledXX), gainComplexVec(ScaledYY)
-    #return np.apply_along_axis( gainComplex, 0, ScaledXX), np.apply_along_axis( gainComplex, 0, ScaledYY)
 #
 def XXYY2QU(PA, Vis):       # <XX*>, <YY*> to determine Q and U
     timeNum, sinPA2, cosPA2 = len(PA),np.sin(2.0*PA), np.cos(2.0*PA)

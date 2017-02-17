@@ -62,6 +62,25 @@ if len(timeAMB) == 0:
 print '---Checking array configulation'
 flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
 UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
+#-------- Check D-term files
+print '---Checking D-term files'
+DantList, noDlist = [], []
+Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
+for ant_index in UseAnt:
+    Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW0-' + antList[ant_index] + '.DSpec.npy'
+    if os.path.exists(Dfile): DantList += [ant_index]
+    else: noDlist += [ant_index]
+#
+DantNum, noDantNum = len(DantList), len(noDlist)
+print 'Antennas with D-term file (%d):' % (DantNum),
+for ant_index in DantList: print '%s ' % antList[ant_index],
+print ''
+if noDantNum > 0:
+    print 'Antennas without D-term file (%d) : ' % (noDantNum),
+    for ant_index in noDlist: print '%s ' % antList[ant_index],
+    sys.exit(' Run DtermTransfer first!!')
+#
+#-------- Antenna and baseline mapping
 blMap, blInv= range(UseBlNum), [False]* UseBlNum
 try:
     refantID = np.where(antList[UseAnt] == refant )[0][0]
