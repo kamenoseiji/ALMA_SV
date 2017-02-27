@@ -264,7 +264,7 @@ for spw_index in range(spwNum):
 AeSeqX, AeSeqY = np.array(AeSeqX), np.array(AeSeqY)
 #-------- Flux models for solar system objects
 msmd.done()
-execfile(SCR_DIR + 'SSOflux.py')
+execfile(SCR_DIR + 'SSOflux.py'); logfile.write(FLScaleText + '\n')
 SSOflux = SSOflux0* np.exp(-onTau.transpose(1,0)[indexList(np.array(SSOscanID), np.array(onsourceScans))])
 ##-------- Scaling with the flux calibrator
 AeX, AeY = [], []

@@ -41,7 +41,7 @@ for ssoIndex in range(SSONum):
         continue
     if( scanID == FCScan):
         FCS_ID = ssoIndex
-        text_sd = 'Flux Calibrator is %s at %s' % (sourceList[BandSSOList[ssoIndex]], timeLabel);  print text_sd
+        FLScaleText = 'Flux Calibrator is %s at %s' % (sourceList[BandSSOList[ssoIndex]], timeLabel);  print FLScaleText
     #
     timeStamp, UVW = GetUVW(msfile, spw[spw_index], scanID)
     uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
