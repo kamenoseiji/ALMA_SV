@@ -139,7 +139,7 @@ for band_index in range(NumBands):
     #
     if FLcal in sourceList: FCScan = list(set(msmd.scansforfield(FLcal)) & set(onsourceScans))[0]; FLsel = FLcal
     else: FCScan = onsourceScans[np.argmax(FLscore)]; FLsel = sourceList[sourceIDscan[np.argmax(FLscore)]]
-    print 'Use %s [EL = %4.1f] as Flux Scaler' % (FLsel, 180.0* OnEL[np.argmax(FLscore)]/np.pi)
+    FLScaleText = 'Use %s [EL = %4.1f deg] as Flux Scaler' % (FLsel, 180.0* OnEL[onsourceScans.index(FCScan)]/np.pi); print FLScaleText
     if BPcal in sourceList: BPScan = list(set(msmd.scansforfield(BPcal)) & set(onsourceScans))[0]
     if EQcal in sourceList: EQScan = list(set(msmd.scansforfield(EQcal)) & set(onsourceScans))[0]
     #-------- SSO in observed source list
@@ -152,7 +152,7 @@ for band_index in range(NumBands):
         BPScan = EQScan
     #
     EQcal  = sourceList[sourceIDscan[onsourceScans.index(EQScan)]]
-    print 'Use %s [EL = %4.1f] as Gain Equalizer' % (EQcal, 180.0* OnEL[onsourceScans.index(EQScan)]/np.pi)
+    EQcalText = 'Use %s [EL = %4.1f deg] as Gain Equalizer' % (EQcal, 180.0* OnEL[onsourceScans.index(EQScan)]/np.pi); print EQcalText
     #-------- Polarization setup
     spw = spwLists[band_index]; spwNum = len(spw); polNum = msmd.ncorrforpol(msmd.polidfordatadesc(spw[0]))
     pPol, cPol = [0,1], []  # parallel and cross pol
