@@ -1,6 +1,7 @@
 import sys
 import analysisUtils as au
 execfile(SCR_DIR + 'interferometry.py')
+SSOCatalog = ['Uranus', 'Neptune', 'Callisto', 'Ganymede', 'Titan', 'Io', 'Europa', 'Ceres', 'Pallas', 'Vesta', 'Juno', 'Mars', 'Mercury', 'Venus']
 msfile = prefix + '.ms'
 #-------- Check Antenna List
 antList = GetAntName(msfile)
@@ -24,8 +25,8 @@ for band_index in range(NumBands):
 #
 #-------- Check source list
 print '---Checking source list'
-sourceList, posList = GetSourceList(msfile)
-numSource = len(sourceList)
+sourceList, posList = GetSourceList(msfile); numSource = len(sourceList)
+SSOList   = indexList( np.array(SSOCatalog), np.array(sourceList))
 #-------- Check MJD for Ambient Load
 print '---Checking time for ambient and hot load'
 timeOFF, timeAMB, timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
