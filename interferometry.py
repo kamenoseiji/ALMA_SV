@@ -12,6 +12,7 @@ from scipy.sparse import lil_matrix
 import scipy.optimize
 import time
 import datetime
+BANDPA = [0.0, 45.0, -45.0, 80.0, -80.0, 45.0, -45.0, 36.45, 90.0, 90.0, 0.0]   # X-pol orientation for Band-1, 2, 3, 4, 5, 6, 7, 8, 9, and 10
 #======== Baseline and Antenna Indexing
 KERNEL_BL = arange(64)*arange(1,65)/2
 def indexList( refArray, motherArray ):     # Compare two arrays and return matched index
