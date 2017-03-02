@@ -153,9 +153,9 @@ for ant_index in range(UseAntNum):
     logfile.write('\n'); print ''
 ##
 logfile.write('\n'); print ''
-#-------- XY phase using EQ scan
+#-------- XY phase using BP scan
 XYphase, caledVis = [], []
-scan_index = onsourceScans.index(EQScan)
+scan_index = onsourceScans.index(BPScan)
 for spw_index in range(spwNum):
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], EQScan)
     timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
@@ -167,13 +167,15 @@ for spw_index in range(spwNum):
     SEFD = 2.0* kb* chAvgTsys[:,spw_index, :,scan_index] / Ae[:,:,spw_index]
     caledVis.append(np.mean((chAvgVis / (GainP[polYindex][:,ant0]* GainP[polXindex][:,ant1].conjugate())).transpose(2, 0, 1)* np.sqrt(SEFD[ant0][:,polYindex].T* SEFD[ant1][:,polXindex].T), axis=2).T)
 #
-caledVis = np.array(caledVis)   # [spw, pol, time]
-QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
+#caledVis = np.array(caledVis)   # [spw, pol, time]
+# QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
+QUsolution = np.array([catalogStokesQ.get(BPcal), catalogStokesU.get(BPcal)])
 #-------- XY phase cal in Bandpass table
 for spw_index in range(spwNum):
-    XYsign = np.sign(np.cos(XY2Phase(PA, QUsolution[0], QUsolution[1], caledVis[spw_index][[1,2]])))
+    XYphase = XY2Phase(PA, QUsolution[0], QUsolution[1], caledVis[spw_index][[1,2]])
+    XYsign = np.sign(np.cos(XYphase))
     BPList[spw_index][:,1] *= XYsign
-    print 'SPW[%d] : XY sign = %3.0f' % (spw[spw_index], XYsign)
+    print 'SPW[%d] : XY phase = %6.1f sign = %3.0f' % (spw[spw_index], XYphase, XYsign)
 #
 #-------- Flux Density
 ScanFlux = np.zeros([scanNum, spwNum, 4])
