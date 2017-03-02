@@ -1,5 +1,6 @@
 import sys
 import analysisUtils as au
+execfile(SCR_DIR + 'Grid.py')
 execfile(SCR_DIR + 'interferometry.py')
 SSOCatalog = ['Uranus', 'Neptune', 'Callisto', 'Ganymede', 'Titan', 'Io', 'Europa', 'Ceres', 'Pallas', 'Vesta', 'Juno', 'Mars', 'Mercury', 'Venus']
 msfile = prefix + '.ms'
@@ -25,7 +26,7 @@ for band_index in range(NumBands):
 #
 #-------- Check source list
 print '---Checking source list'
-sourceList, posList = GetSourceList(msfile); numSource = len(sourceList)
+sourceList, posList = GetSourceList(msfile); sourceList = sourceRename(sourceList); numSource = len(sourceList)
 SSOList   = indexList( np.array(SSOCatalog), np.array(sourceList))
 #-------- Check MJD for Ambient Load
 print '---Checking time for ambient and hot load'
@@ -101,20 +102,28 @@ for band_index in range(NumBands):
     azelTime, AntID, AZ, EL = GetAzEl(msfile)
     azelTime_index = np.where( AntID == UseAnt[refantID] )[0].tolist()
     azel = np.r_[AZ[azelTime_index], EL[azelTime_index]].reshape(2, len(azelTime_index))
-    OnEL, sourceIDscan, FLscore = [], [], np.zeros(scanNum)
+    OnAZ, OnEL, OnPA, PolQuality, sourceIDscan, FLscore = [], [], [], [], [], np.zeros(scanNum)
     for scan_index in range(scanNum):
         sourceIDscan.append( msmd.sourceidforfield(msmd.fieldsforscan(onsourceScans[scan_index])[0]))
         refTime = np.median(msmd.timesforscan(onsourceScans[scan_index]))
+        OnAZ.append(AZ[azelTime_index[argmin(abs(azelTime[azelTime_index] - refTime))]])
         OnEL.append(EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - refTime))]])
-        print 'Scan%d : %s EL=%4.1f' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0*OnEL[scan_index]/np.pi)
+        OnPA.append(AzEl2PA(OnAZ[scan_index], OnEL[scan_index]))
+        catalogIQUV = np.array([1.0, catalogStokesQ.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesU.get(sourceList[sourceIDscan[scan_index]], 0.0), 0.0])
+        CS, SN = np.cos(2.0* (OnPA[scan_index] + BandPA[band_index])), np.sin(2.0* (OnPA[scan_index] + BandPA[band_index]))
+        QCpUS = catalogIQUV[1]*CS + catalogIQUV[2]*SN   # Qcos + Usin
+        UCmQS = catalogIQUV[2]*CS - catalogIQUV[1]*SN   # Ucos - Qsin
+        PolQuality = PolQuality + [10.0* QCpUS* UCmQS * np.sin(OnEL[scan_index])]
+        print 'Scan%02d : %10s AZ=%6.1f EL=%4.1f PA=%6.1f PolQuality=%7.4f' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0*OnAZ[scan_index]/np.pi, 180.0*OnEL[scan_index]/np.pi, 180.0*OnPA[scan_index]/np.pi, PolQuality[scan_index])
     #
-    if BPcal in sourceList: BPScan = list(set(msmd.scansforfield(BPcal)) & set(onsourceScans))[0]
+    BPcal = sourceList[sourceIDscan[np.argmax(PolQuality)]]; BPScan = onsourceScans[np.argmax(PolQuality)]
+    #if BPcal in sourceList: BPScan = list(set(msmd.scansforfield(BPcal)) & set(onsourceScans))[0]
     #-------- Polarization setup 
     spw = spwLists[band_index]; spwNum = len(spw); polNum = msmd.ncorrforpol(msmd.polidfordatadesc(spw[0]))
     if polNum == 4: pPol, cPol = [0,3], [1,2]   # Full polarizations
     else:   pPol, cPol = [0,1], []              # Only parallel polarizations
     ppolNum, cpolNum = len(pPol), len(cPol)
-    execfile(SCR_DIR + 'aprioriFlux.py')
+    # execfile(SCR_DIR + 'aprioriFlux.py')
 #
 msmd.done()
-#del msfile, UniqBands
+del msfile, UniqBands
