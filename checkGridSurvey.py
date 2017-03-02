@@ -5,16 +5,6 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ptick
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Grid.py')
-#---- Definitions
-#ELshadow = np.pi* 40.0 / 180.0
-#SSOCatalog = ['Uranus', 'Neptune', 'Callisto', 'Ganymede', 'Titan', 'Io', 'Europa', 'Ceres', 'Pallas', 'Vesta', 'Juno', 'Mars', 'Mercury', 'Venus']
-#SSOscore   = [[ 5.0,     4.0,       1.0,        1.0,        0.1,     0.2,  0.3,      0.2,     0.1,      0.1,     0.1,    10.0,   10.0,     10.0],   # Band 1
-#              [ 6.0,     5.0,       1.0,        1.0,        0.1,     0.6,  0.5,      0.3,     0.2,      0.2,     0.2,    10.0,   10.0,     10.0],   # Band 2
-#              [ 7.0,     6.0,       1.0,        1.0,        0.2,     0.7,  0.7,      0.5,     0.3,      0.3,     0.3,    10.0,   10.0,     10.0],   # Band 3
-#              [ 8.0,     7.0,       2.0,        2.0,        0.3,     0.9,  0.9,      0.6,     0.4,      0.4,     0.4,     8.0,   10.0,      8.0],   # Band 4
-#              [ 9.0,     8.0,       3.0,        3.0,        0.5,     1.0,  1.0,      0.8,     0.5,      0.5,     0.5,     4.0,    4.0,      4.0],   # Band 5
-#              [10.0,     9.0,       4.0,        4.0,        5.0,     3.0,  3.0,      1.0,     0.6,      0.6,     0.6,     2.0,    2.0,      2.0],   # Band 6
-#              [10.0,     9.0,       5.0,        5.0,        7.0,     4.0,  4.0,      3.0,     0.7,      0.7,     0.7,     1.0,    1.0,      1.0]]   # Band 7
 #-------- Procedures
 msfile = wd + prefix + '.ms'
 #-------- Check Antenna List
@@ -40,8 +30,7 @@ for band_index in range(NumBands):
 #
 #-------- Check source list
 print '---Checking source list'
-sourceList, posList = GetSourceList(msfile) 
-numSource = len(sourceList)
+sourceList, posList = GetSourceList(msfile); sourceList = sourceRename(sourceList); numSource = len(sourceList)
 SSOList   = indexList( np.array(SSOCatalog), np.array(sourceList) ) # Find Solar System Objects in the source list
 if len(SSOList) == 0: print '  No Solar System Object was observed.'; sys.exit()
 QSOList   = list(set(range(numSource)) - set(SSOList))
@@ -127,7 +116,6 @@ for band_index in range(NumBands):
     azelTime, AntID, AZ, EL = GetAzEl(msfile)
     azelTime_index = np.where( AntID == UseAnt[refantID] )[0].tolist() 
     azel = np.r_[AZ[azelTime_index], EL[azelTime_index]].reshape(2, len(azelTime_index))
-    #OnEL, sourceIDscan, FLscore = [], [], np.zeros(scanNum)
     OnAZ, OnEL, OnPA, BPquality, EQquality, sourceIDscan, FLscore = [], [], [], [], [], [], np.zeros(scanNum)
     for scan_index in range(scanNum):
         sourceIDscan.append( msmd.sourceidforfield(msmd.fieldsforscan(onsourceScans[scan_index])[0]))
@@ -141,7 +129,6 @@ for band_index in range(NumBands):
         UCmQS = catalogIQUV[2]*CS - catalogIQUV[1]*SN   # Ucos - Qsin
         BPquality = BPquality + [10.0* abs(UCmQS) * np.sin(OnEL[scan_index])]
         EQquality = EQquality + [catalogIQUV[0]* np.sin(OnEL[scan_index] - ELshadow) / (0.001 + QCpUS**2)]
-        #print 'Scan%d : %s EL=%4.1f' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0*OnEL[scan_index]/np.pi)
         print 'Scan%02d : %10s AZ=%6.1f EL=%4.1f PA=%6.1f BPQuality=%7.4f EQquality=%6.0f' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0*OnAZ[scan_index]/np.pi, 180.0*OnEL[scan_index]/np.pi, 180.0*OnPA[scan_index]/np.pi, BPquality[scan_index], EQquality[scan_index])
         if sourceIDscan[scan_index] in SSOList: FLscore[scan_index] = np.exp(np.log(math.sin(OnEL[scan_index])-0.34))* SSOscore[bandID][SSOCatalog.index(sourceList[sourceIDscan[scan_index]])]
     #
@@ -151,18 +138,8 @@ for band_index in range(NumBands):
     FLScaleText = 'Use %s [EL = %4.1f deg] as Flux Scaler' % (FLsel, 180.0* OnEL[onsourceScans.index(FCScan)]/np.pi); print FLScaleText
     BPcal = sourceList[sourceIDscan[np.argmax(BPquality)]]; BPScan = onsourceScans[np.argmax(BPquality)]
     EQcal = sourceList[sourceIDscan[np.argmax(EQquality)]]; EQScan = onsourceScans[np.argmax(EQquality)]
-    #if BPcal in sourceList: BPScan = list(set(msmd.scansforfield(BPcal)) & set(onsourceScans))[0]
-    #if EQcal in sourceList: EQScan = list(set(msmd.scansforfield(EQcal)) & set(onsourceScans))[0]
     #-------- SSO in observed source list
     BandSSOList = list( set(SSOList) & set(sourceIDscan) )
-    #-------- Avoid EQ == FL
-    #if EQScan == FCScan or OnEL[onsourceScans.index(EQScan)] < ELshadow :
-    #    QSOscanIndex = indexList(QSOList, np.array(sourceIDscan))
-    #    QSOEL = np.array(OnEL)[QSOscanIndex]
-    #    EQScan = onsourceScans[QSOscanIndex[np.argmax(QSOEL)]]
-    #    BPScan = EQScan
-    ##
-    #EQcal  = sourceList[sourceIDscan[onsourceScans.index(EQScan)]]
     BPcalText = 'Use %s [EL = %4.1f deg] as Bandpass Calibrator' % (BPcal, 180.0* OnEL[onsourceScans.index(BPScan)]/np.pi); print BPcalText
     EQcalText = 'Use %s [EL = %4.1f deg] as Gain Equalizer' % (EQcal, 180.0* OnEL[onsourceScans.index(EQScan)]/np.pi); print EQcalText
     #-------- Polarization setup

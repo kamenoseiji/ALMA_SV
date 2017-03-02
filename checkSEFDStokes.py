@@ -75,10 +75,6 @@ if PLOTBP:
 #-------- Tsys measurements
 execfile(SCR_DIR + 'TsysCal.py')
 ##-------- Equalization using EQ scan
-interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[0], EQScan); timeNum = len(timeStamp)
-AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
-PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), np.cos(PA))
-#PS = InvPAVector(PA, np.ones(timeNum))
 AeSeqX, AeSeqY = [], []  # effective area x flux density of the equalizer
 polXindex, polYindex, scan_index = (arange(4)//2).tolist(), (arange(4)%2).tolist(), onsourceScans.index(EQScan)
 for spw_index in range(spwNum):
@@ -154,12 +150,14 @@ for ant_index in range(UseAntNum):
 ##
 logfile.write('\n'); print ''
 #-------- XY phase using BP scan
+interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[0], BPScan); timeNum = len(timeStamp)
+AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
+PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), np.cos(PA))
 XYphase, caledVis = [], []
 scan_index = onsourceScans.index(BPScan)
 for spw_index in range(spwNum):
-    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], EQScan)
+    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], BPScan)
     timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-    timeThresh = np.median(diff(timeStamp))
     tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
     BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
     chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
@@ -167,8 +165,8 @@ for spw_index in range(spwNum):
     SEFD = 2.0* kb* chAvgTsys[:,spw_index, :,scan_index] / Ae[:,:,spw_index]
     caledVis.append(np.mean((chAvgVis / (GainP[polYindex][:,ant0]* GainP[polXindex][:,ant1].conjugate())).transpose(2, 0, 1)* np.sqrt(SEFD[ant0][:,polYindex].T* SEFD[ant1][:,polXindex].T), axis=2).T)
 #
-#caledVis = np.array(caledVis)   # [spw, pol, time]
-# QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
+caledVis = np.array(caledVis)   # [spw, pol, time]
+#QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
 QUsolution = np.array([catalogStokesQ.get(BPcal), catalogStokesU.get(BPcal)])
 #-------- XY phase cal in Bandpass table
 for spw_index in range(spwNum):
