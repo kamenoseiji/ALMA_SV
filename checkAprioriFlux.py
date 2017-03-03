@@ -1,7 +1,7 @@
 import sys
 import analysisUtils as au
-execfile(SCR_DIR + 'Grid.py')
 execfile(SCR_DIR + 'interferometry.py')
+execfile(SCR_DIR + 'Grid.py')
 #SSOCatalog = ['Uranus', 'Neptune', 'Callisto', 'Ganymede', 'Titan', 'Io', 'Europa', 'Ceres', 'Pallas', 'Vesta', 'Juno', 'Mars', 'Mercury', 'Venus']
 msfile = prefix + '.ms'
 #-------- Check Antenna List
@@ -102,29 +102,31 @@ for band_index in range(NumBands):
     azelTime, AntID, AZ, EL = GetAzEl(msfile)
     azelTime_index = np.where( AntID == UseAnt[refantID] )[0].tolist()
     azel = np.r_[AZ[azelTime_index], EL[azelTime_index]].reshape(2, len(azelTime_index))
-    OnAZ, OnEL, OnPA, BPquality, EQquality, sourceIDscan, FLscore = [], [], [], [], [], [], np.zeros(scanNum)
+    OnAZ, OnEL, OnPA, BPquality, EQquality, sourceIDscan, FLscore, refTime = [], [], [], [], [], [], np.zeros(scanNum), []
     for scan_index in range(scanNum):
         sourceIDscan.append( msmd.sourceidforfield(msmd.fieldsforscan(onsourceScans[scan_index])[0]))
-        refTime = np.median(msmd.timesforscan(onsourceScans[scan_index]))
-        OnAZ.append(AZ[azelTime_index[argmin(abs(azelTime[azelTime_index] - refTime))]])
-        OnEL.append(EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - refTime))]])
+        refTime = refTime + [np.median(msmd.timesforscan(onsourceScans[scan_index]))]
+        OnAZ.append(AZ[azelTime_index[argmin(abs(azelTime[azelTime_index] - refTime[scan_index]))]])
+        OnEL.append(EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - refTime[scan_index]))]])
         OnPA.append(AzEl2PA(OnAZ[scan_index], OnEL[scan_index]))
         catalogIQUV = np.array([catalogStokesI.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesQ.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesU.get(sourceList[sourceIDscan[scan_index]], 0.0), 0.0])
         CS, SN = np.cos(2.0* (OnPA[scan_index] + BandPA[band_index])), np.sin(2.0* (OnPA[scan_index] + BandPA[band_index]))
         QCpUS = catalogIQUV[1]*CS + catalogIQUV[2]*SN   # Qcos + Usin
         UCmQS = catalogIQUV[2]*CS - catalogIQUV[1]*SN   # Ucos - Qsin
-        BPquality = BPquality + [10.0* QCpUS* UCmQS * np.sin(OnEL[scan_index])]
+        BPquality = BPquality + [10.0* abs(QCpUS* UCmQS) * np.sin(OnEL[scan_index])]
         EQquality = EQquality + [catalogIQUV[0]* np.sin(OnEL[scan_index] - ELshadow) / (0.001 + QCpUS**2)]
         print 'Scan%02d : %10s AZ=%6.1f EL=%4.1f PA=%6.1f BPQuality=%7.4f EQquality=%6.0f' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0*OnAZ[scan_index]/np.pi, 180.0*OnEL[scan_index]/np.pi, 180.0*OnPA[scan_index]/np.pi, BPquality[scan_index], EQquality[scan_index])
     #
-    BPcal = sourceList[sourceIDscan[np.argmax(BPquality)]]; BPScan = onsourceScans[np.argmax(BPquality)]
-    EQcal = sourceList[sourceIDscan[np.argmax(EQquality)]]; EQScan = onsourceScans[np.argmax(EQquality)]
+    BPcal = sourceList[sourceIDscan[np.argmax(BPquality)]]; BPScan = onsourceScans[np.argmax(BPquality)]; timeLabelBP = qa.time('%fs' % (refTime[np.argmax(BPquality)]), form='ymd')[0]
+    EQcal = sourceList[sourceIDscan[np.argmax(EQquality)]]; EQScan = onsourceScans[np.argmax(EQquality)]; timeLabelEQ = qa.time('%fs' % (refTime[np.argmax(EQquality)]), form='ymd')[0]
+    BPcalText = 'Use %s [EL = %4.1f deg] %s as Bandpass Calibrator' % (BPcal, 180.0* OnEL[onsourceScans.index(BPScan)]/np.pi, timeLabelBP); print BPcalText
+    EQcalText = 'Use %s [EL = %4.1f deg] %s as Gain Equalizer' % (EQcal, 180.0* OnEL[onsourceScans.index(EQScan)]/np.pi, timeLabelEQ); print EQcalText
     #-------- Polarization setup 
     spw = spwLists[band_index]; spwNum = len(spw); polNum = msmd.ncorrforpol(msmd.polidfordatadesc(spw[0]))
     if polNum == 4: pPol, cPol = [0,3], [1,2]   # Full polarizations
     else:   pPol, cPol = [0,1], []              # Only parallel polarizations
     ppolNum, cpolNum = len(pPol), len(cPol)
-    # execfile(SCR_DIR + 'aprioriFlux.py')
+    execfile(SCR_DIR + 'aprioriFlux.py')
 #
 msmd.done()
 del msfile, UniqBands

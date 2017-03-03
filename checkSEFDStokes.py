@@ -173,7 +173,7 @@ for spw_index in range(spwNum):
     XYphase = XY2Phase(PA, QUsolution[0], QUsolution[1], caledVis[spw_index][[1,2]])
     XYsign = np.sign(np.cos(XYphase))
     BPList[spw_index][:,1] *= XYsign
-    print 'SPW[%d] : XY phase = %6.1f sign = %3.0f' % (spw[spw_index], XYphase, XYsign)
+    print 'SPW[%d] : XY phase = %6.1f sign = %3.0f' % (spw[spw_index], 180.0*XYphase/pi, XYsign)
 #
 #-------- Flux Density
 ScanFlux = np.zeros([scanNum, spwNum, 4])

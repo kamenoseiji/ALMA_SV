@@ -24,6 +24,8 @@ Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
 kb        = 1.38064852e3
 #-------- Check Scans for atmCal
 logfile = open(prefix + '-' + UniqBands[band_index] + '-Flux.log', 'w') 
+logfile.write(BPcalText + '\n')
+logfile.write(EQcalText + '\n')
 print '---Checking time series in MS and atmCal scans'
 tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spw[0]`).getcol('TIME'); tb.close()
 OnTimeIndex = []
@@ -85,6 +87,32 @@ if PLOTBP:
 #
 execfile(SCR_DIR + 'TsysCal.py')
 polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
+#-------- XY phase using BP scan
+interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[0], BPScan); timeNum = len(timeStamp)
+AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
+PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), np.cos(PA))
+XYphase, caledVis = [], []
+scan_index = onsourceScans.index(BPScan)
+for spw_index in range(spwNum):
+    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], BPScan)
+    timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
+    tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
+    BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
+    chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
+    GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
+    SEFD = 2.0* kb* chAvgTsys[:,spw_index, :,scan_index] / np.array([AeX, AeY]).T
+    caledVis.append(np.mean((chAvgVis / (GainP[polYindex][:,ant0]* GainP[polXindex][:,ant1].conjugate())).transpose(2, 0, 1)* np.sqrt(SEFD[ant0][:,polYindex].T* SEFD[ant1][:,polXindex].T), axis=2).T)
+#
+caledVis = np.array(caledVis)   # [spw, pol, time]
+QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
+#QUsolution = np.array([catalogStokesQ.get(BPcal), catalogStokesU.get(BPcal)])
+#-------- XY phase cal in Bandpass table
+for spw_index in range(spwNum):
+    XYphase = XY2Phase(PA, QUsolution[0], QUsolution[1], caledVis[spw_index][[1,2]])
+    XYsign = np.sign(np.cos(XYphase))
+    BPList[spw_index][:,1] *= XYsign
+    print 'SPW[%d] : XY phase = %6.1f sign = %3.0f' % (spw[spw_index], 180.0*XYphase/pi, XYsign)
+#
 #-------- Flux Density
 ScanFlux = np.zeros([scanNum, spwNum, 4])
 ErrFlux  = np.zeros([scanNum, spwNum, 4])
@@ -100,11 +128,8 @@ for scan_index in range(scanNum):
     text_sd = ' %02d %010s EL=%4.1f deg' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi ); logfile.write(text_sd + '\n'); print text_sd
     text_sd = ' SPW  Frequency    I               Q               U               V             | Model I'; logfile.write(text_sd + '\n'); print text_sd
     text_sd = ' -----------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
-    #if(onsourceScans[scan_index] in SSOscanID):
-    #    SSO_flag = T
-    #    SSO_ID = SSOscanID.index(onsourceScans[scan_index])
-    #else:
-    #    SSO_flag = F
+    if sourceIDscan[scan_index] in SSOList: SSO_flag = T
+    else: SSO_flag = F
     #
     for spw_index in range(spwNum):
         chNum, chWid, Freq = GetChNum(msfile, spw[spw_index])
@@ -158,10 +183,15 @@ for scan_index in range(scanNum):
             text_sd = '%6.3f (%.3f) ' % (ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index]); logfile.write(text_sd); print text_sd,
         #
         logfile.write('\n'); print ''
+        if COMPDB & (not SSO_flag) : 
+            print ' -------- Comparison with ALMA Calibrator Catalog --------'
+            au.searchFlux(sourcename='%s' % (sourceList[sourceIDscan[scan_index]]), band=int(UniqBands[band_index][3:5]), date=timeLabel[0:10], maxrows=3)
+            print '\n'
+        #
     #
 #
 logfile.close()
-#np.save(prefix + '-' + UniqBands[band_index] + '.Flux.npy', ScanFlux)
-#np.save(prefix + '-' + UniqBands[band_index] + '.Ferr.npy', ErrFlux)
-#np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceList)[sourceIDscan])
-#np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', ScanEL)
+np.save(prefix + '-' + UniqBands[band_index] + '.Flux.npy', ScanFlux)
+np.save(prefix + '-' + UniqBands[band_index] + '.Ferr.npy', ErrFlux)
+np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceList)[sourceIDscan])
+np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', ScanEL)
