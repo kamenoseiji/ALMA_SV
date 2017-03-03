@@ -183,11 +183,11 @@ for scan_index in range(scanNum):
             text_sd = '%6.3f (%.3f) ' % (ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index]); logfile.write(text_sd); print text_sd,
         #
         logfile.write('\n'); print ''
-        if COMPDB & (not SSO_flag) : 
-            print ' -------- Comparison with ALMA Calibrator Catalog --------'
-            au.searchFlux(sourcename='%s' % (sourceList[sourceIDscan[scan_index]]), band=int(UniqBands[band_index][3:5]), date=timeLabelBP[0:10], maxrows=3)
-            print '\n'
-        #
+     #
+     if COMPDB & (not SSO_flag) : 
+        print ' -------- Comparison with ALMA Calibrator Catalog --------'
+        au.searchFlux(sourcename='%s' % (sourceList[sourceIDscan[scan_index]]), band=int(UniqBands[band_index][3:5]), date=timeLabelBP[0:10], maxrows=3)
+        print '\n'
     #
 #
 logfile.close()
