@@ -185,7 +185,7 @@ for scan_index in range(scanNum):
         logfile.write('\n'); print ''
         if COMPDB & (not SSO_flag) : 
             print ' -------- Comparison with ALMA Calibrator Catalog --------'
-            au.searchFlux(sourcename='%s' % (sourceList[sourceIDscan[scan_index]]), band=int(UniqBands[band_index][3:5]), date=timeLabel[0:10], maxrows=3)
+            au.searchFlux(sourcename='%s' % (sourceList[sourceIDscan[scan_index]]), band=int(UniqBands[band_index][3:5]), date=timeLabelBP[0:10], maxrows=3)
             print '\n'
         #
     #
