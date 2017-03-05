@@ -128,5 +128,5 @@ for band_index in range(NumBands):
     ppolNum, cpolNum = len(pPol), len(cPol)
     execfile(SCR_DIR + 'aprioriFlux.py')
 #
-msmd.done()
 del msfile, UniqBands
+msmd.done()
