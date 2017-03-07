@@ -42,7 +42,7 @@ def plotTsys(prefix, antList, ambTime, spwList, TrxList, TskyList, PLOTFMT='png'
     #-------- Prepare Plots
     for ant_index in range(antNum):
         figAnt = plt.figure(ant_index, figsize = (8, 11))
-        figAnt.suptitle(prefix + ' ' + antList[antMap[ant_index]])
+        figAnt.suptitle(prefix + ' ' + antList[ant_index])
         figAnt.text(0.45, 0.05, 'Frequency [GHz]')
         figAnt.text(0.03, 0.45, 'Tsys (solid) and Trec (dotted) [K]', rotation=90)
     #
