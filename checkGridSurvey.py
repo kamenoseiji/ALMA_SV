@@ -93,12 +93,12 @@ antDia = np.ones([UseAntNum])
 for ant_index in range(UseAntNum): antDia[ant_index] = msmd.antennadiameter(antList[antMap[ant_index]])['value']
 #-------- Check Scans of BandPass, EQualization, and FluxScaling
 try:
-    FCScans = msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE")
+    FCScans = np.append(msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
 except:
-    FCScans = msmd.scansforintent("CALIBRATE_AMPLI#ON_SOURCE")
+    FCScans = np.append(msmd.scansforintent("CALIBRATE_AMPLI#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
 #
 BPScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
-ONScans = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
+ONScans = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE"))
 print '---SPWs and Scans for each receiver band'
 msmd.done()
 #for band_index in range(1):
