@@ -98,7 +98,7 @@ except:
     FCScans = np.append(msmd.scansforintent("CALIBRATE_AMPLI#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
 #
 BPScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
-ONScans = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE"))
+ONScans = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
 print '---SPWs and Scans for each receiver band'
 msmd.done()
 #for band_index in range(1):
