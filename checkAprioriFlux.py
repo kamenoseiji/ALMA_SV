@@ -83,11 +83,14 @@ antDia = np.ones([UseAntNum])
 for ant_index in range(UseAntNum): antDia[ant_index] = msmd.antennadiameter(antList[antMap[ant_index]])['value']
 #-------- Scan Intents
 ONScans = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
-BPScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
 try:
-    FCScans = np.append(msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
+    BPScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
 except:
-    FCScans = np.append(msmd.scansforintent("CALIBRATE_AMPLI#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
+    BPScans = ONScans
+#try:
+#    FCScans = np.append(msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
+#except:
+#    FCScans = np.append(msmd.scansforintent("CALIBRATE_AMPLI#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
 #
 PolList = ['X', 'Y']
 #-------- Loop for Bands
@@ -95,8 +98,8 @@ for band_index in range(NumBands):
     bandID = int(UniqBands[band_index][3:5])-1
     ONScan = BandScans[band_index][indexList( ONScans, BandScans[band_index] )]
     BPScan = BandScans[band_index][indexList( BPScans, BandScans[band_index] )][0]
-    FCScan = BandScans[band_index][indexList( FCScans, BandScans[band_index] )]
-    onsourceScans = unique([BPScan] + FCScan.tolist() + ONScan.tolist()).tolist()
+    #FCScan = BandScans[band_index][indexList( FCScans, BandScans[band_index] )]
+    onsourceScans = unique([BPScan] + ONScan.tolist()).tolist()
     scanNum = len(onsourceScans)
     #-------- Check AZEL
     azelTime, AntID, AZ, EL = GetAzEl(msfile)
