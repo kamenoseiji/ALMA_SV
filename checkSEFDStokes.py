@@ -27,6 +27,7 @@ kb        = 1.38064852e3
 #-------- Check Scans for atmCal
 logfile = open(prefix + '-' + UniqBands[band_index] + '-Flux.log', 'w') 
 logfile.write(FLScaleText + '\n')
+logfile.write(BPcalText + '\n')
 logfile.write(EQcalText + '\n')
 print '---Checking time series in MS and atmCal scans'
 tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spw[0]`).getcol('TIME'); tb.close()
