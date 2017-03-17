@@ -7,6 +7,7 @@ polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
 #
 trkAntSet = set(range(64))
 scansFile = []
+pattern = r'RB_..'
 for file_index in range(fileNum):
     prefix = prefixList[file_index]
     msfile = wd + prefix + '.ms'
@@ -21,21 +22,23 @@ for file_index in range(fileNum):
         refAntID = refAntID[0]
     #
     msmd.open(msfile)
-    scanList = msmd.scannumbers().tolist()
+    #scanList = msmd.scannumbers().tolist()
+    spwName = msmd.namesforspws(spwList[0])[0]; BandName = re.findall(pattern, spwName)[0]; BandPA = (BANDPA[int(BandName[3:5])] + 90.0)*pi/180.0
     for scan in scanList:
         timeStamp = msmd.timesforscans(scan).tolist()
         trkAnt, scanAnt, Time, Offset = antRefScan( msfile, [timeStamp[0], timeStamp[-1]] )
         trkAnt = list(set(trkAnt) - set(flagAntID))
         if refAntID in trkAnt:
             trkAntSet = set(trkAnt) & trkAntSet
-        else:
-            scanList = list( set(scanList) - set([scan]) )
+        #else:
+        #    scanList = list( set(scanList) - set([scan]) )
         #
         print '---- Scan %d : %d tracking antennas' % (scan, len(trkAnt))
     #
     #scanList = [1]
     scansFile.append(scanList)
 #
+msmd.done()
 antMap = [refAntID] + list(trkAntSet - set([refAntID]))
 antNum = len(antMap); blNum = antNum * (antNum - 1)/2
 ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
@@ -108,7 +111,7 @@ for spw_index in range(spwNum):
     print '  -- Apply gain calibration'
     caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
     #VisSpec  = VisSpec.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
-    PA = AzEl2PA(Az, El, ALMA_lat) + BANDPA     # Apply feed orientation
+    PA = AzEl2PA(Az, El, ALMA_lat) + BandPA     # Apply feed orientation
     PA = np.arctan2( np.sin(PA), np.cos(PA))    # to set in [-pi, pi]
     Vis    = np.mean(caledVis, axis=1)
     PAnum = len(PA)
@@ -118,10 +121,11 @@ for spw_index in range(spwNum):
     text_sd = '[XX,YY]  Q/I= %6.3f  U/I= %6.3f  EVPA = %6.2f deg' % (QUsol[0], QUsol[1], np.arctan2(QUsol[1],QUsol[0])*90.0/pi); print text_sd
     #-------- XY phase determination
     XYphase = XY2Phase(PA, QUsol[0], QUsol[1], Vis[[1,2]])    # XY*, YX* to estimate X-Y phase
-    text_sd = '  XY Phase = %6.2f deg' % (XYphase* 180.0 / pi); print text_sd
+    XYsign = np.sign(np.cos(XYphase))
+    text_sd = '  XY Phase = %6.2f [deg]  sign = %3.0f' % (XYphase* 180.0 / pi, XYsign); print text_sd
     #-------- Gain adjustment
     GainX, GainY = polariGain(caledVis[0], caledVis[3], PA, QUsol[0], QUsol[1])
-    Gain = np.array([Gain[0]* GainX, Gain[1]* GainY* np.sign(np.cos(XYphase))])
+    Gain = np.array([Gain[0]* GainX, Gain[1]* GainY* XYsign])
     caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
     Vis    = np.mean(caledVis, axis=1)
     #-------- Fine estimation of Q and U using XY and YX
@@ -136,7 +140,7 @@ for spw_index in range(spwNum):
     #-------- Antenna-based on-axis D-term (chAvg)
     Dx, Dy = VisPA_solveD(caledVis, PA, np.array([1.0, QUsol[0], QUsol[1], 0.0]))
     #-------- D-term-corrected Stokes parameters
-    Minv = InvMullerVector(Dx[ant1], Dy[ant1], Dx[ant0], Dy[ant0], np.ones(blNum))
+    Minv = InvMullerVector(Dx[ant1], Dy[ant1], Dx[ant0], Dy[ant0], np.ones(blNum, dtype=complex))
     PS = InvPAVector(PA, np.ones(PAnum))
     StokesVis = PS.reshape(4, 4*PAnum).dot(Minv.reshape(4, 4*blNum).dot(caledVis.reshape(4*blNum, PAnum)).reshape(4*PAnum)) / (PAnum* blNum)
     QUsol[0], QUsol[1] = StokesVis[1].real, StokesVis[2].real; QUerr = np.array([abs(StokesVis[1].imag), abs(StokesVis[2].imag)])

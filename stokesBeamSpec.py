@@ -50,6 +50,9 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
 # scnAnt  : (eg.) [33,3,38,...]                             : subset of antID for scanning antennas
 #----------------------------------------- Procedures
 msfile = wd + prefix + '.ms'
+msmd.open(msfile)
+spwName = msmd.namesforspws(spwList[0])[0]; BandName = re.findall(pattern, spwName)[0]; BandPA = (BANDPA[int(BandName[3:5])] + 90.0)*pi/180.0
+msmd.done(); Band = int(BandName[3:5])
 antList = GetAntName(msfile); antNum = len(antList); blNum = antNum* (antNum - 1)/2
 flagAnt = indexList(antFlag, antList)
 UseAnt = sort(list(set(range(antNum)) - set(flagAnt))).tolist()
@@ -112,7 +115,7 @@ centerIndex = scanThresh(msfile, scnAnt[0], FWHM[scnAnt[0]]/10.0); centerTime = 
 matchNum  = np.zeros([timeNum])
 Az, El = AzElMatch(timeStamp, scanTime, AntID, refantID, az, el)
 dAz, dEl = AzElMatch(timeStamp, scanTime, AntID, scnAnt[0], AzElOffset[0], AzElOffset[1])
-PA = AzEl2PA(Az, El, ALMA_lat) + BANDPA; PAnum = len(PA)
+PA = AzEl2PA(Az, El, ALMA_lat) + BandPA; PAnum = len(PA)
 PA = np.arctan2( np.sin(PA), np.cos(PA))
 #-------- Visibility self-cal
 print '-- Loading visibility data %s SPW=%d ...' % (prefix, spw)
