@@ -20,6 +20,14 @@ def get_progressbar_str(progress):
     BAR_LEN = int(MAX_LEN * progress)
     return ('[' + '=' * BAR_LEN + ('>' if BAR_LEN < MAX_LEN else '') + ' ' * (MAX_LEN - BAR_LEN) + '] %.1f%%' % (progress * 100.))
 #
+def linearFit( x, y, err):
+    weight = 1.0 / err**2
+    Sw, Swxx, Swx, Swy, Swxy = np.sum(weight), np.sum( weight* x**2), weight.dot(x), weight.dot(y), np.sum(weight* x* y)
+    det    = Sw* Swxx - Swx**2
+    sol    = np.array([Swxx* Swy - Swx* Swxy, Sw* Swxy - Swx* Swy]) / det
+    solerr = np.sqrt(np.array([Swxx, Sw]) / det)
+    return sol, solerr
+#
 Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
 kb        = 1.38064852e3
 #-------- Check Scans for atmCal
@@ -55,6 +63,7 @@ for ant_index in range(UseAntNum):
 #
 #-------- Load D-term file
 DxList, DyList = [], []
+print '---Loading D-term table'
 for ant_index in range(UseAntNum):
     Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
     for spw_index in range(4):
@@ -85,7 +94,14 @@ if PLOTBP:
     #
     plt.close('all')
 #
-execfile(SCR_DIR + 'TsysCal.py')
+try:
+    if TSYSCAL :
+        execfile(SCR_DIR + 'TsysCal.py')
+    else : 
+        execfile(SCR_DIR + 'TsysTransfer.py')
+except:
+    execfile(SCR_DIR + 'TsysCal.py')
+#
 polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
 #-------- XY phase using BP scan
 interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[0], BPScan); timeNum = len(timeStamp)
@@ -126,15 +142,15 @@ print '---Flux densities of sources ---'
 for scan_index in range(scanNum):
     ScanEL[scan_index] = np.median(OnEL[:,scan_index])
     text_sd = ' %02d %010s EL=%4.1f deg' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi ); logfile.write(text_sd + '\n'); print text_sd
-    text_sd = ' SPW  Frequency    I               Q               U               V             | Model I'; logfile.write(text_sd + '\n'); print text_sd
-    text_sd = ' -----------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
+    text_sd = ' SPW  Frequency    I               Q               U               V             | %Pol     EVPA '; logfile.write(text_sd + '\n'); print text_sd
+    text_sd = ' ------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
     if sourceIDscan[scan_index] in SSOList: SSO_flag = T
     else: SSO_flag = F
     #
     for spw_index in range(spwNum):
         chNum, chWid, Freq = GetChNum(msfile, spw[spw_index])
         centerFreqList.append( np.median(Freq)*1.0e-9 )
-        text_sd = 'SPW%02d %5.1f GHz ' % (spw[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
+        text_sd = ' SPW%02d %5.1f GHz' % (spw[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
         atmCorrect = np.exp(-onTau[spw_index, scan_index])
         #-------- Sub-array with unflagged antennas (short baselines)
         SAantennas, SAbl, SAblFlag, SAant0, SAant1 = range(UseAntNum), range(UseBlNum), np.ones([blNum]), ant0, ant1
@@ -182,13 +198,22 @@ for scan_index in range(scanNum):
             ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index] = np.dot(PtWP_inv, np.dot(P.T, np.dot(W, StokesVis[pol_index])))[0], np.sqrt(PtWP_inv[0,0])
             text_sd = '%6.3f (%.3f) ' % (ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index]); logfile.write(text_sd); print text_sd,
         #
-        logfile.write('\n'); print ''
+        text_sd = '%6.3f   %6.1f \n' % (100.0* np.sqrt(ScanFlux[scan_index, spw_index, 1]**2 + ScanFlux[scan_index, spw_index, 2]**2)/ScanFlux[scan_index, spw_index, 0], np.arctan2(ScanFlux[scan_index, spw_index, 2],ScanFlux[scan_index, spw_index, 1])*90.0/pi); logfile.write(text_sd); print text_sd,
     #
+    freqArray = np.array(centerFreqList)[range(spwNum)]; meanFreq = np.mean(freqArray); relFreq = freqArray - meanFreq
+    text_sd = ' ------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
+    text_sd = ' mean  %5.1f GHz' % (meanFreq); logfile.write(text_sd); print text_sd,
+    pflux, pfluxerr = np.zeros(4), np.zeros(4)
+    for pol_index in range(4):
+        sol, solerr = linearFit( relFreq, ScanFlux[scan_index, :, pol_index], ErrFlux[scan_index, :, pol_index] ); pflux[pol_index], pfluxerr[pol_index] = sol[0], solerr[0]
+        text_sd = '%6.3f (%.3f) ' % (pflux[pol_index], pfluxerr[pol_index]) ; logfile.write(text_sd); print text_sd,
+    #
+    text_sd = '%6.3f   %6.1f \n' % (100.0* np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi); logfile.write(text_sd); print text_sd,
     if COMPDB & (not SSO_flag) : 
         print ' -------- Comparison with ALMA Calibrator Catalog --------'
         au.searchFlux(sourcename='%s' % (sourceList[sourceIDscan[scan_index]]), band=int(UniqBands[band_index][3:5]), date=timeLabelBP[0:10], maxrows=3)
-        print '\n'
     #
+    print '\n'; logfile.write('')
 #
 logfile.close()
 np.save(prefix + '-' + UniqBands[band_index] + '.Flux.npy', ScanFlux)

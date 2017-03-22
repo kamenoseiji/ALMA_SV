@@ -1,5 +1,6 @@
 #-------- Load autocorrelation power spectra
 print '---Loading autocorr power spectra'
+"""
 OnSpecList, OffSpecList, AmbSpecList, HotSpecList = [], [], [], []
 for ant_index in range(UseAntNum):
     for spw_index in range(spwNum):
@@ -16,9 +17,20 @@ for ant_index in range(UseAntNum):
 #
 sys.stderr.write('\n')
 sys.stderr.flush()
+np.save(prefix +  '-' + '.autocorrTime.npy', timeXY) 
+np.save(prefix +  '-' + '.OffSpecList.npy', OffSpecList) 
+np.save(prefix +  '-' + '.AmbSpecList.npy', AmbSpecList) 
+np.save(prefix +  '-' + '.HotSpecList.npy', HotSpecList) 
+np.save(prefix +  '-' + '.OnSpecList.npy', OnSpecList) 
+"""
+timeXY = np.load(prefix +  '-' + '.autocorrTime.npy') 
+OffSpecList = np.load(prefix +  '-' + '.OffSpecList.npy') 
+AmbSpecList = np.load(prefix +  '-' + '.AmbSpecList.npy') 
+HotSpecList = np.load(prefix +  '-' + '.HotSpecList.npy') 
+OnSpecList = np.load(prefix +  '-' + '.OnSpecList.npy') 
 #-------- Load Az El position
 azelTime, AntID, AZ, EL = GetAzEl(msfile)
-OnAZ, OnEL, OffEL = np.ones([UseAntNum, scanNum]), np.ones([UseAntNum, scanNum]), np.ones([UseAntNum, len(offTimeIndex)])
+OnAZ, OnEL, OffEL = np.ones([UseAntNum, scanNum]), np.ones([UseAntNum, scanNum]), np.ones(UseAntNum)
 for ant_index in range(UseAntNum):
     azelTime_index = np.where( AntID == antMap[ant_index] )[0].tolist()
     for scan_index in range(scanNum):
@@ -26,8 +38,8 @@ for ant_index in range(UseAntNum):
         OnAZ[ant_index, scan_index] = AZ[azelTime_index[argmin(abs(azelTime[azelTime_index] - refTime))]]
         OnEL[ant_index, scan_index] = EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - refTime))]]
     #
-    for time_index in range(len(offTimeIndex)):
-        OffEL[ant_index, time_index] = EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - offTime[time_index]))]]
+    #for time_index in range(len(offTimeIndex)):
+    OffEL[ant_index] = EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - np.median(offTime[offTimeIndex])))]]
     #
 #
 secZ = 1.0 / np.sin( OffEL )
@@ -45,13 +57,7 @@ for ant_index in range(UseAntNum):
         Trx, Tsky = np.zeros([2, chNum, len(offTime)]), np.zeros([2, chNum, len(offTime)])
         for pol_index in range(ppolNum):
             ambSpec, hotSpec = AmbSpecList[AntSpwIndex][pol_index], HotSpecList[AntSpwIndex][pol_index]
-            #amb_knots = ambTime[range(2,len(ambTime),4)] + 0.5*min(np.diff(ambTime))
-            #hot_knots = hotTime[range(2,len(hotTime),4)] + 0.5*min(np.diff(hotTime))
-            #SPL_amb = LSQUnivariateSpline(ambTime, np.mean(ambSpec[chRange], axis=0), amb_knots)
-            #SPL_hot = LSQUnivariateSpline(hotTime, np.mean(hotSpec[chRange], axis=0), hot_knots)
             for time_index in range(len(offTime)):
-                #Psamb = np.mean(ambSpec, axis=1)*SPL_amb(offTime[time_index])/np.mean(ambSpec[chRange])
-                #Pshot = np.mean(hotSpec, axis=1)*SPL_hot(offTime[time_index])/np.mean(hotSpec[chRange])
                 Psamb = np.mean(ambSpec, axis=1)
                 Pshot = np.mean(hotSpec, axis=1)
                 Psoff = OffSpecList[AntSpwIndex][pol_index][:,time_index]
@@ -75,9 +81,11 @@ Tau0, TantN, Trms = np.zeros([UseAntNum, spwNum, 2]), np.zeros([UseAntNum, spwNu
 for ant_index in range(UseAntNum):
     for spw_index in range(spwNum):
         for pol_index in range(2):
-            fit = scipy.optimize.leastsq(residTskyTransfer, param, args=(tempAmb[ant_index]-Tatm_OFS, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
-            TantN[ant_index, spw_index, pol_index] = fit[0][0]
-            Tau0[ant_index, spw_index, pol_index]  = fit[0][1]
+            #fit = scipy.optimize.leastsq(residTskyTransfer, param, args=(tempAmb[ant_index]-Tatm_OFS, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
+            #TantN[ant_index, spw_index, pol_index] = fit[0][0]
+            #Tau0[ant_index, spw_index, pol_index]  = fit[0][1]
+            TantN[ant_index, spw_index, pol_index] = Tatm_OFS
+            Tau0[ant_index, spw_index, pol_index]  = -np.log(1.0 - np.median(chAvgTsky[ant_index, spw_index, pol_index]) / (tempAmb[ant_index]-Tatm_OFS))* np.sin( OnEL[ant_index,0] )
         #
     #
     TantN[ant_index] = np.median(TantN[ant_index])* np.ones([spwNum, 2])
@@ -89,7 +97,7 @@ for ant_index in range(UseAntNum):
         for pol_index in range(ppolNum):
             flgIndex = np.where( TrxFlag[ant_index, spw_index, pol_index] == 0 )[0].tolist()
             vldIndex = np.where( TrxFlag[ant_index, spw_index, pol_index] == 1 )[0].tolist()
-            if(len(vldIndex) > 0):
+            if(len(flgIndex) > 0):
                 chAvgTrx[ant_index, spw_index, pol_index, flgIndex] = np.median( chAvgTrx[ant_index, spw_index, pol_index, vldIndex] )
                 chAvgTsky[ant_index, spw_index, pol_index, flgIndex]= (tempAmb[ant_index]-Tatm_OFS)* (1.0 - np.exp(-Tau0[ant_index, spw_index, pol_index]* secZ[ant_index, flgIndex])) + TantN[ant_index, spw_index, pol_index]
             #
@@ -101,15 +109,15 @@ for scan_index in range(scanNum):
     OnTimeRange = timeXY[OnTimeIndex[scan_index]]
     ambTimeIndex = argmin(abs(ambTime - OnTimeRange[0]))
     offTimeIndex = argmin(abs(offTime - OnTimeRange[0]))
-    chAvgTsys[:,:,:,scan_index] = chAvgTrx[:,:,:,ambTimeIndex] + chAvgTsky[:,:,:,offTimeIndex] 
+    chAvgTsys[:,:,:,scan_index] = chAvgTrx[:,:,:,ambTimeIndex] + (np.median(tempAmb) - Tatm_OFS)* (1.0 - np.exp(-Tau0 / np.sin(np.median(OnEL[:,scan_index])))) + TantN
     TsysFlag[:,:,:,scan_index] = TrxFlag[:,:,:,ambTimeIndex]
 #
 #-------- Tau on source
 for scan_index in range(scanNum):
-    OnTimeRange = timeXY[OnTimeIndex[scan_index]]
-    offTimeIndex = argmin(abs(offTime - OnTimeRange[0]))
-    tempTau = -np.log((chAvgTsky[:,:,:,offTimeIndex] - TantN - np.median(tempAmb) + Tatm_OFS) / (2.718 - np.median(tempAmb) + Tatm_OFS))
-    onTau[:,scan_index] = np.median(tempTau.transpose(1,2,0).reshape(spwNum, -1), axis=1)
+    #OnTimeRange = timeXY[OnTimeIndex[scan_index]]
+    #offTimeIndex = argmin(abs(offTime - OnTimeRange[0]))
+    #tempTau = -np.log((chAvgTsky[:,:,:,offTimeIndex] - TantN - np.median(tempAmb) + Tatm_OFS) / (2.718 - np.median(tempAmb) + Tatm_OFS))
+    onTau[:,scan_index] = np.median(np.median(Tau0, axis=2), axis=0) / np.sin( np.median(OnEL[:,scan_index]) )
 #
 for spw_index in range(spwNum): text_sd = 'SPW=%d : Tau(zenith) = %6.4f +- %6.4f' % (spw[spw_index], Tau0med[spw_index], Tau0err[spw_index]); logfile.write(text_sd + '\n'); print text_sd
 #
@@ -166,5 +174,5 @@ for ant_index in range(UseAntNum):
         text_sd = '|'; logfile.write(text_sd); print text_sd,
     logfile.write('\n'); print ' '
 #-------- Plot optical depth
-if PLOTTAU: plotTau(prefix + '_' + UniqBands[band_index], antList[antMap], spw, secZ, (chAvgTsky.transpose(3,0,1,2) - TantN).transpose(1,2,3,0), np.median(tempAmb) - Tatm_OFS, Tau0med, TrxFlag, 2.0*np.median(chAvgTsky), PLOTFMT) 
-if PLOTTSYS: plotTsys(prefix + '_' + UniqBands[band_index], antList[antMap], ambTime, spw, TrxList, TskyList, PLOTFMT)
+#if PLOTTAU: plotTau(prefix + '_' + UniqBands[band_index], antList[antMap], spw, secZ, (chAvgTsky.transpose(3,0,1,2) - TantN).transpose(1,2,3,0), np.median(tempAmb) - Tatm_OFS, Tau0med, TrxFlag, 2.0*np.median(chAvgTsky), PLOTFMT) 
+#if PLOTTSYS: plotTsys(prefix + '_' + UniqBands[band_index], antList[antMap], ambTime, spw, TrxList, TskyList, PLOTFMT)
