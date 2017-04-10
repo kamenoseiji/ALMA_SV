@@ -1457,6 +1457,11 @@ def polariVis( Xspec ):     # Xspec[polNum, blNum, chNum, timeNum]
     return GainX, GainY, VisXX, VisXY, VisYX, VisYY
 #
 #-------- Determine antenna-based gain with polarized source
+def QUscale(PA,  StokesQ, StokesU):
+    csPA, snPA = np.cos(2.0* PA), np.sin(2.0* PA)
+    Xscale = 1.0 / (1.0 + StokesQ* csPA + StokesU* snPA)
+    Yscale = 1.0 / (1.0 - StokesQ* csPA - StokesU* snPA)
+#
 def polariGain( XX, YY, PA, StokesQ, StokesU):
     blNum, timeNum = XX.shape[0], XX.shape[1]
     csPA, snPA = np.cos(2.0* PA), np.sin(2.0* PA)

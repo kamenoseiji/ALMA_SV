@@ -87,10 +87,10 @@ try:
     BPScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
 except:
     BPScans = ONScans
-#try:
-#    FCScans = np.append(msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
-#except:
-#    FCScans = np.append(msmd.scansforintent("CALIBRATE_AMPLI#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
+try:
+    FCScans = np.append(msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
+except:
+    FCScans = np.append(msmd.scansforintent("CALIBRATE_AMPLI#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
 #
 PolList = ['X', 'Y']
 #-------- Loop for Bands
@@ -98,14 +98,14 @@ for band_index in range(NumBands):
     bandID = int(UniqBands[band_index][3:5])-1
     ONScan = BandScans[band_index][indexList( ONScans, BandScans[band_index] )]
     BPScan = BandScans[band_index][indexList( BPScans, BandScans[band_index] )][0]
-    #FCScan = BandScans[band_index][indexList( FCScans, BandScans[band_index] )]
-    onsourceScans = unique([BPScan] + ONScan.tolist()).tolist()
+    FCScan = BandScans[band_index][indexList( FCScans, BandScans[band_index] )]
+    onsourceScans = unique([BPScan] + FCScan.tolist() + ONScan.tolist()).tolist()
     scanNum = len(onsourceScans)
     #-------- Check AZEL
     azelTime, AntID, AZ, EL = GetAzEl(msfile)
     azelTime_index = np.where( AntID == UseAnt[refantID] )[0].tolist()
     azel = np.r_[AZ[azelTime_index], EL[azelTime_index]].reshape(2, len(azelTime_index))
-    OnAZ, OnEL, OnPA, BPquality, EQquality, sourceIDscan, FLscore, refTime = [], [], [], [], [], [], np.zeros(scanNum), []
+    OnAZ, OnEL, OnPA, BPquality, EQquality, PQquality, sourceIDscan, FLscore, refTime = [], [], [], [], [], [], [], np.zeros(scanNum), []
     for scan_index in range(scanNum):
         sourceIDscan.append( msmd.sourceidforfield(msmd.fieldsforscan(onsourceScans[scan_index])[0]))
         refTime = refTime + [np.median(msmd.timesforscan(onsourceScans[scan_index]))]
@@ -119,9 +119,16 @@ for band_index in range(NumBands):
         BPquality = BPquality + [10.0* abs(UCmQS* QCpUS) * np.sin(OnEL[scan_index])]
         EQquality = EQquality + [catalogIQUV[0]* np.sin(OnEL[scan_index] - ELshadow) / (0.001 + QCpUS**2)]
         print 'Scan%02d : %10s AZ=%6.1f EL=%4.1f PA=%6.1f BPQuality=%7.4f EQquality=%6.0f' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0*OnAZ[scan_index]/np.pi, 180.0*OnEL[scan_index]/np.pi, 180.0*OnPA[scan_index]/np.pi, BPquality[scan_index], EQquality[scan_index])
+        if sourceIDscan[scan_index] in SSOList:
+            FLscore[scan_index] = np.exp(np.log(math.sin(OnEL[scan_index])-0.34))* SSOscore[bandID][SSOCatalog.index(sourceList[sourceIDscan[scan_index]])]
+        #
     #
     BPcal = sourceList[sourceIDscan[np.argmax(BPquality)]]; BPScan = onsourceScans[np.argmax(BPquality)]; timeLabelBP = qa.time('%fs' % (refTime[np.argmax(BPquality)]), form='ymd')[0]
-    EQcal = sourceList[sourceIDscan[np.argmax(EQquality)]]; EQScan = onsourceScans[np.argmax(EQquality)]; timeLabelEQ = qa.time('%fs' % (refTime[np.argmax(EQquality)]), form='ymd')[0]
+    if max(FLscore) > 0.1:
+        EQcal = sourceList[sourceIDscan[np.argmax(FLscore)]]; EQScan = onsourceScans[np.argmax(FLscore)]; timeLabelEQ = qa.time('%fs' % (refTime[np.argmax(FLscore)]), form='ymd')[0]
+    else: 
+        EQcal = sourceList[sourceIDscan[np.argmax(EQquality)]]; EQScan = onsourceScans[np.argmax(EQquality)]; timeLabelEQ = qa.time('%fs' % (refTime[np.argmax(EQquality)]), form='ymd')[0]
+    #
     BPcalText = 'Use %s [EL = %4.1f deg] %s as Bandpass Calibrator' % (BPcal, 180.0* OnEL[onsourceScans.index(BPScan)]/np.pi, timeLabelBP); print BPcalText
     EQcalText = 'Use %s [EL = %4.1f deg] %s as Gain Equalizer' % (EQcal, 180.0* OnEL[onsourceScans.index(EQScan)]/np.pi, timeLabelEQ); print EQcalText
     #-------- Polarization setup 
