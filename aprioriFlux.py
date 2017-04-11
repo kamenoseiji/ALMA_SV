@@ -190,7 +190,6 @@ for scan_index in range(scanNum):
         TA = 0.0
         #
         SEFD = 2.0* kb* (chAvgTsys[:,spw_index, :,scan_index] + TA) / (np.array([AeX, AeY]).T* atmCorrect)/ (relGain[spw_index]**2)
-        #SEFD = 2.0* kb* (chAvgTsys[:,spw_index, :,scan_index] + TA) / (np.array([AeX, AeY]).T* atmCorrect)
         #-------- UV distance
         timeStamp, UVW = GetUVW(msfile, spw[spw_index], onsourceScans[scan_index])
         uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
@@ -215,13 +214,12 @@ for scan_index in range(scanNum):
         #
         StokesVis, StokesErr = Stokes.real, Stokes.imag
         for pol_index in range(4):
-            #visFlag = np.where(abs(StokesVis[pol_index] - np.median(StokesVis[pol_index]))/np.median(StokesVis[0]) < 0.2 )[0]
+            visFlag = np.where(abs(StokesVis[pol_index] - np.median(StokesVis[pol_index]))/np.median(StokesVis[0]) < 0.2 )[0]
             #if len(visFlag) < 4:
             #    text_sd = 'Only %d vis.    ' % (len(visFlag)) ; logfile.write(text_sd + '\n'); print text_sd,
             #    continue
             #
-            #weight = np.zeros(UseBlNum); weight[visFlag] = 1.0/np.var(StokesVis[pol_index][visFlag])
-            weight = np.zeros(UseBlNum); weight = np.ones(UseBlNum)/np.var(StokesErr[pol_index])
+            weight = np.zeros(UseBlNum); weight[visFlag] = np.ones(len(visFlag))/np.var(StokesErr[pol_index][visFlag])
             P, W = np.c_[np.ones(UseBlNum), uvDist], np.diag(weight)
             PtWP_inv = scipy.linalg.inv(P.T.dot(W.dot(P)))
             solution, solerr = PtWP_inv.dot(P.T.dot(weight* StokesVis[pol_index])),  np.sqrt(np.diag(PtWP_inv))
