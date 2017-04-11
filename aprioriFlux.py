@@ -128,6 +128,7 @@ for spw_index in range(spwNum):
     print 'SPW[%d] : XY phase = %6.1f [deg] sign = %3.0f' % (spw[spw_index], 180.0*XYphase/pi, XYsign[spw_index])
 #
 #-------- Gain Equalization between X and Y
+"""
 print '---- Gain Equalization between X and Y polarizations'
 interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[0], EQScan); timeNum = len(timeStamp)
 AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
@@ -151,6 +152,7 @@ CS_SN = np.array([np.mean(np.cos(PA)), np.mean(np.sin(PA))])
 GainCorrR = 0.5* np.diff(caledVisAmp) / np.mean(caledVisAmp) - catalogQU.dot(CS_SN)
 relGain[:,:,0] /= (1.0 + 0.5*GainCorrR)
 relGain[:,:,1] /= (1.0 - 0.5*GainCorrR)
+"""
 #-------- Flux Density
 ScanFlux = np.zeros([scanNum, spwNum, 4])
 ScanSlope= np.zeros([scanNum, spwNum, 4])
