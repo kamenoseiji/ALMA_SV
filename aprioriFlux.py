@@ -207,7 +207,7 @@ for scan_index in range(scanNum):
             P, W = np.c_[np.ones(UseBlNum), uvDist], np.diag(weight)
             PtWP_inv = scipy.linalg.inv(P.T.dot(W.dot(P)))
             solution, solerr = PtWP_inv.dot(P.T.dot(weight* StokesVis[pol_index])),  np.sqrt(np.diag(PtWP_inv))
-            if solution[1] < 1.5* solerr[1]: solution[0] = np.median(StokesVis[pol_index]); solution[1] = 0.0
+            if solution[1] > -1.5* solerr[1]: solution[0] = np.median(StokesVis[pol_index]); solution[1] = 0.0
             ScanFlux[scan_index, spw_index, pol_index], ScanSlope[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index] = solution[0], solution[1], solerr[0]
             text_sd = '%6.3f (%.3f) ' % (ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index]); logfile.write(text_sd); print text_sd,
         #
