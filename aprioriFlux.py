@@ -189,49 +189,42 @@ for scan_index in range(1):
         centerFreqList.append( np.median(Freq)*1.0e-9 )
         text_sd = ' SPW%02d %5.1f GHz' % (spw[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
         atmCorrect = np.exp(-onTau[spw_index, scan_index])
-        #-------- Sub-array with unflagged antennas (short baselines)
-        SAantennas, SAbl, SAblFlag, SAant0, SAant1 = range(UseAntNum), range(UseBlNum), np.ones([blNum]), ant0, ant1
-        SAantMap, SAblMap, SAblInv = antMap, blMap, blInv
         TA = 0.0
         #
         SEFD = 2.0* kb* (chAvgTsys[:,spw_index, :,scan_index] + TA) / (np.array([AeX, AeY]).T* atmCorrect)/ (relGain[spw_index]**2)
         #SEFD = 2.0* kb* (chAvgTsys[:,spw_index, :,scan_index] + TA) / (np.array([AeX, AeY]).T* atmCorrect)
-        SAantNum = len(SAantennas); SAblNum = len(SAblMap)
-        if SAblNum < 3:
-            text_sd = ' Only %d baselines for short enough sub-array. Skip!' % (SAblNum) ; logfile.write(text_sd + '\n'); print text_sd
-            continue
-        #
         #-------- UV distance
         timeStamp, UVW = GetUVW(msfile, spw[spw_index], onsourceScans[scan_index])
-        uvw = np.mean(UVW[:,SAblMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
+        uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
         #-------- Baseline-based cross power spectra
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], onsourceScans[scan_index])
         timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum)); UseChNum = len(chRange)
         timeThresh = np.median(diff(timeStamp))
         AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
         PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
-        tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
+        tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
         #-------- Bandpass Calibration
-        BPCaledXspec = (tempSpec / (BPList[spw_index][np.array(ant0)[SAbl].tolist()][:,polYindex]* BPList[spw_index][np.array(ant1)[SAbl].tolist()][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
+        BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
         #-------- Antenna-based Gain
         chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
         GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
-        pCalVis = BPCaledXspec.transpose(1,0,2,3) / (GainP[polYindex][:,ant0[0:SAblNum]]* GainP[polXindex][:,ant1[0:SAblNum]].conjugate())
-        pCalVis = (pCalVis.transpose(0,3,1,2)* np.sqrt(SEFD[np.array(ant0)[SAbl].tolist()][:,polYindex].T* SEFD[np.array(ant1)[SAbl].tolist()][:,polXindex].T))[chRange].transpose(3, 2, 0, 1)
-        Stokes = np.zeros([4,SAblNum], dtype=complex)
-        for bl_index in range(SAblNum):
+        pCalVis = BPCaledXspec.transpose(1,0,2,3) / (GainP[polYindex][:,ant0]* GainP[polXindex][:,ant1].conjugate())
+        pCalVis = (pCalVis[chRange].transpose(0,3,1,2)* np.sqrt(SEFD[ant0][:,polYindex].T* SEFD[ant1][:,polXindex].T)).transpose(3, 2, 0, 1)
+        Stokes = np.zeros([4,UseBlNum], dtype=complex)
+        for bl_index in range(UseBlNum):
             Minv = InvMullerVector(DxSpec[ant1[bl_index], spw_index][chRange], DySpec[ant1[bl_index], spw_index][chRange], DxSpec[ant0[bl_index], spw_index][chRange], DySpec[ant0[bl_index], spw_index][chRange], np.ones(UseChNum))
             Stokes[:,bl_index] = PS.reshape(4, 4*PAnum).dot(Minv.reshape(4, 4*UseChNum).dot(pCalVis[bl_index].reshape(4*UseChNum, PAnum)).reshape(4*PAnum)) / (PAnum* UseChNum)
         #
         StokesVis, StokesErr = Stokes.real, Stokes.imag
         for pol_index in range(4):
-            visFlag = np.where(abs(StokesVis[pol_index] - np.median(StokesVis[pol_index]))/np.median(StokesVis[0]) < 0.2 )[0]
-            if len(visFlag) < 4:
-                text_sd = 'Only %d vis.    ' % (len(visFlag)) ; logfile.write(text_sd + '\n'); print text_sd,
-                continue
+            #visFlag = np.where(abs(StokesVis[pol_index] - np.median(StokesVis[pol_index]))/np.median(StokesVis[0]) < 0.2 )[0]
+            #if len(visFlag) < 4:
+            #    text_sd = 'Only %d vis.    ' % (len(visFlag)) ; logfile.write(text_sd + '\n'); print text_sd,
+            #    continue
             #
-            weight = np.zeros(SAblNum); weight[visFlag] = 1.0/np.var(StokesVis[pol_index][visFlag])
-            P, W = np.c_[np.ones(SAblNum), uvDist], np.diag(weight)
+            #weight = np.zeros(UseBlNum); weight[visFlag] = 1.0/np.var(StokesVis[pol_index][visFlag])
+            weight = np.zeros(UseBlNum); weight = 1.0/np.var(StokesErr[pol_index])
+            P, W = np.c_[np.ones(UseBlNum), uvDist], np.diag(weight)
             PtWP_inv = scipy.linalg.inv(np.dot(P.T, np.dot(W, P)))
             solution, solerr = np.dot(PtWP_inv, np.dot(P.T, np.dot(W, StokesVis[pol_index]))), np.sqrt(np.diag(PtWP_inv))
             ScanFlux[scan_index, spw_index, pol_index], ScanSlope[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index] = solution[0], solution[1], solerr[0]
