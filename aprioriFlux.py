@@ -128,7 +128,6 @@ for spw_index in range(spwNum):
     print 'SPW[%d] : XY phase = %6.1f [deg] sign = %3.0f' % (spw[spw_index], 180.0*XYphase/pi, XYsign[spw_index])
 #
 #-------- Gain Equalization between X and Y
-"""
 print '---- Gain Equalization between X and Y polarizations'
 interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[0], EQScan); timeNum = len(timeStamp)
 AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
@@ -152,7 +151,6 @@ CS_SN = np.array([np.mean(np.cos(PA)), np.mean(np.sin(PA))])
 GainCorrR = 0.5* np.diff(caledVisAmp) / np.mean(caledVisAmp) - catalogQU.dot(CS_SN)
 relGain[:,:,0] /= (1.0 + 0.5*GainCorrR)
 relGain[:,:,1] /= (1.0 - 0.5*GainCorrR)
-"""
 #-------- Flux Density
 ScanFlux = np.zeros([scanNum, spwNum, 4])
 ScanSlope= np.zeros([scanNum, spwNum, 4])
@@ -167,8 +165,8 @@ print '---Flux densities of sources ---'
 pp = PdfPages('FL_' + prefix + '_' + UniqBands[band_index] + '.pdf')
 polLabel = ['I', 'Q', 'U', 'V']
 Pcolor   = ['black', 'blue', 'red', 'green']
-#for scan_index in range(scanNum):
-for scan_index in range(1):
+for scan_index in range(scanNum):
+#for scan_index in range(1):
     figScan = plt.figure(scan_index, figsize = (11, 8))
     figScan.suptitle(prefix + ' ' + UniqBands[band_index])
     figScan.text(0.75, 0.95, qa.time('%fs' % timeStamp[0], form='ymd')[0]) 
@@ -248,6 +246,8 @@ for scan_index in range(1):
         StokesI_PL.axis([0.0, uvMax, 0.0, 1.25*IMax]); StokesP_PL.axis([0.0, uvMax, -0.25*IMax, 0.25*IMax])
         StokesI_PL.text(0.0, 1.26*IMax, 'SPW%2d %5.1f GHz' % (spw[spw_index], centerFreqList[spw_index]))
     #
+    StokesI_PL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
+    StokesP_PL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
     figScan.savefig(pp, format='pdf')
     freqArray = np.array(centerFreqList)[range(spwNum)]; meanFreq = np.mean(freqArray); relFreq = freqArray - meanFreq
     text_sd = ' ------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
