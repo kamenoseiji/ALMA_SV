@@ -128,29 +128,8 @@ for spw_index in range(spwNum):
     print 'SPW[%d] : XY phase = %6.1f [deg] sign = %3.0f' % (spw[spw_index], 180.0*XYphase/pi, XYsign[spw_index])
 #
 #-------- Gain Equalization between X and Y
-print '---- Gain Equalization between X and Y polarizations'
-interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[0], EQScan); timeNum = len(timeStamp)
-AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
-PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), np.cos(PA))
-scan_index = onsourceScans.index(EQScan)
-caledVis = []
-for spw_index in range(spwNum):
-    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], EQScan)
-    timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-    tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1) 
-    BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
-    chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
-    GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
-    SEFD = 2.0* kb* chAvgTsys[:,spw_index, :,scan_index] / np.array([AeX, AeY]).T
-    SEFD /= (relGain[spw_index]**2)
-    caledVis.append(np.mean((chAvgVis / (GainP[polYindex][:,ant0]* GainP[polXindex][:,ant1].conjugate())).transpose(2, 0, 1)* np.sqrt(SEFD[ant0][:,polYindex].T* SEFD[ant1][:,polXindex].T), axis=2).T)
-#
-caledVisAmp = abs(np.mean(np.array(caledVis), axis=(0,2))[[0,3]])
-catalogQU = np.array([catalogStokesQ.get(EQcal, 0.0), catalogStokesU.get(EQcal, 0.0)])/catalogStokesI.get(EQcal, 1.0)
-CS_SN = np.array([np.mean(np.cos(PA)), np.mean(np.sin(PA))])
-GainCorrR = 0.5* np.diff(caledVisAmp) / np.mean(caledVisAmp) - catalogQU.dot(CS_SN)
-relGain[:,:,0] /= (1.0 + 0.5*GainCorrR)
-relGain[:,:,1] /= (1.0 - 0.5*GainCorrR)
+if 'PolEQ' in locals():
+    if PolEQ: execfile(SCR_DIR + 'PolEqualize.py')
 #-------- Flux Density
 ScanFlux = np.zeros([scanNum, spwNum, 4])
 ScanSlope= np.zeros([scanNum, spwNum, 4])
@@ -205,8 +184,12 @@ for scan_index in range(scanNum):
         #-------- Antenna-based Gain
         chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
         GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
-        pCalVis = BPCaledXspec.transpose(1,0,2,3) / (GainP[polYindex][:,ant0]* GainP[polXindex][:,ant1].conjugate())
-        pCalVis = (pCalVis[chRange].transpose(0,3,1,2)* np.sqrt(SEFD[ant0][:,polYindex].T* SEFD[ant1][:,polXindex].T)).transpose(3, 2, 0, 1)
+        pCalVis = (BPCaledXspec.transpose(1,0,2,3) / (GainP[polYindex][:,ant0]* GainP[polXindex][:,ant1].conjugate()))[chRange]
+        chAvgVis = (np.mean(pCalVis[:,[0,3]], axis=0).transpose(2,1,0)* np.sqrt(SEFD[ant0]* SEFD[ant1])).transpose(2,1,0)
+        indivRelGain = abs(np.mean(np.array([gainComplexVec(chAvgVis[0]), gainComplexVec(chAvgVis[1])]), axis=2))
+        SEFD[:,0] *= (np.median(indivRelGain[0]) / indivRelGain[0])**2
+        SEFD[:,1] *= (np.median(indivRelGain[1]) / indivRelGain[1])**2
+        pCalVis = (pCalVis.transpose(0,3,1,2)* np.sqrt(SEFD[ant0][:,polYindex].T* SEFD[ant1][:,polXindex].T)).transpose(3, 2, 0, 1)
         Stokes = np.zeros([4,UseBlNum], dtype=complex)
         for bl_index in range(UseBlNum):
             Minv = InvMullerVector(DxSpec[ant1[bl_index], spw_index][chRange], DySpec[ant1[bl_index], spw_index][chRange], DxSpec[ant0[bl_index], spw_index][chRange], DySpec[ant0[bl_index], spw_index][chRange], np.ones(UseChNum))
@@ -223,6 +206,7 @@ for scan_index in range(scanNum):
             P, W = np.c_[np.ones(UseBlNum), uvDist], np.diag(weight)
             PtWP_inv = scipy.linalg.inv(P.T.dot(W.dot(P)))
             solution, solerr = PtWP_inv.dot(P.T.dot(weight* StokesVis[pol_index])),  np.sqrt(np.diag(PtWP_inv))
+            if solution[1] < 2.0* solerr[1]: solution[1] = 0.0
             ScanFlux[scan_index, spw_index, pol_index], ScanSlope[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index] = solution[0], solution[1], solerr[0]
             text_sd = '%6.3f (%.3f) ' % (ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index]); logfile.write(text_sd); print text_sd,
         #
