@@ -223,7 +223,7 @@ for scan_index in range(1):
             #    continue
             #
             #weight = np.zeros(UseBlNum); weight[visFlag] = 1.0/np.var(StokesVis[pol_index][visFlag])
-            weight = np.zeros(UseBlNum); weight = 1.0/np.var(StokesErr[pol_index])
+            weight = np.zeros(UseBlNum); weight = np.ones(UseBlNum)/np.var(StokesErr[pol_index])
             P, W = np.c_[np.ones(UseBlNum), uvDist], np.diag(weight)
             PtWP_inv = scipy.linalg.inv(np.dot(P.T, np.dot(W, P)))
             solution, solerr = np.dot(PtWP_inv, np.dot(P.T, np.dot(W, StokesVis[pol_index]))), np.sqrt(np.diag(PtWP_inv))
