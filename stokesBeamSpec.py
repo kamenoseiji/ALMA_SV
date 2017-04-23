@@ -3,6 +3,7 @@ import sys
 #from scipy.constants import constants
 #from scipy.interpolate import UnivariateSpline
 ALMA_lat = -23.029/180.0*pi     # ALMA AOS Latitude
+pattern = r'RB_..'
 #
 #-------- For Plot
 def circlePoints( x, y, radius ):
@@ -254,7 +255,7 @@ for ant_index in range(scnAntNum):
     fig.text(0.05, 0.45, 'El Offset [arcsec]', rotation=90)
     #
     xi, yi = np.mgrid[ -floor(2.0*fwhm):floor(2.0*fwhm):128j, -floor(2.0*fwhm):floor(2.0*fwhm):128j]
-    IndexCenter = np.where( dAz**2 + dEl**2 < 0.005* fwhm**2 )[0]
+    IndexCenter = np.where( dAz**2 + dEl**2 < 0.0064* fwhm**2 )[0]
     Index3dB = np.where( dAz**2 + dEl**2 < 0.25* fwhm**2 )[0]
     Index6dB = np.where( dAz**2 + dEl**2 < 0.5* fwhm**2 )[0]
     #-------- Save Gain and D-term to logfile

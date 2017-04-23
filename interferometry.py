@@ -412,12 +412,17 @@ def GetPSpec(msfile, ant, spwID):
     return timeXY, dataXY.real
 #
 #-------- Mapping antList in refList
-def antRefScan( msfile, timeRange ):    # Check scanning and tracking antennas
+def antRefScan( msfile, timeRange, antFlag=[] ):    # Check scanning and tracking antennas
     antList = GetAntName(msfile)
     antNum = len(antList)
-    scanRange = np.zeros(antNum)
+    UseAntID = set(range(antNum))
+    for flagAnt in antFlag:
+        UseAntID = UseAntID - set(np.where(antList == flagAnt)[0])
+    #
+    UseAntID = list(UseAntID)
+    scanRange = np.ones(antNum)
     Time, AntID, Offset = GetAzOffset(msfile)
-    for ant_index in range(antNum):
+    for ant_index in UseAntID:
         time_index = np.where( (AntID == ant_index) )[0]
         time_index = time_index[np.where( (Time[time_index] - timeRange[0]) > -24e-3)[0]]
         time_index = time_index[np.where( (Time[time_index] - timeRange[1]) <  24e-3)[0]]

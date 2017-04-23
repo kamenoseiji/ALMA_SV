@@ -22,11 +22,11 @@ for file_index in range(fileNum):
         refAntID = refAntID[0]
     #
     msmd.open(msfile)
-    scanList = msmd.scannumbers().tolist()
+    #scanList = msmd.scannumbers().tolist()
     spwName = msmd.namesforspws(spwList[0])[0]; BandName = re.findall(pattern, spwName)[0]; BandPA = (BANDPA[int(BandName[3:5])] + 90.0)*pi/180.0
     for scan in scanList:
         timeStamp = msmd.timesforscans(scan).tolist()
-        trkAnt, scanAnt, Time, Offset = antRefScan( msfile, [timeStamp[0], timeStamp[-1]] )
+        trkAnt, scanAnt, Time, Offset = antRefScan( msfile, [timeStamp[0], timeStamp[-1]], antFlag )
         trkAnt = list(set(trkAnt) - set(flagAntID))
         if refAntID in trkAnt:
             trkAntSet = set(trkAnt) & trkAntSet
