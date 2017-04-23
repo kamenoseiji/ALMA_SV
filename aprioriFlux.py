@@ -145,8 +145,8 @@ print '---Flux densities of sources ---'
 pp = PdfPages('FL_' + prefix + '_' + UniqBands[band_index] + '.pdf')
 polLabel = ['I', 'Q', 'U', 'V']
 Pcolor   = ['black', 'blue', 'red', 'green']
-for scan_index in range(scanNum):
 #for scan_index in range(1):
+for scan_index in range(scanNum):
     figScan = plt.figure(scan_index, figsize = (11, 8))
     figScan.suptitle(prefix + ' ' + UniqBands[band_index])
     figScan.text(0.75, 0.95, qa.time('%fs' % timeStamp[0], form='ymd')[0]) 
@@ -155,6 +155,7 @@ for scan_index in range(scanNum):
     ScanEL[scan_index] = np.median(OnEL[:,scan_index])
     if sourceIDscan[scan_index] in SSOList: SSO_flag = T
     else: SSO_flag = F
+    if SSO_flag: continue
     text_sd = ' %02d %010s EL=%4.1f deg' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi ); logfile.write(text_sd + '\n'); print text_sd
     figScan.text(0.05, 0.95, text_sd) 
     text_sd = ' SPW  Frequency    I               Q               U               V               %Pol     EVPA '; logfile.write(text_sd + '\n'); print text_sd

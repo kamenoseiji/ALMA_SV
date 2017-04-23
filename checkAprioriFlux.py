@@ -2,7 +2,6 @@ import sys
 import analysisUtils as au
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Grid.py')
-#SSOCatalog = ['Uranus', 'Neptune', 'Callisto', 'Ganymede', 'Titan', 'Io', 'Europa', 'Ceres', 'Pallas', 'Vesta', 'Juno', 'Mars', 'Mercury', 'Venus']
 msfile = prefix + '.ms'
 #-------- Check Antenna List
 antList = GetAntName(msfile)
