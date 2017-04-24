@@ -8,24 +8,7 @@ execfile(SCR_DIR + 'Plotters.py')
 #
 msmd.open(msfile)
 #-------- Definitions
-def residTskyTransfer( param, Tamb, secz, Tsky, weight ):
-    exp_Tau = np.exp( -param[1]* secz )
-    return weight* (Tsky - (param[0] + 2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
-#
-def residTskyTransfer0( param, Tamb, secz, Tsky, weight ):
-    exp_Tau = np.exp( -param[0]* secz )
-    return weight* (Tsky - (2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
-#
-def residTskyTransfer2( param, Tamb, Tau0, secz, Tsky, weight ):
-    exp_Tau = np.exp( -Tau0* secz )
-    return weight* (Tsky - (param[0] + 2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
-#
-def get_progressbar_str(progress):
-    MAX_LEN = 48
-    BAR_LEN = int(MAX_LEN * progress)
-    return ('[' + '=' * BAR_LEN + ('>' if BAR_LEN < MAX_LEN else '') + ' ' * (MAX_LEN - BAR_LEN) + '] %.1f%%' % (progress * 100.))
-#
-Tatm_OFS  = 10.0     # Ambient-load temperature - Atmosphere temperature
+Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
 AeNominal = 0.6* 0.25* np.pi* antDia**2      # Nominal Collecting Area
 kb        = 1.38064852e3
 #-------- Check Scans for atmCal
@@ -44,12 +27,10 @@ ambTimeIndex = indexList( ambTime, timeXY)
 hotTimeIndex = indexList( hotTime, timeXY)
 #-------- Bandpass Table
 print '---Generating antenna-based bandpass table'
-XYdelayList = []
 BPList = []
 for spw_index in spw:
-    BP_ant, XYdelay = BPtable(msfile, spw_index, BPScan, blMap, blInv)
+    BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPScan, blMap, blInv)
     BPList = BPList + [BP_ant]
-    XYdelayList = XYdelayList + [XYdelay]
 #
 if PLOTBP:
     figAnt = PlotBP(msfile, antList[antMap], spw, BPList)
@@ -62,180 +43,10 @@ if PLOTBP:
     #
     plt.close('all')
 #
-#-------- Load autocorrelation power spectra
-print '---Loading autocorr power spectra'
-OnSpecList, OffSpecList, AmbSpecList, HotSpecList = [], [], [], []
-for ant_index in range(UseAntNum):
-    for spw_index in range(spwNum):
-        progress = (1.0* ant_index* spwNum + spw_index + 1.0) / (UseAntNum* spwNum)
-        sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
-        timeXY, Pspec = GetPSpec(msfile, antMap[ant_index], spw[spw_index])
-        OffSpecList.append(Pspec[pPol][:,:,offTimeIndex])
-        AmbSpecList.append(Pspec[pPol][:,:,ambTimeIndex])
-        HotSpecList.append(Pspec[pPol][:,:,hotTimeIndex])
-        for scan_index in range(scanNum):
-            OnSpecList.append(np.mean( Pspec[pPol][:,:,OnTimeIndex[scan_index]], axis=2 ))
-        #
-    #
-#
-sys.stderr.write('\n')
-sys.stderr.flush()
-#-------- Load Az El position
-azelTime, AntID, AZ, EL = GetAzEl(msfile)
-OnAZ, OnEL, OffEL = np.ones([UseAntNum, scanNum]), np.ones([UseAntNum, scanNum]), np.ones([UseAntNum, len(offTimeIndex)])
-for ant_index in range(UseAntNum):
-    azelTime_index = np.where( AntID == antMap[ant_index] )[0].tolist()
-    for scan_index in range(scanNum):
-        refTime = np.median(msmd.timesforscan(onsourceScans[scan_index]))
-        OnAZ[ant_index, scan_index] = AZ[azelTime_index[argmin(abs(azelTime[azelTime_index] - refTime))]]
-        OnEL[ant_index, scan_index] = EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - refTime))]]
-    #
-    for time_index in range(len(offTimeIndex)):
-        OffEL[ant_index, time_index] = EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - offTime[time_index]))]]
-    #
-#
-secZ = 1.0 / np.sin( OffEL ); secZrange = np.max(secZ) - np.min(secZ)
-#-------- Time-interpolation of ambient and hot
-print '---Analyzing Trec and Tsky using atmCal scans'
-chAvgTrx, chAvgTsky, chAvgTsys = np.zeros([UseAntNum, spwNum, 2, len(offTime)]), np.zeros([UseAntNum, spwNum, 2, len(offTime)]), np.zeros([UseAntNum, spwNum, 2, scanNum])
-TrxFlag, TsysFlag, onTau = np.ones([UseAntNum, spwNum, 2, len(offTime)]), np.ones([UseAntNum, spwNum, 2, scanNum]), np.zeros([spwNum, scanNum])
-TrxList, TskyList = [], []
-tempAmb, tempHot  = np.zeros([UseAntNum]), np.zeros([UseAntNum])
-for ant_index in range(UseAntNum):
-    tempAmb[ant_index], tempHot[ant_index] = GetLoadTemp(msfile, antMap[ant_index], spw[0])
-    for spw_index in range(spwNum):
-        AntSpwIndex = ant_index* spwNum + spw_index
-        chNum = AmbSpecList[AntSpwIndex].shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-        Trx, Tsky = np.zeros([2, chNum, len(offTime)]), np.zeros([2, chNum, len(offTime)])
-        for pol_index in range(ppolNum):
-            ambSpec, hotSpec = AmbSpecList[AntSpwIndex][pol_index], HotSpecList[AntSpwIndex][pol_index]
-            SPL_amb = UnivariateSpline(ambTime, np.mean(ambSpec[chRange], axis=0), s=0.001)
-            SPL_hot = UnivariateSpline(hotTime, np.mean(hotSpec[chRange], axis=0), s=0.001)
-            for time_index in range(len(offTime)):
-                Psamb = np.mean(ambSpec, axis=1)*SPL_amb(offTime[time_index])/np.mean(ambSpec[chRange])
-                Pshot = np.mean(hotSpec, axis=1)*SPL_hot(offTime[time_index])/np.mean(hotSpec[chRange])
-                Psoff = OffSpecList[AntSpwIndex][pol_index][:,time_index]
-                Trx[pol_index, :, time_index] = (tempHot[ant_index]* Psamb - Pshot* tempAmb[ant_index]) / (Pshot - Psamb)
-                Tsky[pol_index, :, time_index]= (Psoff* (tempHot[ant_index] - tempAmb[ant_index]) + tempAmb[ant_index]* Pshot - tempHot[ant_index]* Psamb) / (Pshot - Psamb)
-                Phot, Pamb, Poff = np.mean(Pshot[chRange]), np.mean(Psamb[chRange]), np.mean(Psoff[chRange])
-                chAvgTrx[ant_index, spw_index, pol_index, time_index] = (tempHot[ant_index]* Pamb - Phot* tempAmb[ant_index]) / (Phot - Pamb)
-                chAvgTsky[ant_index, spw_index, pol_index, time_index]= (Poff* (tempHot[ant_index] - tempAmb[ant_index]) + tempAmb[ant_index]* Phot - tempHot[ant_index]* Pamb) / (Phot - Pamb)
-            #-------- Trx flagging
-            TrxTemp = chAvgTrx[ant_index, spw_index, pol_index]
-            TrxFlag[ant_index, spw_index, pol_index, np.where( abs(TrxTemp - np.median(TrxTemp)) > 0.2* np.median(TrxTemp))[0].tolist()] = 0.0
-            TrxFlag[ant_index, spw_index, pol_index, np.where( TrxTemp < 1.0)[0].tolist()] = 0.0
-        #
-        TrxList.append(Trx)
-        TskyList.append(Tsky)
-    #
-#
-#-------- Tau and TantN fitting
-Tau0, TantN, Trms = np.zeros([UseAntNum, spwNum, 2]), np.zeros([UseAntNum, spwNum, 2]), np.zeros([UseAntNum, spwNum, 2])
-for ant_index in range(UseAntNum):
-    for spw_index in range(spwNum):
-        for pol_index in range(2):
-            if( secZrange > 1.0):
-                param = [0.0, 0.05]     # Initial Parameter
-                fit = scipy.optimize.leastsq(residTskyTransfer, param, args=(tempAmb[ant_index]-Tatm_OFS, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
-                TantN[ant_index, spw_index, pol_index] = fit[0][0]
-                Tau0[ant_index, spw_index, pol_index]  = fit[0][1]
-            else:
-                param = [0.05]     # Initial Parameter
-                fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAmb[ant_index]-Tatm_OFS, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
-                TantN[ant_index, spw_index, pol_index] = Tatm_OFS
-                Tau0[ant_index, spw_index, pol_index]  = fit[0][0]
-            #
-        #
-    #
-    TantN[ant_index] = np.median(TantN[ant_index])* np.ones([spwNum, 2])
-#
-Tau0err, Tau0med = np.std(Tau0, axis=(0,2)), np.mean(Tau0, axis=(0,2))
-#-------- Trx Transfer
-for ant_index in range(UseAntNum):
-    for spw_index in range(spwNum):
-        for pol_index in range(ppolNum):
-            flgIndex = np.where( TrxFlag[ant_index, spw_index, pol_index] == 0 )[0].tolist()
-            vldIndex = np.where( TrxFlag[ant_index, spw_index, pol_index] == 1 )[0].tolist()
-            if(len(vldIndex) > 0):
-                chAvgTrx[ant_index, spw_index, pol_index, flgIndex] = np.median( chAvgTrx[ant_index, spw_index, pol_index, vldIndex] )
-                chAvgTsky[ant_index, spw_index, pol_index, flgIndex]= (tempAmb[ant_index]-Tatm_OFS)* (1.0 - np.exp(-Tau0[ant_index, spw_index, pol_index]* secZ[ant_index, flgIndex])) + TantN[ant_index, spw_index, pol_index]
-            #
-        #
-    #
-#
-#-------- Tsys for scans
-for scan_index in range(scanNum):
-    OnTimeRange = timeXY[OnTimeIndex[scan_index]]
-    ambTimeIndex = argmin(abs(ambTime - OnTimeRange[0]))
-    offTimeIndex = argmin(abs(offTime - OnTimeRange[0]))
-    chAvgTsys[:,:,:,scan_index] = chAvgTrx[:,:,:,ambTimeIndex] + chAvgTsky[:,:,:,offTimeIndex] 
-    TsysFlag[:,:,:,scan_index] = TrxFlag[:,:,:,ambTimeIndex]
-#
-#-------- Tau on source
-for scan_index in range(scanNum):
-    OnTimeRange = timeXY[OnTimeIndex[scan_index]]
-    offTimeIndex = argmin(abs(offTime - OnTimeRange[0]))
-    tempTau = -np.log((chAvgTsky[:,:,:,offTimeIndex] - TantN - np.median(tempAmb) + Tatm_OFS) / (2.718 - np.median(tempAmb) + Tatm_OFS))
-    onTau[:,scan_index] = np.median(tempTau.transpose(1,2,0).reshape(spwNum, -1), axis=1)
-#
-for spw_index in range(spwNum): text_sd = 'SPW=%d : Tau(zenith) = %6.4f +- %6.4f' % (spw[spw_index], Tau0med[spw_index], Tau0err[spw_index]); logfile.write(text_sd + '\n'); print text_sd
-#
-np.save(prefix +  '-' + UniqBands[band_index] + '.Trx.npy', TrxList) 
-np.save(prefix +  '-' + UniqBands[band_index] + '.Tsky.npy', TskyList) 
-np.save(prefix +  '-' + UniqBands[band_index] + '.TrxFlag.npy', TrxFlag) 
-np.save(prefix +  '-' + UniqBands[band_index] + '.Tau0.npy', Tau0) 
-#-------- Antenna-dependent leakage noise
-param = [0.0]
-text_sd = ' TantN:'; logfile.write(text_sd); print text_sd,
-for spw_index in range(spwNum): text_sd = ' PolX   SPW%02d  PolY           |' % (spw[spw_index]); logfile.write(text_sd); print text_sd,
-#
-logfile.write('\n'); print ' '
-text_sd = ' ----:--------------------------------+-------------------------------+-------------------------------+-------------------------------+'; logfile.write(text_sd + '\n'); print text_sd
-for ant_index in range(UseAntNum):
-    text_sd = antList[antMap[ant_index]] + ' : '; logfile.write(text_sd); print text_sd,
-    for spw_index in range(spwNum):
-        for pol_index in range(2):
-            fit = scipy.optimize.leastsq(residTskyTransfer2, param, args=(tempAmb[ant_index]-Tatm_OFS, Tau0med[spw_index], secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
-            TantN[ant_index, spw_index, pol_index] = fit[0][0]
-            resid = residTskyTransfer([fit[0][0], Tau0med[spw_index]], tempAmb[ant_index]-Tatm_OFS, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index])
-            Trms[ant_index, spw_index, pol_index]  = sqrt(np.dot(resid, resid) / len(np.where(TrxFlag[ant_index, spw_index, pol_index] > 0.0)[0]))
-            text_sd = '%4.1f (%4.1f) K ' % (TantN[ant_index, spw_index, pol_index], Trms[ant_index, spw_index, pol_index])
-            logfile.write(text_sd); print text_sd,
-        text_sd = '|'; logfile.write(text_sd); print text_sd,
-    logfile.write('\n'); print ''
-logfile.write('\n'); print ''
-np.save(prefix +  '-' + UniqBands[band_index] + '.TantN.npy', TantN) 
-#-------- Trx
-text_sd = ' Trec: '; logfile.write(text_sd); print text_sd,
-for spw_index in range(spwNum): text_sd = ' SPW%02d X        Y |' % (spw[spw_index]); logfile.write(text_sd); print text_sd,
-logfile.write('\n'); print ' '
-text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; logfile.write(text_sd + '\n'); print text_sd
-for ant_index in range(UseAntNum):
-    text_sd =  antList[antMap[ant_index]] + ' : '; logfile.write(text_sd); print text_sd,
-    for spw_index in range(spwNum):
-        for pol_index in range(2):
-            text_sd = '%6.1f K' % (np.median(chAvgTrx[ant_index, spw_index, pol_index]))
-            logfile.write(text_sd); print text_sd,
-        text_sd = '|'; logfile.write(text_sd); print text_sd,
-    logfile.write('\n'); print ' '
-print ' '
-#-------- Tsys
-text_sd = ' Tsys: '; logfile.write(text_sd); print text_sd,
-for spw_index in range(spwNum): text_sd = ' SPW%02d X        Y |' % (spw[spw_index]); logfile.write(text_sd); print text_sd,
-logfile.write('\n'); print ' '
-text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; logfile.write(text_sd + '\n'); print text_sd
-for ant_index in range(UseAntNum):
-    text_sd =  antList[antMap[ant_index]] + ' : '; logfile.write(text_sd); print text_sd,
-    for spw_index in range(spwNum):
-        for pol_index in range(2):
-            text_sd = '%6.1f K' % (np.median(chAvgTrx[ant_index, spw_index, pol_index]) + np.median(chAvgTsky[ant_index, spw_index, pol_index]))
-            logfile.write(text_sd); print text_sd,
-        text_sd = '|'; logfile.write(text_sd); print text_sd,
-    logfile.write('\n'); print ' '
-#-------- Plot optical depth
-if PLOTTAU: plotTau(prefix + '_' + UniqBands[band_index], antList[antMap], spw, secZ, (chAvgTsky.transpose(3,0,1,2) - TantN).transpose(1,2,3,0), np.median(tempAmb) - Tatm_OFS, Tau0med, TrxFlag, 2.0*np.median(chAvgTsky), PLOTFMT) 
-if PLOTTSYS: plotTsys(prefix + '_' + UniqBands[band_index], antList[antMap], ambTime, spw, TrxList, TskyList, PLOTFMT)
+#-------- Tsys measurements
+execfile(SCR_DIR + 'TsysCal.py')
 ##-------- Equalization using EQ scan
+print '---Gain Equalization'
 AeSeqX, AeSeqY = [], []  # effective area x flux density of the equalizer
 polXindex, polYindex, scan_index = (arange(4)//2).tolist(), (arange(4)%2).tolist(), onsourceScans.index(EQScan)
 for spw_index in range(spwNum):
@@ -356,28 +167,22 @@ for scan_index in range(scanNum):
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], onsourceScans[scan_index])
         timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
         timeThresh = np.median(diff(timeStamp))
-        AzScan, ElScan = np.zeros(timeNum), np.zeros(timeNum)
-        for time_index in range(timeNum):
-            AzScan[time_index], ElScan[time_index] = AzElMatch(timeStamp[time_index], azelTime, AntID, UseAnt[refantID], timeThresh, AZ, EL)
-        #
-        tempSpec = ParaPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
+        AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
+        tempSpec = ParaPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)      # tempSpec[timeNum, blNum, polNum, chNum]
         #-------- Bandpass Calibration
-        BPCaledXspec = (tempSpec / (BPList[spw_index][np.array(ant0)[SAbl].tolist()]* BPList[spw_index][np.array(ant1)[SAbl].tolist()].conjugate())).transpose(2,3,1,0) # Bandpass Cal
+        BPCaledXspec = (tempSpec / (BPList[spw_index][np.array(ant0)[SAbl].tolist()]* BPList[spw_index][np.array(ant1)[SAbl].tolist()].conjugate())).transpose(2,3,1,0) # BPCaledXspec[polNum, chNum, blNum, timeNum]
         #-------- Antenna-based Gain
         if(SSO_flag): chAvgVis =(np.mean(BPCaledXspec[:, chRange], axis=1).transpose(0,2,1) / SSOmodelVis[SSO_ID, spw_index][SAbl]).transpose(0,2,1)
-        else: chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
-        Gain = np.r_[np.apply_along_axis(gainComplex, 0, chAvgVis[0]), np.apply_along_axis(gainComplex, 0, chAvgVis[1])].reshape(2, SAantNum, timeNum)
-        Gain = Gain / abs(Gain)
-        pCalVis = np.mean(chAvgVis / (Gain[:,ant0[0:SAblNum]]* Gain[:,ant1[0:SAblNum]].conjugate()), axis=2)* np.sqrt(SEFD[np.array(ant0)[SAbl].tolist()].T* SEFD[np.array(ant1)[SAbl].tolist()].T)
-        IVis, IErr = np.zeros([SAblNum]), np.zeros([SAblNum])
-        for bl_index in range(SAblNum):
-            Vis = np.mean(pCalVis[:,bl_index], axis=0)
-            IVis[bl_index], IErr[bl_index] = Vis.real, Vis.imag
-        #
+        else: chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)  # chAvgVis[polNum, blNum, timeNum]
+        GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[1])])  # GainP[polNum, antNum, timeNum]
+        pCalVis = np.mean(chAvgVis / (GainP[:,ant0[0:SAblNum]]* GainP[:,ant1[0:SAblNum]].conjugate()), axis=2)    #  pCalVi[polNum, blNum]
+        pCalVis = pCalVis* np.sqrt(SEFD[np.array(ant0)[SAbl].tolist()].T* SEFD[np.array(ant1)[SAbl].tolist()].T) # pCalVis[polNum,blNum]
+        IVis = np.mean(pCalVis, axis=0).real
         visFlag = np.where(abs(IVis - np.median(IVis))/np.median(IVis) < 0.2)[0]
+        if len(visFlag) < 4: text_sd = text_sd + ' Too few vis '; continue
         weight = np.zeros(SAblNum); weight[visFlag] = 1.0/np.var(IVis[visFlag])
         P, W = np.c_[np.ones(SAblNum), uvDist], np.diag(weight)
-        PtWP_inv = scipy.linalg.inv(np.dot(P.T, np.dot(W, P))) 
+        PtWP_inv = scipy.linalg.inv(np.dot(P.T, np.dot(W, P)))
         ScanFlux[scan_index, spw_index], ErrFlux[scan_index, spw_index] = np.dot(PtWP_inv, np.dot(P.T, np.dot(W, IVis)))[0], np.sqrt(PtWP_inv[0,0])
         text_sd = text_sd + '  %6.3f (%.3f) ' % (ScanFlux[scan_index, spw_index], ErrFlux[scan_index, spw_index])
         #

@@ -51,22 +51,25 @@ print '---Checking array configulation'
 flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
 UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
 #-------- Check D-term files
-print '---Checking D-term files'
-DantList, noDlist = [], []
-Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
-for ant_index in UseAnt:
-    Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW0-' + antList[ant_index] + '.DSpec.npy'
-    if os.path.exists(Dfile): DantList += [ant_index]
-    else: noDlist += [ant_index]
-#
-DantNum, noDantNum = len(DantList), len(noDlist)
-print 'Antennas with D-term file (%d):' % (DantNum),
-for ant_index in DantList: print '%s ' % antList[ant_index],
-print ''
-if noDantNum > 0:
-    print 'Antennas without D-term file (%d) : ' % (noDantNum),
-    for ant_index in noDlist: print '%s ' % antList[ant_index],
-    sys.exit(' Run DtermTransfer first!!')
+polNum = msmd.ncorrforpol(msmd.polidfordatadesc(spw[0]))
+if polNum == 4:
+    print '---Checking D-term files'
+    DantList, noDlist = [], []
+    Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
+    for ant_index in UseAnt:
+        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW0-' + antList[ant_index] + '.DSpec.npy'
+        if os.path.exists(Dfile): DantList += [ant_index]
+        else: noDlist += [ant_index]
+    #
+    DantNum, noDantNum = len(DantList), len(noDlist)
+    print 'Antennas with D-term file (%d):' % (DantNum),
+    for ant_index in DantList: print '%s ' % antList[ant_index],
+    print ''
+    if noDantNum > 0:
+        print 'Antennas without D-term file (%d) : ' % (noDantNum),
+        for ant_index in noDlist: print '%s ' % antList[ant_index],
+        sys.exit(' Run DtermTransfer first!!')
+    #
 #
 #-------- Antenna and baseline mapping
 blMap, blInv= range(UseBlNum), [False]* UseBlNum
@@ -146,7 +149,7 @@ for band_index in range(NumBands):
     BPcalText = 'Use %s [EL = %4.1f deg] as Bandpass Calibrator' % (BPcal, 180.0* OnEL[onsourceScans.index(BPScan)]/np.pi); print BPcalText
     EQcalText = 'Use %s [EL = %4.1f deg] as Gain Equalizer' % (EQcal, 180.0* OnEL[onsourceScans.index(EQScan)]/np.pi); print EQcalText
     #-------- Polarization setup
-    spw = spwLists[band_index]; spwNum = len(spw); polNum = msmd.ncorrforpol(msmd.polidfordatadesc(spw[0]))
+    spw = spwLists[band_index]; spwNum = len(spw)
     pPol, cPol = [0,1], []  # parallel and cross pol
     PolList = ['X', 'Y']
     if polNum == 4: pPol, cPol = [0,3], [1,2]  # parallel and cross pol

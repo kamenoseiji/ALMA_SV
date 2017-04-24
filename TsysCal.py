@@ -1,3 +1,20 @@
+def residTskyTransfer( param, Tamb, secz, Tsky, weight ):
+    exp_Tau = np.exp( -param[1]* secz )
+    return weight* (Tsky - (param[0] + 2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
+#
+def residTskyTransfer0( param, Tamb, secz, Tsky, weight ):
+    exp_Tau = np.exp( -param[0]* secz )
+    return weight* (Tsky - (2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
+#
+def residTskyTransfer2( param, Tamb, Tau0, secz, Tsky, weight ):
+    exp_Tau = np.exp( -Tau0* secz )
+    return weight* (Tsky - (param[0] + 2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
+#
+def get_progressbar_str(progress):
+    MAX_LEN = 48
+    BAR_LEN = int(MAX_LEN * progress)
+    return ('[' + '=' * BAR_LEN + ('>' if BAR_LEN < MAX_LEN else '') + ' ' * (MAX_LEN - BAR_LEN) + '] %.1f%%' % (progress * 100.))
+#
 #-------- Load autocorrelation power spectra
 print '---Loading autocorr power spectra'
 OnSpecList, OffSpecList, AmbSpecList, HotSpecList = [], [], [], []
@@ -45,13 +62,7 @@ for ant_index in range(UseAntNum):
         Trx, Tsky = np.zeros([2, chNum, len(offTime)]), np.zeros([2, chNum, len(offTime)])
         for pol_index in range(ppolNum):
             ambSpec, hotSpec = AmbSpecList[AntSpwIndex][pol_index], HotSpecList[AntSpwIndex][pol_index]
-            #amb_knots = ambTime[range(2,len(ambTime),4)] + 0.5*min(np.diff(ambTime))
-            #hot_knots = hotTime[range(2,len(hotTime),4)] + 0.5*min(np.diff(hotTime))
-            #SPL_amb = LSQUnivariateSpline(ambTime, np.mean(ambSpec[chRange], axis=0), amb_knots)
-            #SPL_hot = LSQUnivariateSpline(hotTime, np.mean(hotSpec[chRange], axis=0), hot_knots)
             for time_index in range(len(offTime)):
-                #Psamb = np.mean(ambSpec, axis=1)*SPL_amb(offTime[time_index])/np.mean(ambSpec[chRange])
-                #Pshot = np.mean(hotSpec, axis=1)*SPL_hot(offTime[time_index])/np.mean(hotSpec[chRange])
                 Psamb = np.mean(ambSpec, axis=1)
                 Pshot = np.mean(hotSpec, axis=1)
                 Psoff = OffSpecList[AntSpwIndex][pol_index][:,time_index]
@@ -75,9 +86,15 @@ Tau0, TantN, Trms = np.zeros([UseAntNum, spwNum, 2]), np.zeros([UseAntNum, spwNu
 for ant_index in range(UseAntNum):
     for spw_index in range(spwNum):
         for pol_index in range(2):
-            fit = scipy.optimize.leastsq(residTskyTransfer, param, args=(tempAmb[ant_index]-Tatm_OFS, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
-            TantN[ant_index, spw_index, pol_index] = fit[0][0]
-            Tau0[ant_index, spw_index, pol_index]  = fit[0][1]
+            if max(secZ[0]) - min(secZ[0]) > 0.5:
+                fit = scipy.optimize.leastsq(residTskyTransfer, param, args=(tempAmb[ant_index]-Tatm_OFS, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
+                TantN[ant_index, spw_index, pol_index] = fit[0][0]
+                Tau0[ant_index, spw_index, pol_index]  = fit[0][1]
+            else:
+                param = [0.05]
+                fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAmb[ant_index]-Tatm_OFS, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
+                Tau0[ant_index, spw_index, pol_index]  = fit[0][0]
+                TantN[ant_index, spw_index, pol_index] = Tatm_OFS
         #
     #
     TantN[ant_index] = np.median(TantN[ant_index])* np.ones([spwNum, 2])
