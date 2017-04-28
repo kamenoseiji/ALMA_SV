@@ -100,23 +100,35 @@ polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
 interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[0], BPScan); timeNum = len(timeStamp)
 AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
 PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), np.cos(PA))
-XYphase, caledVis = [], []
+GainP, SEFD, XYphase, caledVis = [], [], [], []
 relGain = np.ones([spwNum, UseAntNum, 2])
 scan_index = onsourceScans.index(BPScan)
 for spw_index in range(spwNum):
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], BPScan)
     timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
     tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
-    BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
-    chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
-    GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
-    SEFD = 2.0* kb* chAvgTsys[:,spw_index, :,scan_index] / np.array([AeX, AeY]).T
-    aprioriVis = np.mean((chAvgVis / (GainP[polYindex][:,ant0]* GainP[polXindex][:,ant1].conjugate())).transpose(2, 0, 1)* np.sqrt(SEFD[ant0][:,polYindex].T* SEFD[ant1][:,polXindex].T), axis=0)[[0,3]].T
+    BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
+    chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1) 
+    GainP = GainP + [np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])]
+    SEFD = SEFD + [2.0* kb* chAvgTsys[:,spw_index, :,scan_index].T / np.array([AeX, AeY])]
+    aprioriVis = np.mean((chAvgVis / (GainP[spw_index][polYindex][:,ant0]* GainP[spw_index][polXindex][:,ant1].conjugate())).transpose(2, 0, 1)* np.sqrt(SEFD[spw_index][polYindex][:,ant0]* SEFD[spw_index][polXindex][:,ant1]), axis=0)[[0,3]].T
     relGain[spw_index] = abs(gainComplexVec(aprioriVis))
     relGain[spw_index] = relGain[spw_index] / np.median(relGain[spw_index], axis=0)
-    SEFD /= (relGain[spw_index]**2)
-    caledVis.append(np.mean((chAvgVis / (GainP[polYindex][:,ant0]* GainP[polXindex][:,ant1].conjugate())).transpose(2, 0, 1)* np.sqrt(SEFD[ant0][:,polYindex].T* SEFD[ant1][:,polXindex].T), axis=2).T)
+    SEFD[spw_index] /= (relGain[spw_index]**2).T
+    caledVis.append(np.mean((chAvgVis / (GainP[spw_index][polYindex][:,ant0]* GainP[spw_index][polXindex][:,ant1].conjugate())).transpose(2, 0, 1)* np.sqrt(SEFD[spw_index][polYindex][:,ant0]* SEFD[spw_index][polXindex][:,ant1]), axis=2).T)
 #
+SEFD  = np.array(SEFD)  # SEFD[spw, pol, ant]
+GainP = np.array(GainP) # GainP[spw, pol, ant, time]
+spwPhase = [0.0]* 2* spwNum
+for ant_index in range(1,UseAntNum):
+    for pol_index in range(2):
+        spwPhase = spwPhase + [0.0]
+        for spw_index in range(1,spwNum):
+            spwPhase = spwPhase + [np.angle(GainP[spw_index, pol_index, ant_index].dot(GainP[0, pol_index, ant_index].conjugate()))]
+        #
+    #
+#
+spwPhase = np.array(spwPhase).reshape([UseAntNum, 2, spwNum]); spwTwiddle = exp(1.0j *spwPhase)
 caledVis = np.array(caledVis)   # [spw, pol, time]
 QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
 #-------- XY phase cal in Bandpass table
@@ -124,8 +136,9 @@ XYsign = np.ones(spwNum)
 for spw_index in range(spwNum):
     XYphase = XY2Phase(PA, QUsolution[0], QUsolution[1], caledVis[spw_index][[1,2]])
     XYsign[spw_index] = np.sign(np.cos(XYphase))
+    BPList[spw_index] = (BPList[spw_index].transpose(2,0,1)* spwTwiddle[:,:,spw_index]).transpose(1,2,0)
     BPList[spw_index][:,1] *= XYsign[spw_index]
-    print 'SPW[%d] : XY phase = %6.1f [deg] sign = %3.0f' % (spw[spw_index], 180.0*XYphase/pi, XYsign[spw_index])
+    print 'SPW[%d] : XYphase = %6.1f [deg] sign = %3.0f' % (spw[spw_index], 180.0*XYphase/pi, XYsign[spw_index])
 #
 #-------- Gain Equalization between X and Y
 if 'PolEQ' in locals():
@@ -161,16 +174,14 @@ for scan_index in range(scanNum):
     text_sd = ' SPW  Frequency    I               Q               U               V               %Pol     EVPA '; logfile.write(text_sd + '\n'); print text_sd
     text_sd = ' ------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
     #
+    BPCaledXspec = []
     for spw_index in range(spwNum):
-        StokesI_PL = figScan.add_subplot( 2, spwNum, spw_index + 1 )
-        StokesP_PL = figScan.add_subplot( 2, spwNum, spwNum + spw_index + 1 )
         chNum, chWid, Freq = GetChNum(msfile, spw[spw_index])
         centerFreqList.append( np.median(Freq)*1.0e-9 )
-        text_sd = ' SPW%02d %5.1f GHz' % (spw[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
         atmCorrect = np.exp(-onTau[spw_index, scan_index])
         TA = 0.0
         #
-        SEFD = 2.0* kb* (chAvgTsys[:,spw_index, :,scan_index] + TA) / (np.array([AeX, AeY]).T* atmCorrect)/ (relGain[spw_index]**2)
+        SEFD[spw_index] = 2.0* kb* (chAvgTsys[:,spw_index, :,scan_index] + TA).T / (np.array([AeX, AeY])* atmCorrect)/ (relGain[spw_index]**2).T
         #-------- UV distance
         timeStamp, UVW = GetUVW(msfile, spw[spw_index], onsourceScans[scan_index])
         uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
@@ -183,20 +194,28 @@ for scan_index in range(scanNum):
         PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
         tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
         #-------- Bandpass Calibration
-        BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
-        #-------- Antenna-based Gain
-        chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
-        GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
-        pCalVis = (BPCaledXspec.transpose(1,0,2,3) / (GainP[polYindex][:,ant0]* GainP[polXindex][:,ant1].conjugate()))[chRange]
-        chAvgVis = (np.mean(pCalVis[:,[0,3]], axis=0).transpose(2,1,0)* np.sqrt(SEFD[ant0]* SEFD[ant1])).transpose(2,1,0)
-        indivRelGain = abs(np.mean(np.array([gainComplexVec(chAvgVis[0]), gainComplexVec(chAvgVis[1])]), axis=2))
-        SEFD[:,0] *= (np.median(indivRelGain[0]) / indivRelGain[0])**2
-        SEFD[:,1] *= (np.median(indivRelGain[1]) / indivRelGain[1])**2
-        pCalVis = (pCalVis.transpose(0,3,1,2)* np.sqrt(SEFD[ant0][:,polYindex].T* SEFD[ant1][:,polXindex].T)).transpose(3, 2, 0, 1)
+        BPCaledXspec = BPCaledXspec + [(tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0)] # Bandpass Cal
+        #
+    #
+    #-------- Antenna-based Phase Solution
+    BPCaledXspec = np.array(BPCaledXspec)   # BPCaledXspec[spw, pol, ch, bl, time]
+    chAvgVis = np.mean(np.array(BPCaledXspec)[:,:,chRange], axis=(0,2))
+    GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
+    pCalVis = (BPCaledXspec.transpose(0,2,1,3,4) / (GainP[polYindex][:,ant0]* GainP[polXindex][:,ant1].conjugate()))[:,chRange]
+    for spw_index in range(spwNum):
+        chAvgVis = np.mean(pCalVis[spw_index], axis=(0,3))[[0,3]]* np.sqrt( SEFD[spw_index][:,ant0]* SEFD[spw_index][:,ant1]) 
+        indivRelGain = abs(gainComplexVec(chAvgVis.T))
+        SEFD[spw_index] *= ((np.percentile(indivRelGain, 75, axis=0) / indivRelGain)**2).T
+    #
+    AmpCalVis = (pCalVis.transpose(1,4,0,2,3)* np.sqrt(SEFD[:,polYindex][:,:,ant0]* SEFD[:,polXindex][:,:,ant1])).transpose(2,4,3,0,1) # AmpCalVis[spw,bl,pol,ch,time]
+    for spw_index in range(spwNum):
+        StokesI_PL = figScan.add_subplot( 2, spwNum, spw_index + 1 )
+        StokesP_PL = figScan.add_subplot( 2, spwNum, spwNum + spw_index + 1 )
+        text_sd = ' SPW%02d %5.1f GHz' % (spw[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
         Stokes = np.zeros([4,UseBlNum], dtype=complex)
         for bl_index in range(UseBlNum):
             Minv = InvMullerVector(DxSpec[ant1[bl_index], spw_index][chRange], DySpec[ant1[bl_index], spw_index][chRange], DxSpec[ant0[bl_index], spw_index][chRange], DySpec[ant0[bl_index], spw_index][chRange], np.ones(UseChNum))
-            Stokes[:,bl_index] = PS.reshape(4, 4*PAnum).dot(Minv.reshape(4, 4*UseChNum).dot(pCalVis[bl_index].reshape(4*UseChNum, PAnum)).reshape(4*PAnum)) / (PAnum* UseChNum)
+            Stokes[:,bl_index] = PS.reshape(4, 4*PAnum).dot(Minv.reshape(4, 4*UseChNum).dot(AmpCalVis[spw_index][bl_index].reshape(4*UseChNum, PAnum)).reshape(4*PAnum)) / (PAnum* UseChNum)
         #
         StokesVis, StokesErr = Stokes.real, Stokes.imag
         for pol_index in range(4):
