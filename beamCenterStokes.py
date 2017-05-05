@@ -36,7 +36,7 @@ for file_index in range(fileNum):
         print '---- Scan %d : %d tracking antennas' % (scan, len(trkAnt))
     #
     #scanList = [1]
-    scansFile.append(scanList)
+    #scansFile.append(scanList)
 #
 msmd.done()
 antMap = [refAntID] + list(trkAntSet - set([refAntID]))
@@ -70,7 +70,8 @@ for spw_index in range(spwNum):
         azelTime, AntID, AZ, EL = GetAzEl(msfile)
         azelTime_index = np.where( AntID == refAntID )[0].tolist()
         timeThresh = np.median( np.diff( azelTime[azelTime_index]))
-        for scan in scansFile[file_index]:
+        #for scan in scansFile[file_index]:
+        for scan in scanList[file_index]:
             #-------- Load Visibilities
             print '-- Loading visibility data %s SPW=%d SCAN=%d...' % (prefix, spw, scan)
             timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)  # Xspec[POL, CH, BL, TIME]
