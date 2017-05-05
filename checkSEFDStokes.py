@@ -76,32 +76,58 @@ if PLOTBP:
 #-------- Tsys measurements
 execfile(SCR_DIR + 'TsysCal.py')
 ##-------- Equalization using EQ scan
-AeSeqX, AeSeqY = [], []  # effective area x flux density of the equalizer
+GainP, AeSeqX, AeSeqY = [], [], []  # effective area x flux density of the equalizer
 polXindex, polYindex, scan_index = (arange(4)//2).tolist(), (arange(4)%2).tolist(), onsourceScans.index(EQScan)
 for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], EQScan)
     chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
     tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)       # Cross Polarization Baseline Mapping
-    BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
+    BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
     #-------- Antenna-based Gain correction
     chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)[pPol]
-    GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[1])])
-    pCalVisX, pCalVisY = np.mean(chAvgVis[0] / (GainP[0,ant0]* GainP[0,ant1].conjugate()), axis=1), np.mean(chAvgVis[1] / (GainP[1,ant0]* GainP[1,ant1].conjugate()), axis=1)
+    GainP = GainP + [np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[1])])]
+    pCalVisX, pCalVisY = np.mean(chAvgVis[0] / (GainP[spw_index][0,ant0]* GainP[spw_index][0,ant1].conjugate()), axis=1), np.mean(chAvgVis[1] / (GainP[spw_index][1,ant0]* GainP[spw_index][1,ant1].conjugate()), axis=1)
     #-------- Antenna-based Gain
     AeSeqX = AeSeqX + [2.0* kb* chAvgTsys[:, spw_index, 0, scan_index]* abs(gainComplex(pCalVisX))**2] # Ae x Seq (X-pol)
     AeSeqY = AeSeqY + [2.0* kb* chAvgTsys[:, spw_index, 1, scan_index]* abs(gainComplex(pCalVisY))**2] # Ae x Seq (Y-pol)
 #
+GainP = np.array(GainP) # GainP[spw, pol, ant, time]
 AeSeqX, AeSeqY = np.array(AeSeqX), np.array(AeSeqY)
+spwPhase = [0.0]* 2* spwNum
+for ant_index in range(1,UseAntNum):
+    for pol_index in range(2):
+        spwPhase = spwPhase + [0.0]
+        for spw_index in range(1,spwNum):
+            spwPhase = spwPhase + [np.angle(GainP[spw_index, pol_index, ant_index].dot(GainP[0, pol_index, ant_index].conjugate()))]
+        #
+    #
+#
+spwPhase = np.array(spwPhase).reshape([UseAntNum, 2, spwNum]); spwTwiddle = exp(1.0j *spwPhase)
+for spw_index in range(1,spwNum):
+    BPList[spw_index] = (BPList[spw_index].transpose(2,0,1)* spwTwiddle[:,:,spw_index]).transpose(1,2,0)
+#
 #-------- Flux models for solar system objects
 msmd.done()
 execfile(SCR_DIR + 'SSOflux.py'); logfile.write(FLScaleText + '\n')
-SSOflux = SSOflux0* np.exp(-onTau.transpose(1,0)[indexList(np.array(SSOscanID), np.array(onsourceScans))])
+######## Outputs from SSOflux.py :
+#  SSOflux0[SSO, spw] : model flux density of solar system objects at zero spacing
+#  SSOmodelVis[SSO, spw, bl] : predicted relative visibility (max=1.0)
+#  uvFlag[SSO, spw, bl] : 0=resolved, 1=unresolved
+########
+SSOflux = SSOflux0* np.exp(-onTau.transpose(1,0)[indexList(np.array(SSOscanID), np.array(onsourceScans))])  # SSOflux[SSO, spw] : attenuated SSO flux
 ##-------- Scaling with the flux calibrator
 AeX, AeY = [], []
-scan_index = onsourceScans.index(FCScan)
 #-------- Sub-array with unflagged antennas (short baselines)
-SAantennas, SAbl, SAblFlag, SAant0, SAant1 = subArrayIndex(FCSFlag[0])
+for sso_index in range(SSOnum):
+    for spw_index in range(spwNum):
+        SAantennas, SAbl, SAblFlag, SAant0, SAant1 = subArrayIndex(uvFlag[sso_index, spw_index])
+        SAblMap = np.array(blMap)[SAbl].tolist()
+        #-------- Baseline-based cross power spectra
+        timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], SSOscanID[sso_index])
+        chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
+        tempSpec = CrossPolBL(Xspec[:,:,SAbl[blMap]], blInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
+
 SAantList = antList[np.array(antMap)[SAantennas]] 
 SAantMap = np.array(antMap)[SAantennas].tolist()
 SAantList = antList[SAantMap]
@@ -111,7 +137,7 @@ SAantNum = len(SAantMap); SAblNum = len(SAblMap)
 for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], FCScan)
-    chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum)); UseChNum = len(chRange)
+    chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
     #-------- Baseline-based cross power spectra
     tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)       # Cross Polarization Baseline Mapping
     BPCaledXspec = (tempSpec / (BPList[spw_index][np.array(ant0)[SAbl].tolist()][:,polYindex]* BPList[spw_index][np.array(ant1)[SAbl].tolist()][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
@@ -123,6 +149,7 @@ for spw_index in range(spwNum):
     #
 #
 AeX, AeY = np.array(AeX).reshape(spwNum, SAantNum), np.array(AeY).reshape(spwNum, SAantNum)
+"""
 ##-------- Flux density of the equalizer, aligned in the power law
 EQflux = np.r_[np.median((AeSeqX[:,SAantennas]/AeX), axis=1), np.median((AeSeqY[:,SAantennas]/AeY), axis=1)]
 P = np.c_[ np.r_[np.log(centerFreqList),np.log(centerFreqList)], np.r_[np.ones(spwNum), np.zeros(spwNum)], np.r_[np.zeros(spwNum), np.ones(spwNum)]]
@@ -282,3 +309,4 @@ np.save(prefix + '-' + UniqBands[band_index] + '.Ferr.npy', ErrFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceList)[sourceIDscan])
 np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', ScanEL)
 msmd.done()
+"""

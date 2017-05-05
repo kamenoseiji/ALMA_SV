@@ -24,7 +24,7 @@ for file_index in range(fileNum):
     msmd.open(msfile)
     #scanList = msmd.scannumbers().tolist()
     spwName = msmd.namesforspws(spwList[0])[0]; BandName = re.findall(pattern, spwName)[0]; BandPA = (BANDPA[int(BandName[3:5])] + 90.0)*pi/180.0
-    for scan in scanList:
+    for scan in scanList[file_index]:
         timeStamp = msmd.timesforscans(scan).tolist()
         trkAnt, scanAnt, Time, Offset = antRefScan( msfile, [timeStamp[0], timeStamp[-1]], antFlag )
         trkAnt = list(set(trkAnt) - set(flagAntID))
