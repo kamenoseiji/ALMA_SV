@@ -132,9 +132,11 @@ SSOflux = SSOflux0* np.exp(-onTau.transpose(1,0)[indexList(np.array(SSOscanID), 
 ##-------- Scaling with the flux calibrator
 AeX, AeY = np.zeros([UseAntNum, spwNum, SSONum]), np.zeros([UseAntNum, spwNum, SSONum])
 #-------- Sub-array with unflagged antennas (short baselines)
+SSO_flag = np.ones(SSONum)
 for sso_index in range(SSONum):
     for spw_index in range(spwNum):
         SAantennas, SAbl, SAblFlag, SAant0, SAant1 = subArrayIndex(uvFlag[sso_index, spw_index]) # in Canonical ordering
+        if len(SAantennas) < 4: continue #  Too few antennas
         SAantMap, SAblMap, SAblInv = np.array(antMap)[SAantennas].tolist(), np.array(blMap)[SAbl].tolist(), np.array(blInv)[SAbl].tolist()
         #print 'Subarray : ',; print antList[SAantMap]
         #-------- Baseline-based cross power spectra
@@ -147,18 +149,22 @@ for sso_index in range(SSONum):
         Ta = SSOflux[sso_index, spw_index]* AeNominal[SAantMap] / (2.0* kb)
         AeX[SAantennas, spw_index, sso_index] = 2.0* kb* np.percentile(abs(GainX), 75, axis=1)**2 * (Ta + chAvgTsys[SAantMap, spw_index, 0, scan_index]) / SSOflux[sso_index, spw_index]
         AeY[SAantennas, spw_index, sso_index] = 2.0* kb* np.percentile(abs(GainY), 75, axis=1)**2 * (Ta + chAvgTsys[SAantMap, spw_index, 1, scan_index]) / SSOflux[sso_index, spw_index]
-    #
-#
-#-------- SSO Flagging
-SSO_flag = np.ones(SSONum)
-for sso_index in range(SSONum):
-    for spw_index in range(spwNum):
+        #
         index = np.where(AeX[:, spw_index, sso_index] > 1.0)[0].tolist()
         if np.std(np.append(AeX[index, spw_index, sso_index]/AeNominal[index], AeY[index, spw_index, sso_index]/AeNominal[index])) > 0.2:
             SSO_flag[sso_index] *= 0.0
         #
     #
 #
+#-------- SSO Flagging
+#for sso_index in range(SSONum):
+#    for spw_index in range(spwNum):
+#        index = np.where(AeX[:, spw_index, sso_index] > 1.0)[0].tolist()
+#        if np.std(np.append(AeX[index, spw_index, sso_index]/AeNominal[index], AeY[index, spw_index, sso_index]/AeNominal[index])) > 0.2:
+#            SSO_flag[sso_index] *= 0.0
+#        #
+#    #
+##
 SSOUseList = np.where(SSO_flag == 1.0)[0].tolist()
 EQflux = np.ones([2*spwNum])
 #-------- Flux density of the equalizer

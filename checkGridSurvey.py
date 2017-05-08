@@ -107,8 +107,8 @@ except:
     BPScans = ONScans
 print '---SPWs and Scans for each receiver band'
 msmd.done()
-for band_index in range(1):
-#for band_index in range(NumBands):
+#for band_index in range(1):
+for band_index in range(NumBands):
     bandID = int(UniqBands[band_index][3:5])-1
     msmd.open(msfile)
     #-------- Check Calibrators
