@@ -110,7 +110,7 @@ for spw_index in range(spwNum):
     BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
     chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1) 
     GainP = GainP + [np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])]
-    SEFD = SEFD + [2.0* kb* chAvgTsys[:,spw_index, :,scan_index].T / np.array([AeX, AeY])]
+    SEFD = SEFD + [2.0* kb* chAvgTsys[antMap, spw_index, :,scan_index].T / np.array([AeX, AeY])]
     aprioriVis = np.mean((chAvgVis / (GainP[spw_index][polYindex][:,ant0]* GainP[spw_index][polXindex][:,ant1].conjugate())).transpose(2, 0, 1)* np.sqrt(SEFD[spw_index][polYindex][:,ant0]* SEFD[spw_index][polXindex][:,ant1]), axis=0)[[0,3]].T
     relGain[spw_index] = abs(gainComplexVec(aprioriVis))
     relGain[spw_index] = relGain[spw_index] / np.median(relGain[spw_index], axis=0)
@@ -181,7 +181,7 @@ for scan_index in range(scanNum):
         atmCorrect = np.exp(-onTau[spw_index, scan_index])
         TA = 0.0
         #
-        SEFD[spw_index] = 2.0* kb* (chAvgTsys[:,spw_index, :,scan_index] + TA).T / (np.array([AeX, AeY])* atmCorrect)/ (relGain[spw_index]**2).T
+        SEFD[spw_index] = 2.0* kb* (chAvgTsys[antMap, spw_index, :,scan_index] + TA).T / (np.array([AeX, AeY])* atmCorrect)/ (relGain[spw_index]**2).T
         #-------- UV distance
         timeStamp, UVW = GetUVW(msfile, spw[spw_index], onsourceScans[scan_index])
         uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)

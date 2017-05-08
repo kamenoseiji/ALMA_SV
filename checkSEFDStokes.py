@@ -74,7 +74,16 @@ if PLOTBP:
     plt.close('all')
 #
 #-------- Tsys measurements
-execfile(SCR_DIR + 'TsysCal.py')
+execfile(SCR_DIR + 'TsysCal.py')  
+######## Outputs from TsysCal.py :
+#  TantN[ant, spw, pol] : Antenna noise pickup. ant order is the same with MS
+#  chAvgTrx[ant, spw, pol, scan]  : Channel-averaged receiver noise temperature
+#  chAvgTsky[ant, spw, pol, scan] : Channel-averaged sky noise temperature
+#  chAvgTsys[ant, spw, pol, scan] : Channel-averaged system noise temperature
+#  TsysFlag[ant, spw, pol, scan] : 0 = invalid, 1=valid
+#  Tau0med[spw] : median-value of the zenith optical depth
+#  onTau[spw, scan] : on-source optical depth
+########
 ##-------- Equalization using EQ scan
 GainP, AeSeqX, AeSeqY = [], [], []  # effective area x flux density of the equalizer
 polXindex, polYindex, scan_index = (arange(4)//2).tolist(), (arange(4)%2).tolist(), onsourceScans.index(EQScan)
@@ -89,11 +98,15 @@ for spw_index in range(spwNum):
     GainP = GainP + [np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[1])])]
     pCalVisX, pCalVisY = np.mean(chAvgVis[0] / (GainP[spw_index][0,ant0]* GainP[spw_index][0,ant1].conjugate()), axis=1), np.mean(chAvgVis[1] / (GainP[spw_index][1,ant0]* GainP[spw_index][1,ant1].conjugate()), axis=1)
     #-------- Antenna-based Gain
-    AeSeqX = AeSeqX + [2.0* kb* chAvgTsys[:, spw_index, 0, scan_index]* abs(gainComplex(pCalVisX))**2] # Ae x Seq (X-pol)
-    AeSeqY = AeSeqY + [2.0* kb* chAvgTsys[:, spw_index, 1, scan_index]* abs(gainComplex(pCalVisY))**2] # Ae x Seq (Y-pol)
+    AeSeqX = AeSeqX + [2.0* kb* chAvgTsys[antMap, spw_index, 0, scan_index]* abs(gainComplex(pCalVisX))**2] # Ae x Seq (X-pol)
+    AeSeqY = AeSeqY + [2.0* kb* chAvgTsys[antMap, spw_index, 1, scan_index]* abs(gainComplex(pCalVisY))**2] # Ae x Seq (Y-pol)
+#
 #
 GainP = np.array(GainP) # GainP[spw, pol, ant, time]
 AeSeqX, AeSeqY = np.array(AeSeqX), np.array(AeSeqY)
+######## Outputs from SSOflux.py :
+# AeSeqX[spw, antMap], AeSeqX[spw, antMap] : (relative) aperture efficiency, assuming 1 Jy
+#
 spwPhase = [0.0]* 2* spwNum
 for ant_index in range(1,UseAntNum):
     for pol_index in range(2):
@@ -113,48 +126,56 @@ execfile(SCR_DIR + 'SSOflux.py'); logfile.write(FLScaleText + '\n')
 ######## Outputs from SSOflux.py :
 #  SSOflux0[SSO, spw] : model flux density of solar system objects at zero spacing
 #  SSOmodelVis[SSO, spw, bl] : predicted relative visibility (max=1.0)
-#  uvFlag[SSO, spw, bl] : 0=resolved, 1=unresolved
+#  uvFlag[SSO, spw, bl] : 0=resolved, 1=unresolved; bl is orderd as blMap
 ########
 SSOflux = SSOflux0* np.exp(-onTau.transpose(1,0)[indexList(np.array(SSOscanID), np.array(onsourceScans))])  # SSOflux[SSO, spw] : attenuated SSO flux
 ##-------- Scaling with the flux calibrator
-AeX, AeY = [], []
+AeX, AeY = np.zeros([UseAntNum, spwNum, SSONum]), np.zeros([UseAntNum, spwNum, SSONum])
 #-------- Sub-array with unflagged antennas (short baselines)
-for sso_index in range(SSOnum):
+for sso_index in range(SSONum):
     for spw_index in range(spwNum):
-        SAantennas, SAbl, SAblFlag, SAant0, SAant1 = subArrayIndex(uvFlag[sso_index, spw_index])
-        SAblMap = np.array(blMap)[SAbl].tolist()
+        SAantennas, SAbl, SAblFlag, SAant0, SAant1 = subArrayIndex(uvFlag[sso_index, spw_index]) # in Canonical ordering
+        SAantMap, SAblMap, SAblInv = np.array(antMap)[SAantennas].tolist(), np.array(blMap)[SAbl].tolist(), np.array(blInv)[SAbl].tolist()
+        #print 'Subarray : ',; print antList[SAantMap]
         #-------- Baseline-based cross power spectra
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], SSOscanID[sso_index])
         chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-        tempSpec = CrossPolBL(Xspec[:,:,SAbl[blMap]], blInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
-
-SAantList = antList[np.array(antMap)[SAantennas]] 
-SAantMap = np.array(antMap)[SAantennas].tolist()
-SAantList = antList[SAantMap]
-SAblMap = np.array(blMap)[SAbl].tolist()
-SAblInv = np.array(blInv)[SAbl].tolist()
-SAantNum = len(SAantMap); SAblNum = len(SAblMap)
-for spw_index in range(spwNum):
-    #-------- Baseline-based cross power spectra
-    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], FCScan)
-    chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-    #-------- Baseline-based cross power spectra
-    tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)       # Cross Polarization Baseline Mapping
-    BPCaledXspec = (tempSpec / (BPList[spw_index][np.array(ant0)[SAbl].tolist()][:,polYindex]* BPList[spw_index][np.array(ant1)[SAbl].tolist()][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
-    chAvgVis = (np.mean(BPCaledXspec[:, chRange], axis=1)[pPol].transpose(0,2,1)/FCSmodelVis[spw_index,SAbl]).transpose(0,2,1)
-    GainX, GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[0]), np.apply_along_axis( gainComplex, 0, chAvgVis[1])
-    Ta = SSOflux[FCS_ID, spw_index]* AeNominal[SAantennas] / (2.0* kb)
-    AeX = AeX + (2.0* kb* np.median(abs(GainX), axis=1)**2 * (Ta + chAvgTsys[SAantennas, spw_index, 0, scan_index]) / SSOflux[FCS_ID, spw_index]).tolist()
-    AeY = AeY + (2.0* kb* np.median(abs(GainY), axis=1)**2 * (Ta + chAvgTsys[SAantennas, spw_index, 1, scan_index]) / SSOflux[FCS_ID, spw_index]).tolist()
+        tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
+        BPCaledXspec = (tempSpec / (BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate())).transpose(2,3,1,0) #  BPCaledXspe[pol, ch, bl, time]
+        chAvgVis = (np.mean(BPCaledXspec[:, chRange], axis=1)[pPol].transpose(0,2,1)/SSOmodelVis[sso_index, spw_index,SAbl]).transpose(0,2,1)
+        GainX, GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[0]), np.apply_along_axis( gainComplex, 0, chAvgVis[1])
+        Ta = SSOflux[sso_index, spw_index]* AeNominal[SAantMap] / (2.0* kb)
+        AeX[SAantennas, spw_index, sso_index] = 2.0* kb* np.percentile(abs(GainX), 75, axis=1)**2 * (Ta + chAvgTsys[SAantMap, spw_index, 0, scan_index]) / SSOflux[sso_index, spw_index]
+        AeY[SAantennas, spw_index, sso_index] = 2.0* kb* np.percentile(abs(GainY), 75, axis=1)**2 * (Ta + chAvgTsys[SAantMap, spw_index, 1, scan_index]) / SSOflux[sso_index, spw_index]
     #
 #
-AeX, AeY = np.array(AeX).reshape(spwNum, SAantNum), np.array(AeY).reshape(spwNum, SAantNum)
-"""
-##-------- Flux density of the equalizer, aligned in the power law
-EQflux = np.r_[np.median((AeSeqX[:,SAantennas]/AeX), axis=1), np.median((AeSeqY[:,SAantennas]/AeY), axis=1)]
+#-------- SSO Flagging
+SSO_flag = np.ones(SSONum)
+for sso_index in range(SSONum):
+    for spw_index in range(spwNum):
+        index = np.where(AeX[:, spw_index, sso_index] > 1.0)[0].tolist()
+        if np.std(np.append(AeX[index, spw_index, sso_index]/AeNominal[index], AeY[index, spw_index, sso_index]/AeNominal[index])) > 0.2:
+            SSO_flag[sso_index] *= 0.0
+        #
+    #
+#
+SSOUseList = np.where(SSO_flag == 1.0)[0].tolist()
+EQflux = np.ones([2*spwNum])
+#-------- Flux density of the equalizer
+for spw_index in range(spwNum):
+    FLX, FLY = [], []
+    for sso_index in SSOUseList:
+        index = np.where(AeX[:, spw_index, sso_index] > 1.0)[0].tolist()
+        FLX = FLX + (AeSeqX[spw_index, index] / AeX[index, spw_index, sso_index]).tolist()
+        FLY = FLY + (AeSeqY[spw_index, index] / AeY[index, spw_index, sso_index]).tolist()
+    #
+    EQflux[spw_index], EQflux[spw_index + spwNum] = np.percentile(np.array(FLX), 25), np.percentile(np.array(FLY), 25)
+#
+#-------- Power-law fit
 P = np.c_[ np.r_[np.log(centerFreqList),np.log(centerFreqList)], np.r_[np.ones(spwNum), np.zeros(spwNum)], np.r_[np.zeros(spwNum), np.ones(spwNum)]]
 EQmodel = scipy.linalg.solve(np.dot(P.T, P), np.dot(P.T, np.log(EQflux)))   # alpha, logSx, logSy
 EQflux = np.c_[np.exp(EQmodel[0]* np.log(centerFreqList) + EQmodel[1]), np.exp(EQmodel[0]* np.log(centerFreqList) + EQmodel[2])]
+##-------- Aperture efficiencies
 Ae     = np.c_[AeSeqX.T / EQflux[:,0], AeSeqY.T / EQflux[:,1]].reshape(UseAntNum, ppolNum, spwNum)
 AEFF   = (Ae.transpose(1,2,0) / (0.25* pi*antDia**2)).transpose(2,0,1)
 np.save(prefix + '-' + UniqBands[band_index] + '.AntList.npy', antList[antMap]) 
@@ -190,7 +211,7 @@ for spw_index in range(spwNum):
     BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
     chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
     GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
-    SEFD = 2.0* kb* chAvgTsys[:,spw_index, :,scan_index] / Ae[:,:,spw_index]
+    SEFD = 2.0* kb* chAvgTsys[antMap,spw_index, :,scan_index] / Ae[:,:,spw_index]
     caledVis.append(np.mean((chAvgVis / (GainP[polYindex][:,ant0]* GainP[polXindex][:,ant1].conjugate())).transpose(2, 0, 1)* np.sqrt(SEFD[ant0][:,polYindex].T* SEFD[ant1][:,polXindex].T), axis=2).T)
 #
 caledVis = np.array(caledVis)   # [spw, pol, time]
@@ -227,13 +248,13 @@ for scan_index in range(scanNum):
         if SSO_flag:
             SAantennas, SAbl, SAblFlag, SAant0, SAant1 = subArrayIndex(uvFlag[SSO_ID, spw_index])
             SAantMap, SAblMap, SAblInv = np.array(antMap)[SAantennas].tolist(), np.array(blMap)[SAbl].tolist(), np.array(blInv)[SAbl].tolist()
-            TA = Ae[:,:,spw_index]* SSOflux0[SSO_ID, spw_index]* atmCorrect  / (2.0* kb)
+            TA = Ae[SAantennas,:,spw_index]* SSOflux0[SSO_ID, spw_index]* atmCorrect  / (2.0* kb)
         else:
             SAantennas, SAbl, SAblFlag, SAant0, SAant1 = range(UseAntNum), range(UseBlNum), np.ones([blNum]), ant0, ant1
             SAantMap, SAblMap, SAblInv = antMap, blMap, blInv
             TA = 0.0
         #
-        SEFD = 2.0* kb* (chAvgTsys[:,spw_index, :,scan_index] + TA) / (Ae[:,:,spw_index]* atmCorrect)
+        SEFD = 2.0* kb* (chAvgTsys[SAantMap,spw_index, :,scan_index] + TA) / (Ae[SAantennas,:,spw_index]* atmCorrect)
         SAantNum = len(SAantennas); SAblNum = len(SAblMap)
         if SAblNum < 3:
             text_sd = ' Only %d baselines for short enough sub-array. Skip!' % (SAblNum) ; logfile.write(text_sd + '\n'); print text_sd
@@ -245,27 +266,27 @@ for scan_index in range(scanNum):
         uvw = np.mean(UVW[:,SAblMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
         #-------- Baseline-based cross power spectra
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], onsourceScans[scan_index])
-        timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-        timeThresh = np.median(diff(timeStamp))
+        timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum)); UseChNum = len(chRange)
+        #timeThresh = np.median(diff(timeStamp))
         AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
         PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
         tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
         #-------- Bandpass Calibration
-        BPCaledXspec = (tempSpec / (BPList[spw_index][np.array(ant0)[SAbl].tolist()][:,polYindex]* BPList[spw_index][np.array(ant1)[SAbl].tolist()][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
+        BPCaledXspec = (tempSpec / (BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
         #-------- Antenna-based Gain
         if(SSO_flag): chAvgVis =(np.mean(BPCaledXspec[:, chRange], axis=1).transpose(0,2,1) / SSOmodelVis[SSO_ID, spw_index][SAbl]).transpose(0,2,1)
         else: chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
         GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
         pCalVis = BPCaledXspec.transpose(1,0,2,3) / (GainP[polYindex][:,ant0[0:SAblNum]]* GainP[polXindex][:,ant1[0:SAblNum]].conjugate())
-        pCalVis = (pCalVis.transpose(0,3,1,2)* np.sqrt(SEFD[np.array(ant0)[SAbl].tolist()][:,polYindex].T* SEFD[np.array(ant1)[SAbl].tolist()][:,polXindex].T))[chRange].transpose(3, 2, 0, 1)
+        pCalVis = (pCalVis.transpose(0,3,1,2)* np.sqrt(SEFD[ant0[0:SAblNum]][:,polYindex].T* SEFD[ant0[0:SAblNum]][:,polXindex].T))[chRange].transpose(3, 2, 0, 1)
         Stokes = np.zeros([4,SAblNum], dtype=complex)
         for bl_index in range(SAblNum):
-            Minv = InvMullerVector(DxSpec[ant1[bl_index], spw_index][chRange], DySpec[ant1[bl_index], spw_index][chRange], DxSpec[ant0[bl_index], spw_index][chRange], DySpec[ant0[bl_index], spw_index][chRange], np.ones(UseChNum))
+            Minv = InvMullerVector(DxSpec[SAant1[bl_index], spw_index][chRange], DySpec[SAant1[bl_index], spw_index][chRange], DxSpec[SAant0[bl_index], spw_index][chRange], DySpec[SAant0[bl_index], spw_index][chRange], np.ones(UseChNum))
             Stokes[:,bl_index] = PS.reshape(4, 4*PAnum).dot(Minv.reshape(4, 4*UseChNum).dot(pCalVis[bl_index].reshape(4*UseChNum, PAnum)).reshape(4*PAnum)) / (PAnum* UseChNum)
         #
         StokesVis, StokesErr = Stokes.real, Stokes.imag
         for pol_index in range(4):
-            visFlag = np.where(abs(StokesVis[pol_index] - np.median(StokesVis[pol_index]))/np.median(StokesVis[0]) < 0.2 )[0]
+            visFlag = np.where(abs(StokesVis[pol_index] - np.percentile(StokesVis[pol_index], 75))/np.percentile(StokesVis[0], 75) < 0.2 )[0]
             if len(visFlag) < 4:
                 text_sd = 'Only %d vis.    ' % (len(visFlag)) ; logfile.write(text_sd + '\n'); print text_sd,
                 continue
@@ -309,4 +330,3 @@ np.save(prefix + '-' + UniqBands[band_index] + '.Ferr.npy', ErrFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceList)[sourceIDscan])
 np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', ScanEL)
 msmd.done()
-"""

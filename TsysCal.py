@@ -22,7 +22,7 @@ for ant_index in range(UseAntNum):
     for spw_index in range(spwNum):
         progress = (1.0* ant_index* spwNum + spw_index + 1.0) / (UseAntNum* spwNum)
         sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
-        timeXY, Pspec = GetPSpec(msfile, antMap[ant_index], spw[spw_index])
+        timeXY, Pspec = GetPSpec(msfile, ant_index, spw[spw_index])
         OffSpecList.append(Pspec[pPol][:,:,offTimeIndex])
         AmbSpecList.append(Pspec[pPol][:,:,ambTimeIndex])
         HotSpecList.append(Pspec[pPol][:,:,hotTimeIndex])
@@ -37,7 +37,7 @@ sys.stderr.flush()
 azelTime, AntID, AZ, EL = GetAzEl(msfile)
 OnAZ, OnEL, OffEL = np.ones([UseAntNum, scanNum]), np.ones([UseAntNum, scanNum]), np.ones([UseAntNum, len(offTimeIndex)])
 for ant_index in range(UseAntNum):
-    azelTime_index = np.where( AntID == antMap[ant_index] )[0].tolist()
+    azelTime_index = np.where( AntID == ant_index )[0].tolist()
     for scan_index in range(scanNum):
         refTime = np.median(msmd.timesforscan(onsourceScans[scan_index]))
         OnAZ[ant_index, scan_index] = AZ[azelTime_index[argmin(abs(azelTime[azelTime_index] - refTime))]]
@@ -55,7 +55,7 @@ TrxFlag, TsysFlag, onTau = np.ones([UseAntNum, spwNum, 2, len(offTime)]), np.one
 TrxList, TskyList = [], []
 tempAmb, tempHot  = np.zeros([UseAntNum]), np.zeros([UseAntNum])
 for ant_index in range(UseAntNum):
-    tempAmb[ant_index], tempHot[ant_index] = GetLoadTemp(msfile, antMap[ant_index], spw[0])
+    tempAmb[ant_index], tempHot[ant_index] = GetLoadTemp(msfile, ant_index, spw[0])
     for spw_index in range(spwNum):
         AntSpwIndex = ant_index* spwNum + spw_index
         chNum = AmbSpecList[AntSpwIndex].shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
@@ -142,7 +142,7 @@ for spw_index in range(spwNum): text_sd = ' PolX   SPW%02d  PolY           |' % 
 logfile.write('\n'); print ' '
 text_sd = ' ----:--------------------------------+-------------------------------+-------------------------------+-------------------------------+'; logfile.write(text_sd + '\n'); print text_sd
 for ant_index in range(UseAntNum):
-    text_sd = antList[antMap[ant_index]] + ' : '; logfile.write(text_sd); print text_sd,
+    text_sd = antList[ant_index] + ' : '; logfile.write(text_sd); print text_sd,
     for spw_index in range(spwNum):
         for pol_index in range(2):
             fit = scipy.optimize.leastsq(residTskyTransfer2, param, args=(tempAmb[ant_index]-Tatm_OFS, Tau0med[spw_index], secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
@@ -161,7 +161,7 @@ for spw_index in range(spwNum): text_sd = ' SPW%02d X        Y |' % (spw[spw_ind
 logfile.write('\n'); print ' '
 text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; logfile.write(text_sd + '\n'); print text_sd
 for ant_index in range(UseAntNum):
-    text_sd =  antList[antMap[ant_index]] + ' : '; logfile.write(text_sd); print text_sd,
+    text_sd =  antList[ant_index] + ' : '; logfile.write(text_sd); print text_sd,
     for spw_index in range(spwNum):
         for pol_index in range(2):
             text_sd = '%6.1f K' % (np.median(chAvgTrx[ant_index, spw_index, pol_index]))
@@ -175,7 +175,7 @@ for spw_index in range(spwNum): text_sd = ' SPW%02d X        Y |' % (spw[spw_ind
 logfile.write('\n'); print ' '
 text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; logfile.write(text_sd + '\n'); print text_sd
 for ant_index in range(UseAntNum):
-    text_sd =  antList[antMap[ant_index]] + ' : '; logfile.write(text_sd); print text_sd,
+    text_sd =  antList[ant_index] + ' : '; logfile.write(text_sd); print text_sd,
     for spw_index in range(spwNum):
         for pol_index in range(2):
             text_sd = '%6.1f K' % (np.median(chAvgTrx[ant_index, spw_index, pol_index]) + np.median(chAvgTsky[ant_index, spw_index, pol_index]))
@@ -183,5 +183,5 @@ for ant_index in range(UseAntNum):
         text_sd = '|'; logfile.write(text_sd); print text_sd,
     logfile.write('\n'); print ' '
 #-------- Plot optical depth
-if PLOTTAU: plotTau(prefix + '_' + UniqBands[band_index], antList[antMap], spw, secZ, (chAvgTsky.transpose(3,0,1,2) - TantN).transpose(1,2,3,0), np.median(tempAmb) - Tatm_OFS, Tau0med, TrxFlag, 2.0*np.median(chAvgTsky), PLOTFMT) 
-if PLOTTSYS: plotTsys(prefix + '_' + UniqBands[band_index], antList[antMap], ambTime, spw, TrxList, TskyList, PLOTFMT)
+if PLOTTAU: plotTau(prefix + '_' + UniqBands[band_index], antList, spw, secZ, (chAvgTsky.transpose(3,0,1,2) - TantN).transpose(1,2,3,0), np.median(tempAmb) - Tatm_OFS, Tau0med, TrxFlag, 2.0*np.median(chAvgTsky), PLOTFMT) 
+if PLOTTSYS: plotTsys(prefix + '_' + UniqBands[band_index], antList, ambTime, spw, TrxList, TskyList, PLOTFMT)
