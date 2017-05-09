@@ -151,20 +151,20 @@ for sso_index in range(SSONum):
         AeX[SAantennas, spw_index, sso_index] = 2.0* kb* np.percentile(abs(GainX), 75, axis=1)**2 * (Ta + chAvgTsys[SAantMap, spw_index, 0, scan_index]) / SSOflux[sso_index, spw_index]
         AeY[SAantennas, spw_index, sso_index] = 2.0* kb* np.percentile(abs(GainY), 75, axis=1)**2 * (Ta + chAvgTsys[SAantMap, spw_index, 1, scan_index]) / SSOflux[sso_index, spw_index]
         #
-        index = np.where(AeX[:, spw_index, sso_index] > 1.0)[0].tolist()
-        if np.std(np.append(AeX[index, spw_index, sso_index]/AeNominal[SAantMap], AeY[index, spw_index, sso_index]/AeNominal[SAantMap])) > 0.2:
-            SSO_flag[sso_index] *= 0.0
+        #index = np.where(AeX[:, spw_index, sso_index] > 1.0)[0].tolist()
+        #if np.std(np.append(AeX[index, spw_index, sso_index]/AeNominal[SAantMap], AeY[index, spw_index, sso_index]/AeNominal[SAantMap])) > 0.2:
+        #    SSO_flag[sso_index] *= 0.0
         #
     #
 #
 #-------- SSO Flagging
-#for sso_index in range(SSONum):
-#    for spw_index in range(spwNum):
-#        index = np.where(AeX[:, spw_index, sso_index] > 1.0)[0].tolist()
-#        if np.std(np.append(AeX[index, spw_index, sso_index]/AeNominal[np.array(antMap)[index].tolist()], AeY[index, spw_index, sso_index]/AeNominal[np.array(antMap)[index].tolist()])) > 0.2:
-#            SSO_flag[sso_index] *= 0.0
-#        #
-#    #
+for sso_index in range(SSONum):
+    for spw_index in range(spwNum):
+        index = np.where(AeX[:, spw_index, sso_index] > 1.0)[0].tolist()
+        if np.std(np.append(AeX[index, spw_index, sso_index]/AeNominal[np.array(antMap)[index].tolist()], AeY[index, spw_index, sso_index]/AeNominal[np.array(antMap)[index].tolist()])) > 0.2:
+            SSO_flag[sso_index] *= 0.0
+        #
+    #
 #
 SSOUseList = np.where(SSO_flag == 1.0)[0].tolist()
 EQflux = np.ones([2*spwNum])
