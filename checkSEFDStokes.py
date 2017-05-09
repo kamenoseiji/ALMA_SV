@@ -161,9 +161,9 @@ for sso_index in range(SSONum):
 for sso_index in range(SSONum):
     for spw_index in range(spwNum):
         index = np.where(AeX[:, spw_index, sso_index] > 1.0)[0].tolist()
-        if np.std(np.append(AeX[index, spw_index, sso_index]/AeNominal[np.array(antMap)[index].tolist()], AeY[index, spw_index, sso_index]/AeNominal[np.array(antMap)[index].tolist()])) > 0.2:
-            SSO_flag[sso_index] *= 0.0
-        #
+        FLX_stat, FLY_stat = AeX[index, spw_index, sso_index]/AeNominal[np.array(antMap)[index].tolist()], AeY[index, spw_index, sso_index]/AeNominal[np.array(antMap)[index].tolist()]
+        if np.std(FLX_stat) / np.median(FLX_stat) > 0.2: SSO_flag[sso_index] = 0.0
+        if np.std(FLY_stat) / np.median(FLY_stat) > 0.2: SSO_flag[sso_index] = 0.0
     #
 #
 SSOUseList = np.where(SSO_flag == 1.0)[0].tolist()
