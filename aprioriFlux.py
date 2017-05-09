@@ -189,7 +189,7 @@ for scan_index in range(scanNum):
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], onsourceScans[scan_index])
         timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum)); UseChNum = len(chRange)
         if np.max(abs(Xspec)) < 1.0e-9: continue
-        timeThresh = np.median(diff(timeStamp))
+        #timeThresh = np.median(diff(timeStamp))
         AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
         PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
         tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping

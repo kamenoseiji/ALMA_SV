@@ -92,8 +92,8 @@ ant0 = ANT0[0:UseBlNum]; ant1 = ANT1[0:UseBlNum]
 for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
 #
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
-antDia = np.ones([UseAntNum])
-for ant_index in range(UseAntNum): antDia[ant_index] = msmd.antennadiameter(antList[antMap[ant_index]])['value']
+antDia = np.ones(antNum)
+for ant_index in range(antNum): antDia[ant_index] = msmd.antennadiameter(antList[ant_index])['value']
 #-------- Check Scans of BandPass, EQualization, and FluxScaling
 try:
     FCScans = np.append(msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
