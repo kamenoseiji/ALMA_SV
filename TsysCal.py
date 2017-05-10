@@ -15,6 +15,8 @@ def get_progressbar_str(progress):
     BAR_LEN = int(MAX_LEN * progress)
     return ('[' + '=' * BAR_LEN + ('>' if BAR_LEN < MAX_LEN else '') + ' ' * (MAX_LEN - BAR_LEN) + '] %.1f%%' % (progress * 100.))
 #
+Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
+kb        = 1.38064852e3
 #-------- Load autocorrelation power spectra
 print '---Loading autocorr power spectra'
 OnSpecList, OffSpecList, AmbSpecList, HotSpecList = [], [], [], []
@@ -113,12 +115,13 @@ for ant_index in range(antNum):
         #
     #
 #
+chAvgTrx = np.median(chAvgTrx, axis=3)
 #-------- Tsys for scans
 for scan_index in range(scanNum):
     OnTimeRange = timeXY[OnTimeIndex[scan_index]]
     ambTimeIndex = argmin(abs(ambTime - OnTimeRange[0]))
     offTimeIndex = argmin(abs(offTime - OnTimeRange[0]))
-    chAvgTsys[:,:,:,scan_index] = chAvgTrx[:,:,:,ambTimeIndex] + chAvgTsky[:,:,:,offTimeIndex] 
+    chAvgTsys[:,:,:,scan_index] = chAvgTrx + chAvgTsky[:,:,:,offTimeIndex] 
     TsysFlag[:,:,:,scan_index] = TrxFlag[:,:,:,ambTimeIndex]
 #
 #-------- Tau on source
@@ -160,11 +163,11 @@ text_sd = ' Trec: '; logfile.write(text_sd); print text_sd,
 for spw_index in range(spwNum): text_sd = ' SPW%02d X        Y |' % (spw[spw_index]); logfile.write(text_sd); print text_sd,
 logfile.write('\n'); print ' '
 text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; logfile.write(text_sd + '\n'); print text_sd
-for ant_index in UseAnt:
+for ant_index in range(antNum):
     text_sd =  antList[ant_index] + ' : '; logfile.write(text_sd); print text_sd,
     for spw_index in range(spwNum):
         for pol_index in range(2):
-            text_sd = '%6.1f K' % (np.median(chAvgTrx[ant_index, spw_index, pol_index]))
+            text_sd = '%6.1f K' % (chAvgTrx[ant_index, spw_index, pol_index])
             logfile.write(text_sd); print text_sd,
         text_sd = '|'; logfile.write(text_sd); print text_sd,
     logfile.write('\n'); print ' '
@@ -174,14 +177,14 @@ text_sd = ' Tsys: '; logfile.write(text_sd); print text_sd,
 for spw_index in range(spwNum): text_sd = ' SPW%02d X        Y |' % (spw[spw_index]); logfile.write(text_sd); print text_sd,
 logfile.write('\n'); print ' '
 text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; logfile.write(text_sd + '\n'); print text_sd
-for ant_index in UseAnt:
+for ant_index in range(antNum):
     text_sd =  antList[ant_index] + ' : '; logfile.write(text_sd); print text_sd,
     for spw_index in range(spwNum):
         for pol_index in range(2):
-            text_sd = '%6.1f K' % (np.median(chAvgTrx[ant_index, spw_index, pol_index]) + np.median(chAvgTsky[ant_index, spw_index, pol_index]))
+            text_sd = '%6.1f K' % (chAvgTrx[ant_index, spw_index, pol_index] + np.median(chAvgTsky[ant_index, spw_index, pol_index]))
             logfile.write(text_sd); print text_sd,
         text_sd = '|'; logfile.write(text_sd); print text_sd,
     logfile.write('\n'); print ' '
 #-------- Plot optical depth
-if PLOTTAU: plotTau(prefix + '_' + UniqBands[band_index], antList[UseAnt], spw, secZ, (chAvgTsky.transpose(3,0,1,2) - TantN).transpose(1,2,3,0), np.median(tempAmb) - Tatm_OFS, Tau0med, TrxFlag, 2.0*np.median(chAvgTsky), PLOTFMT) 
-if PLOTTSYS: plotTsys(prefix + '_' + UniqBands[band_index], antList[UseAnt], ambTime, spw, TrxList, TskyList, PLOTFMT)
+if PLOTTAU: plotTau(prefix + '_' + UniqBands[band_index], antList, spw, secZ, (chAvgTsky.transpose(3,0,1,2) - TantN).transpose(1,2,3,0), np.median(tempAmb) - Tatm_OFS, Tau0med, TrxFlag, 2.0*np.median(chAvgTsky), PLOTFMT) 
+if PLOTTSYS: plotTsys(prefix + '_' + UniqBands[band_index], antList, ambTime, spw, TrxList, TskyList, PLOTFMT)

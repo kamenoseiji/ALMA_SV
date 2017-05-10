@@ -12,7 +12,7 @@ SSOflux0, SSOshape, centerFreqList = [], [], []
 #-------- Primary beam for each baseline
 primaryBeam = np.ones([UseBlNum])
 for bl_index in range(UseBlNum):
-    beam0, beam1 = 1.0/antDia[ant0[bl_index]], 1.0/antDia[ant1[bl_index]] 
+    beam0, beam1 = 1.0/antDia[antMap[ant0[bl_index]]], 1.0/antDia[antMap[ant1[bl_index]]] 
     primaryBeam[bl_index] = np.sqrt(2.0/ ((beam0)**2 + (beam1)**2 )) * beam0* beam1
 #
 #-------- Center frequency of each SPW
@@ -41,9 +41,7 @@ for ssoIndex in range(SSONum):
         scanID = list(set( msmd.scansforfield(sourceList[BandSSOList[ssoIndex]]).tolist()) & set(onsourceScans))[0]; SSOscanID.append(scanID)
     except:
         continue
-    #if( scanID == FCScan):
-    #    FCS_ID = ssoIndex
-    #    FLScaleText = 'Flux Calibrator is %s at %s' % (sourceList[BandSSOList[ssoIndex]], timeLabel);  print FLScaleText
+    #
     FLScaleText = 'Flux Calibrator is %s at %s' % (sourceList[BandSSOList[ssoIndex]], timeLabel);  print FLScaleText
     timeStamp, UVW = GetUVW(msfile, spw[spw_index], scanID)
     uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)

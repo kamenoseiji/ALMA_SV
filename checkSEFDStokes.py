@@ -8,46 +8,78 @@ execfile(SCR_DIR + 'Plotters.py')
 from matplotlib.backends.backend_pdf import PdfPages
 #
 msmd.open(msfile)
-#-------- Definitions
-def residTskyTransfer( param, Tamb, secz, Tsky, weight ):
-    exp_Tau = np.exp( -param[1]* secz )
-    return weight* (Tsky - (param[0] + 2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
-#
-def residTskyTransfer2( param, Tamb, Tau0, secz, Tsky, weight ):
-    exp_Tau = np.exp( -Tau0* secz )
-    return weight* (Tsky - (param[0] + 2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
-#
-def get_progressbar_str(progress):
-    MAX_LEN = 48
-    BAR_LEN = int(MAX_LEN * progress)
-    return ('[' + '=' * BAR_LEN + ('>' if BAR_LEN < MAX_LEN else '') + ' ' * (MAX_LEN - BAR_LEN) + '] %.1f%%' % (progress * 100.))
-#
+#-------- Configure Array
+print '---Checking array configulation'
+flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
 Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
-AeNominal = 0.6* 0.25* np.pi* antDia**2      # Nominal Collecting Area
 kb        = 1.38064852e3
 #-------- Check Scans for atmCal
 logfile = open(prefix + '-' + UniqBands[band_index] + '-Flux.log', 'w') 
-logfile.write(FLScaleText + '\n')
-logfile.write(BPcalText + '\n')
-logfile.write(EQcalText + '\n')
+logfile.write(FLScaleText + '\n'); logfile.write(BPcalText + '\n'); logfile.write(EQcalText + '\n')
 print '---Checking time series in MS and atmCal scans'
 tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spw[0]`).getcol('TIME'); tb.close()
 OnTimeIndex = []
-for scan_index in range(scanNum):
-    OnTimeIndex.append( indexList(msmd.timesforscan(onsourceScans[scan_index]), timeXY) )
-offTime = sort( list(set(timeXY) & set(timeOFF)) )
-ambTime = sort( list(set(timeXY) & set(timeAMB)) )
-hotTime = sort( list(set(timeXY) & set(timeHOT)) )
+for scan_index in range(scanNum): OnTimeIndex.append( indexList(msmd.timesforscan(onsourceScans[scan_index]), timeXY) )
+offTime, ambTime, hotTime = sort( list(set(timeXY) & set(timeOFF)) ), sort( list(set(timeXY) & set(timeAMB)) ), sort( list(set(timeXY) & set(timeHOT)) )
+offTimeIndex, ambTimeIndex, hotTimeIndex = indexList(offTime, timeXY),  indexList(ambTime, timeXY),  indexList(hotTime, timeXY)
+#-------- Tsys measurements
+execfile(SCR_DIR + 'TsysCal.py')  
+######## Outputs from TsysCal.py :
+#  TantN[ant, spw, pol] : Antenna noise pickup. ant order is the same with MS
+#  chAvgTrx[ant, spw, pol, scan]  : Channel-averaged receiver noise temperature
+#  chAvgTsky[ant, spw, pol, scan] : Channel-averaged sky noise temperature
+#  chAvgTsys[ant, spw, pol, scan] : Channel-averaged system noise temperature
+#  TsysFlag[ant, spw, pol, scan] : 0 = invalid, 1=valid
+#  Tau0med[spw] : median-value of the zenith optical depth
+#  onTau[spw, scan] : on-source optical depth
 #
-offTimeIndex = indexList( offTime, timeXY)
-ambTimeIndex = indexList( ambTime, timeXY)
-hotTimeIndex = indexList( hotTime, timeXY)
+#  They include all of antennas (even if flagged) in MS order
+########
+#-------- Array Configuration
+print '---Checking array configuration'
+flagAnt[np.where(np.median(chAvgTrx, axis=(1,2)) > 2.0* np.median(chAvgTrx))[0].tolist()] = 0.0 # Flagging by abnormal Trx
+flagAnt[np.where(np.min(chAvgTrx, axis=(1,2)) < 1.0 )[0].tolist()] = 0.0                        # Flagging by abnormal Trx
+UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
+blMap, blInv= range(UseBlNum), [False]* UseBlNum
+ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
+for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
+timeStamp, UVW = GetUVW(msfile, spw[0], msmd.scansforspw(spw[0])[0])
+uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
+refantID = bestRefant(uvDist)
+print '  Use ' + antList[UseAnt[refantID]] + ' as the refant.'
+antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
+for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
+print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
+antDia = np.ones(antNum)
+for ant_index in range(antNum): antDia[ant_index] = msmd.antennadiameter(antList[ant_index])['value']
+AeNominal = 0.6* 0.25* np.pi* antDia**2      # Nominal Collecting Area
+#-------- Check D-term files
+if polNum == 4:
+    print '---Checking D-term files'
+    DantList, noDlist = [], []
+    Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
+    for ant_index in UseAnt:
+        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW0-' + antList[ant_index] + '.DSpec.npy'
+        if os.path.exists(Dfile): DantList += [ant_index]
+        else: noDlist += [ant_index]
+    #
+    DantNum, noDantNum = len(DantList), len(noDlist)
+    print 'Antennas with D-term file (%d):' % (DantNum),
+    for ant_index in DantList: print '%s ' % antList[ant_index],
+    print ''
+    if noDantNum > 0:
+        print 'Antennas without D-term file (%d) : ' % (noDantNum),
+        for ant_index in noDlist: print '%s ' % antList[ant_index],
+        sys.exit(' Run DtermTransfer first!!')
+    #
+#
 #-------- Load D-term file
 DxList, DyList = [], []
-for ant_index in range(UseAntNum):
+for ant_index in antMap:
     Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
     for spw_index in range(4):
-        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[antMap[ant_index]] + '.DSpec.npy'
+        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[ant_index] + '.DSpec.npy'
+        #print 'Loading %s' % (Dfile)
         Dterm = np.load(Dfile)
         DxList = DxList + [Dterm[1] + (0.0 + 1.0j)* Dterm[2]]
         DyList = DyList + [Dterm[3] + (0.0 + 1.0j)* Dterm[4]]
@@ -74,17 +106,6 @@ if PLOTBP:
     #
     plt.close('all')
 #
-#-------- Tsys measurements
-execfile(SCR_DIR + 'TsysCal.py')  
-######## Outputs from TsysCal.py :
-#  TantN[ant, spw, pol] : Antenna noise pickup. ant order is the same with MS
-#  chAvgTrx[ant, spw, pol, scan]  : Channel-averaged receiver noise temperature
-#  chAvgTsky[ant, spw, pol, scan] : Channel-averaged sky noise temperature
-#  chAvgTsys[ant, spw, pol, scan] : Channel-averaged system noise temperature
-#  TsysFlag[ant, spw, pol, scan] : 0 = invalid, 1=valid
-#  Tau0med[spw] : median-value of the zenith optical depth
-#  onTau[spw, scan] : on-source optical depth
-########
 ##-------- Equalization using EQ scan
 GainP, AeSeqX, AeSeqY = [], [], []  # effective area x flux density of the equalizer
 polXindex, polYindex, scan_index = (arange(4)//2).tolist(), (arange(4)%2).tolist(), onsourceScans.index(EQScan)
@@ -92,7 +113,7 @@ for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], EQScan)
     chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-    tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)       # Cross Polarization Baseline Mapping
+    tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)       # Cross Polarization Baseline Mapping : tempSpec[time, blMap, pol, ch]
     BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
     #-------- Antenna-based Gain correction
     chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)[pPol]
@@ -151,10 +172,6 @@ for sso_index in range(SSONum):
         AeX[SAantennas, spw_index, sso_index] = 2.0* kb* np.percentile(abs(GainX), 75, axis=1)**2 * (Ta + chAvgTsys[SAantMap, spw_index, 0, scan_index]) / SSOflux[sso_index, spw_index]
         AeY[SAantennas, spw_index, sso_index] = 2.0* kb* np.percentile(abs(GainY), 75, axis=1)**2 * (Ta + chAvgTsys[SAantMap, spw_index, 1, scan_index]) / SSOflux[sso_index, spw_index]
         #
-        #index = np.where(AeX[:, spw_index, sso_index] > 1.0)[0].tolist()
-        #if np.std(np.append(AeX[index, spw_index, sso_index]/AeNominal[SAantMap], AeY[index, spw_index, sso_index]/AeNominal[SAantMap])) > 0.2:
-        #    SSO_flag[sso_index] *= 0.0
-        #
     #
 #
 #-------- SSO Flagging
@@ -205,6 +222,8 @@ for ant_index in range(UseAntNum):
     logfile.write('\n'); print ''
 ##
 logfile.write('\n'); print ''
+"""
+"""
 #-------- XY phase using BP scan
 interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[0], BPScan); timeNum = len(timeStamp)
 AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
@@ -260,19 +279,18 @@ for scan_index in range(scanNum):
     text_sd = ' ------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
     BPCaledXspec = []
     SEFD = np.ones([spwNum, 2, UseAntNum])
+    #-------- Sub-array with unflagged antennas (short baselines)
+    if SSO_flag:
+        SAantennas, SAbl, SAblFlag, SAant0, SAant1 = subArrayIndex(uvFlag[SSO_ID, spwNum - 1])
+        SAantMap, SAblMap, SAblInv = np.array(antMap)[SAantennas].tolist(), np.array(blMap)[SAbl].tolist(), np.array(blInv)[SAbl].tolist()
+    else:
+        SAantennas, SAbl, SAblFlag, SAant0, SAant1 = range(UseAntNum), range(UseBlNum), np.ones([blNum]), ant0, ant1
+        SAantMap, SAblMap, SAblInv = antMap, blMap, blInv
+        TA = 0.0
+    #
     for spw_index in range(spwNum):
-        #text_sd = 'SPW%02d %5.1f GHz ' % (spw[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
         atmCorrect = np.exp(-onTau[spw_index, scan_index])
-        #-------- Sub-array with unflagged antennas (short baselines)
-        if SSO_flag:
-            SAantennas, SAbl, SAblFlag, SAant0, SAant1 = subArrayIndex(uvFlag[SSO_ID, spw_index])
-            SAantMap, SAblMap, SAblInv = np.array(antMap)[SAantennas].tolist(), np.array(blMap)[SAbl].tolist(), np.array(blInv)[SAbl].tolist()
-            TA = Ae[SAantennas,:,spw_index]* SSOflux0[SSO_ID, spw_index]* atmCorrect  / (2.0* kb)
-        else:
-            SAantennas, SAbl, SAblFlag, SAant0, SAant1 = range(UseAntNum), range(UseBlNum), np.ones([blNum]), ant0, ant1
-            SAantMap, SAblMap, SAblInv = antMap, blMap, blInv
-            TA = 0.0
-        #
+        TA = Ae[SAantennas,:,spw_index]* SSOflux0[SSO_ID, spw_index]* atmCorrect  / (2.0* kb)
         SEFD[spw_index][:,SAantennas]  = (2.0* kb* (chAvgTsys[SAantMap,spw_index, :,scan_index] + TA) / (Ae[SAantennas,:,spw_index]* atmCorrect)).T
         SAantNum = len(SAantennas); SAblNum = len(SAblMap)
         if SAblNum < 6:
@@ -286,7 +304,6 @@ for scan_index in range(scanNum):
         #-------- Baseline-based cross power spectra
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], onsourceScans[scan_index])
         timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum)); UseChNum = len(chRange)
-        #timeThresh = np.median(diff(timeStamp))
         AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
         PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
         tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
@@ -310,7 +327,6 @@ for scan_index in range(scanNum):
         StokesI_PL = figScan.add_subplot( 2, spwNum, spw_index + 1 )
         StokesP_PL = figScan.add_subplot( 2, spwNum, spwNum + spw_index + 1 )
         text_sd = ' SPW%02d %5.1f GHz' % (spw[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
-        #pCalVis = (pCalVis.transpose(0,3,1,2)* np.sqrt(SEFD[ant0[0:SAblNum]][:,polYindex].T* SEFD[ant0[0:SAblNum]][:,polXindex].T))[chRange].transpose(3, 2, 0, 1)
         Stokes = np.zeros([4,SAblNum], dtype=complex)
         for bl_index in range(SAblNum):
             Minv = InvMullerVector(DxSpec[SAant1[bl_index], spw_index][chRange], DySpec[SAant1[bl_index], spw_index][chRange], DxSpec[SAant0[bl_index], spw_index][chRange], DySpec[SAant0[bl_index], spw_index][chRange], np.ones(UseChNum))
