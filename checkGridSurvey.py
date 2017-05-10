@@ -52,8 +52,10 @@ try:
     FCScans = np.append(msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
 except:
     FCScans = np.append(msmd.scansforintent("CALIBRATE_AMPLI#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
-#
-ONScans = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
+try:
+    ONScans = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
+except:
+    ONScans = FCScans
 try:
     BPScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
 except:
