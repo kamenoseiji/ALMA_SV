@@ -37,8 +37,8 @@ execfile(SCR_DIR + 'TsysCal.py')
 ########
 #-------- Array Configuration
 print '---Checking array configuration'
-flagAnt[np.where(np.median(chAvgTrx, axis=(1,2)) > 2.0* np.median(chAvgTrx))[0].tolist()] = 0.0 # Flagging by abnormal Trx
-flagAnt[np.where(np.min(chAvgTrx, axis=(1,2)) < 1.0 )[0].tolist()] = 0.0                        # Flagging by abnormal Trx
+flagAnt[np.where(np.median(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) > 2.0* np.median(chAvgTrx))[0].tolist()] = 0.0 # Flagging by abnormal Trx
+flagAnt[np.where(np.min(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) < 1.0 )[0].tolist()] = 0.0                        # Flagging by abnormal Trx
 UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
 blMap, blInv= range(UseBlNum), [False]* UseBlNum
 ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
