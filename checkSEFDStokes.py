@@ -193,7 +193,7 @@ for spw_index in range(spwNum):
         FLX = FLX + (AeSeqX[spw_index, index] / AeX[index, spw_index, sso_index]).tolist()
         FLY = FLY + (AeSeqY[spw_index, index] / AeY[index, spw_index, sso_index]).tolist()
     #
-    EQflux[spw_index], EQflux[spw_index + spwNum] = np.percentile(np.array(FLX), 60), np.percentile(np.array(FLY), 60)
+    EQflux[spw_index], EQflux[spw_index + spwNum] = np.median(np.array(FLX)), np.median(np.array(FLY))
 #
 #-------- Power-law fit
 P = np.c_[ np.r_[np.log(centerFreqList),np.log(centerFreqList)], np.r_[np.ones(spwNum), np.zeros(spwNum)], np.r_[np.zeros(spwNum), np.ones(spwNum)]]
