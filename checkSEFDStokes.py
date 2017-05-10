@@ -290,7 +290,7 @@ for scan_index in range(scanNum):
     #
     for spw_index in range(spwNum):
         atmCorrect = np.exp(-onTau[spw_index, scan_index])
-        TA = Ae[SAantennas,:,spw_index]* SSOflux0[SSO_ID, spw_index]* atmCorrect  / (2.0* kb)
+        if SSO_flag: TA = Ae[SAantennas,:,spw_index]* SSOflux0[SSO_ID, spw_index]* atmCorrect  / (2.0* kb)
         SEFD[spw_index][:,SAantennas]  = (2.0* kb* (chAvgTsys[SAantMap,spw_index, :,scan_index] + TA) / (Ae[SAantennas,:,spw_index]* atmCorrect)).T
         SAantNum = len(SAantennas); SAblNum = len(SAblMap)
         if SAblNum < 6:
