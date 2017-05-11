@@ -6,21 +6,9 @@ import analysisUtils as au
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Plotters.py')
 from matplotlib.backends.backend_pdf import PdfPages
-#
-#-------- Definitions
-def residTskyTransfer( param, Tamb, secz, Tsky, weight ):
-    exp_Tau = np.exp( -param[1]* secz )
-    return weight* (Tsky - (param[0] + 2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
-#
-def residTskyTransfer2( param, Tamb, Tau0, secz, Tsky, weight ):
-    exp_Tau = np.exp( -Tau0* secz )
-    return weight* (Tsky - (param[0] + 2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
-#
-def get_progressbar_str(progress):
-    MAX_LEN = 48
-    BAR_LEN = int(MAX_LEN * progress)
-    return ('[' + '=' * BAR_LEN + ('>' if BAR_LEN < MAX_LEN else '') + ' ' * (MAX_LEN - BAR_LEN) + '] %.1f%%' % (progress * 100.))
-#
+#-------- Configure Array
+print '---Checking array configulation'
+flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
 Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
 kb        = 1.38064852e3
 #-------- Check Scans for atmCal
@@ -30,37 +18,68 @@ logfile.write(EQcalText + '\n')
 print '---Checking time series in MS and atmCal scans'
 tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spw[0]`).getcol('TIME'); tb.close()
 OnTimeIndex = []
-for scan_index in range(scanNum):
-    OnTimeIndex.append( indexList(msmd.timesforscan(onsourceScans[scan_index]), timeXY) )
-offTime = sort( list(set(timeXY) & set(timeOFF)) )
-ambTime = sort( list(set(timeXY) & set(timeAMB)) )
-hotTime = sort( list(set(timeXY) & set(timeHOT)) )
+for scan_index in range(scanNum): OnTimeIndex.append( indexList(msmd.timesforscan(onsourceScans[scan_index]), timeXY) )
+offTime, ambTime, hotTime = sort( list(set(timeXY) & set(timeOFF)) ), sort( list(set(timeXY) & set(timeAMB)) ), sort( list(set(timeXY) & set(timeHOT)) )
+offTimeIndex, ambTimeIndex, hotTimeIndex = indexList(offTime, timeXY),  indexList(ambTime, timeXY),  indexList(hotTime, timeXY)
+#-------- Tsys measurements
+try:
+    if TSYSCAL :
+        execfile(SCR_DIR + 'TsysCal.py')
+    else : 
+        execfile(SCR_DIR + 'TsysTransfer.py')
+except:
+    execfile(SCR_DIR + 'TsysCal.py')
 #
-offTimeIndex = indexList( offTime, timeXY)
-ambTimeIndex = indexList( ambTime, timeXY)
-hotTimeIndex = indexList( hotTime, timeXY)
+######## Outputs from TsysCal.py :
+#  TantN[ant, spw, pol] : Antenna noise pickup. ant order is the same with MS
+#  chAvgTrx[ant, spw, pol, scan]  : Channel-averaged receiver noise temperature
+#  chAvgTsky[ant, spw, pol, scan] : Channel-averaged sky noise temperature
+#  chAvgTsys[ant, spw, pol, scan] : Channel-averaged system noise temperature
+#  TsysFlag[ant, spw, pol, scan] : 0 = invalid, 1=valid
+#  Tau0med[spw] : median-value of the zenith optical depth
+#  onTau[spw, scan] : on-source optical depth
+#
+#  They include all of antennas (even if flagged) in MS order
+########
+#-------- Array Configuration
+print '---Checking array configuration'
+flagAnt[np.where(np.median(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) > 2.0* np.median(chAvgTrx))[0].tolist()] = 0.0 # Flagging by abnormal Trx
+flagAnt[np.where(np.min(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) < 1.0 )[0].tolist()] = 0.0                        # Flagging by abnormal Trx
+UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
+blMap, blInv= range(UseBlNum), [False]* UseBlNum
+ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
+for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
+timeStamp, UVW = GetUVW(msfile, spw[0], msmd.scansforspw(spw[0])[0])
+uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
+refantID = bestRefant(uvDist)
+print '  Use ' + antList[UseAnt[refantID]] + ' as the refant.'
+antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
+for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
+print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
+antDia = np.ones(antNum)
+for ant_index in range(antNum): antDia[ant_index] = msmd.antennadiameter(antList[ant_index])['value']
 #-------- Load Aeff file
 Afile = open(SCR_DIR + 'AeB' + `int(UniqBands[band_index][3:5])` + '.data')
 Alines = Afile.readlines()
 Afile.close()
-AeX, AeY = 0.25* np.pi* antDia**2, 0.25* np.pi* antDia**2
-WeightX, WeightY = np.zeros(UseAntNum), np.zeros(UseAntNum)
-for ant_index in range(UseAntNum):
+AeX, AeY = 0.25* np.pi* antDia**2, 0.25* np.pi* antDia**2       # antenna collecting area (100% efficiency)
+AeX, AeY = [], []
+for ant_index in antMap:
     for Aline in Alines:
-        if antList[antMap[ant_index]] in Aline:
-            AeX[ant_index] *= (0.01* float(Aline.split()[1]))
-            AeY[ant_index] *= (0.01* float(Aline.split()[2]))
-            WeightX[ant_index], WeightY[ant_index] = AeX[ant_index], AeY[ant_index]
+        if antList[ant_index] in Aline:
+            AeX = AeX + [(0.0025* np.pi* float(Aline.split()[1]))* antDia[ant_index]**2]
+            AeY = AeY + [(0.0025* np.pi* float(Aline.split()[2]))* antDia[ant_index]**2]
         #
     #
 #
+AeX, AeY = np.array(AeX), np.array(AeY) # in antMap order 
 #-------- Load D-term file
 DxList, DyList = [], []
 print '---Loading D-term table'
-for ant_index in range(UseAntNum):
+for ant_index in antMap:
     Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
     for spw_index in range(4):
-        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[antMap[ant_index]] + '.DSpec.npy'
+        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[ant_index] + '.DSpec.npy'
         Dterm = np.load(Dfile)
         DxList = DxList + [Dterm[1] + (0.0 + 1.0j)* Dterm[2]]
         DyList = DyList + [Dterm[3] + (0.0 + 1.0j)* Dterm[4]]
@@ -70,7 +89,7 @@ chNum = np.array(DxList).shape[1]
 DxSpec, DySpec = np.array(DxList).reshape([UseAntNum, spwNum, chNum]), np.array(DyList).reshape([UseAntNum, spwNum, chNum])
 #-------- Bandpass Table
 print '---Generating antenna-based bandpass table'
-XYdelayList, BPList = [], []
+BPList = []
 for spw_index in spw:
     BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPScan, blMap, blInv)
     BP_ant[:,1] *= XY_BP
@@ -87,16 +106,8 @@ if PLOTBP:
     #
     plt.close('all')
 #
-try:
-    if TSYSCAL :
-        execfile(SCR_DIR + 'TsysCal.py')
-    else : 
-        execfile(SCR_DIR + 'TsysTransfer.py')
-except:
-    execfile(SCR_DIR + 'TsysCal.py')
-#
-polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
 #-------- XY phase using BP scan
+polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
 interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[0], BPScan); timeNum = len(timeStamp)
 AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
 PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), np.cos(PA))
@@ -108,10 +119,10 @@ for spw_index in range(spwNum):
     timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
     tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
     BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
-    chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1) 
+    chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
     GainP = GainP + [np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])]
     SEFD = SEFD + [2.0* kb* chAvgTsys[antMap, spw_index, :,scan_index].T / np.array([AeX, AeY])]
-    aprioriVis = np.mean((chAvgVis / (GainP[spw_index][polYindex][:,ant0]* GainP[spw_index][polXindex][:,ant1].conjugate())).transpose(2, 0, 1)* np.sqrt(SEFD[spw_index][polYindex][:,ant0]* SEFD[spw_index][polXindex][:,ant1]), axis=0)[[0,3]].T
+    aprioriVis = np.mean((chAvgVis / (GainP[spw_index][polYindex][:, ant0]* GainP[spw_index][polXindex][:,ant1].conjugate())).transpose(2, 0, 1)* np.sqrt(SEFD[spw_index][polYindex][:,ant0]* SEFD[spw_index][polXindex][:,ant1]), axis=0)[[0,1]].T
     relGain[spw_index] = abs(gainComplexVec(aprioriVis))
     relGain[spw_index] = relGain[spw_index] / np.median(relGain[spw_index], axis=0)
     SEFD[spw_index] /= (relGain[spw_index]**2).T

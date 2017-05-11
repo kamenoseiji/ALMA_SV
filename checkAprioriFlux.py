@@ -35,51 +35,51 @@ if len(timeAMB) == 0:
     timeAMB = timeON[(np.where( np.diff(timeON) > 20.0)[0] - 8).tolist()]
     timeHOT = timeON[(np.where( np.diff(timeON) > 20.0)[0] - 2).tolist()]
 #
-#-------- Configure Array
-print '---Checking array configulation'
-flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
-UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
-#-------- Check D-term files
-print '---Checking D-term files'
-DantList, noDlist = [], []
-Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
-for ant_index in UseAnt:
-    Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW0-' + antList[ant_index] + '.DSpec.npy'
-    if os.path.exists(Dfile): DantList += [ant_index]
-    else: noDlist += [ant_index]
-#
-DantNum, noDantNum = len(DantList), len(noDlist)
-print 'Antennas with D-term file (%d):' % (DantNum),
-for ant_index in DantList: print '%s ' % antList[ant_index],
-print ''
-if noDantNum > 0:
-    print 'Antennas without D-term file (%d) : ' % (noDantNum),
-    for ant_index in noDlist: print '%s ' % antList[ant_index],
-    sys.exit(' Run DtermTransfer, or flag these antennas out.')
-#
-#-------- Antenna and baseline mapping
-blMap, blInv= range(UseBlNum), [False]* UseBlNum
-try:
-    refantID = np.where(antList[UseAnt] == refant )[0][0]
-except:
-    ant0 = ANT0[0:UseBlNum]; ant1 = ANT1[0:UseBlNum]
-    for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
-    timeStamp, UVW = GetUVW(msfile, spw[0], msmd.scansforspw(spw[0])[0])
-    uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
-    refantID = bestRefant(uvDist)
-#
-print '  Use ' + antList[UseAnt[refantID]] + ' as the refant.'
-#-------- Baseline Mapping
-print '---Baseline Mapping'
-antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
-UseAntNum = len(antMap)
-UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
-ant0 = ANT0[0:UseBlNum]; ant1 = ANT1[0:UseBlNum]
-for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
-#
-print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
-antDia = np.ones([UseAntNum])
-for ant_index in range(UseAntNum): antDia[ant_index] = msmd.antennadiameter(antList[antMap[ant_index]])['value']
+##-------- Configure Array
+#print '---Checking array configulation'
+#flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
+#UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
+##-------- Check D-term files
+#print '---Checking D-term files'
+#DantList, noDlist = [], []
+#Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
+#for ant_index in UseAnt:
+#    Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW0-' + antList[ant_index] + '.DSpec.npy'
+#    if os.path.exists(Dfile): DantList += [ant_index]
+#    else: noDlist += [ant_index]
+##
+#DantNum, noDantNum = len(DantList), len(noDlist)
+#print 'Antennas with D-term file (%d):' % (DantNum),
+#for ant_index in DantList: print '%s ' % antList[ant_index],
+#print ''
+#if noDantNum > 0:
+#    print 'Antennas without D-term file (%d) : ' % (noDantNum),
+#    for ant_index in noDlist: print '%s ' % antList[ant_index],
+#    sys.exit(' Run DtermTransfer, or flag these antennas out.')
+##
+##-------- Antenna and baseline mapping
+#blMap, blInv= range(UseBlNum), [False]* UseBlNum
+#try:
+#    refantID = np.where(antList[UseAnt] == refant )[0][0]
+#except:
+#    ant0 = ANT0[0:UseBlNum]; ant1 = ANT1[0:UseBlNum]
+#    for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
+#    timeStamp, UVW = GetUVW(msfile, spw[0], msmd.scansforspw(spw[0])[0])
+#    uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
+#    refantID = bestRefant(uvDist)
+##
+#print '  Use ' + antList[UseAnt[refantID]] + ' as the refant.'
+##-------- Baseline Mapping
+#print '---Baseline Mapping'
+#antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
+#UseAntNum = len(antMap)
+#UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
+#ant0 = ANT0[0:UseBlNum]; ant1 = ANT1[0:UseBlNum]
+#for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
+##
+#print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
+#antDia = np.ones([UseAntNum])
+#for ant_index in range(UseAntNum): antDia[ant_index] = msmd.antennadiameter(antList[antMap[ant_index]])['value']
 #-------- Scan Intents
 try:
     FCScans = np.append(msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
@@ -105,13 +105,13 @@ for band_index in range(NumBands):
     scanNum = len(onsourceScans)
     #-------- Check AZEL
     azelTime, AntID, AZ, EL = GetAzEl(msfile)
-    azelTime_index = np.where( AntID == UseAnt[refantID] )[0].tolist()
+    azelTime_index = np.where( AntID == 0 )[0].tolist()
     azel = np.r_[AZ[azelTime_index], EL[azelTime_index]].reshape(2, len(azelTime_index))
     OnAZ, OnEL, OnPA, BPquality, EQquality, PQquality, sourceIDscan, FLscore, refTime = [], [], [], [], [], [], [], np.zeros(scanNum), []
     for scan_index in range(scanNum):
         sourceIDscan.append( msmd.sourceidforfield(msmd.fieldsforscan(onsourceScans[scan_index])[0]))
         interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spwLists[band_index][0], onsourceScans[scan_index])
-        AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
+        AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, 0, AZ, EL)
         PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; dPA = abs(np.sin(max(PA) - min(PA)))
         OnAZ.append(np.median(AzScan)); OnEL.append(np.median(ElScan)); OnPA.append(np.median(PA))
         refTime = refTime + [np.median(timeStamp)]
