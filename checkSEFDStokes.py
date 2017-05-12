@@ -7,7 +7,7 @@ execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Plotters.py')
 from matplotlib.backends.backend_pdf import PdfPages
 #
-#msmd.open(msfile)
+msmd.open(msfile)
 #-------- Configure Array
 print '---Checking array configulation'
 flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
@@ -178,6 +178,7 @@ for sso_index in range(SSONum):
 for sso_index in range(SSONum):
     for spw_index in range(spwNum):
         index = np.where(AeX[:, spw_index, sso_index] > 1.0)[0].tolist()
+        if len(index) < 4: SSO_flag[sso_index] = 0.0; continue
         FLX_stat, FLY_stat = AeX[index, spw_index, sso_index]/AeNominal[np.array(antMap)[index].tolist()], AeY[index, spw_index, sso_index]/AeNominal[np.array(antMap)[index].tolist()]
         if np.percentile(FLX_stat, 75) / np.median(FLX_stat) > 1.25: SSO_flag[sso_index] = 0.0
         if np.percentile(FLY_stat, 75) / np.median(FLY_stat) > 1.25: SSO_flag[sso_index] = 0.0

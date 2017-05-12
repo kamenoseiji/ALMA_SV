@@ -219,21 +219,20 @@ def GetFWHM(msfile, spw, antD ):    # antD is the antenna diameter [m]
     return 1.13* 180.0* 3600.0* wavelength / (antD* pi) # Gaussian beam, in unit of arcsec
 #
 def GetSourceList(msfile):              # Source List
-    sourceList, posList = [], []
     tb.open( msfile + '/SOURCE')
-    #SourceID   = tb.getcol('SOURCE_ID')
+    SourceID = tb.getcol('SOURCE_ID')
     SourceName = tb.getcol('NAME')
     SourcePos  = tb.getcol('DIRECTION')
     tb.close()
-    #sourceNum = len(np.unique(SourceID))
-    #sourceNum = len(np.unique(SourceName))
-    index = indexList( np.unique(SourceName), SourceName )
-    #for source_index in range(sourceNum):
-    #    IDindex = np.where( SourceID == source_index)[0][0]
-    #    sourceList.append(SourceName[IDindex])
-    #    posList.append(SourcePos[:,IDindex])
+    IDNum = np.max(SourceID) + 1
+    sourceList, posList = ['']*IDNum, np.zeros([IDNum, 2])
+    IDList = np.unique(SourceID).tolist()
+    for ID in IDList:
+        IDindex = SourceID.tolist().index(ID) 
+        sourceList[ID] = SourceName[IDindex]
+        posList[ID] = SourcePos[:,IDindex]
     #
-    return SourceName[index], SourcePos[index]
+    return sourceList, posList
 #
 def GetAzEl(msfile):
 	Out = msfile + '/' + 'POINTING'
