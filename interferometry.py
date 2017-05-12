@@ -221,17 +221,19 @@ def GetFWHM(msfile, spw, antD ):    # antD is the antenna diameter [m]
 def GetSourceList(msfile):              # Source List
     sourceList, posList = [], []
     tb.open( msfile + '/SOURCE')
-    SourceID   = tb.getcol('SOURCE_ID')
+    #SourceID   = tb.getcol('SOURCE_ID')
     SourceName = tb.getcol('NAME')
     SourcePos  = tb.getcol('DIRECTION')
     tb.close()
-    sourceNum = len(np.unique(SourceID))
-    for source_index in range(sourceNum):
-        IDindex = np.where( SourceID == source_index)[0][0]
-        sourceList.append(SourceName[IDindex])
-        posList.append(SourcePos[:,IDindex])
+    #sourceNum = len(np.unique(SourceID))
+    #sourceNum = len(np.unique(SourceName))
+    index = indexList( np.unique(SourceName), SourceName )
+    #for source_index in range(sourceNum):
+    #    IDindex = np.where( SourceID == source_index)[0][0]
+    #    sourceList.append(SourceName[IDindex])
+    #    posList.append(SourcePos[:,IDindex])
     #
-    return sourceList, posList
+    return SourceName[index], SourcePos[index]
 #
 def GetAzEl(msfile):
 	Out = msfile + '/' + 'POINTING'
