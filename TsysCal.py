@@ -28,7 +28,7 @@ for ant_index in range(antNum):
         timeXY, Pspec = GetPSpec(msfile, ant_index, spw[spw_index])
         if len(timeXY) < maxTimeIndex:
             chNum, addTimeNum = Pspec.shape[1], maxTimeIndex - len(timeXY)
-            Pspec = np.concatenete((Pspec, np.zeros([polNum, chNum, addTimeNum]), axis=2)
+            Pspec = np.concatenate((Pspec, np.zeros([polNum, chNum, addTimeNum])), axis=2)
         #
         OffSpecList.append(Pspec[pPol][:,:,offTimeIndex])
         AmbSpecList.append(Pspec[pPol][:,:,ambTimeIndex])
