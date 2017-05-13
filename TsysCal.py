@@ -27,7 +27,7 @@ for ant_index in range(antNum):
         sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
         timeXY, Pspec = GetPSpec(msfile, ant_index, spw[spw_index])
         if len(timeXY) < maxTimeIndex:
-            chNum, addTimeNum = Pspec.shape[1], maxTimeIndex - len(timeXY)
+            chNum, addTimeNum = Pspec.shape[1], maxTimeIndex - len(timeXY) + 1
             Pspec = np.concatenate((Pspec, np.zeros([polNum, chNum, addTimeNum])), axis=2)
         #
         OffSpecList.append(Pspec[pPol][:,:,offTimeIndex])
