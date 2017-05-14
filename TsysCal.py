@@ -20,15 +20,15 @@ kb        = 1.38064852e3
 #-------- Load autocorrelation power spectra
 print '---Loading autocorr power spectra'
 OnSpecList, OffSpecList, AmbSpecList, HotSpecList = [], [], [], []
-maxTimeIndex = max(offTimeIndex + ambTimeIndex + hotTimeIndex + max(OnTimeIndex))
+#maxTimeIndex = max(offTimeIndex + ambTimeIndex + hotTimeIndex + max(OnTimeIndex))
 for ant_index in range(antNum):
     for spw_index in range(spwNum):
         progress = (1.0* ant_index* spwNum + spw_index + 1.0) / (antNum* spwNum)
         sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
         timeXY, Pspec = GetPSpec(msfile, ant_index, spw[spw_index])
-        if len(timeXY) < maxTimeIndex:
-            chNum, addTimeNum = Pspec.shape[1], maxTimeIndex - len(timeXY) + 1
-            Pspec = np.concatenate((Pspec, np.zeros([polNum, chNum, addTimeNum])), axis=2)
+        #if len(timeXY) < maxTimeIndex:
+        #    chNum, addTimeNum = Pspec.shape[1], maxTimeIndex - len(timeXY) + 1
+        #    Pspec = np.concatenate((Pspec, np.zeros([polNum, chNum, addTimeNum])), axis=2)
         #
         OffSpecList.append(Pspec[pPol][:,:,offTimeIndex])
         AmbSpecList.append(Pspec[pPol][:,:,ambTimeIndex])
