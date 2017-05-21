@@ -67,7 +67,7 @@ for band_index in range(NumBands):
         sourceIDscan.append( msmd.sourceidforfield(msmd.fieldsforscan(onsourceScans[scan_index])[0]))
         interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spwLists[band_index][0], onsourceScans[scan_index])
         AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, 0, AZ, EL)
-        PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; dPA = abs(np.sin(max(PA) - min(PA)))
+        PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; np.std(np.sin(PA))
         OnAZ.append(np.median(AzScan)); OnEL.append(np.median(ElScan)); OnPA.append(np.median(PA))
         refTime = refTime + [np.median(timeStamp)]
         catalogIQUV = np.array([catalogStokesI.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesQ.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesU.get(sourceList[sourceIDscan[scan_index]], 0.0), 0.0])
@@ -76,7 +76,7 @@ for band_index in range(NumBands):
         UCmQS = catalogIQUV[2]*CS - catalogIQUV[1]*SN   # Ucos - Qsin
         BPquality = BPquality + [1000.0* abs(UCmQS)* catalogIQUV[0]* dPA * np.sin(OnEL[scan_index])]
         EQquality = EQquality + [catalogIQUV[0]* np.sin(OnEL[scan_index] - ELshadow) / (0.001 + QCpUS**2)]
-        print 'Scan%02d : %10s AZ=%6.1f EL=%4.1f PA=%6.1f dPA=%5.2f pRes=%5.2f BPQuality=%7.4f EQquality=%6.0f' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0*OnAZ[scan_index]/np.pi, 180.0*OnEL[scan_index]/np.pi, 180.0*OnPA[scan_index]/np.pi, 180.0*dPA/np.pi, UCmQS, BPquality[scan_index], EQquality[scan_index])
+        print 'Scan%02d : %10s AZ=%6.1f EL=%4.1f PA=%6.1f dPA=%5.2f pRes=%5.2f BPquality=%7.4f EQquality=%6.0f' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0*OnAZ[scan_index]/np.pi, 180.0*OnEL[scan_index]/np.pi, 180.0*OnPA[scan_index]/np.pi, 180.0*dPA/np.pi, UCmQS, BPquality[scan_index], EQquality[scan_index])
         if sourceIDscan[scan_index] in SSOList:
             FLscore[scan_index] = np.exp(np.log(math.sin(OnEL[scan_index])-0.34))* SSOscore[bandID][SSOCatalog.index(sourceList[sourceIDscan[scan_index]])]
         #

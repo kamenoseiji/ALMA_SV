@@ -43,9 +43,16 @@ except:
 ########
 #-------- Array Configuration
 print '---Checking array configuration'
-flagAnt[np.where(np.median(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) > 2.0* np.median(chAvgTrx))[0].tolist()] = 0.0 # Flagging by abnormal Trx
-flagAnt[np.where(np.min(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) < 1.0 )[0].tolist()] = 0.0                        # Flagging by abnormal Trx
+flagList = np.where(np.median(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) > 2.0* np.median(chAvgTrx))[0].tolist()
+flagList = unique(flagList + np.where(np.min(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) < 1.0 )[0].tolist()).tolist()
+flagAnt[flagList] = 0.0 # Flagging by abnormal Trx
 UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
+print '  Usable antennas: ',
+for ants in antList[UseAnt].tolist(): print ants,
+print ''
+print '  Flagged by Trx:  ',
+for ants in antList[flagList].tolist(): print ants,
+print ''
 blMap, blInv= range(UseBlNum), [False]* UseBlNum
 ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
 for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
@@ -141,7 +148,8 @@ for ant_index in range(1,UseAntNum):
 #
 spwPhase = np.array(spwPhase).reshape([UseAntNum, 2, spwNum]); spwTwiddle = exp(1.0j *spwPhase)
 caledVis = np.array(caledVis)   # [spw, pol, time]
-QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
+#QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
+QUsolution = np.array([catalogStokesQ.get(BPcal), catalogStokesU.get(BPcal)])
 #-------- XY phase cal in Bandpass table
 XYsign = np.ones(spwNum)
 for spw_index in range(spwNum):
@@ -178,7 +186,10 @@ for scan_index in range(scanNum):
     figScan.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90) 
     ScanEL[scan_index] = np.median(OnEL[:,scan_index])
     if sourceIDscan[scan_index] in SSOList: SSO_flag = T
-    else: SSO_flag = F
+    else:
+        SSO_flag = F 
+        SAantennas, SAbl, SAblFlag, SAant0, SAant1 = range(UseAntNum), range(UseBlNum), np.ones([blNum]), ant0, ant1
+        SAantMap, SAblMap, SAblInv = antMap, blMap, blInv
     if SSO_flag: continue
     text_sd = ' %02d %010s EL=%4.1f deg' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi ); logfile.write(text_sd + '\n'); print text_sd
     figScan.text(0.05, 0.95, text_sd) 
@@ -192,7 +203,7 @@ for scan_index in range(scanNum):
         atmCorrect = np.exp(-onTau[spw_index, scan_index])
         TA = 0.0
         #
-        SEFD[spw_index] = 2.0* kb* (chAvgTsys[antMap, spw_index, :,scan_index] + TA).T / (np.array([AeX, AeY])* atmCorrect)/ (relGain[spw_index]**2).T
+        SEFD[spw_index][:,SAantennas] = 2.0* kb* (chAvgTsys[SAantMap, spw_index, :,scan_index] + TA).T / (np.array([AeX[SAantennas], AeY[SAantennas]])* atmCorrect)/ (relGain[spw_index][SAantennas]**2).T
         #-------- UV distance
         timeStamp, UVW = GetUVW(msfile, spw[spw_index], onsourceScans[scan_index])
         uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
@@ -203,40 +214,42 @@ for scan_index in range(scanNum):
         #timeThresh = np.median(diff(timeStamp))
         AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
         PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
-        tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
+        tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
         #-------- Bandpass Calibration
-        BPCaledXspec = BPCaledXspec + [(tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0)] # Bandpass Cal
+        BPCaledXspec = BPCaledXspec + [(tempSpec / (BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate())).transpose(2,3,1,0)] # Bandpass Cal
         #
     #
     #-------- Antenna-based Phase Solution
+    SAantNum = len(SAantennas); SAblNum = len(SAblMap)
     BPCaledXspec = np.array(BPCaledXspec)   # BPCaledXspec[spw, pol, ch, bl, time]
     chAvgVis = np.mean(np.array(BPCaledXspec)[:,:,chRange], axis=(0,2))
     GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
-    pCalVis = (BPCaledXspec.transpose(0,2,1,3,4) / (GainP[polYindex][:,ant0]* GainP[polXindex][:,ant1].conjugate()))[:,chRange]
+    pCalVis = (BPCaledXspec.transpose(0,2,1,3,4) / (GainP[polYindex][:,ant0[0:SAblNum]]* GainP[polXindex][:,ant1[0:SAblNum]].conjugate()))[:,chRange]
     for spw_index in range(spwNum):
-        chAvgVis = np.mean(pCalVis[spw_index], axis=(0,3))[[0,3]]* np.sqrt( SEFD[spw_index][:,ant0]* SEFD[spw_index][:,ant1]) 
+        chAvgVis = np.mean(pCalVis[spw_index], axis=(0,3))[[0,3]]* np.sqrt( SEFD[spw_index][:,ant0[0:SAblNum]]* SEFD[spw_index][:,ant1[0:SAblNum]]) 
         indivRelGain = abs(gainComplexVec(chAvgVis.T))
-        SEFD[spw_index] *= ((np.percentile(indivRelGain, 75, axis=0) / indivRelGain)**2).T
+        SEFD[spw_index][:,SAantennas] *= ((np.percentile(indivRelGain, 75, axis=0) / indivRelGain)**2).T
     #
-    AmpCalVis = (pCalVis.transpose(1,4,0,2,3)* np.sqrt(SEFD[:,polYindex][:,:,ant0]* SEFD[:,polXindex][:,:,ant1])).transpose(2,4,3,0,1) # AmpCalVis[spw,bl,pol,ch,time]
+    AmpCalVis = (pCalVis.transpose(1,4,0,2,3)* np.sqrt(SEFD[:,polYindex][:,:,ant0[0:SAblNum]]* SEFD[:,polXindex][:,:,ant1[0:SAblNum]])).transpose(2,4,3,0,1) # AmpCalVis[spw,bl,pol,ch,time]
     for spw_index in range(spwNum):
         StokesI_PL = figScan.add_subplot( 2, spwNum, spw_index + 1 )
         StokesP_PL = figScan.add_subplot( 2, spwNum, spwNum + spw_index + 1 )
         text_sd = ' SPW%02d %5.1f GHz' % (spw[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
-        Stokes = np.zeros([4,UseBlNum], dtype=complex)
-        for bl_index in range(UseBlNum):
-            Minv = InvMullerVector(DxSpec[ant1[bl_index], spw_index][chRange], DySpec[ant1[bl_index], spw_index][chRange], DxSpec[ant0[bl_index], spw_index][chRange], DySpec[ant0[bl_index], spw_index][chRange], np.ones(UseChNum))
+        Stokes = np.zeros([4,SAblNum], dtype=complex)
+        for bl_index in range(SAblNum):
+            Minv = InvMullerVector(DxSpec[SAant1[bl_index], spw_index][chRange], DySpec[SAant1[bl_index], spw_index][chRange], DxSpec[SAant0[bl_index], spw_index][chRange], DySpec[SAant0[bl_index], spw_index][chRange], np.ones(UseChNum))
             Stokes[:,bl_index] = PS.reshape(4, 4*PAnum).dot(Minv.reshape(4, 4*UseChNum).dot(AmpCalVis[spw_index][bl_index].reshape(4*UseChNum, PAnum)).reshape(4*PAnum)) / (PAnum* UseChNum)
         #
         StokesVis, StokesErr = Stokes.real, Stokes.imag
         for pol_index in range(4):
-            visFlag = np.where(abs(StokesVis[pol_index] - np.median(StokesVis[pol_index]))/np.median(StokesVis[0]) < 0.2 )[0]
+            visFlag = np.where(abs(StokesVis[pol_index] - np.percentile(StokesVis[pol_index], 75))/np.percentile(StokesVis[0], 75) < 0.2 )[0]
+            #visFlag = np.where(abs(StokesVis[pol_index] - np.median(StokesVis[pol_index]))/np.median(StokesVis[0]) < 0.2 )[0]
             #if len(visFlag) < 4:
             #    text_sd = 'Only %d vis.    ' % (len(visFlag)) ; logfile.write(text_sd + '\n'); print text_sd,
             #    continue
             #
-            weight = np.zeros(UseBlNum); weight[visFlag] = np.ones(len(visFlag))/np.var(StokesErr[pol_index][visFlag])
-            P, W = np.c_[np.ones(UseBlNum), uvDist], np.diag(weight)
+            weight = np.zeros(SAblNum); weight[visFlag] = 1.0/np.var(StokesVis[pol_index][visFlag])
+            P, W = np.c_[np.ones(SAblNum), uvDist], np.diag(weight)
             PtWP_inv = scipy.linalg.inv(P.T.dot(W.dot(P)))
             solution, solerr = PtWP_inv.dot(P.T.dot(weight* StokesVis[pol_index])),  np.sqrt(np.diag(PtWP_inv))
             if solution[1] > -2.0* solerr[1]: solution[0] = np.median(StokesVis[pol_index]); solution[1] = 0.0

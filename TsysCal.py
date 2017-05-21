@@ -34,7 +34,8 @@ for ant_index in range(antNum):
         AmbSpecList.append(Pspec[pPol][:,:,ambTimeIndex])
         HotSpecList.append(Pspec[pPol][:,:,hotTimeIndex])
         for scan_index in range(scanNum):
-            OnSpecList.append(np.mean( Pspec[pPol][:,:,OnTimeIndex[scan_index]], axis=2 ))
+            #OnSpecList.append(np.mean( Pspec[pPol][:,:,OnTimeIndex[scan_index]], axis=2 ))
+            OnSpecList.append(np.median( Pspec[pPol][:,:,OnTimeIndex[scan_index]], axis=2 ))
         #
     #
 #
@@ -70,8 +71,8 @@ for ant_index in range(antNum):
         for pol_index in range(ppolNum):
             ambSpec, hotSpec = AmbSpecList[AntSpwIndex][pol_index], HotSpecList[AntSpwIndex][pol_index]
             for time_index in range(len(offTime)):
-                Psamb = np.mean(ambSpec, axis=1)
-                Pshot = np.mean(hotSpec, axis=1)
+                #Psamb, Pshot = np.mean(ambSpec, axis=1), np.mean(hotSpec, axis=1)
+                Psamb, Pshot = np.median(ambSpec, axis=1), np.median(hotSpec, axis=1)
                 Psoff = OffSpecList[AntSpwIndex][pol_index][:,time_index]
                 Trx[pol_index, :, time_index] = (tempHot[ant_index]* Psamb - Pshot* tempAmb[ant_index]) / (Pshot - Psamb)
                 Tsky[pol_index, :, time_index]= (Psoff* (tempHot[ant_index] - tempAmb[ant_index]) + tempAmb[ant_index]* Pshot - tempHot[ant_index]* Psamb) / (Pshot - Psamb)

@@ -37,9 +37,16 @@ execfile(SCR_DIR + 'TsysCal.py')
 ########
 #-------- Array Configuration
 print '---Checking array configuration'
-flagAnt[np.where(np.median(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) > 2.0* np.median(chAvgTrx))[0].tolist()] = 0.0 # Flagging by abnormal Trx
-flagAnt[np.where(np.min(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) < 1.0 )[0].tolist()] = 0.0                        # Flagging by abnormal Trx
+flagList = np.where(np.median(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) > 2.0* np.median(chAvgTrx))[0].tolist()
+flagList = unique(flagList + np.where(np.min(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) < 1.0 )[0].tolist()).tolist()
+flagAnt[flagList] = 0.0 # Flagging by abnormal Trx
 UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
+print '  Usable antennas: ',
+for ants in antList[UseAnt].tolist(): print ants,
+print ''
+print '  Flagged by Trx:  ',
+for ants in antList[flagList].tolist(): print ants,
+print ''
 blMap, blInv= range(UseBlNum), [False]* UseBlNum
 ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
 for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
@@ -223,8 +230,6 @@ for ant_index in range(UseAntNum):
     logfile.write('\n'); print ''
 ##
 logfile.write('\n'); print ''
-"""
-"""
 #-------- XY phase using BP scan
 interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[0], BPScan); timeNum = len(timeStamp)
 AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
