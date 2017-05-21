@@ -247,8 +247,8 @@ for spw_index in range(spwNum):
     caledVis.append(np.mean((chAvgVis / (GainP[polYindex][:,ant0]* GainP[polXindex][:,ant1].conjugate())).transpose(2, 0, 1)* np.sqrt(SEFD[ant0][:,polYindex].T* SEFD[ant1][:,polXindex].T), axis=2).T)
 #
 caledVis = np.array(caledVis)   # [spw, pol, time]
-#QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
-QUsolution = np.array([catalogStokesQ.get(BPcal), catalogStokesU.get(BPcal)])
+QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
+#QUsolution = np.array([catalogStokesQ.get(BPcal), catalogStokesU.get(BPcal)])
 #-------- XY phase cal in Bandpass table
 for spw_index in range(spwNum):
     XYphase = XY2Phase(PA, QUsolution[0], QUsolution[1], caledVis[spw_index][[1,2]])

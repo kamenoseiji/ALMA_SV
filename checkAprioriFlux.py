@@ -67,7 +67,7 @@ for band_index in range(NumBands):
         sourceIDscan.append( msmd.sourceidforfield(msmd.fieldsforscan(onsourceScans[scan_index])[0]))
         interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spwLists[band_index][0], onsourceScans[scan_index])
         AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, 0, AZ, EL)
-        PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; np.std(np.sin(PA))
+        PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; dPA = np.std(np.sin(PA))
         OnAZ.append(np.median(AzScan)); OnEL.append(np.median(ElScan)); OnPA.append(np.median(PA))
         refTime = refTime + [np.median(timeStamp)]
         catalogIQUV = np.array([catalogStokesI.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesQ.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesU.get(sourceList[sourceIDscan[scan_index]], 0.0), 0.0])
