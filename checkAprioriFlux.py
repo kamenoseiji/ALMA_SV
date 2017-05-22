@@ -51,6 +51,7 @@ except:
 #
 PolList = ['X', 'Y']
 #-------- Loop for Bands
+#for band_index in range(1):
 for band_index in range(NumBands):
     bandID = int(UniqBands[band_index][3:5])-1
     ONScan = BandScans[band_index][indexList( ONScans, BandScans[band_index] )]

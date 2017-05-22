@@ -226,7 +226,7 @@ for scan_index in range(scanNum):
     GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
     pCalVis = (BPCaledXspec.transpose(0,2,1,3,4) / (GainP[polYindex][:,ant0[0:SAblNum]]* GainP[polXindex][:,ant1[0:SAblNum]].conjugate()))[:,chRange]
     for spw_index in range(spwNum):
-        chAvgVis = np.mean(pCalVis[spw_index], axis=(0,3))[[0,3]]* np.sqrt( SEFD[spw_index][:,ant0[0:SAblNum]]* SEFD[spw_index][:,ant1[0:SAblNum]]) 
+        chAvgVis = np.mean(pCalVis[spw_index], axis=(0,3))[[0,3]]* np.sqrt(SEFD[spw_index][:,ant0[0:SAblNum]]* SEFD[spw_index][:,ant1[0:SAblNum]]) 
         indivRelGain = abs(gainComplexVec(chAvgVis.T))
         SEFD[spw_index][:,SAantennas] *= ((np.percentile(indivRelGain, 75, axis=0) / indivRelGain)**2).T
     #
