@@ -11,7 +11,7 @@ blNum = antNum* (antNum - 1) / 2
 print '---Checking spectral windows for ' + prefix
 msmd.open(msfile)
 spw = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); spw.sort()
-spwNames = msmd.namesforspws(spw)
+if not 'spwNames' in locals(): spwNames = msmd.namesforspws(spw)
 BandNames, pattern = [], r'RB_..'
 for spwName in spwNames: BandNames = BandNames + re.findall(pattern, spwName)
 UniqBands = unique(BandNames).tolist(); NumBands = len(UniqBands)
@@ -27,14 +27,6 @@ for band_index in range(NumBands):
 print '---Checking source list'
 sourceList, posList = GetSourceList(msfile); sourceList = sourceRename(sourceList); numSource = len(sourceList)
 SSOList   = indexList( np.array(SSOCatalog), np.array(sourceList))
-#-------- Check MJD for Ambient Load
-print '---Checking time for ambient and hot load'
-timeOFF, timeAMB, timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
-if len(timeAMB) == 0:
-    timeON  = msmd.timesforintent("CALIBRATE_ATMOSPHERE#ON_SOURCE")
-    timeAMB = timeON[(np.where( np.diff(timeON) > 20.0)[0] - 8).tolist()]
-    timeHOT = timeON[(np.where( np.diff(timeON) > 20.0)[0] - 2).tolist()]
-#
 #-------- Scan Intents
 try:
     FCScans = np.append(msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
@@ -83,19 +75,19 @@ for band_index in range(NumBands):
         #
     #
     BPcal = sourceList[sourceIDscan[np.argmax(BPquality)]]; BPScan = onsourceScans[np.argmax(BPquality)]; timeLabelBP = qa.time('%fs' % (refTime[np.argmax(BPquality)]), form='ymd')[0]
-    if max(FLscore) > 0.1:
-        EQcal = sourceList[sourceIDscan[np.argmax(FLscore)]]; EQScan = onsourceScans[np.argmax(FLscore)]; timeLabelEQ = qa.time('%fs' % (refTime[np.argmax(FLscore)]), form='ymd')[0]
-    else: 
-        EQcal = sourceList[sourceIDscan[np.argmax(EQquality)]]; EQScan = onsourceScans[np.argmax(EQquality)]; timeLabelEQ = qa.time('%fs' % (refTime[np.argmax(EQquality)]), form='ymd')[0]
-    #
+    EQcal = sourceList[sourceIDscan[np.argmax(EQquality)]]; EQScan = onsourceScans[np.argmax(EQquality)]; timeLabelEQ = qa.time('%fs' % (refTime[np.argmax(EQquality)]), form='ymd')[0]
     BPcalText = 'Use %s [EL = %4.1f deg] %s as Bandpass Calibrator' % (BPcal, 180.0* OnEL[onsourceScans.index(BPScan)]/np.pi, timeLabelBP); print BPcalText
     EQcalText = 'Use %s [EL = %4.1f deg] %s as Gain Equalizer' % (EQcal, 180.0* OnEL[onsourceScans.index(EQScan)]/np.pi, timeLabelEQ); print EQcalText
     #-------- Polarization setup 
     spw = spwLists[band_index]; spwNum = len(spw); polNum = msmd.ncorrforpol(msmd.polidfordatadesc(spw[0]))
-    if polNum == 4: pPol, cPol = [0,3], [1,2]   # Full polarizations
-    else:   pPol, cPol = [0,1], []              # Only parallel polarizations
-    ppolNum, cpolNum = len(pPol), len(cPol)
-    execfile(SCR_DIR + 'aprioriFlux.py')
+    if polNum == 4:
+        pPol, cPol = [0,3], [1,2]   # Full polarizations
+        ppolNum, cpolNum = len(pPol), len(cPol)
+        execfile(SCR_DIR + 'aprioriStokes.py')
+    else:
+        pPol, cPol = [0,1], []              # Only parallel polarizations
+        ppolNum, cpolNum = len(pPol), len(cPol)
+        execfile(SCR_DIR + 'aprioriFlux.py')
 #
 del msfile, UniqBands
 msmd.done()

@@ -1480,7 +1480,7 @@ def polariGain( XX, YY, PA, StokesQ, StokesU):
 def XXYY2QU(PA, Vis):       # <XX*>, <YY*> to determine Q and U
     timeNum, sinPA2, cosPA2 = len(PA),np.sin(2.0*PA), np.cos(2.0*PA)
     W = np.ones(timeNum) / (np.var(Vis[0].imag) + np.var(Vis[1].imag))   # weight
-    XX_YY = Vis[0].real - Vis[1].real
+    XX_YY = (Vis[0].real - Vis[1].real) / (Vis[0].real + Vis[1].real)
     P = np.array(np.c_[cosPA2, sinPA2]).T
     return 0.5* scipy.linalg.solve(np.dot(P, np.dot(np.diag(W), P.T)), np.dot(P, W* XX_YY))
 #

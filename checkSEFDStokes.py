@@ -16,12 +16,6 @@ kb        = 1.38064852e3
 #-------- Check Scans for atmCal
 logfile = open(prefix + '-' + UniqBands[band_index] + '-Flux.log', 'w') 
 logfile.write(FLScaleText + '\n'); logfile.write(BPcalText + '\n'); logfile.write(EQcalText + '\n')
-print '---Checking time series in MS and atmCal scans'
-tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spw[0]`).getcol('TIME'); tb.close()
-OnTimeIndex = []
-for scan_index in range(scanNum): OnTimeIndex.append( indexList(msmd.timesforscan(onsourceScans[scan_index]), timeXY) )
-offTime, ambTime, hotTime = sort( list(set(timeXY) & set(timeOFF)) ), sort( list(set(timeXY) & set(timeAMB)) ), sort( list(set(timeXY) & set(timeHOT)) )
-offTimeIndex, ambTimeIndex, hotTimeIndex = indexList(offTime, timeXY),  indexList(ambTime, timeXY),  indexList(hotTime, timeXY)
 #-------- Tsys measurements
 execfile(SCR_DIR + 'TsysCal.py')  
 ######## Outputs from TsysCal.py :
@@ -61,24 +55,22 @@ antDia = np.ones(antNum)
 for ant_index in range(antNum): antDia[ant_index] = msmd.antennadiameter(antList[ant_index])['value']
 AeNominal = 0.6* 0.25* np.pi* antDia**2      # Nominal Collecting Area
 #-------- Check D-term files
-if polNum == 4:
-    print '---Checking D-term files'
-    DantList, noDlist = [], []
-    Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
-    for ant_index in UseAnt:
-        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW0-' + antList[ant_index] + '.DSpec.npy'
-        if os.path.exists(Dfile): DantList += [ant_index]
-        else: noDlist += [ant_index]
-    #
+print '---Checking D-term files'
+DantList, noDlist = [], []
+Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
+for ant_index in UseAnt:
+    Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW0-' + antList[ant_index] + '.DSpec.npy'
+    if os.path.exists(Dfile): DantList += [ant_index]
+    else: noDlist += [ant_index]
+#
     DantNum, noDantNum = len(DantList), len(noDlist)
     print 'Antennas with D-term file (%d):' % (DantNum),
-    for ant_index in DantList: print '%s ' % antList[ant_index],
-    print ''
-    if noDantNum > 0:
-        print 'Antennas without D-term file (%d) : ' % (noDantNum),
-        for ant_index in noDlist: print '%s ' % antList[ant_index],
-        sys.exit(' Run DtermTransfer first!!')
-    #
+for ant_index in DantList: print '%s ' % antList[ant_index],
+print ''
+if noDantNum > 0:
+    print 'Antennas without D-term file (%d) : ' % (noDantNum),
+    for ant_index in noDlist: print '%s ' % antList[ant_index],
+    sys.exit(' Run DtermTransfer first!!')
 #
 #-------- Load D-term file
 DxList, DyList = [], []
@@ -96,7 +88,7 @@ chNum = np.array(DxList).shape[1]
 DxSpec, DySpec = np.array(DxList).reshape([UseAntNum, spwNum, chNum]), np.array(DyList).reshape([UseAntNum, spwNum, chNum])
 #-------- Bandpass Table
 print '---Generating antenna-based bandpass table'
-XYdelayList, BPList = [], []
+BPList = []
 for spw_index in spw:
     BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPScan, blMap, blInv)
     BP_ant[:,1] *= XY_BP
@@ -132,22 +124,17 @@ for spw_index in range(spwNum):
 #
 #
 GainP = np.array(GainP) # GainP[spw, pol, ant, time]
-AeSeqX, AeSeqY = np.array(AeSeqX), np.array(AeSeqY)
-######## Outputs from SSOflux.py :
-# AeSeqX[spw, antMap], AeSeqX[spw, antMap] : (relative) aperture efficiency, assuming 1 Jy
+AeSeqX, AeSeqY = np.array(AeSeqX), np.array(AeSeqY) # AeSeqX[spw, antMap], AeSeqX[spw, antMap] : (relative) aperture efficiency, assuming 1 Jy
 #
 spwPhase = [0.0]* 2* spwNum
 for ant_index in range(1,UseAntNum):
     for pol_index in range(2):
         spwPhase = spwPhase + [0.0]
-        for spw_index in range(1,spwNum):
-            spwPhase = spwPhase + [np.angle(GainP[spw_index, pol_index, ant_index].dot(GainP[0, pol_index, ant_index].conjugate()))]
-        #
+        for spw_index in range(1,spwNum): spwPhase = spwPhase + [np.angle(GainP[spw_index, pol_index, ant_index].dot(GainP[0, pol_index, ant_index].conjugate()))]
     #
 #
 spwPhase = np.array(spwPhase).reshape([UseAntNum, 2, spwNum]); spwTwiddle = exp(1.0j *spwPhase)
-for spw_index in range(1,spwNum):
-    BPList[spw_index] = (BPList[spw_index].transpose(2,0,1)* spwTwiddle[:,:,spw_index]).transpose(1,2,0)
+for spw_index in range(1,spwNum): BPList[spw_index] = (BPList[spw_index].transpose(2,0,1)* spwTwiddle[:,:,spw_index]).transpose(1,2,0)
 #
 #-------- Flux models for solar system objects
 msmd.done()
@@ -265,6 +252,7 @@ print '---Flux densities of sources ---'
 pp = PdfPages('FL_' + prefix + '_' + UniqBands[band_index] + '.pdf')
 polLabel = ['I', 'Q', 'U', 'V']
 Pcolor   = ['black', 'blue', 'red', 'green']
+#for scan_index in range(1):
 for scan_index in range(scanNum):
     figScan = plt.figure(scan_index, figsize = (11, 8))
     figScan.suptitle(prefix + ' ' + UniqBands[band_index])
@@ -332,25 +320,30 @@ for scan_index in range(scanNum):
     for spw_index in range(spwNum):
         StokesI_PL = figScan.add_subplot( 2, spwNum, spw_index + 1 )
         StokesP_PL = figScan.add_subplot( 2, spwNum, spwNum + spw_index + 1 )
-        text_sd = ' SPW%02d %5.1f GHz' % (spw[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
+        text_sd = ' SPW%02d %5.1f GHz ' % (spw[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
         Stokes = np.zeros([4,SAblNum], dtype=complex)
         for bl_index in range(SAblNum):
             Minv = InvMullerVector(DxSpec[SAant1[bl_index], spw_index][chRange], DySpec[SAant1[bl_index], spw_index][chRange], DxSpec[SAant0[bl_index], spw_index][chRange], DySpec[SAant0[bl_index], spw_index][chRange], np.ones(UseChNum))
             Stokes[:,bl_index] = PS.reshape(4, 4*PAnum).dot(Minv.reshape(4, 4*UseChNum).dot(AmpCalVis[spw_index][bl_index].reshape(4*UseChNum, PAnum)).reshape(4*PAnum)) / (PAnum* UseChNum)
         #
         StokesVis, StokesErr = Stokes.real, Stokes.imag
+        visFlag = np.where(abs(StokesVis[0] - np.percentile(StokesVis[0], 75))/np.percentile(StokesVis[0], 75) < 0.2 )[0]
+        weight = np.zeros(SAblNum); weight[visFlag] = 1.0/np.var(StokesVis[0][visFlag])
+        P, W = np.c_[np.ones(SAblNum), uvDist], np.diag(weight)
+        PtWP_inv = scipy.linalg.inv(P.T.dot(W.dot(P)))
+        solution, solerr = PtWP_inv.dot(P.T.dot(weight* StokesVis[0])),  np.sqrt(np.diag(PtWP_inv)) # solution[0]:intercept, solution[1]:slope
+        ScanFlux[scan_index, spw_index, 0], ScanSlope[scan_index, spw_index, 0], ErrFlux[scan_index, spw_index, 0] = solution[0], solution[1], solerr[0]
+        if abs(solution[1]) < 5.0* solerr[1]: solution[1] = 0.0
+        for pol_index in range(1,4):
+            ScanSlope[scan_index, spw_index, pol_index] = solution[1]* np.sign(np.median(StokesVis[pol_index]))
+            solution[0] = (weight.dot(StokesVis[pol_index]) - ScanSlope[scan_index, spw_index, pol_index]* weight.dot(uvDist))/(np.sum(weight)); ScanFlux[scan_index, spw_index, pol_index] = solution[0]
+            resid = StokesVis[pol_index] - ScanSlope[scan_index, spw_index, pol_index]* uvDist - solution[0]; ErrFlux[scan_index, spw_index, pol_index] = np.sqrt(weight.dot(resid**2)/np.sum(weight))
+        #
         for pol_index in range(4):
-            visFlag = np.where(abs(StokesVis[pol_index] - np.percentile(StokesVis[pol_index], 75))/np.percentile(StokesVis[0], 75) < 0.2 )[0]
             if len(visFlag) < 6:
                 text_sd = 'Only %d vis.    ' % (len(visFlag)) ; logfile.write(text_sd + '\n'); print text_sd,
                 continue
             #
-            weight = np.zeros(SAblNum); weight[visFlag] = 1.0/np.var(StokesVis[pol_index][visFlag])
-            P, W = np.c_[np.ones(SAblNum), uvDist], np.diag(weight)
-            PtWP_inv = scipy.linalg.inv(np.dot(P.T, np.dot(W, P))) 
-            solution, solerr = PtWP_inv.dot(P.T.dot(weight* StokesVis[pol_index])),  np.sqrt(np.diag(PtWP_inv))
-            if solution[1] > -2.0* solerr[1]: solution[0] = np.median(StokesVis[pol_index]); solution[1] = 0.0
-            ScanFlux[scan_index, spw_index, pol_index], ScanSlope[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index] = solution[0], solution[1], solerr[0] 
             text_sd = '%6.3f (%.3f) ' % (ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index]); logfile.write(text_sd); print text_sd,
         #
         StokesI_PL.plot( uvDist, StokesVis[0], '.', label=polLabel[0], color=Pcolor[0])

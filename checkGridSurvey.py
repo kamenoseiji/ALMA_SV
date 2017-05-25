@@ -16,7 +16,7 @@ msmd.open(msfile)
 print prefix
 print '---Checking spectral windows'
 spw = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); spw.sort()
-spwNames = msmd.namesforspws(spw)
+if not 'spwNames' in locals(): spwNames = msmd.namesforspws(spw)
 BandNames, pattern = [], r'RB_..'
 for spwName in spwNames: BandNames = BandNames + re.findall(pattern, spwName)
 UniqBands = unique(BandNames).tolist(); NumBands = len(UniqBands)
@@ -38,14 +38,6 @@ for source in sourceList: print source,
 print ''; print '  Solar System Objects:',
 for index in SSOList: print sourceList[index],
 print ''
-#-------- Check MJD for Ambient Load
-print '---Checking time for ambient and hot load'
-timeOFF, timeAMB, timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
-if len(timeAMB) == 0:
-    timeON  = msmd.timesforintent("CALIBRATE_ATMOSPHERE#ON_SOURCE")
-    timeAMB = timeON[(np.where( np.diff(timeON) > 20.0)[0] - 8).tolist()]
-    timeHOT = timeON[(np.where( np.diff(timeON) > 20.0)[0] - 2).tolist()]
-#
 #-------- Check Scans of BandPass, EQualization, and FluxScaling
 polNum = msmd.ncorrforpol(msmd.polidfordatadesc(spw[0]))
 try:
@@ -75,7 +67,6 @@ for band_index in range(NumBands):
     scanNum = len(onsourceScans)
     #-------- Check AZEL
     azelTime, AntID, AZ, EL = GetAzEl(msfile)
-    #azelTime_index = np.where( AntID == UseAnt[refantID] )[0].tolist() 
     azelTime_index = np.where( AntID == 0 )[0].tolist() 
     azel = np.r_[AZ[azelTime_index], EL[azelTime_index]].reshape(2, len(azelTime_index))
     refTime, OnAZ, OnEL, OnPA, BPquality, EQquality, sourceIDscan, FLscore = [], [], [], [], [], [], [], np.zeros(scanNum)
@@ -83,7 +74,6 @@ for band_index in range(NumBands):
         sourceIDscan.append( msmd.sourceidforfield(msmd.fieldsforscan(onsourceScans[scan_index])[0]))
         interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spwLists[band_index][0], onsourceScans[scan_index])
         AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, 0, AZ, EL)
-        #AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
         PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; dPA = np.std(np.sin(PA)) #dPA = abs(np.sin(max(PA) - min(PA)))
         OnAZ.append(np.median(AzScan)); OnEL.append(np.median(ElScan)); OnPA.append(np.median(PA))
         refTime = refTime + [np.median(timeStamp)]
@@ -113,7 +103,9 @@ for band_index in range(NumBands):
     if polNum == 4: pPol, cPol = [0,3], [1,2]  # parallel and cross pol
     ppolNum, cpolNum = len(pPol), len(cPol)
     msmd.done()
-    if polNum == 2: pPol, cPol = [0,1], []   ; ppolNum, cpolNum = len(pPol), len(cPol); execfile(SCR_DIR + 'checkSEFD.py')
+    if polNum == 2:
+        pPol, cPol = [0,1], []   ; ppolNum, cpolNum = len(pPol), len(cPol)
+        execfile(SCR_DIR + 'checkSEFD.py')
     if polNum == 4:
         pPol, cPol = [0,3], [1,2]; ppolNum, cpolNum = len(pPol), len(cPol)
         execfile(SCR_DIR + 'checkSEFDStokes.py')

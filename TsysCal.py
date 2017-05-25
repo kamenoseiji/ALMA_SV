@@ -17,6 +17,29 @@ def get_progressbar_str(progress):
 #
 Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
 kb        = 1.38064852e3
+#-------- Check Ambient Load Timing
+print '---Checking time for ambient and hot load'
+timeOFF, timeAMB, timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
+if len(timeAMB) == 0:
+    #timeON  = msmd.timesforintent("CALIBRATE_ATMOSPHERE#ON_SOURCE")
+    timeXY, Pspec = GetPSpec(msfile, 0, spwLists[band_index][0])
+    timeNum, chNum = Pspec.shape[2], Pspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
+    chAvgPower = np.mean(Pspec[0][chRange], axis=0)
+    offTimeIndex = indexList(timeOFF, timeXY)
+    hotTimeIndex = (np.array(offTimeIndex) - 1).tolist()
+    ambTimeIndex = (np.array(offTimeIndex) - 2).tolist()
+    #edge = np.where( abs(np.diff( chAvgPower )) > 0.1* np.median(chAvgPower))[0].tolist()
+    #atmList = np.array(edge)[np.where( abs( np.diff(timeXY[edge]) - np.median(np.diff(timeXY[edge]))) < 0.5* np.median(np.diff(timeXY[edge])))[0].tolist()]
+    #atmList = atmList.reshape(len(atmList)/2, 2)
+    #ambTimeIndex, hotTimeIndex, offTimeIndex = atmList[:,0].tolist(), atmList[:,1].tolist(), (atmList[:,1] + 1).tolist()
+    ambTime, hotTime, offTime = timeXY[ambTimeIndex], timeXY[hotTimeIndex], timeXY[offTimeIndex]
+else:
+    tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spw[0]`).getcol('TIME'); tb.close()
+    offTime, ambTime, hotTime = sort( list(set(timeXY) & set(timeOFF)) ), sort( list(set(timeXY) & set(timeAMB)) ), sort( list(set(timeXY) & set(timeHOT)) )
+    offTimeIndex, ambTimeIndex, hotTimeIndex = indexList(offTime, timeXY),  indexList(ambTime, timeXY),  indexList(hotTime, timeXY)
+#
+OnTimeIndex = []
+for scan_index in range(scanNum): OnTimeIndex.append( indexList(msmd.timesforscan(onsourceScans[scan_index]), timeXY) )
 #-------- Load autocorrelation power spectra
 print '---Loading autocorr power spectra'
 OnSpecList, OffSpecList, AmbSpecList, HotSpecList = [], [], [], []
@@ -64,6 +87,8 @@ TrxList, TskyList = [], []
 tempAmb, tempHot  = np.zeros([antNum]), np.zeros([antNum])
 for ant_index in range(antNum):
     tempAmb[ant_index], tempHot[ant_index] = GetLoadTemp(msfile, ant_index, spw[0])
+    if tempAmb[ant_index] < 250: tempAmb[ant_index] += 273.15
+    if tempHot[ant_index] < 300: tempHot[ant_index] += 273.15
     for spw_index in range(spwNum):
         AntSpwIndex = ant_index* spwNum + spw_index
         chNum = AmbSpecList[AntSpwIndex].shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
