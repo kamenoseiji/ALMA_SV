@@ -108,7 +108,7 @@ for ant_index in range(antNum):
             TrxTemp = chAvgTrx[ant_index, spw_index, pol_index]
             TrxFlag[ant_index, spw_index, pol_index, np.where( abs(TrxTemp - np.median(TrxTemp)) > 0.2* np.median(TrxTemp))[0].tolist()] = 0.0
             TrxFlag[ant_index, spw_index, pol_index, np.where( TrxTemp < 1.0)[0].tolist()] = 0.0
-            TrxFlag[ant_index, spw_index, pol_index, SSOScanIndex] = 0.0
+            if 'SSOScanIndex' in locals(): TrxFlag[ant_index, spw_index, pol_index, SSOScanIndex] = 0.0
         #
         TrxList.append(Trx)
         TskyList.append(Tsky)
