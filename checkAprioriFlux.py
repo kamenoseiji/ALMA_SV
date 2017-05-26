@@ -51,6 +51,7 @@ for band_index in range(NumBands):
     FCScan = BandScans[band_index][indexList( FCScans, BandScans[band_index] )]
     onsourceScans = unique([BPScan] + FCScan.tolist() + ONScan.tolist()).tolist()
     scanNum = len(onsourceScans)
+    SSOScanIndex = []
     #-------- Check AZEL
     azelTime, AntID, AZ, EL = GetAzEl(msfile)
     azelTime_index = np.where( AntID == 0 )[0].tolist()
@@ -72,6 +73,7 @@ for band_index in range(NumBands):
         print 'Scan%02d : %10s AZ=%6.1f EL=%4.1f PA=%6.1f dPA=%5.2f pRes=%5.2f BPquality=%7.4f EQquality=%6.0f' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0*OnAZ[scan_index]/np.pi, 180.0*OnEL[scan_index]/np.pi, 180.0*OnPA[scan_index]/np.pi, 180.0*dPA/np.pi, UCmQS, BPquality[scan_index], EQquality[scan_index])
         if sourceIDscan[scan_index] in SSOList:
             FLscore[scan_index] = np.exp(np.log(math.sin(OnEL[scan_index])-0.34))* SSOscore[bandID][SSOCatalog.index(sourceList[sourceIDscan[scan_index]])]
+            SSOScanIndex = SSOScanIndex + [scan_index]
         #
     #
     BPcal = sourceList[sourceIDscan[np.argmax(BPquality)]]; BPScan = onsourceScans[np.argmax(BPquality)]; timeLabelBP = qa.time('%fs' % (refTime[np.argmax(BPquality)]), form='ymd')[0]

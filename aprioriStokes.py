@@ -45,12 +45,12 @@ flagList = np.where(np.median(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) > 2.0
 flagList = unique(flagList + np.where(np.min(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) < 1.0 )[0].tolist()).tolist()
 flagAnt[flagList] = 0.0 # Flagging by abnormal Trx
 UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
-print '  Usable antennas: ',
-for ants in antList[UseAnt].tolist(): print ants,
-print ''
-print '  Flagged by Trx:  ',
-for ants in antList[flagList].tolist(): print ants,
-print ''
+text_sd = '  Usable antennas: '
+for ants in antList[UseAnt].tolist(): text_sd = text_sd + ants + ' '
+logfile.write(text_sd + '\n'); print text_sd
+text_sd = '  Flagged by Trx:  '
+for ants in antList[flagList].tolist(): text_sd = text_sd + ants + ' '
+logfile.write(text_sd + '\n'); print text_sd
 blMap, blInv= range(UseBlNum), [False]* UseBlNum
 ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
 for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
@@ -165,7 +165,7 @@ for spw_index in range(spwNum):
     caledVis.append(np.mean((chAvgVis / (GainP[spw_index][polYindex][:,ant0]* GainP[spw_index][polXindex][:,ant1].conjugate())).transpose(2, 0, 1)* np.sqrt(SEFD[polYindex][:,ant0]* SEFD[polXindex][:,ant1]), axis=2).T)
 #
 caledVis = np.array(caledVis)
-#-------- XY phase using BP scan
+#-------- SPW-specific phase using BP scan
 GainP = np.array(GainP) # GainP[spw, pol, ant, time]
 spwPhase = [0.0]* 2* spwNum
 for ant_index in range(1,UseAntNum):
@@ -236,7 +236,7 @@ for scan_index in range(scanNum):
     BPCaledXspec = np.array(BPCaledXspec)   # BPCaledXspec[spw, pol, ch, bl, time]
     chAvgVis = np.mean(np.array(BPCaledXspec)[:,:,chRange], axis=(0,2)) # chAvgVis[pol, bl, time]
     GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
-    pCalVis = (BPCaledXspec.transpose(0,2,1,3,4) / (GainP[polYindex][:,ant0[0:SAblNum]]* GainP[polXindex][:,ant1[0:SAblNum]].conjugate()))[:,chRange]
+    pCalVis = (BPCaledXspec.transpose(0,2,1,3,4) / (GainP[polYindex][:,SAant0]* GainP[polXindex][:,SAant1].conjugate()))[:,chRange]
     for spw_index in range(spwNum):
         chNum, chWid, Freq = GetChNum(msfile, spw[spw_index])
         centerFreqList.append( np.median(Freq)*1.0e-9 )
