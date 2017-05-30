@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ptick
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Grid.py')
+class END(Exception):
+    pass
+#
 #-------- Procedures
 msfile = wd + prefix + '.ms'
 #-------- Check Antenna List
@@ -32,7 +35,11 @@ for band_index in range(NumBands):
 print '---Checking source list'
 sourceList, posList = GetSourceList(msfile); sourceList = sourceRename(sourceList); numSource = len(sourceList)
 SSOList   = indexList( np.array(SSOCatalog), np.array(sourceList) ) # Find Solar System Objects in the source list
-if len(SSOList) == 0: print '  No Solar System Object was observed.'; sys.exit()
+try:
+    if len(SSOList) == 0: raise END
+except END:
+    print '  No Solar System Object was observed.'
+#
 QSOList   = list(set(range(numSource)) - set(SSOList))
 for source in sourceList: print source,
 print ''; print '  Solar System Objects:',
