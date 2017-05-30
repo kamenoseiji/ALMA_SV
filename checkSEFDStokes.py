@@ -63,8 +63,8 @@ for ant_index in UseAnt:
     if os.path.exists(Dfile): DantList += [ant_index]
     else: noDlist += [ant_index]
 #
-    DantNum, noDantNum = len(DantList), len(noDlist)
-    print 'Antennas with D-term file (%d):' % (DantNum),
+DantNum, noDantNum = len(DantList), len(noDlist)
+print 'Antennas with D-term file (%d):' % (DantNum),
 for ant_index in DantList: print '%s ' % antList[ant_index],
 print ''
 if noDantNum > 0:
