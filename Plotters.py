@@ -5,7 +5,7 @@ import matplotlib.cm as cm
 #-------- Plot optical depth
 def plotTau(prefix, antList, spwList, secZ, plotTsky, tempAtm, Tau0, TrxFlag, plotMax, PLOTFMT='png'):
     PolList = ['X', 'Y']
-    airmass = np.arange( 1.0, 1.25*np.max(secZ), 0.01)
+    airmass = np.arange( 1.0, 1.25*np.percentile(secZ, 90), 0.01)
     figTau = plt.figure(0, figsize = (11,8))
     figTau.suptitle(prefix + ' Optical Depth')
     figTau.text(0.45, 0.05, 'Airmass')
