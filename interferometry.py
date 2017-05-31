@@ -925,7 +925,9 @@ def delayCalSpec2( Xspec, chRange, sigma ):  # chRange = [startCH:stopCH] specif
 #
 def BPtable(msfile, spw, BPScan, blMap, blInv):   # 
     blNum = len(blMap); antNum = Bl2Ant(blNum)[0]
+    print 'Load Start'
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan)    # Xspec[pol, ch, bl, time]
+    print 'Load End'
     ant0, ant1, polNum, chNum, timeNum = ANT0[0:blNum], ANT1[0:blNum], Pspec.shape[0], Pspec.shape[1], Pspec.shape[3]
     chRange = range(int(0.05*chNum), int(0.95*chNum))                   # Trim band edge
     BP_ant  = np.ones([antNum, 2, chNum], dtype=complex)          # BP_ant[ant, pol, ch]
