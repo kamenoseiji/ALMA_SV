@@ -341,7 +341,7 @@ for scan_index in range(scanNum):
             ScanSlope[scan_index, spw_index, pol_index] = ScanSlope[scan_index, spw_index, 0] * np.median(StokesVis[pol_index])/ScanFlux[scan_index, spw_index, 0]
             solution[0] = (weight.dot(StokesVis[pol_index]) - ScanSlope[scan_index, spw_index, pol_index]* weight.dot(uvDist))/(np.sum(weight))
             ScanFlux[scan_index, spw_index, pol_index] = solution[0]
-            print 'Pol %d : median=%f slope=%f intercept=%f slopeI= %f' % (pol_index, np.median(StokesVis[pol_index]), ScanSlope[scan_index, spw_index, pol_index], ScanFlux[scan_index, spw_index, pol_index], solution[1])
+            # print 'Pol %d : median=%f slope=%f intercept=%f slopeI= %f' % (pol_index, np.median(StokesVis[pol_index]), ScanSlope[scan_index, spw_index, pol_index], ScanFlux[scan_index, spw_index, pol_index], solution[1])
             resid = StokesVis[pol_index] - ScanSlope[scan_index, spw_index, pol_index]* uvDist - solution[0]; ErrFlux[scan_index, spw_index, pol_index] = np.sqrt(weight.dot(resid**2)/np.sum(weight))
         #
         for pol_index in range(4):
