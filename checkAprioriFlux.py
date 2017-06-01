@@ -85,8 +85,7 @@ for band_index in range(NumBands):
     if polNum == 4:
         pPol, cPol = [0,3], [1,2]   # Full polarizations
         ppolNum, cpolNum = len(pPol), len(cPol)
-        #execfile(SCR_DIR + 'aprioriStokes.py')
-        execfile(SCR_DIR + 'aprioriStokesSpec.py')
+        execfile(SCR_DIR + 'aprioriStokes.py')
     else:
         pPol, cPol = [0,1], []              # Only parallel polarizations
         ppolNum, cpolNum = len(pPol), len(cPol)

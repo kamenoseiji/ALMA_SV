@@ -1,144 +1,94 @@
+import sys
+import analysisUtils as au
 execfile(SCR_DIR + 'interferometry.py')
-from scipy.constants import constants
-from scipy.interpolate import UnivariateSpline
-from scipy.interpolate import griddata
-ALMA_lat = -23.029/180.0*pi     # ALMA AOS Latitude
-#----------------------------------------- Procedures
-fileNum, spwNum = len(prefixList), len(spwList)
-polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
+msfile = prefix + '.ms'
+#-------- Check Antenna List
+antList = GetAntName(msfile)
+antNum = len(antList)
+blNum = antNum* (antNum - 1) / 2
+#-------- Check SPWs
+print '---Checking spectral windows for ' + prefix
+msmd.open(msfile)
+spw = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); spw.sort()
+if not 'spwNames' in locals(): spwNames = msmd.namesforspws(spw)
+BandNames, pattern = [], r'RB_..'
+for spwName in spwNames: BandNames = BandNames + re.findall(pattern, spwName)
+UniqBands = unique(BandNames).tolist(); NumBands = len(UniqBands)
+spwLists, BandScans, BandPA = [], [], []
+for band_index in range(NumBands):
+    BandPA = BandPA + [(BANDPA[int(UniqBands[band_index][3:5])] + 90.0)*pi/180.0]
+    spwLists = spwLists + [np.array(spw)[indexList( np.array([UniqBands[band_index]]), np.array(BandNames))].tolist()]
+    BandScans = BandScans + [msmd.scansforspw(spwLists[band_index][0])]
+    print ' ',
+    print UniqBands[band_index] + ': SPW=' + `spwLists[band_index]`
 #
-trkAntSet = set(range(64))
-scansFile = []
-for file_index in range(fileNum):
-    prefix = prefixList[file_index]
-    msfile = wd + prefix + '.ms'
-    print '-- Checking %s ' % (msfile)
-    antList = GetAntName(msfile)
-    refAntID  = indexList([refantName], antList)
-    flagAntID = indexList(antFlag, antList)
-    if len(refAntID) < 1:
-        print 'Antenna %s didn not participate in this file.' % refantName
-        continue
+#-------- Check source list
+print '---Checking source list'
+sourceList, posList = GetSourceList(msfile); sourceList = sourceRename(sourceList); numSource = len(sourceList)
+SSOList   = indexList( np.array(SSOCatalog), np.array(sourceList))
+#-------- Scan Intents
+try:
+    FCScans = np.append(msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
+except:
+    FCScans = np.append(msmd.scansforintent("CALIBRATE_AMPLI#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
+try:
+    ONScans = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
+except:
+    ONScans = FCScans
+try:
+    BPScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
+except:
+    BPScans = ONScans
+#
+PolList = ['X', 'Y']
+#-------- Loop for Bands
+#for band_index in range(1):
+for band_index in range(NumBands):
+    bandID = int(UniqBands[band_index][3:5])-1
+    ONScan = BandScans[band_index][indexList( ONScans, BandScans[band_index] )]
+    BPScan = BandScans[band_index][indexList( BPScans, BandScans[band_index] )][0]
+    FCScan = BandScans[band_index][indexList( FCScans, BandScans[band_index] )]
+    onsourceScans = unique([BPScan] + FCScan.tolist() + ONScan.tolist()).tolist()
+    scanNum = len(onsourceScans)
+    SSOScanIndex = []
+    #-------- Check AZEL
+    azelTime, AntID, AZ, EL = GetAzEl(msfile)
+    azelTime_index = np.where( AntID == 0 )[0].tolist()
+    azel = np.r_[AZ[azelTime_index], EL[azelTime_index]].reshape(2, len(azelTime_index))
+    OnAZ, OnEL, OnPA, BPquality, EQquality, PQquality, sourceIDscan, FLscore, refTime = [], [], [], [], [], [], [], np.zeros(scanNum), []
+    for scan_index in range(scanNum):
+        sourceIDscan.append( msmd.sourceidforfield(msmd.fieldsforscan(onsourceScans[scan_index])[0]))
+        interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spwLists[band_index][0], onsourceScans[scan_index])
+        AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, 0, AZ, EL)
+        PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; dPA = np.std(np.sin(PA))
+        OnAZ.append(np.median(AzScan)); OnEL.append(np.median(ElScan)); OnPA.append(np.median(PA))
+        refTime = refTime + [np.median(timeStamp)]
+        catalogIQUV = np.array([catalogStokesI.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesQ.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesU.get(sourceList[sourceIDscan[scan_index]], 0.0), 0.0])
+        CS, SN = np.cos(2.0* (OnPA[scan_index] + BandPA[band_index])), np.sin(2.0* (OnPA[scan_index] + BandPA[band_index]))
+        QCpUS = catalogIQUV[1]*CS + catalogIQUV[2]*SN   # Qcos + Usin
+        UCmQS = catalogIQUV[2]*CS - catalogIQUV[1]*SN   # Ucos - Qsin
+        BPquality = BPquality + [1000.0* abs(UCmQS)* catalogIQUV[0]* dPA * np.sin(OnEL[scan_index])]
+        EQquality = EQquality + [catalogIQUV[0]* np.sin(OnEL[scan_index] - ELshadow) / (0.001 + QCpUS**2)]
+        print 'Scan%02d : %10s AZ=%6.1f EL=%4.1f PA=%6.1f dPA=%5.2f pRes=%5.2f BPquality=%7.4f EQquality=%6.0f' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0*OnAZ[scan_index]/np.pi, 180.0*OnEL[scan_index]/np.pi, 180.0*OnPA[scan_index]/np.pi, 180.0*dPA/np.pi, UCmQS, BPquality[scan_index], EQquality[scan_index])
+        if sourceIDscan[scan_index] in SSOList:
+            FLscore[scan_index] = np.exp(np.log(math.sin(OnEL[scan_index])-0.34))* SSOscore[bandID][SSOCatalog.index(sourceList[sourceIDscan[scan_index]])]
+            SSOScanIndex = SSOScanIndex + [scan_index]
+        #
+    #
+    BPcal = sourceList[sourceIDscan[np.argmax(BPquality)]]; BPScan = onsourceScans[np.argmax(BPquality)]; timeLabelBP = qa.time('%fs' % (refTime[np.argmax(BPquality)]), form='ymd')[0]
+    EQcal = sourceList[sourceIDscan[np.argmax(EQquality)]]; EQScan = onsourceScans[np.argmax(EQquality)]; timeLabelEQ = qa.time('%fs' % (refTime[np.argmax(EQquality)]), form='ymd')[0]
+    BPcalText = 'Use %s [EL = %4.1f deg] %s as Bandpass Calibrator' % (BPcal, 180.0* OnEL[onsourceScans.index(BPScan)]/np.pi, timeLabelBP); print BPcalText
+    EQcalText = 'Use %s [EL = %4.1f deg] %s as Gain Equalizer' % (EQcal, 180.0* OnEL[onsourceScans.index(EQScan)]/np.pi, timeLabelEQ); print EQcalText
+    #-------- Polarization setup 
+    spw = spwLists[band_index]; spwNum = len(spw); polNum = msmd.ncorrforpol(msmd.polidfordatadesc(spw[0]))
+    if polNum == 4:
+        pPol, cPol = [0,3], [1,2]   # Full polarizations
+        ppolNum, cpolNum = len(pPol), len(cPol)
+        execfile(SCR_DIR + 'aprioriStokes.py')
     else:
-        refAntID = refAntID[0]
-    #
-    msmd.open(msfile)
-    scanList = msmd.scannumbers().tolist()
-    for scan in scanList:
-        timeStamp = msmd.timesforscans(scan).tolist()
-        trkAnt, scanAnt, Time, Offset = antRefScan( msfile, [timeStamp[0], timeStamp[-1]] )
-        trkAnt = list(set(trkAnt) - set(flagAntID))
-        if refAntID in trkAnt:
-            trkAntSet = set(trkAnt) & trkAntSet
-        else:
-            scanList = list( set(scanList) - set([scan]) )
-        #
-        print '---- Scan %d : %d tracking antennas' % (scan, len(trkAnt))
-    #
-    scansFile.append(scanList)
+        pPol, cPol = [0,1], []              # Only parallel polarizations
+        ppolNum, cpolNum = len(pPol), len(cPol)
+        execfile(SCR_DIR + 'aprioriFlux.py')
 #
-antMap = [refAntID] + list(trkAntSet - set([refAntID]))
-antNum = len(antMap); blNum = antNum * (antNum - 1)/2
-ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
-blMap, blInv= range(blNum), [False]* blNum
-for bl_index in range(blNum):
-    blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
-#
-#-------- Loop for SPW
-for spw_index in range(spwNum):
-    spw = spwList[spw_index]
-    caledVis = np.ones([4,blNum, 0], dtype=complex)
-    mjdSec, Az, El = np.ones([0]), np.ones([0]), np.ones([0])
-    if BPprefix != '':  # Bandpass file
-        BPantList, BP_ant, XYdelay = np.load(BPprefix + '-REF' + refantName + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYdelay.npy')
-        BP_ant = BP_ant[indexList(antList[antMap], BPantList)]
-        BP_bl = BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate()
-    #
-#
-    chAvgVis = np.zeros([4, blNum, 0], dtype=complex)
-    for file_index in range(fileNum):
-        prefix = prefixList[file_index]
-        msfile = wd + prefix + '.ms'
-        #-------- AZ, EL, PA
-        azelTime, AntID, AZ, EL = GetAzEl(msfile)
-        azelTime_index = np.where( AntID == refAntID )[0].tolist()
-        timeThresh = np.median( np.diff( azelTime[azelTime_index]))
-        for scan in scansFile[file_index]:
-            #-------- Load Visibilities
-            print '-- Loading visibility data %s SPW=%d SCAN=%d...' % (prefix, spw, scan)
-            timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)  # Xspec[POL, CH, BL, TIME]
-            chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-            if chNum == 1:
-                print '  -- Channel-averaged data: no BP and delay cal'
-                chAvgVis= np.c_[chAvgVis, CrossPolBL(Xspec[:,:,blMap], blInv)[:,0]]
-            else:
-                print '  -- Apply bandpass cal'
-                tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)
-                BPCaledXspec = (tempSpec / BP_bl).transpose(2,3,1,0) 
-                #-------- XY delay cal
-                print '  -- XY delay cal'
-                XYdlSpec = delay_cal( np.ones([chNum], dtype=complex), XYdelay )
-                BPCaledXspec[1] = (BPCaledXspec[1].transpose(1,2,0)* XYdlSpec).transpose(2,0,1)
-                BPCaledXspec[2] = (BPCaledXspec[2].transpose(1,2,0)* XYdlSpec.conjugate()).transpose(2,0,1)
-                #-------- Antenna-based Gain
-                print '  -- Channel-averaging'
-                chAvgVis = np.c_[chAvgVis, np.mean(BPCaledXspec[:,chRange], axis=1)]
-            #
-            #-------- Time index at on axis
-            timeNum = len(timeStamp)
-            mjdSec = np.append(mjdSec, timeStamp)
-            for time_index in range(timeNum):
-                scanAz, scanEl = AzElMatch(timeStamp[time_index], azelTime, AntID, refAntID, timeThresh, AZ, EL)
-                Az, El = np.append(Az, scanAz), np.append(El, scanEl)
-            #
-        #
-    #
-    print '---- Antenna-based gain solution using tracking antennas'
-    Gain  = np.ones([2, antNum, len(mjdSec)], dtype=complex)
-    Gain[0, 0:antNum] = np.apply_along_axis( gainComplex, 0, chAvgVis[0])
-    Gain[1, 0:antNum] = np.apply_along_axis( gainComplex, 0, chAvgVis[3])
-    Gamp = np.sqrt(np.mean(abs(Gain)**2, axis=0))
-    Gain[0, 0:antNum] = Gain[0, 0:antNum] * Gamp / abs(Gain[0, 0:antNum])
-    Gain[1, 0:antNum] = Gain[1, 0:antNum] * Gamp / abs(Gain[1, 0:antNum])
-    #-------- Gain-calibrated visibilities
-    print '  -- Apply gain calibration'
-    caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
-    PA = AzEl2PA(Az, El, ALMA_lat) + BANDPA     # Apply feed orientation
-    PA = np.arctan2( np.sin(PA), np.cos(PA))    # to set in [-pi, pi]
-    Vis    = np.mean(caledVis, axis=1)
-    #-------- Solve for Stokes Parameters and XY phase
-    print '  -- Solution for Q and U'
-    solution = np.r_[XXYY2QU(PA, Vis[[0,3]]), np.zeros(5)]              # XX*, YY* to estimate Q, U
-    solution[2] = XY2Phase(PA, solution[0], solution[1], Vis[[1,2]])    # XY*, YX* to estimate X-Y phase
-    solution, solerr = XY2Stokes(PA, Vis[[1,2]], solution)
-    GainX, GainY = polariGain(caledVis[0], caledVis[3], PA, solution[0], solution[1]); Gain = np.array([GainX, GainY])
-    Vis    = np.mean(caledVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate()), axis=1)
-    solution, solerr = XY2Stokes(PA, Vis[[1,2]], solution)
-    text_sd = '  Q/I= %6.3f+-%6.4f  U/I= %6.3f+-%6.4f  X-Y phase= %6.3f+-%6.4f rad EVPA = %6.2f deg' % (solution[0], solerr[0], solution[1], solerr[1], solution[2], solerr[2], np.arctan2(solution[1],solution[0])*90.0/pi); print text_sd
-    #
-    #-------- Plot
-    if np.mean(np.cos(PA)) < 0.0: PA = np.arctan2(-np.sin(PA), -np.cos(PA)) +  np.pi
-    PArange = np.arange(min(PA), max(PA), 0.01)
-    plt.plot(PArange,  np.cos(2.0*PArange)* solution[0] + np.sin(2.0* PArange)* solution[1], '-', color='green')
-    plt.plot(PArange,  np.cos(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[3], '-', color='cyan')
-    plt.plot(PArange,  np.sin(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[4], '-', color='darkblue')
-    plt.plot(PArange,  np.cos(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[5], '-', color='magenta')
-    plt.plot(PArange, -np.sin(solution[2])* (-np.sin(2.0*PArange)* solution[0] + np.cos(2.0* PArange)* solution[1]) + solution[6], '-', color='darkred')
-    plt.plot(PArange, -np.cos(2.0*PArange)* solution[0] - np.sin(2.0* PArange)* solution[1], '-', color='orange')
-    plt.plot(PA, Vis[0].real - 1.0, '.', label = 'XX* - 1.0',   color='green')
-    plt.plot(PA, Vis[1].real, '.', label = 'ReXY*', color='cyan')
-    plt.plot(PA, Vis[1].imag, '.', label = 'ImXY*', color='darkblue')
-    plt.plot(PA, Vis[2].real, '.', label = 'ReYX*', color='magenta')
-    plt.plot(PA, Vis[2].imag, '.', label = 'ImYX*', color='darkred')
-    plt.plot(PA, Vis[3].real - 1.0, '.', label = 'YY* - 1.0',   color='orange')
-    plt.xlabel('X-Feed Position Angle [rad]'); plt.ylabel('Normalized cross correlations')
-    plt.ylim([-0.15,0.15])
-    plt.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
-    text_sd = '(Q, U)/I = (%6.3f+-%6.3f, %6.3f+-%6.3f) X-Y phase=%6.3f+-%6.3f rad (Ref:%s)' % (solution[0], solerr[0], solution[1], solerr[1], solution[2], solerr[2], antList[refAntID]); plt.text(min(PA), 0.16, text_sd, size='x-small')
-    plt.savefig(prefixList[0] + '-SPW' + `spw` + '-' + refantName + 'QUXY.pdf', form='pdf')
-    #-------- Save Results
-    np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.Ant.npy', antList[antMap])
-    np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.Azel.npy', np.array([mjdSec, Az, El, PA]))
-    np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.QUXY.npy', solution )
-    plt.close('all')
-#
+del msfile, UniqBands
+msmd.done()
