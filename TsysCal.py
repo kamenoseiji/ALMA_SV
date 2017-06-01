@@ -21,17 +21,12 @@ kb        = 1.38064852e3
 print '---Checking time for ambient and hot load'
 timeOFF, timeAMB, timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
 if len(timeAMB) == 0:
-    #timeON  = msmd.timesforintent("CALIBRATE_ATMOSPHERE#ON_SOURCE")
     timeXY, Pspec = GetPSpec(msfile, 0, spwList[0])
     timeNum, chNum = Pspec.shape[2], Pspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
     chAvgPower = np.mean(Pspec[0][chRange], axis=0)
     offTimeIndex = indexList(timeOFF, timeXY)
     hotTimeIndex = (np.array(offTimeIndex) - 1).tolist()
     ambTimeIndex = (np.array(offTimeIndex) - 2).tolist()
-    #edge = np.where( abs(np.diff( chAvgPower )) > 0.1* np.median(chAvgPower))[0].tolist()
-    #atmList = np.array(edge)[np.where( abs( np.diff(timeXY[edge]) - np.median(np.diff(timeXY[edge]))) < 0.5* np.median(np.diff(timeXY[edge])))[0].tolist()]
-    #atmList = atmList.reshape(len(atmList)/2, 2)
-    #ambTimeIndex, hotTimeIndex, offTimeIndex = atmList[:,0].tolist(), atmList[:,1].tolist(), (atmList[:,1] + 1).tolist()
     ambTime, hotTime, offTime = timeXY[ambTimeIndex], timeXY[hotTimeIndex], timeXY[offTimeIndex]
 else:
     tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spw[0]`).getcol('TIME'); tb.close()
@@ -39,11 +34,10 @@ else:
     offTimeIndex, ambTimeIndex, hotTimeIndex = indexList(offTime, timeXY),  indexList(ambTime, timeXY),  indexList(hotTime, timeXY)
 #
 OnTimeIndex = []
-for scan_index in range(scanNum): OnTimeIndex.append( indexList(msmd.timesforscan(onsourceScans[scan_index]), timeXY) )
+for scan_index in range(scanNum): OnTimeIndex.append( indexList(msmd.timesforscan(scanList[scan_index]), timeXY) )
 #-------- Load autocorrelation power spectra
 print '---Loading autocorr power spectra'
 OnSpecList, OffSpecList, AmbSpecList, HotSpecList = [], [], [], []
-#maxTimeIndex = max(offTimeIndex + ambTimeIndex + hotTimeIndex + max(OnTimeIndex))
 for ant_index in range(antNum):
     for spw_index in range(spwNum):
         progress = (1.0* ant_index* spwNum + spw_index + 1.0) / (antNum* spwNum)
@@ -56,10 +50,7 @@ for ant_index in range(antNum):
         OffSpecList.append(Pspec[pPol][:,:,offTimeIndex])
         AmbSpecList.append(Pspec[pPol][:,:,ambTimeIndex])
         HotSpecList.append(Pspec[pPol][:,:,hotTimeIndex])
-        for scan_index in range(scanNum):
-            #OnSpecList.append(np.mean( Pspec[pPol][:,:,OnTimeIndex[scan_index]], axis=2 ))
-            OnSpecList.append(np.median( Pspec[pPol][:,:,OnTimeIndex[scan_index]], axis=2 ))
-        #
+        for scan_index in range(scanNum): OnSpecList.append(np.median( Pspec[pPol][:,:,OnTimeIndex[scan_index]], axis=2 ))
     #
 #
 sys.stderr.write('\n')
@@ -96,7 +87,6 @@ for ant_index in range(antNum):
         for pol_index in range(ppolNum):
             ambSpec, hotSpec = AmbSpecList[AntSpwIndex][pol_index], HotSpecList[AntSpwIndex][pol_index]
             for time_index in range(len(offTime)):
-                #Psamb, Pshot = np.mean(ambSpec, axis=1), np.mean(hotSpec, axis=1)
                 Psamb, Pshot = np.median(ambSpec, axis=1), np.median(hotSpec, axis=1)
                 Psoff = OffSpecList[AntSpwIndex][pol_index][:,time_index]
                 Trx[pol_index, :, time_index] = (tempHot[ant_index]* Psamb - Pshot* tempAmb[ant_index]) / (Pshot - Psamb)
