@@ -22,7 +22,7 @@ print '---Checking time for ambient and hot load'
 timeOFF, timeAMB, timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
 if len(timeAMB) == 0:
     #timeON  = msmd.timesforintent("CALIBRATE_ATMOSPHERE#ON_SOURCE")
-    timeXY, Pspec = GetPSpec(msfile, 0, spwLists[band_index][0])
+    timeXY, Pspec = GetPSpec(msfile, 0, spwList[0])
     timeNum, chNum = Pspec.shape[2], Pspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
     chAvgPower = np.mean(Pspec[0][chRange], axis=0)
     offTimeIndex = indexList(timeOFF, timeXY)
@@ -165,10 +165,10 @@ for scan_index in range(scanNum):
 #
 for spw_index in range(spwNum): text_sd = 'SPW=%d : Tau(zenith) = %6.4f +- %6.4f' % (spw[spw_index], Tau0med[spw_index], Tau0err[spw_index]); logfile.write(text_sd + '\n'); print text_sd
 #
-np.save(prefix +  '-' + UniqBands[band_index] + '.Trx.npy', TrxList) 
-np.save(prefix +  '-' + UniqBands[band_index] + '.Tsky.npy', TskyList) 
-np.save(prefix +  '-' + UniqBands[band_index] + '.TrxFlag.npy', TrxFlag) 
-np.save(prefix +  '-' + UniqBands[band_index] + '.Tau0.npy', Tau0) 
+np.save(prefix +  '-' + bandName + '.Trx.npy', TrxList) 
+np.save(prefix +  '-' + bandName + '.Tsky.npy', TskyList) 
+np.save(prefix +  '-' + bandName + '.TrxFlag.npy', TrxFlag) 
+np.save(prefix +  '-' + bandName + '.Tau0.npy', Tau0) 
 #-------- Antenna-dependent leakage noise
 param = [0.0]
 text_sd = ' TantN:'; logfile.write(text_sd); print text_sd,
@@ -189,7 +189,7 @@ for ant_index in range(antNum):
         text_sd = '|'; logfile.write(text_sd); print text_sd,
     logfile.write('\n'); print ''
 logfile.write('\n'); print ''
-np.save(prefix +  '-' + UniqBands[band_index] + '.TantN.npy', TantN) 
+np.save(prefix +  '-' + bandName + '.TantN.npy', TantN) 
 #-------- Trx
 text_sd = ' Trec: '; logfile.write(text_sd); print text_sd,
 for spw_index in range(spwNum): text_sd = ' SPW%02d X        Y |' % (spw[spw_index]); logfile.write(text_sd); print text_sd,
@@ -218,5 +218,5 @@ for ant_index in range(antNum):
         text_sd = '|'; logfile.write(text_sd); print text_sd,
     logfile.write('\n'); print ' '
 #-------- Plot optical depth
-if PLOTTAU: plotTau(prefix + '_' + UniqBands[band_index], antList, spw, secZ, (chAvgTsky.transpose(3,0,1,2) - TantN).transpose(1,2,3,0), np.median(tempAmb) - Tatm_OFS, Tau0med, TrxFlag, 2.0*np.median(chAvgTsky), PLOTFMT) 
-if PLOTTSYS: plotTsys(prefix + '_' + UniqBands[band_index], antList, ambTime, spw, TrxList, TskyList, PLOTFMT)
+if PLOTTAU: plotTau(prefix + '_' + bandName, antList, spw, secZ, (chAvgTsky.transpose(3,0,1,2) - TantN).transpose(1,2,3,0), np.median(tempAmb) - Tatm_OFS, Tau0med, TrxFlag, 2.0*np.median(chAvgTsky), PLOTFMT) 
+if PLOTTSYS: plotTsys(prefix + '_' + bandName, antList, ambTime, spw, TrxList, TskyList, PLOTFMT)

@@ -45,7 +45,7 @@ PolList = ['X', 'Y']
 #-------- Loop for Bands
 #for band_index in range(1):
 for band_index in range(NumBands):
-    bandID = int(UniqBands[band_index][3:5])-1
+    bandName = UniqBands[band_index]; bandID = int(bandName[3:5])-1
     ONScan = BandScans[band_index][indexList( ONScans, BandScans[band_index] )]
     BPScan = BandScans[band_index][indexList( BPScans, BandScans[band_index] )][0]
     FCScan = BandScans[band_index][indexList( FCScans, BandScans[band_index] )]
