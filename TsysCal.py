@@ -38,6 +38,7 @@ for scanID in scanList: OnTimeIndex.append( indexList(msmd.timesforscan(scanID),
 #-------- Load autocorrelation power spectra
 print '---Loading autocorr power spectra'
 OnSpecList, OffSpecList, AmbSpecList, HotSpecList = [], [], [], []
+spwNum = len(spwList)
 for ant_index in range(antNum):
     for spw_index in range(spwNum):
         progress = (1.0* ant_index* spwNum + spw_index + 1.0) / (antNum* spwNum)
