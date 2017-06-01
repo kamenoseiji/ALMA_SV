@@ -6,19 +6,21 @@ import analysisUtils as au
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Plotters.py')
 from matplotlib.backends.backend_pdf import PdfPages
+#-------- Initial Settings
+msfile = prefix + '.ms'; msmd.open(msfile)
+antList = GetAntName(msfile)
+antNum = len(antList)
+blNum = antNum* (antNum - 1) / 2
 #-------- Configure Array
 print '---Checking array configulation'
 flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
 Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
 kb        = 1.38064852e3
 #-------- Check Scans for atmCal
-logfile = open(prefix + '-' + UniqBands[band_index] + '-Flux.log', 'w') 
-logfile.write(BPcalText + '\n')
-logfile.write(EQcalText + '\n')
 print '---Checking time series in MS and atmCal scans'
 tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spw[0]`).getcol('TIME'); tb.close()
 OnTimeIndex = []
-for scan_index in range(scanNum): OnTimeIndex.append( indexList(msmd.timesforscan(onsourceScans[scan_index]), timeXY) )
+for scanID in scanList: OnTimeIndex.append( indexList(msmd.timesforscan(scanID), timeXY) )
 #-------- Tsys measurements
 try:
     if TSYSCAL :
@@ -47,10 +49,10 @@ flagAnt[flagList] = 0.0 # Flagging by abnormal Trx
 UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
 text_sd = '  Usable antennas: '
 for ants in antList[UseAnt].tolist(): text_sd = text_sd + ants + ' '
-logfile.write(text_sd + '\n'); print text_sd
+print text_sd
 text_sd = '  Flagged by Trx:  '
 for ants in antList[flagList].tolist(): text_sd = text_sd + ants + ' '
-logfile.write(text_sd + '\n'); print text_sd
+print text_sd
 blMap, blInv= range(UseBlNum), [False]* UseBlNum
 ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
 for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
@@ -225,7 +227,7 @@ for scan_index in range(scanNum):
         SAantMap, SAblMap, SAblInv = antMap, blMap, blInv
     if SSO_flag: continue
     SAantNum = len(SAantennas); SAblNum = len(SAblMap)
-    text_sd = ' %02d %010s EL=%4.1f deg' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi ); logfile.write(text_sd + '\n'); print text_sd
+    text_sd = ' %02d %010s EL=%4.1f deg' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi ); print text_sd
     figScan.text(0.05, 0.95, text_sd) 
     BPCaledXspec = []
     #-------- UV distance
@@ -259,7 +261,7 @@ for scan_index in range(scanNum):
         StokesQ_PL = figScan.add_subplot( 4, spwNum, 1* spwNum + spw_index + 1)
         StokesU_PL = figScan.add_subplot( 4, spwNum, 2* spwNum + spw_index + 1)
         StokesV_PL = figScan.add_subplot( 4, spwNum, 3* spwNum + spw_index + 1)
-        text_sd = ' SPW%02d %5.1f GHz' % (spw[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
+        text_sd = ' SPW%02d %5.1f GHz' % (spw[spw_index], centerFreqList[spw_index]); print text_sd,
         Stokes = np.zeros([4,SAblNum, chNum], dtype=complex)  # Stokes[stokes, bl, ch]
         for bl_index in range(SAblNum):
             Minv = InvMullerVector(DxSpec[SAant1[bl_index], spw_index], DySpec[SAant1[bl_index], spw_index], DxSpec[SAant0[bl_index], spw_index], DySpec[SAant0[bl_index], spw_index], np.ones(chNum))
@@ -337,8 +339,8 @@ for scan_index in range(scanNum):
 #
 plt.close('all')
 pp.close()
-logfile.close()
 np.save(prefix + '-' + UniqBands[band_index] + '.Flux.npy', ScanFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Ferr.npy', ErrFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceList)[sourceIDscan])
 np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', ScanEL)
+msmd.close()
