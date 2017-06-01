@@ -34,7 +34,7 @@ else:
     offTimeIndex, ambTimeIndex, hotTimeIndex = indexList(offTime, timeXY),  indexList(ambTime, timeXY),  indexList(hotTime, timeXY)
 #
 OnTimeIndex = []
-for scan_index in range(scanNum): OnTimeIndex.append( indexList(msmd.timesforscan(scanList[scan_index]), timeXY) )
+for scanID in scanList: OnTimeIndex.append( indexList(msmd.timesforscan(scanID), timeXY) )
 #-------- Load autocorrelation power spectra
 print '---Loading autocorr power spectra'
 OnSpecList, OffSpecList, AmbSpecList, HotSpecList = [], [], [], []

@@ -19,8 +19,8 @@ kb        = 1.38064852e3
 #-------- Check Scans for atmCal
 print '---Checking time series in MS and atmCal scans'
 tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spw[0]`).getcol('TIME'); tb.close()
-OnTimeIndex = []
-for scanID in scanList: OnTimeIndex.append( indexList(msmd.timesforscan(scanID), timeXY) )
+#OnTimeIndex = []
+#for scanID in scanList: OnTimeIndex.append( indexList(msmd.timesforscan(scanID), timeXY) )
 #-------- Tsys measurements
 try:
     if TSYSCAL :
