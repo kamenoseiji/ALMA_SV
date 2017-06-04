@@ -17,6 +17,7 @@ kb        = 1.38064852e3
 logfile = open(prefix + '-' + UniqBands[band_index] + '-Flux.log', 'w') 
 logfile.write(FLScaleText + '\n'); logfile.write(BPcalText + '\n'); logfile.write(EQcalText + '\n')
 #-------- Tsys measurements
+scanList = onsourceScans
 execfile(SCR_DIR + 'TsysCal.py')  
 ######## Outputs from TsysCal.py :
 #  TantN[ant, spw, pol] : Antenna noise pickup. ant order is the same with MS

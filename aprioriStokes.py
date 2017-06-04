@@ -131,7 +131,7 @@ if PLOTBP:
 #
 ##-------- Equalization using EQ scan
 relGain = np.ones([spwNum, 2, UseAntNum])
-polXindex, polYindex, scan_index = (arange(4)//2).tolist(), (arange(4)%2).tolist(), onsourceScans.index(EQScan)
+polXindex, polYindex, scan_index = (arange(4)//2).tolist(), (arange(4)%2).tolist(), scanList.index(EQScan)
 for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], EQScan)
@@ -153,7 +153,7 @@ interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[0], BPScan); timeNum = 
 AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
 PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), np.cos(PA))
 GainP, XYphase, caledVis = [], [], []
-scan_index = onsourceScans.index(BPScan)
+scan_index = scanList.index(BPScan)
 for spw_index in range(spwNum):
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], BPScan)
     timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
@@ -214,18 +214,18 @@ for scan_index in range(scanNum):
         SAantMap, SAblMap, SAblInv = antMap, blMap, blInv
     if SSO_flag: continue
     SAantNum = len(SAantennas); SAblNum = len(SAblMap)
-    text_sd = ' %02d %010s EL=%4.1f deg' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi ); logfile.write(text_sd + '\n'); print text_sd
+    text_sd = ' %02d %010s EL=%4.1f deg' % (scanList[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi ); logfile.write(text_sd + '\n'); print text_sd
     figScan.text(0.05, 0.95, text_sd) 
     text_sd = ' SPW  Frequency    I               Q               U               V               %Pol     EVPA '; logfile.write(text_sd + '\n'); print text_sd
     text_sd = ' ------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
     BPCaledXspec = []
     #-------- UV distance
-    timeStamp, UVW = GetUVW(msfile, spw[0], onsourceScans[scan_index]);  uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
+    timeStamp, UVW = GetUVW(msfile, spw[0], scanList[scan_index]);  uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
     PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
     for spw_index in range(spwNum):
         #-------- Baseline-based cross power spectra
-        timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], onsourceScans[scan_index])
+        timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], scanList[scan_index])
         timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum)); UseChNum = len(chRange)
         if np.max(abs(Xspec)) < 1.0e-9: continue
         tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping

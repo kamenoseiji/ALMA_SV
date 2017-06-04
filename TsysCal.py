@@ -21,7 +21,7 @@ kb        = 1.38064852e3
 print '---Checking time for ambient and hot load'
 timeOFF, timeAMB, timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
 if len(timeAMB) == 0:
-    timeXY, Pspec = GetPSpec(msfile, 0, spwList[0])
+    timeXY, Pspec = GetPSpec(msfile, 0, spw[0])
     timeNum, chNum = Pspec.shape[2], Pspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
     chAvgPower = np.mean(Pspec[0][chRange], axis=0)
     offTimeIndex = indexList(timeOFF, timeXY)
@@ -38,7 +38,7 @@ for scanID in scanList: OnTimeIndex.append( indexList(msmd.timesforscan(scanID),
 #-------- Load autocorrelation power spectra
 print '---Loading autocorr power spectra'
 OnSpecList, OffSpecList, AmbSpecList, HotSpecList = [], [], [], []
-spwNum = len(spwList)
+spwNum, ppolNum = len(spw), len(pPol)
 for ant_index in range(antNum):
     for spw_index in range(spwNum):
         progress = (1.0* ant_index* spwNum + spw_index + 1.0) / (antNum* spwNum)
@@ -62,7 +62,7 @@ OnAZ, OnEL, OffEL = np.ones([antNum, scanNum]), np.ones([antNum, scanNum]), np.o
 for ant_index in range(antNum):
     azelTime_index = np.where( AntID == ant_index )[0].tolist()
     for scan_index in range(scanNum):
-        refTime = np.median(msmd.timesforscan(onsourceScans[scan_index]))
+        refTime = np.median(msmd.timesforscan(scanList[scan_index]))
         OnAZ[ant_index, scan_index] = AZ[azelTime_index[argmin(abs(azelTime[azelTime_index] - refTime))]]
         OnEL[ant_index, scan_index] = EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - refTime))]]
     #

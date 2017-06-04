@@ -19,7 +19,7 @@ kb        = 1.38064852e3
 #-------- Check Scans for atmCal
 print '---Checking time series in MS and atmCal scans'
 tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spw[0]`).getcol('TIME'); tb.close()
-polNum, pPol, cPol = 4, [0,3], [1,2]
+scanNum, polNum, pPol, cPol = len(scanList), 4, [0,3], [1,2]
 #OnTimeIndex = []
 #for scanID in scanList: OnTimeIndex.append( indexList(msmd.timesforscan(scanID), timeXY) )
 #-------- Tsys measurements
@@ -237,7 +237,7 @@ for scan_index in range(scanNum):
     PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
     for spw_index in range(spwNum):
         #-------- Baseline-based cross power spectra
-        timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], onsourceScans[scan_index])
+        timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], scanList[scan_index])
         timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum)); UseChNum = len(chRange)
         if np.max(abs(Xspec)) < 1.0e-9: continue
         tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping

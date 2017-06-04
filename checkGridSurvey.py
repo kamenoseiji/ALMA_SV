@@ -63,7 +63,7 @@ print '---SPWs and Scans for each receiver band'
 msmd.done()
 #for band_index in range(1):
 for band_index in range(NumBands):
-    bandID = int(UniqBands[band_index][3:5])-1
+    bandName = UniqBands[band_index]; bandID = int(UniqBands[band_index][3:5])-1
     msmd.open(msfile)
     #-------- Check Calibrators
     FCScan = BandScans[band_index][indexList( FCScans, BandScans[band_index] )]
