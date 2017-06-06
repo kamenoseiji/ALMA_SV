@@ -18,6 +18,8 @@ logfile = open(prefix + '-' + UniqBands[band_index] + '-Flux.log', 'w')
 logfile.write(FLScaleText + '\n'); logfile.write(BPcalText + '\n'); logfile.write(EQcalText + '\n')
 #-------- Tsys measurements
 scanList = onsourceScans
+msmd.close()
+msmd.done()
 execfile(SCR_DIR + 'TsysCal.py')  
 ######## Outputs from TsysCal.py :
 #  TantN[ant, spw, pol] : Antenna noise pickup. ant order is the same with MS
@@ -30,6 +32,7 @@ execfile(SCR_DIR + 'TsysCal.py')
 #
 #  They include all of antennas (even if flagged) in MS order
 ########
+msmd.open(msfile)
 #-------- Array Configuration
 print '---Checking array configuration'
 flagList = np.where(np.median(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) > 2.0* np.median(chAvgTrx))[0].tolist()
@@ -406,4 +409,5 @@ np.save(prefix + '-' + UniqBands[band_index] + '.Flux.npy', ScanFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Ferr.npy', ErrFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceList)[sourceIDscan])
 np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', ScanEL)
+msmd.close()
 msmd.done()
