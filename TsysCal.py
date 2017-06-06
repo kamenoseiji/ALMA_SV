@@ -1,3 +1,5 @@
+execfile(SCR_DIR + 'interferometry.py')
+execfile(SCR_DIR + 'Plotters.py')
 def residTskyTransfer( param, Tamb, secz, Tsky, weight ):
     exp_Tau = np.exp( -param[1]* secz )
     return weight* (Tsky - (param[0] + 2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))

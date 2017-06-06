@@ -1,28 +1,5 @@
 #-------- Load autocorrelation power spectra
 print '---Loading autocorr power spectra'
-"""
-OnSpecList, OffSpecList, AmbSpecList, HotSpecList = [], [], [], []
-for ant_index in range(UseAntNum):
-    for spw_index in range(spwNum):
-        progress = (1.0* ant_index* spwNum + spw_index + 1.0) / (UseAntNum* spwNum)
-        sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
-        timeXY, Pspec = GetPSpec(msfile, antMap[ant_index], spw[spw_index])
-        OffSpecList.append(Pspec[pPol][:,:,offTimeIndex])
-        AmbSpecList.append(Pspec[pPol][:,:,ambTimeIndex])
-        HotSpecList.append(Pspec[pPol][:,:,hotTimeIndex])
-        for scan_index in range(scanNum):
-            OnSpecList.append(np.mean( Pspec[pPol][:,:,OnTimeIndex[scan_index]], axis=2 ))
-        #
-    #
-#
-sys.stderr.write('\n')
-sys.stderr.flush()
-np.save(prefix +  '-' + '.autocorrTime.npy', timeXY) 
-np.save(prefix +  '-' + '.OffSpecList.npy', OffSpecList) 
-np.save(prefix +  '-' + '.AmbSpecList.npy', AmbSpecList) 
-np.save(prefix +  '-' + '.HotSpecList.npy', HotSpecList) 
-np.save(prefix +  '-' + '.OnSpecList.npy', OnSpecList) 
-"""
 timeXY = np.load(prefix +  '-' + '.autocorrTime.npy') 
 OffSpecList = np.load(prefix +  '-' + '.OffSpecList.npy') 
 AmbSpecList = np.load(prefix +  '-' + '.AmbSpecList.npy') 
