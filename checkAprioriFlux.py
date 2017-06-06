@@ -42,9 +42,12 @@ except:
     BPScans = ONScans
 #
 PolList = ['X', 'Y']
+msmd.close()
+msmd.done()
 #-------- Loop for Bands
 #for band_index in range(1):
 for band_index in range(NumBands):
+    msmd.open(msfile)
     bandName = UniqBands[band_index]; bandID = int(bandName[3:5])-1
     ONScan = BandScans[band_index][indexList( ONScans, BandScans[band_index] )]
     BPScan = BandScans[band_index][indexList( BPScans, BandScans[band_index] )][0]
@@ -90,6 +93,8 @@ for band_index in range(NumBands):
         pPol, cPol = [0,1], []              # Only parallel polarizations
         ppolNum, cpolNum = len(pPol), len(cPol)
         execfile(SCR_DIR + 'aprioriFlux.py')
+    #
+    msmd.close()
+    msmd.done()
 #
 del msfile, UniqBands
-msmd.done()
