@@ -20,6 +20,8 @@ def get_progressbar_str(progress):
 Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
 kb        = 1.38064852e3
 #-------- Check Ambient Load Timing
+antList = GetAntName(msfile)
+antNum = len(antList)
 msmd.open(msfile)
 print '---Checking time for ambient and hot load'
 timeOFF, timeAMB, timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
