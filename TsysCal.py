@@ -18,6 +18,7 @@ def get_progressbar_str(progress):
 Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
 kb        = 1.38064852e3
 #-------- Check Ambient Load Timing
+msmd.open(msfile)
 print '---Checking time for ambient and hot load'
 timeOFF, timeAMB, timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
 if len(timeAMB) == 0:
@@ -211,3 +212,5 @@ for ant_index in range(antNum):
 #-------- Plot optical depth
 if PLOTTAU: plotTau(prefix + '_' + bandName, antList, spw, secZ, (chAvgTsky.transpose(3,0,1,2) - TantN).transpose(1,2,3,0), np.median(tempAmb) - Tatm_OFS, Tau0med, TrxFlag, 2.0*np.median(chAvgTsky), PLOTFMT) 
 if PLOTTSYS: plotTsys(prefix + '_' + bandName, antList, ambTime, spw, TrxList, TskyList, PLOTFMT)
+msmd.close()
+msmd.done()
