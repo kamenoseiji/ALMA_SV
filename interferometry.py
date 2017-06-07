@@ -1122,18 +1122,10 @@ def bandpassStability(bpCalXX, segNum):
 	return sd_spec, pp_spec, pe_spec, sd_phas, pp_phas, pe_phas
 #
 #-------- Smoothing complex vector
-def splineComplex( axis, samplePoints, vector ):
-    Samp = np.std( abs( vector ))             # Smoothing factor for amplitude
-    Sphs = Samp / mean(abs(vector))   # Smoothing factor for phase
-    vec_abs = abs( vector )
-    vec_phs = np.angle( vector )
-    vec_real = np.cos(vec_phs)
-    vec_imag = np.sin(vec_phs)
-    SPL_amp = UnivariateSpline(samplePoints, abs(vector), s=0.01*Samp)
-    SPL_real = UnivariateSpline(samplePoints, vector.real, s=0.01*Sphs)
-    SPL_imag = UnivariateSpline(samplePoints, vector.imag, s=0.01*Sphs)
-    smth_phs = np.arctan2( SPL_imag(axis), SPL_real(axis) )
-    return( SPL_amp(axis)* exp(1.0j* smth_phs) )
+def splineComplex( samplePoints, vector ):
+    SPL_real = UnivariateSpline(samplePoints, vector.real)
+    SPL_imag = UnivariateSpline(samplePoints, vector.imag)
+    return( SPL_real(samplePoints) + (0.0 + 1.0j)* SPL_imag(samplePoints) )
 #
 #-------- Van Vleck Correction
 def loadVanvQ4( File ):

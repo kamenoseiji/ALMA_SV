@@ -11,37 +11,20 @@ msfile = prefix + '.ms'; msmd.open(msfile)
 antList = GetAntName(msfile)
 antNum = len(antList)
 blNum = antNum* (antNum - 1) / 2
+spwNum = len(spw)
+spwName = msmd.namesforspws(spw[0])[0]
+BandName = re.findall(r'RB_..', spwName)[0]
 #-------- Configure Array
 print '---Checking array configulation'
 flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
 Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
 kb        = 1.38064852e3
-#-------- Check Scans for atmCal
-print '---Checking time series in MS and atmCal scans'
-tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spw[0]`).getcol('TIME'); tb.close()
-scanNum, polNum, pPol, cPol = len(scanList), 4, [0,3], [1,2]
-#OnTimeIndex = []
-#for scanID in scanList: OnTimeIndex.append( indexList(msmd.timesforscan(scanID), timeXY) )
-#-------- Tsys measurements
-try:
-    if TSYSCAL :
-        execfile(SCR_DIR + 'TsysCal.py')
-    else : 
-        execfile(SCR_DIR + 'TsysTransfer.py')
-except:
-    execfile(SCR_DIR + 'TsysCal.py')
-#
-######## Outputs from TsysCal.py :
-#  TantN[ant, spw, pol] : Antenna noise pickup. ant order is the same with MS
-#  chAvgTrx[ant, spw, pol, scan]  : Channel-averaged receiver noise temperature
-#  chAvgTsky[ant, spw, pol, scan] : Channel-averaged sky noise temperature
-#  chAvgTsys[ant, spw, pol, scan] : Channel-averaged system noise temperature
-#  TsysFlag[ant, spw, pol, scan] : 0 = invalid, 1=valid
-#  Tau0med[spw] : median-value of the zenith optical depth
-#  onTau[spw, scan] : on-source optical depth
-#
-#  They include all of antennas (even if flagged) in MS order
-########
+#-------- Load Tsys File
+Trec = np.load(TSprefix + '.Trx.npy') 
+Tau0 = np.load(TSprefix + '.Tau0.npy') 
+TRchNum = Trec.shape[2]; TRchRange = range(int(0.05*TRchNum), int(0.95*TRchNum))
+chAvgTrx = np.median(np.mean(Trec[:,:,TRchRange], axis=2), axis=2)
+Tau0 = np.median(Tau0)
 #-------- Array Configuration
 print '---Checking array configuration'
 flagList = np.where(np.median(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) > 2.0* np.median(chAvgTrx))[0].tolist()
@@ -67,7 +50,7 @@ print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 antDia = np.ones(antNum)
 for ant_index in range(antNum): antDia[ant_index] = msmd.antennadiameter(antList[ant_index])['value']
 #-------- Load Aeff file
-Afile = open(SCR_DIR + 'AeB' + `int(UniqBands[band_index][3:5])` + '.data')
+Afile = open(SCR_DIR + 'AeB' + `int(BandName[3:5])` + '.data')
 Alines = Afile.readlines()
 Afile.close()
 AeX, AeY = 0.25* np.pi* antDia**2, 0.25* np.pi* antDia**2       # antenna collecting area (100% efficiency)
@@ -85,9 +68,8 @@ AeX, AeY = np.array(AeX), np.array(AeY) # in antMap order
 if not 'DPATH' in locals(): DPATH = SCR_DIR
 print '---Checking D-term files in ' + DPATH
 DantList, noDlist = [], []
-Dpath = DPATH + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
 for ant_index in UseAnt:
-    Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW0-' + antList[ant_index] + '.DSpec.npy'
+    Dfile = DPATH + 'B' + `int(BandName[3:5])` + '-SPW0-' + antList[ant_index] + '.DSpec.npy'
     if os.path.exists(Dfile): DantList += [ant_index]
     else: noDlist += [ant_index]
 #   
@@ -104,44 +86,25 @@ if noDantNum > 0:
 DxList, DyList = [], []
 print '---Loading D-term table'
 for ant_index in antMap:
-    Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
-    for spw_index in range(4):
-        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[ant_index] + '.DSpec.npy'
+    for spw_index in spw:
+        Dfile = DPATH + 'B' + `int(BandName[3:5])` + '-SPW' + `spw_index` + '-' + antList[ant_index] + '.DSpec.npy'
         Dterm = np.load(Dfile)
-        DxList = DxList + [Dterm[1] + (0.0 + 1.0j)* Dterm[2]]
-        DyList = DyList + [Dterm[3] + (0.0 + 1.0j)* Dterm[4]]
+        DxList = DxList + [splineComplex(Dterm[0], Dterm[1] + (0.0 + 1.0j)* Dterm[2])]
+        DyList = DyList + [splineComplex(Dterm[0], Dterm[3] + (0.0 + 1.0j)* Dterm[4])]
+        #DxList = DxList + [Dterm[1] + (0.0 + 1.0j)* Dterm[2]]
+        #DyList = DyList + [Dterm[3] + (0.0 + 1.0j)* Dterm[4]]
     #
 #
 chNum = np.array(DxList).shape[1]
 DxSpec, DySpec = np.array(DxList).reshape([UseAntNum, spwNum, chNum]), np.array(DyList).reshape([UseAntNum, spwNum, chNum])
 #-------- Bandpass Table
 BPList = []
-if BPprefix in locals(): 
-    print '---Loading bandpass table'
-    for spw_index in spw:
-        BP_ant = np.load(BPprefix + '-SPW' + `spw_index` + '-BPant.npy')
-        XY_BP  = np.load(BPprefix + '-SPW' + `spw_index` + '-XYspec.npy')
-        BP_ant[:,1] *= XY_BP
-        BPList = BPList + [BP_ant]
-    #
-else:
-    print '---Generating antenna-based bandpass table'
-    for spw_index in spw:
-        BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPScan, blMap, blInv)
-        BP_ant[:,1] *= XY_BP
-        BPList = BPList + [BP_ant]
-    #
-#
-if PLOTBP:
-    figAnt = PlotBP(msfile, antList[antMap], spw, BPList)
-    fileExt = '.pdf'
-    if PLOTFMT == 'png': fileExt = '.png'
-    for ant_index in range(UseAntNum):
-        figAnt = plt.figure(ant_index)
-        plotFigFileName = 'BP_' + prefix + '_' + antList[antMap[ant_index]] + '_REF' + antList[UseAnt[refantID]] + '_Scan' + `BPScan` + fileExt
-        figAnt.savefig(plotFigFileName)
-    #
-    plt.close('all')
+print '---Loading bandpass table'
+for spw_index in spw:
+    BP_ant = np.load(BPprefix + '-SPW' + `spw_index` + '-BPant.npy')
+    XY_BP  = np.load(BPprefix + '-SPW' + `spw_index` + '-XYspec.npy')
+    BP_ant[:,1] *= XY_BP
+    BPList = BPList + [BP_ant]
 #
 ##-------- Equalization using EQ scan
 relGain = np.ones([spwNum, 2, UseAntNum])
@@ -150,7 +113,7 @@ for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], EQScan)
     chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-    tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)       # Cross Polarization Baseline Mapping : tempSpec[time, blMap, pol, ch]
+    tempSpec = CrossPolBL(Xspec[:,BPchRange][:,:,blMap], blInv).transpose(3,2,0,1)       # Cross Polarization Baseline Mapping : tempSpec[time, blMap, pol, ch]
     BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
     #-------- Antenna-based Gain correction
     chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)[pPol]
@@ -162,6 +125,7 @@ for spw_index in range(spwNum):
     relGain[spw_index, 0] = abs(gainComplex(aprioriVisX)); relGain[spw_index, 0] /= np.median( abs(relGain[spw_index, 0]) ) # X-pol delta gain
     relGain[spw_index, 1] = abs(gainComplex(aprioriVisY)); relGain[spw_index, 1] /= np.median( abs(relGain[spw_index, 1]) ) # Y-pol delta gain
 #
+"""
 #-------- XY phase using BP scan
 interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[0], BPScan); timeNum = len(timeStamp)
 AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
@@ -306,37 +270,6 @@ for scan_index in range(scanNum):
     StokesQ_PL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
     StokesU_PL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
     StokesV_PL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
-    """
-    uvMax, IMax = max(uvDist), max(ScanFlux[scan_index,:,0])
-    for spw_index in range(spwNum):
-        StokesI_PL = figScan.add_subplot( 2, spwNum, spw_index + 1 )
-        StokesP_PL = figScan.add_subplot( 2, spwNum, spwNum + spw_index + 1 )
-        StokesI_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 0], ScanFlux[scan_index, spw_index, 0]+ uvMax* ScanSlope[scan_index, spw_index, 0]]), '-', color=Pcolor[0])
-        StokesP_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 1], ScanFlux[scan_index, spw_index, 1]+ uvMax* ScanSlope[scan_index, spw_index, 1]]), '-', color=Pcolor[1])
-        StokesP_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 2], ScanFlux[scan_index, spw_index, 2]+ uvMax* ScanSlope[scan_index, spw_index, 2]]), '-', color=Pcolor[2])
-        StokesP_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 3], ScanFlux[scan_index, spw_index, 3]+ uvMax* ScanSlope[scan_index, spw_index, 3]]), '-', color=Pcolor[3])
-        StokesI_PL.axis([0.0, uvMax, 0.0, 1.25*IMax]); StokesP_PL.axis([0.0, uvMax, -0.25*IMax, 0.25*IMax])
-        StokesI_PL.text(0.0, 1.26*IMax, 'SPW%2d %5.1f GHz' % (spw[spw_index], centerFreqList[spw_index]))
-    #
-    StokesI_PL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
-    StokesP_PL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
-    figScan.savefig(pp, format='pdf')
-    freqArray = np.array(centerFreqList)[range(spwNum)]; meanFreq = np.mean(freqArray); relFreq = freqArray - meanFreq
-    text_sd = ' ------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
-    text_sd = ' mean  %5.1f GHz' % (meanFreq); logfile.write(text_sd); print text_sd,
-    pflux, pfluxerr = np.zeros(4), np.zeros(4)
-    for pol_index in range(4):
-        sol, solerr = linearRegression(relFreq, ScanFlux[scan_index, :, pol_index], ErrFlux[scan_index, :, pol_index] ); pflux[pol_index], pfluxerr[pol_index] = sol[0], solerr[0]
-        text_sd = '%6.3f (%.3f) ' % (pflux[pol_index], pfluxerr[pol_index]) ; logfile.write(text_sd); print text_sd,
-    #
-    text_sd = '%6.3f   %6.1f \n' % (100.0* np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi); logfile.write(text_sd); print text_sd,
-    print '\n'; logfile.write('\n')
-    if COMPDB & (not SSO_flag) : 
-        print ' -------- Comparison with ALMA Calibrator Catalog --------'
-        au.searchFlux(sourcename='%s' % (sourceList[sourceIDscan[scan_index]]), band=int(UniqBands[band_index][3:5]), date=timeLabelBP[0:10], maxrows=3)
-    #
-    print '\n'; logfile.write('')
-    """
 #
 plt.close('all')
 pp.close()
@@ -345,3 +278,4 @@ np.save(prefix + '-' + UniqBands[band_index] + '.Ferr.npy', ErrFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceList)[sourceIDscan])
 np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', ScanEL)
 msmd.close()
+"""
