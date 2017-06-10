@@ -103,6 +103,7 @@ for spw_index in spw:
     BP_ant = np.load(BPprefix + '-SPW' + `spw_index` + '-BPant.npy')
     XY_BP  = splineComplex(Dterm[0], np.load(BPprefix + '-SPW' + `spw_index` + '-XYspec.npy'))
     BP_ant[:,1] *= XY_BP
+    if 'XYsign' in locals(): BP_ant[:,1] *= XYsign
     BPList = BPList + [BP_ant]
 #
 ##-------- Equalization using EQ scan
