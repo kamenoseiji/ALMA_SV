@@ -46,22 +46,25 @@ blMap, blInv= range(blNum), [False]* blNum
 for bl_index in range(blNum):
     blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
 #
+if not 'bunchNum' in locals(): bunchNum = 1
+def bunchVecCH(spec): return bunchVec(spec, bunchNum)
 #-------- Loop for SPW
 DxList, DyList, FreqList = [], [], []
 for spw_index in range(spwNum):
     spw = spwList[spw_index]
-    chNum, chWid, Freq = GetChNum(msfile, spw); chRange = range(int(0.05*chNum), int(0.95*chNum)); FreqList = FreqList + [1.0e-9* Freq]
+    chNum, chWid, Freq = GetChNum(msfile, spw); chRange = range(int(0.05*chNum/bunchNum), int(0.95*chNum/bunchNum)); FreqList = FreqList + [1.0e-9* Freq]
     DxSpec, DySpec = np.zeros([antNum, chNum], dtype=complex), np.zeros([antNum, chNum], dtype=complex)
     caledVis = np.ones([4,blNum, 0], dtype=complex)
     if BPprefix != '':  # Bandpass file
         BPantList, BP_ant, XYspec = np.load(BPprefix + '-REF' + refantName + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy')
         BP_ant = BP_ant[indexList(antList[antMap], BPantList)]      # BP antenna mapping
         BP_ant[:,1] *= XYspec                                       # XY phase cal
+        BP_ant = np.apply_along_axis(bunchVecCH, 2, BP_ant)
         BP_bl = BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate()    # Baseline-based bandpass table
     #
     #
     chAvgVis = np.zeros([4, blNum, 0], dtype=complex)
-    VisSpec  = np.zeros([4, chNum, blNum, 0], dtype=complex)
+    VisSpec  = np.zeros([4, chNum/bunchNum, blNum, 0], dtype=complex)
     mjdSec, Az, El = [], [], []
     for file_index in range(fileNum):
         prefix = prefixList[file_index]
@@ -80,7 +83,7 @@ for spw_index in range(spwNum):
                 chAvgVis= np.c_[chAvgVis, CrossPolBL(Xspec[:,:,blMap], blInv)[:,0]]
             else:
                 print '  -- Apply bandpass cal'
-                tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)
+                tempSpec = CrossPolBL(np.apply_along_axis(bunchVecCH, 1, Xspec[:,:,blMap]), blInv).transpose(3, 2, 0, 1)
                 BPCaledXspec = (tempSpec / BP_bl).transpose(2,3,1,0) 
                 #-------- Antenna-based Gain
                 print '  -- Channel-averaging'
@@ -146,12 +149,18 @@ for spw_index in range(spwNum):
     QUsol[0], QUsol[1] = StokesVis[1].real, StokesVis[2].real; QUerr = np.array([abs(StokesVis[1].imag), abs(StokesVis[2].imag)])
     text_sd = '  Q/I= %6.3f+-%6.4f  U/I= %6.3f+-%6.4f EVPA = %6.2f deg' % (QUsol[0], QUerr[0], QUsol[1], QUerr[1], np.arctan2(QUsol[1],QUsol[0])*90.0/pi); print text_sd
     #-------- get D-term spectra
-    for ch_index in range(chNum):
+    for ch_index in range(int(chNum/bunchNum)):
         DxSpec[:,ch_index], DySpec[:,ch_index] = VisPA_solveD(VisSpec[ch_index], PA, np.array([1.0, QUsol[0], QUsol[1], 0.0]), Dx, Dy)
         progress = (ch_index + 1.0) / chNum
         sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
     #
     sys.stderr.write('\n'); sys.stderr.flush()
+    for ant_index in range(antNum):
+        DX_real, DX_imag = UnivariateSpline(bunchVecCH(Freq), DxSpec[ant_index,range(int(chNum/bunchNum))].real), UnivariateSpline(bunchVecCH(Freq), DxSpec[ant_index,range(int(chNum/bunchNum))].imag)
+        DY_real, DY_imag = UnivariateSpline(bunchVecCH(Freq), DySpec[ant_index,range(int(chNum/bunchNum))].real), UnivariateSpline(bunchVecCH(Freq), DySpec[ant_index,range(int(chNum/bunchNum))].imag)
+        DxSpec[ant_index] = DX_real(Freq) + (0.0 + 1.0j)* DX_imag(Freq)
+        DySpec[ant_index] = DY_real(Freq) + (0.0 + 1.0j)* DY_imag(Freq)
+    #
     #-------- Plot
     if np.mean(np.cos(PA)) < 0.0: PA = np.arctan2(-np.sin(PA), -np.cos(PA)) +  np.pi
     PArange = np.arange(min(PA), max(PA), 0.01); CSrange, SNrange = np.cos(2.0*PArange), np.sin(2.0*PArange)

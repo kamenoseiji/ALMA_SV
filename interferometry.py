@@ -862,7 +862,7 @@ def blGain( blSpec ):				# Average in spectral channels
 def blBp( blSpec ):					# Average in time
 	return np.mean(blSpec, 1)
 
-def bunchVec( spec, bunch, bunchNum ):
+def bunchVec( spec, bunchNum ):
 	chNum = len(spec)/bunchNum
 	totalNum = chNum* bunchNum
 	return(np.mean( spec[0:totalNum].reshape(chNum, bunchNum), axis=1))
