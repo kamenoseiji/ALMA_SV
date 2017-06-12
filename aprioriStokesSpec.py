@@ -126,8 +126,11 @@ for spw_index in range(spwNum):
     aprioriVisX = np.mean(chAvgVis[0] / (GainP[0,ant0]* GainP[0,ant1].conjugate()), axis=1) * np.sqrt(aprioriSEFD[0, ant0]* aprioriSEFD[0, ant1])
     aprioriVisY = np.mean(chAvgVis[1] / (GainP[1,ant0]* GainP[1,ant1].conjugate()), axis=1) * np.sqrt(aprioriSEFD[1, ant0]* aprioriSEFD[1, ant1])
     #-------- Determine Antenna-based Gain
-    relGain[spw_index, 0] = abs(gainComplex(aprioriVisX)); relGain[spw_index, 0] /= np.median( abs(relGain[spw_index, 0]) ) # X-pol delta gain
-    relGain[spw_index, 1] = abs(gainComplex(aprioriVisY)); relGain[spw_index, 1] /= np.median( abs(relGain[spw_index, 1]) ) # Y-pol delta gain
+    relGain[spw_index, 0] = abs(gainComplex(aprioriVisX))
+    relGain[spw_index, 1] = abs(gainComplex(aprioriVisY))
+    medGain = np.median( abs(relGain) )
+    relGain[spw_index, 0] /= medGain # X-pol delta gain
+    relGain[spw_index, 1] /= medGain # Y-pol delta gain
 #
 #-------- Flux Density
 spw_index = 0
