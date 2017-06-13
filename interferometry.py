@@ -923,7 +923,7 @@ def delayCalSpec2( Xspec, chRange, sigma ):  # chRange = [startCH:stopCH] specif
 	#   
 	return delay_ant, delay_err, delayCalXspec
 #
-def BPtable(msfile, spw, BPScan, blMap, blInv):   # 
+def BPtable(msfile, spw, BPScan, blMap, blInv): 
     blNum = len(blMap); antNum = Bl2Ant(blNum)[0]
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan)    # Xspec[pol, ch, bl, time]
     ant0, ant1, polNum, chNum, timeNum = ANT0[0:blNum], ANT1[0:blNum], Pspec.shape[0], Pspec.shape[1], Pspec.shape[3]

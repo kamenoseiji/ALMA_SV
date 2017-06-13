@@ -188,7 +188,7 @@ for scan in scanList:
     StokesP_PL.plot( Freq[chRange], StokesSpec[3, chRange], ls='steps-mid', label=polLabel[3], color=Pcolor[3])
     plotMax = max(StokesSpec[0, chRange])
     StokesI_PL.axis([min(Freq[chRange]), max(Freq[chRange]), 0.0, 1.2* plotMax])
-    StokesP_PL.axis([min(Freq[chRange]), max(Freq[chRange]), -0.06*plotMax, 0.06*plotMax ])
+    StokesP_PL.axis([min(Freq[chRange]), max(Freq[chRange]), -0.10*plotMax, 0.10*plotMax ])
     #
     StokesI_PL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
     StokesP_PL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
