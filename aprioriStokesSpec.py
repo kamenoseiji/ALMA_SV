@@ -141,12 +141,12 @@ page_index = 0
 for scan in scanList:
     figScan = plt.figure(page_index, figsize = (8,11))
     figScan.suptitle(prefix + ' ' + BandName + ' Scan' + `scan`)
-    figScan.text(0.75, 0.95, qa.time('%fs' % timeStamp[0], form='ymd')[0]) 
     figScan.text(0.45, 0.05, 'Frequency [GHz]') 
     figScan.text(0.03, 0.45, 'Stokes Parameters [Jy]', rotation=90) 
     BPCaledXspec = []
     #-------- UV distance
     timeStamp, UVW = GetUVW(msfile, spw[0], scan);  uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
+    figScan.text(0.75, 0.95, qa.time('%fs' % timeStamp[0], form='ymd')[0]) 
     AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
     PA = AzEl2PA(AzScan, ElScan) + (BANDPA[BandID] + 90.0)*pi/180.0; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
     text_sd = ' AZ=%4.1f EL=%4.1f X-feed-PA=%4.1f' % (np.median(AzScan)*180.0/pi, np.median(ElScan)*180.0/pi, np.median(PA)*180.0/pi)
