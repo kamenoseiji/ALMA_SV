@@ -22,22 +22,26 @@ for file_index in range(fileNum):
         refAntID = refAntID[0]
     #
     msmd.open(msfile)
-    #scanList = msmd.scannumbers().tolist()
+    if 'scanList' in locals():
+        scanLS = scanList[file_index]
+    else:
+        scanLS = msmd.scannumbers().tolist()
+    #
     spwName = msmd.namesforspws(spwList[0])[0]; BandName = re.findall(pattern, spwName)[0]; BandPA = (BANDPA[int(BandName[3:5])] + 90.0)*pi/180.0
-    for scan in scanList[file_index]:
+    for scan in scanLS:
         timeStamp = msmd.timesforscans(scan).tolist()
         trkAnt, scanAnt, Time, Offset = antRefScan( msfile, [timeStamp[0], timeStamp[-1]], antFlag )
         trkAnt = list(set(trkAnt) - set(flagAntID))
         if refAntID in trkAnt:
             trkAntSet = set(trkAnt) & trkAntSet
-        #else:
-        #    scanList = list( set(scanList) - set([scan]) )
+        else:
+            scanLS = list( set(scanLS) - set([scan]) )
         #
         print '---- Scan %d : %d tracking antennas' % (scan, len(trkAnt))
     #
-    #scanList = [1]
-    #scansFile.append(scanList)
+    scansFile.append(scanLS)
 #
+if not 'scanList' in locals(): scanList = scansFile
 msmd.done()
 antMap = [refAntID] + list(trkAntSet - set([refAntID]))
 antNum = len(antMap); blNum = antNum * (antNum - 1)/2
@@ -165,12 +169,12 @@ for spw_index in range(spwNum):
     if np.mean(np.cos(PA)) < 0.0: PA = np.arctan2(-np.sin(PA), -np.cos(PA)) +  np.pi
     PArange = np.arange(min(PA), max(PA), 0.01); CSrange, SNrange = np.cos(2.0*PArange), np.sin(2.0*PArange)
     UCmQS, QCpUS = QUsol[1]*CSrange - QUsol[0]* SNrange, QUsol[0]*CSrange + QUsol[1]* SNrange
-    plt.plot(PArange,  QCpUS + np.mean(Dx)* UCmQS, '-', color='green')              # XX* - 1.0
-    plt.plot(PArange,  UCmQS + np.mean(Dx).real* (1.0 - QCpUS) + np.mean(Dy).real* (1.0 + QCpUS), '-', color='cyan')   # ReXY
+    plt.plot(PArange,  QCpUS + np.mean(Dx).real * UCmQS, '-', color='green')              # XX* - 1.0
+    plt.plot(PArange,  UCmQS + np.mean(Dx).real * (1.0 - QCpUS) + np.mean(Dy).real* (1.0 + QCpUS), '-', color='cyan')   # ReXY
     plt.plot(PArange,  np.mean(Dx).imag* (1.0 - QCpUS) - np.mean(Dy).imag* (1.0 + QCpUS), '-', color='darkblue')       # ImXY
     plt.plot(PArange,  UCmQS + np.mean(Dx).real* (1.0 - QCpUS) + np.mean(Dy).real* (1.0 + QCpUS), '-', color='magenta')# ReYX
     plt.plot(PArange, -np.mean(Dx).imag* (1.0 - QCpUS) + np.mean(Dy).imag* (1.0 + QCpUS), '-', color='darkred')        # ImYX
-    plt.plot(PArange,  -QCpUS + np.mean(Dy)* UCmQS, '-', color='orange')            # YY* - 1.0
+    plt.plot(PArange,  -QCpUS - np.mean(Dy).real * UCmQS, '-', color='orange')            # YY* - 1.0
     plt.plot(PA, Vis[0].real - 1.0, '.', label = 'XX* - 1.0',   color='green')
     plt.plot(PA, Vis[1].real, '.', label = 'ReXY*', color='cyan')
     plt.plot(PA, Vis[1].imag, '.', label = 'ImXY*', color='darkblue')
