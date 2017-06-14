@@ -171,7 +171,7 @@ for scan in scanList:
     StokesI_PL = figScan.add_subplot( 2, spwNum, 0* spwNum + spw_index + 1)
     StokesP_PL = figScan.add_subplot( 2, spwNum, 1* spwNum + spw_index + 1)
     Stokes = np.zeros([4,blNum, chNum], dtype=complex)  # Stokes[stokes, bl, ch]
-    for bl_index in range(blNum):
+    for bl_index in range(UseBlNum):
         Minv = InvMullerVector(DxSpec[ant1[bl_index],spw_index], DySpec[ant1[bl_index],spw_index], DxSpec[ant0[bl_index],spw_index], DySpec[ant0[bl_index],spw_index], np.ones(chNum))
         for time_index in range(timeNum):
             for ch_index in range(chNum):
@@ -188,7 +188,7 @@ for scan in scanList:
     StokesP_PL.plot( Freq[chRange], StokesSpec[3, chRange], ls='steps-mid', label=polLabel[3], color=Pcolor[3])
     plotMax = max(StokesSpec[0, chRange])
     StokesI_PL.axis([min(Freq[chRange]), max(Freq[chRange]), 0.0, 1.2* plotMax])
-    StokesP_PL.axis([min(Freq[chRange]), max(Freq[chRange]), -0.12*plotMax, 0.12*plotMax ])
+    StokesP_PL.axis([min(Freq[chRange]), max(Freq[chRange]), -0.10*plotMax, 0.10*plotMax ])
     #
     StokesI_PL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
     StokesP_PL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
