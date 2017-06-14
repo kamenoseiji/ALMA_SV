@@ -151,7 +151,7 @@ for spw_index in range(spwNum):
     #-------- get D-term spectra
     for ch_index in range(int(chNum/bunchNum)):
         DxSpec[:,ch_index], DySpec[:,ch_index] = VisPA_solveD(VisSpec[ch_index], PA, np.array([1.0, QUsol[0], QUsol[1], 0.0]), Dx, Dy)
-        progress = (ch_index + 1.0) / chNum
+        progress = (ch_index + 1.0) / (chNum / bunchNum)
         sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
     #
     sys.stderr.write('\n'); sys.stderr.flush()
