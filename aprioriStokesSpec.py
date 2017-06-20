@@ -21,6 +21,7 @@ flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
 Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
 kb        = 1.38064852e3
 #-------- Load Tsys File
+if 'QUfile' in locals(): QUmodel = np.load(QUfile + '.QUXY.npy')
 Trec = np.load(TSprefix + '.Trx.npy') 
 Tau0 = np.load(TSprefix + '.Tau0.npy') 
 TRchNum = Trec.shape[2]; TRchRange = range(int(0.05*TRchNum), int(0.95*TRchNum))
@@ -114,6 +115,8 @@ for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], EQScan)
     AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
+    PA = AzEl2PA(AzScan, ElScan) + (BANDPA[BandID] + 90.0)*pi/180.0
+    QCpUS = QUmodel[0]* np.cos(2.0* PA) + QUmodel[1]* np.sin(2.0* PA)         # Q cos + U sin
     TauObs = Tau0 / np.sin(np.mean(ElScan)); atmCorrect = np.exp(-TauObs)
     chAvgTsys = chAvgTrx + 285.0* (1.0 - np.exp(-TauObs))
     chNum = Xspec.shape[1]
@@ -123,8 +126,8 @@ for spw_index in range(spwNum):
     chAvgVis = np.mean(BPCaledXspec, axis=1)[pPol]
     GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[1])])
     aprioriSEFD = 2.0* kb* chAvgTsys[antMap].T / np.array([AeX, AeY])
-    aprioriVisX = np.mean(chAvgVis[0] / (GainP[0,ant0]* GainP[0,ant1].conjugate()), axis=1) * np.sqrt(aprioriSEFD[0, ant0]* aprioriSEFD[0, ant1])
-    aprioriVisY = np.mean(chAvgVis[1] / (GainP[1,ant0]* GainP[1,ant1].conjugate()), axis=1) * np.sqrt(aprioriSEFD[1, ant0]* aprioriSEFD[1, ant1])
+    aprioriVisX = np.mean(chAvgVis[0] / ((1.0 + QCpUS)* GainP[0,ant0]* GainP[0,ant1].conjugate()), axis=1) * np.sqrt(aprioriSEFD[0, ant0]* aprioriSEFD[0, ant1])
+    aprioriVisY = np.mean(chAvgVis[1] / ((1.0 - QCpUS)* GainP[1,ant0]* GainP[1,ant1].conjugate()), axis=1) * np.sqrt(aprioriSEFD[1, ant0]* aprioriSEFD[1, ant1])
     #-------- Determine Antenna-based Gain
     relGain[spw_index, 0] = abs(gainComplex(aprioriVisX))
     relGain[spw_index, 1] = abs(gainComplex(aprioriVisY))
@@ -163,7 +166,7 @@ for scan in scanList:
     #-------- Bandpass Calibration
     BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
     #-------- Antenna-based Phase Solution
-    chAvgVis = np.mean(BPCaledXspec[:,chRange], axis=1) # chAvgVis[pol, bl, time]
+    chAvgVis = np.mean(BPCaledXspec[:,PCchRange], axis=1) # chAvgVis[pol, bl, time]
     GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
     pCalVis = (BPCaledXspec.transpose(1,0,2,3) / (GainP[polYindex][:,ant0]* GainP[polXindex][:,ant1].conjugate()))
     SEFD = 2.0* kb* chAvgTsys[antMap].T / (np.array([AeX, AeY]) * atmCorrect)/ (relGain[spw_index]**2)
@@ -199,10 +202,8 @@ for scan in scanList:
 #
 plt.close('all')
 pp.close()
-"""
-np.save(prefix + '-' + UniqBands[band_index] + '.Flux.npy', ScanFlux)
-np.save(prefix + '-' + UniqBands[band_index] + '.Ferr.npy', ErrFlux)
+np.save(prefix + '-' + UniqBands[band_index] + '.StokesSpec.npy', StokesSpec)
+np.save(prefix + '-' + UniqBands[band_index] + '.StokesErr.npy', StokesErr)
 np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceList)[sourceIDscan])
 np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', ScanEL)
-"""
 msmd.close()
