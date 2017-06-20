@@ -184,6 +184,8 @@ for scan in scanList:
     #
     Stokes = np.mean(Stokes, axis=1) / timeNum
     StokesSpec, StokesErr = Stokes.real, Stokes.imag
+    np.save(prefix + '-' + UniqBands[band_index] + '-Scan' + `scan` + '.StokesSpec.npy', StokesSpec)
+    np.save(prefix + '-' + UniqBands[band_index] + '-Scan' + `scan` + '.StokesErr.npy', StokesErr)
     StokesI_PL.plot( Freq[chRange], StokesSpec[0, chRange], ls='steps-mid', label=polLabel[0], color=Pcolor[0])
     StokesP_PL.plot( np.array([min(Freq[chRange]), max(Freq[chRange])]), np.array([0.0,0.0]), '-', color='gray')
     StokesP_PL.plot( Freq[chRange], StokesSpec[1, chRange], ls='steps-mid', label=polLabel[1], color=Pcolor[1])
@@ -202,8 +204,4 @@ for scan in scanList:
 #
 plt.close('all')
 pp.close()
-np.save(prefix + '-' + UniqBands[band_index] + '.StokesSpec.npy', StokesSpec)
-np.save(prefix + '-' + UniqBands[band_index] + '.StokesErr.npy', StokesErr)
-np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceList)[sourceIDscan])
-np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', ScanEL)
 msmd.close()
