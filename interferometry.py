@@ -925,7 +925,7 @@ def delayCalSpec2( Xspec, chRange, sigma ):  # chRange = [startCH:stopCH] specif
 #
 def BPtable(msfile, spw, BPScan, blMap, blInv): 
     blNum = len(blMap); antNum = Bl2Ant(blNum)[0]
-    print '  -- Loading visibility data from MS...'
+    #print '  -- Loading visibility data from MS...'
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan)    # Xspec[pol, ch, bl, time]
     ant0, ant1, polNum, chNum, timeNum = ANT0[0:blNum], ANT1[0:blNum], Pspec.shape[0], Pspec.shape[1], Pspec.shape[3]
     chRange = range(int(0.05*chNum), int(0.95*chNum))                   # Trim band edge
@@ -933,10 +933,10 @@ def BPtable(msfile, spw, BPScan, blMap, blInv):
     kernel_index = KERNEL_BL[0:(antNum-1)]
     if polNum == 4:
         polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
-        print '  -- Mapping baselines...'
+        #print '  -- Mapping baselines...'
         Xspec  = CrossPolBL(Xspec[:,:,blMap], blInv)
         #---- Delay Cal
-        print '  -- Delay Cal...'
+        #print '  -- Delay Cal...'
         timeAvgSpecX, timeAvgSpecY = np.mean(Xspec[0,chRange][:,kernel_index], axis=2), np.mean(Xspec[3,chRange][:,kernel_index], axis=2)
         antDelayX = np.append(np.array([0.0]), len(chRange)* np.apply_along_axis(delay_search, 0, timeAvgSpecX)[0]/chNum)
         antDelayY = np.append(np.array([0.0]), len(chRange)* np.apply_along_axis(delay_search, 0, timeAvgSpecY)[0]/chNum)
@@ -947,17 +947,17 @@ def BPtable(msfile, spw, BPScan, blMap, blInv):
         #
 		delayCaledXspec = (Xspec.transpose(3,0,2,1) * delayCalTable[polYindex][:,ant0] / delayCalTable[polXindex][:,ant1]).transpose(1, 3, 2, 0)
         #---- Gain Cal
-        print '  -- Gain Cal...'
+        #print '  -- Gain Cal...'
         Gain = np.array([gainComplexVec(np.mean(delayCaledXspec[0,chRange], axis=0)), gainComplexVec(np.mean(delayCaledXspec[3,chRange], axis=0))])
         CaledXspec = (Xspec.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())).transpose(1,0,2,3)
         #---- Coherent time-averaging
-        print '  -- Time Averaging...'
+        #print '  -- Time Averaging...'
         XPspec = np.mean(CaledXspec, axis=3)  # Time Average
         #---- Antenna-based bandpass table
-        print '  -- Antenna-based Solution...'
+        #print '  -- Antenna-based Solution...'
         BP_ant[:,0], BP_ant[:,1] = gainComplexVec(XPspec[0].T), gainComplexVec(XPspec[3].T)
         #---- XY delay
-        print '  -- XY delay...'
+        #print '  -- XY delay...'
         BPCaledXspec = XPspec.transpose(2, 0, 1) /(BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate())
         BPCaledXYSpec = np.mean(BPCaledXspec[:,1], axis=0) +  np.mean(BPCaledXspec[:,2], axis=0).conjugate()
         XYdelay, amp = delay_search( BPCaledXYSpec[chRange] )
