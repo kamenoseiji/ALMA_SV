@@ -1,5 +1,4 @@
 import sys
-import re
 from scipy import stats
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ptick
