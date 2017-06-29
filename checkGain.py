@@ -2,50 +2,62 @@
 from scipy import stats
 import matplotlib.pyplot as plt
 execfile(SCR_DIR + 'interferometry.py')
-#-------- Load BP and Delay
-if BPCAL:
-    try: 
-        BP_ant = np.load( wd + BPprefix + '-BPant.npy' )
-    except:
-        BPCAL = False
+#-------- Initial Settings
+msfile = prefix + '.ms'; msmd.open(msfile)
+antList = GetAntName(msfile)
+antNum = len(antList)
+blNum = antNum* (antNum - 1) / 2
+spwNum = len(spw)
+spwName = msmd.namesforspws(spw[0])[0]
+BandName = re.findall(r'RB_..', spwName)[0]; BandID = int(BandName[3:5])
+#-------- Array Configuration
+print '---Checking array configuration'
+flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
+UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
+text_sd = '  Usable antennas: '
+for ants in antList[UseAnt].tolist(): text_sd = text_sd + ants + ' '
+print text_sd
+blMap, blInv= range(UseBlNum), [False]* UseBlNum
+ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
+for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
+timeStamp, UVW = GetUVW(msfile, spw[0], msmd.scansforspw(spw[0])[0])
+uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
+if 'refant' in locals():    refantID = indexList(np.array([refant]), antList)[0]
+else: refantID = bestRefant(uvDist)
+print '  Use ' + antList[UseAnt[refantID]] + ' as the refant.'
+antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
+for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
+print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
+msmd.done(); msmd.close()
+#-------- Bandpass Table
+BPList = []
+print '---Loading bandpass table'
+for spw_index in spw:
+    BP_ant = np.load(BPprefix + '-SPW' + `spw_index` + '-BPant.npy')
+    BPList = BPList + [BP_ant]
+#
+#-------- Loop for Scan
+GainAP = []
+for scan in scanList:
+    print 'Processing Scan ' + `scan`
+    #-------- Loop for SPW
+    for spw_index in range(spwNum):
+        #-------- Baseline-based cross power spectra
+        timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], scan)
+        timeNum, polNum, chNum = Xspec.shape[3], Xspec.shape[0], Xspec.shape[1]
+        if polNum == 4: polIndex = [0, 3]
+        if polNum == 2: polIndex = [0, 1]
+        tempSpec = ParaPolBL(Xspec[polIndex][:,:,blMap], blInv).transpose(3,2,0,1)       # Parallel Polarization Baseline Mapping : tempSpec[time, blMap, pol, ch]
+        BPCaledXspec = (tempSpec / (BPList[spw_index][ant0]* BPList[spw_index][ant1].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
+        #-------- Antenna-based Gain correction
+        chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
+        GainAP = GainAP + [np.array([np.apply_along_axis(gainComplex, 0, chAvgVis[0]), np.apply_along_axis(gainComplex, 0, chAvgVis[1])])]
     #
 #
-#-------- Definitions
-antNum = len(refant)
-blNum = antNum* (antNum - 1) / 2 
-spwNum  = len(spw)
-polNum  = len(pol)
-#
-#-------- Procedures
-msfile = wd + prefix + '.ms'
-antList = GetAntName(msfile)[refant]
-ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
-blMap = range(blNum)
-blInv = [False]* blNum		# True -> inverted baseline
-for bl_index in range(blNum):
-	ants = Bl2Ant(bl_index)
-	blMap[bl_index], blInv[bl_index]  = Ant2BlD(refant[ants[0]], refant[ants[1]])
-#
-#-------- Procedures
-interval, timeStamp = GetTimerecord(msfile, 0, 0, pol[0], spw[0], TGscan)
-timeNum = len(timeStamp)
-#
-#-------- Prepare Plots
-for ant_index in range(antNum):
-    figAnt = plt.figure(ant_index, figsize = (8, 11))
-    figAnt.suptitle(prefix + ' ' + antList[ant_index] + ' Scan = ' + `TGscan`)
-    figAnt.text(0.45, 0.05, 'MJD [sec]')
-    figAnt.text(0.03, 0.45, 'Gain Amplitude and Phase', rotation=90)
-#
-Gain_ant = np.ones([antNum, spwNum, polNum, timeNum], dtype=complex)
-#-------- Baseline-based bandpass
-if BPCAL:
-    BP_bl = np.ones([spwNum, polNum, chNum, blNum], dtype=complex)
-    for bl_index in range(blNum):
-        ants = Bl2Ant(bl_index)
-        BP_bl[:,:,:,bl_index] = BP_ant[ants[0]]* BP_ant[ants[1]].conjugate()
-    #
-#
+"""
+
+
+
 #-------- Loop for SPW
 CaledVis = np.zeros([polNum, spwNum, blNum, timeNum], dtype=complex)
 for spw_index in range(spwNum):
@@ -128,3 +140,4 @@ for ant_index in range(antNum):
 np.save(prefix + '.Ant.npy', antList) 
 np.save(prefix + 'Scn' + `TGscan` + '.GA.npy', Gain_ant) 
 plt.close('all')
+"""

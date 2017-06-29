@@ -63,6 +63,7 @@ for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(ant
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 antDia = np.ones(antNum)
 for ant_index in range(antNum): antDia[ant_index] = msmd.antennadiameter(antList[ant_index])['value']
+msmd.done(); msmd.close()
 #-------- Load Aeff file
 Afile = open(SCR_DIR + 'AeB' + `int(UniqBands[band_index][3:5])` + '.data')
 Alines = Afile.readlines()
