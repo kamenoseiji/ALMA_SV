@@ -41,13 +41,22 @@ for scan in scanList:
     timeNum, polNum, chNum = Xspec.shape[3], Xspec.shape[0], Xspec.shape[1]
     if polNum == 4: polIndex = [0, 3]
     if polNum == 2: polIndex = [0, 1]
+    if polNum == 1: polIndex = [0]
     tempSpec = ParaPolBL(Xspec[polIndex][:,:,blMap], blInv).transpose(3,2,0,1)  # Parallel Polarization Baseline Mapping : tempSpec[time, blMap, pol, ch]
     BPCaledXspec = (tempSpec / (BP_ant[ant0]* BP_ant[ant1].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
     #-------- Antenna-based Gain correction
     chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
     GainAP = GainAP + [np.array([np.apply_along_axis(gainComplex, 0, chAvgVis[0]), np.apply_along_axis(gainComplex, 0, chAvgVis[1])])]
-    timeList.append(timeStamp.tolist())
+    timeList.extend(timeStamp.tolist())
 #
+Gain = GainAP[0]
+for scan_index in range(1, len(scanList)): Gain = np.append(Gain, GainAP[scan_index], axis=2) 
+np.save(prefix + '.Ant.npy', antList[antMap]) 
+np.save(prefix + '.TS.npy', np.array(timeList)) 
+np.save(prefix + '-SPW' + `spw` + '.GA.npy', Gain) 
+
+
+
 """
 
 
