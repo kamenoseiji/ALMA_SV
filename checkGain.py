@@ -7,8 +7,7 @@ msfile = prefix + '.ms'; msmd.open(msfile)
 antList = GetAntName(msfile)
 antNum = len(antList)
 blNum = antNum* (antNum - 1) / 2
-spwNum = len(spw)
-spwName = msmd.namesforspws(spw[0])[0]
+spwName = msmd.namesforspws(spw)[0]
 BandName = re.findall(r'RB_..', spwName)[0]; BandID = int(BandName[3:5])
 #-------- Array Configuration
 print '---Checking array configuration'
@@ -30,29 +29,22 @@ for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(ant
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 msmd.done(); msmd.close()
 #-------- Bandpass Table
-BPList = []
 print '---Loading bandpass table'
-for spw_index in spw:
-    BP_ant = np.load(BPprefix + '-SPW' + `spw_index` + '-BPant.npy')
-    BPList = BPList + [BP_ant]
-#
+BP_ant = np.load(BPprefix + '-SPW' + `spw` + '-BPant.npy')
 #-------- Loop for Scan
 GainAP = []
 for scan in scanList:
     print 'Processing Scan ' + `scan`
-    #-------- Loop for SPW
-    for spw_index in range(spwNum):
-        #-------- Baseline-based cross power spectra
-        timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], scan)
-        timeNum, polNum, chNum = Xspec.shape[3], Xspec.shape[0], Xspec.shape[1]
-        if polNum == 4: polIndex = [0, 3]
-        if polNum == 2: polIndex = [0, 1]
-        tempSpec = ParaPolBL(Xspec[polIndex][:,:,blMap], blInv).transpose(3,2,0,1)       # Parallel Polarization Baseline Mapping : tempSpec[time, blMap, pol, ch]
-        BPCaledXspec = (tempSpec / (BPList[spw_index][ant0]* BPList[spw_index][ant1].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
-        #-------- Antenna-based Gain correction
-        chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
-        GainAP = GainAP + [np.array([np.apply_along_axis(gainComplex, 0, chAvgVis[0]), np.apply_along_axis(gainComplex, 0, chAvgVis[1])])]
-    #
+    #-------- Baseline-based cross power spectra
+    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)
+    timeNum, polNum, chNum = Xspec.shape[3], Xspec.shape[0], Xspec.shape[1]
+    if polNum == 4: polIndex = [0, 3]
+    if polNum == 2: polIndex = [0, 1]
+    tempSpec = ParaPolBL(Xspec[polIndex][:,:,blMap], blInv).transpose(3,2,0,1)  # Parallel Polarization Baseline Mapping : tempSpec[time, blMap, pol, ch]
+    BPCaledXspec = (tempSpec / (BP_ant[ant0]* BP_ant[ant1].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
+    #-------- Antenna-based Gain correction
+    chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
+    GainAP = GainAP + [np.array([np.apply_along_axis(gainComplex, 0, chAvgVis[0]), np.apply_along_axis(gainComplex, 0, chAvgVis[1])])]
 #
 """
 
