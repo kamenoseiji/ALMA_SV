@@ -52,7 +52,7 @@ for scan in scanList:
 Gain = GainAP[0]
 for scan_index in range(1, len(scanList)): Gain = np.append(Gain, GainAP[scan_index], axis=2) 
 np.save(prefix + '.Ant.npy', antList[antMap]) 
-np.save(prefix + '.TS.npy', np.array(timeList)) 
+np.save(prefix + '-SPW' + `spw` + '.TS.npy', np.array(timeList)) 
 np.save(prefix + '-SPW' + `spw` + '.GA.npy', Gain) 
 
 
