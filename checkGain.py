@@ -29,10 +29,11 @@ for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(ant
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 msmd.done(); msmd.close()
 #-------- Bandpass Table
-print '---Loading bandpass table'
-BP_ant = np.load(BPprefix + '-SPW' + `spw` + '-BPant.npy')
+BPfileName = BPprefix + '-SPW' + `spw` + '-BPant.npy'
+print '---Loading bandpass table : ' + BPfileName
+BP_ant = np.load(BPfileName)
 #-------- Loop for Scan
-GainAP = []
+GainAP, timeList = [], []
 for scan in scanList:
     print 'Processing Scan ' + `scan`
     #-------- Baseline-based cross power spectra
@@ -45,6 +46,7 @@ for scan in scanList:
     #-------- Antenna-based Gain correction
     chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
     GainAP = GainAP + [np.array([np.apply_along_axis(gainComplex, 0, chAvgVis[0]), np.apply_along_axis(gainComplex, 0, chAvgVis[1])])]
+    timeList = timeList + [timeStamp]
 #
 """
 
