@@ -46,7 +46,7 @@ for scan in scanList:
     #-------- Antenna-based Gain correction
     chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
     GainAP = GainAP + [np.array([np.apply_along_axis(gainComplex, 0, chAvgVis[0]), np.apply_along_axis(gainComplex, 0, chAvgVis[1])])]
-    timeList = timeList + [timeStamp]
+    timeList.append(timeStamp.tolist())
 #
 """
 
