@@ -33,7 +33,7 @@ BPfileName = BPprefix + '-SPW' + `spw` + '-BPant.npy'
 print '---Loading bandpass table : ' + BPfileName
 BP_ant = np.load(BPfileName)
 #-------- Loop for Scan
-GainAP, timeList = [], []
+GainAP, timeList, uvwList = [], [], []
 for scan in scanList:
     print 'Processing Scan ' + `scan`
     #-------- Baseline-based cross power spectra
@@ -49,9 +49,14 @@ for scan in scanList:
     chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
     GainAP = GainAP + [np.array([np.apply_along_axis(gainComplex, 0, chAvgVis[0]), np.apply_along_axis(gainComplex, 0, chAvgVis[1])])]
     timeList.extend(timeStamp.tolist())
+    uvwList = uvwList + [UVW[:,blMap]]
 #
-Gain = GainAP[0]
-for scan_index in range(1, len(scanList)): Gain = np.append(Gain, GainAP[scan_index], axis=2) 
+Gain, uvw = GainAP[0], uvwList[0]
+for scan_index in range(1, len(scanList)):
+    Gain = np.append(Gain, GainAP[scan_index], axis=2) 
+    uvw  = np.append(uvw, uvwList[scan_index], axis=2) 
+#
 np.save(prefix + '.Ant.npy', antList[antMap]) 
+np.save(prefix + '.UVW.npy', uvw[:,KERNEL_BL[0:(antNum-1)]]) 
 np.save(prefix + '-SPW' + `spw` + '.TS.npy', np.array(timeList)) 
 np.save(prefix + '-SPW' + `spw` + '.GA.npy', Gain) 
