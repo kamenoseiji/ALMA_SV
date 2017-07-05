@@ -160,10 +160,12 @@ for spw_index in range(spwNum):
     #
     sys.stderr.write('\n'); sys.stderr.flush()
     for ant_index in range(antNum):
-        DX_real, DX_imag = UnivariateSpline(bunchVecCH(Freq), DxSpec[ant_index,range(int(chNum/bunchNum))].real), UnivariateSpline(bunchVecCH(Freq), DxSpec[ant_index,range(int(chNum/bunchNum))].imag)
-        DY_real, DY_imag = UnivariateSpline(bunchVecCH(Freq), DySpec[ant_index,range(int(chNum/bunchNum))].real), UnivariateSpline(bunchVecCH(Freq), DySpec[ant_index,range(int(chNum/bunchNum))].imag)
-        DxSpec[ant_index] = DX_real(Freq) + (0.0 + 1.0j)* DX_imag(Freq)
-        DySpec[ant_index] = DY_real(Freq) + (0.0 + 1.0j)* DY_imag(Freq)
+        if Dsmooth :
+            DX_real, DX_imag = UnivariateSpline(bunchVecCH(Freq), DxSpec[ant_index,range(int(chNum/bunchNum))].real), UnivariateSpline(bunchVecCH(Freq), DxSpec[ant_index,range(int(chNum/bunchNum))].imag)
+            DY_real, DY_imag = UnivariateSpline(bunchVecCH(Freq), DySpec[ant_index,range(int(chNum/bunchNum))].real), UnivariateSpline(bunchVecCH(Freq), DySpec[ant_index,range(int(chNum/bunchNum))].imag)
+            DxSpec[ant_index] = DX_real(Freq) + (0.0 + 1.0j)* DX_imag(Freq)
+            DySpec[ant_index] = DY_real(Freq) + (0.0 + 1.0j)* DY_imag(Freq)
+        #
     #
     #-------- Plot
     if np.mean(np.cos(PA)) < 0.0: PA = np.arctan2(-np.sin(PA), -np.cos(PA)) +  np.pi
