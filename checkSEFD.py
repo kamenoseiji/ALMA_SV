@@ -29,6 +29,7 @@ execfile(SCR_DIR + 'TsysCal.py')
 #
 #  They include all of antennas (even if flagged) in MS order
 ########
+msmd.open(msfile)
 #-------- Array Configuration
 print '---Checking array configuration'
 flagList = np.where(np.median(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) > 2.0* np.median(chAvgTrx))[0].tolist()
