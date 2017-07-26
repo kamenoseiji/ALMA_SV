@@ -273,7 +273,7 @@ for scan_index in range(scanNum):
         text_sd = ' SPW  Frequency    I               Q               U               V             | Model I'; logfile.write(text_sd + '\n'); print text_sd
     else:
         SSO_flag = F
-        text_sd = ' SPW  Frequency    I               Q               U               V               %Pol     EVPA '; logfile.write(text_sd + '\n'); print text_sd
+        text_sd = ' SPW  Frequency    I               Q               U               V           %Pol     EVPA '; logfile.write(text_sd + '\n'); print text_sd
     #
     text_sd = ' ------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
     BPCaledXspec = []
@@ -369,7 +369,7 @@ for scan_index in range(scanNum):
             logfile.write('\n'); print ''
         #
     #
-    uvMax, IMax = max(uvDist), max(ScanFlux[scan_index,:,0])
+    uvMin, uvMax, IMax = min(uvDist), max(uvDist), max(ScanFlux[scan_index,:,0])
     for spw_index in range(spwNum):
         StokesI_PL = figScan.add_subplot( 2, spwNum, spw_index + 1 )
         StokesP_PL = figScan.add_subplot( 2, spwNum, spwNum + spw_index + 1 )
@@ -395,6 +395,8 @@ for scan_index in range(scanNum):
     #
     text_sd = '%6.3f   %6.1f ' % (100.0* np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi); logfile.write(text_sd); print text_sd,
     logfile.write('\n'); print '\n'
+    text_sd = 'UV_min_max  %6.1f  %6.1f ' % (uvMin, uvMax)
+
     if COMPDB:
         if not SSO_flag:
             print ' -------- Comparison with ALMA Calibrator Catalog --------'
