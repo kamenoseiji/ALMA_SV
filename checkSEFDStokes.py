@@ -395,8 +395,8 @@ for scan_index in range(scanNum):
     #
     text_sd = '%6.3f   %6.1f ' % (100.0* np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi); logfile.write(text_sd); print text_sd,
     logfile.write('\n'); print '\n'
-    text_sd = 'UV_min_max  %6.1f  %6.1f ' % (uvMin, uvMax)
-
+    text_sd = 'UV_min_max  %6.1f  %6.1f ' % (uvMin, uvMax); logfile.write(text_sd); print text_sd,
+    logfile.write('\n \n'); print '\n \n'
     if COMPDB:
         if not SSO_flag:
             print ' -------- Comparison with ALMA Calibrator Catalog --------'
