@@ -15,7 +15,7 @@ Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
 kb        = 1.38064852e3
 #-------- Check Scans for atmCal
 ingestFile = open(prefix + '-' + UniqBands[band_index] + '-Ingest.log', 'w') 
-text_sd = 'source,    RA,eRA,dec,edec,frequency,  flux,eflux,degree,edeg,EVPA,eEVPA,uvmin,uvmax,date\n'; ingestFile.write(text_sd)
+text_sd = '#source,   RA,eRA,dec,edec,frequency,  flux,eflux,degree,edeg,EVPA,eEVPA,uvmin,uvmax,date\n'; ingestFile.write(text_sd)
 logfile = open(prefix + '-' + UniqBands[band_index] + '-Flux.log', 'w') 
 logfile.write(FLScaleText + '\n'); logfile.write(BPcalText + '\n'); logfile.write(EQcalText + '\n')
 #-------- Tsys measurements
