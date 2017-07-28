@@ -401,7 +401,7 @@ for scan_index in range(scanNum):
     logfile.write('\n \n'); print '\n'
     if not SSO_flag:
         waveLength = 299.792458/meanFreq    # wavelength in mm
-        text_sd = '%s, NE, NE, NE, NE, %.2fE+09, %.2f, %.2f, %.2f, %.2f, %.1f, %.1f, %.1f, %.1f, %s\n' % (sourceList[sourceIDscan[scan_index]], meanFreq, pflux[0], pfluxerr[0], np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi, np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/np.sqrt(pflux[1]**2 + pflux[2]**2)*90.0/pi, uvMin/waveLength, uvMax/waveLength, timeLabel[0:10])
+        text_sd = '%s, NE, NE, NE, NE, %.2fE+09, %.2f, %.2f, %.2f, %.2f, %.1f, %.1f, %.1f, %.1f, %s\n' % (sourceList[sourceIDscan[scan_index]], meanFreq, pflux[0], pfluxerr[0], np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi, np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/np.sqrt(pflux[1]**2 + pflux[2]**2)*90.0/pi, uvMin/waveLength, uvMax/waveLength, timeLabel[0:10].replace('/','-'))
         ingestFile.write(text_sd)
     #
     if COMPDB:
