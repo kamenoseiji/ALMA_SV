@@ -265,7 +265,8 @@ for scan_index in range(scanNum):
         #
         StokesVis, StokesErr = Stokes.real, Stokes.imag
         #-------- Visibility slope vs uvdist using Stokes I
-        visFlag = np.where(abs(StokesVis[0] - np.percentile(StokesVis[0], 75))/np.percentile(StokesVis[0], 75) < 0.2 )[0]
+        percent75 = np.percentile(StokesVis[0], 75); sdvis = np.std(StokesVis[0])
+        visFlag = np.where(abs(StokesVis[0] - percent75) < 2.0* sdvis )[0]
         weight = np.zeros(SAblNum); weight[visFlag] = 1.0/np.var(StokesVis[0][visFlag])
         P, W = np.c_[np.ones(SAblNum), uvDist], np.diag(weight)
         PtWP_inv = scipy.linalg.inv(P.T.dot(W.dot(P)))
