@@ -109,11 +109,11 @@ for band_index in range(NumBands):
     if polNum == 4: pPol, cPol = [0,3], [1,2]  # parallel and cross pol
     ppolNum, cpolNum = len(pPol), len(cPol)
     msmd.done()
-    if polNum == 2:
-        pPol, cPol = [0,1], []   ; ppolNum, cpolNum = len(pPol), len(cPol)
-        execfile(SCR_DIR + 'checkSEFD.py')
-    if polNum == 4:
-        pPol, cPol = [0,3], [1,2]; ppolNum, cpolNum = len(pPol), len(cPol)
-        execfile(SCR_DIR + 'checkSEFDStokes.py')
+    try:
+        if polNum == 2: pPol, cPol = [0,1], []   ; ppolNum, cpolNum = len(pPol), len(cPol); execfile(SCR_DIR + 'checkSEFD.py')
+        if polNum == 4: pPol, cPol = [0,3], [1,2]; ppolNum, cpolNum = len(pPol), len(cPol); execfile(SCR_DIR + 'checkSEFDStokes.py')
+    except:
+        if polNum == 2: pPol, cPol = [0,1], []   ; ppolNum, cpolNum = len(pPol), len(cPol); execfile(SCR_DIR + 'aprioriFlux.py')
+        if polNum == 4: pPol, cPol = [0,3], [1,2]; ppolNum, cpolNum = len(pPol), len(cPol); execfile(SCR_DIR + 'aprioriStokes.py')
     #
 #

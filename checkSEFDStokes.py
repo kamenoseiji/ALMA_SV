@@ -337,7 +337,8 @@ for scan_index in range(scanNum):
             Stokes[:,bl_index] = PS.reshape(4, 4*PAnum).dot(Minv.reshape(4, 4*UseChNum).dot(AmpCalVis[spw_index][bl_index].reshape(4*UseChNum, PAnum)).reshape(4*PAnum)) / (PAnum* UseChNum)
         #
         StokesVis, StokesErr = Stokes.real, Stokes.imag
-        visFlag = np.where(abs(StokesVis[0] - np.percentile(StokesVis[0], 75))/np.percentile(StokesVis[0], 75) < 0.2 )[0]
+        percent75 = np.percentile(StokesVis[0], 75); sdvis = np.std(StokesVis[0])
+        visFlag = np.where(abs(StokesVis[0] - percent75) < 2.0* sdvis )[0]
         if len(visFlag) < 2 : continue
         weight = np.zeros(SAblNum); weight[visFlag] = 1.0/np.var(StokesVis[0][visFlag])
         P, W = np.c_[np.ones(SAblNum), uvDist], np.diag(weight)
@@ -401,7 +402,7 @@ for scan_index in range(scanNum):
     logfile.write('\n \n'); print '\n'
     if not SSO_flag:
         waveLength = 299.792458/meanFreq    # wavelength in mm
-        text_sd = '%s, NE, NE, NE, NE, %.2fE+09, %.2f, %.2f, %.2f, %.2f, %.1f, %.1f, %.1f, %.1f, %s\n' % (sourceList[sourceIDscan[scan_index]], meanFreq, pflux[0], pfluxerr[0], np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi, np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/np.sqrt(pflux[1]**2 + pflux[2]**2)*90.0/pi, uvMin/waveLength, uvMax/waveLength, timeLabel[0:10].replace('/','-'))
+        text_sd = '%s, NE, NE, NE, NE, %.2fE+09, %.3f, %.3f, %.3f, %.3f, %.2f, %.2f, %.2f, %.2f, %s\n' % (sourceList[sourceIDscan[scan_index]], meanFreq, pflux[0], pfluxerr[0], np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi, np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/np.sqrt(pflux[1]**2 + pflux[2]**2)*90.0/pi, uvMin/waveLength, uvMax/waveLength, timeLabel[0:10].replace('/','-'))
         ingestFile.write(text_sd)
     #
     if COMPDB:
