@@ -219,7 +219,7 @@ for scan_index in range(scanNum):
     figScan.text(0.45, 0.05, 'Projected baseline [m]') 
     figScan.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90) 
     ScanEL[scan_index] = np.median(OnEL[:,scan_index])
-    if sourceIDscan[scan_index] in SSOList: SSO_flag = T
+    if sourceIDscan[scan_index] in SSOList: SSO_flag = True
     else:
         SSO_flag, SAantennas, SAbl, SAblFlag, SAant0, SAant1 = False, range(UseAntNum), range(UseBlNum), np.ones([blNum]), ant0, ant1
         SAantMap, SAblMap, SAblInv = antMap, blMap, blInv
