@@ -59,7 +59,11 @@ for spw_index in range(spwNum):
     chNum, chWid, Freq = GetChNum(msfile, spw); chRange = range(int(0.05*chNum/bunchNum), int(0.95*chNum/bunchNum)); FreqList = FreqList + [1.0e-9* Freq]
     DxSpec, DySpec = np.zeros([antNum, chNum], dtype=complex), np.zeros([antNum, chNum], dtype=complex)
     caledVis = np.ones([4,blNum, 0], dtype=complex)
-    if BPprefix != '':  # Bandpass file
+    if 'FGprefix' in locals():  # Flag table
+        FG = np.load(FGprefix + '-SPW' + `spw` + '.FG.npy'); FG = np.min(FG, axis=0)
+        TS = np.load(FGprefix + '-SPW' + `spw` + '.TS.npy')
+    #
+    if 'BPprefix' in locals():  # Bandpass file
         BPantList, BP_ant, XYspec = np.load(BPprefix + '-REF' + refantName + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy')
         BP_ant = BP_ant[indexList(antList[antMap], BPantList)]      # BP antenna mapping
         BP_ant[:,1] *= XYspec                                       # XY phase cal
@@ -82,12 +86,13 @@ for spw_index in range(spwNum):
             #-------- Load Visibilities
             print '-- Loading visibility data %s SPW=%d SCAN=%d...' % (prefix, spw, scan)
             timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)  # Xspec[POL, CH, BL, TIME]
+            flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
             if chNum == 1:
                 print '  -- Channel-averaged data: no BP and delay cal'
                 chAvgVis= np.c_[chAvgVis, CrossPolBL(Xspec[:,:,blMap], blInv)[:,0]]
             else:
                 print '  -- Apply bandpass cal'
-                tempSpec = CrossPolBL(np.apply_along_axis(bunchVecCH, 1, Xspec[:,:,blMap]), blInv).transpose(3, 2, 0, 1)
+                tempSpec = CrossPolBL(np.apply_along_axis(bunchVecCH, 1, Xspec[:,:,blMap]), blInv).transpose(3, 2, 0, 1)[flagIndex]
                 BPCaledXspec = (tempSpec / BP_bl).transpose(2,3,1,0) 
                 #-------- Antenna-based Gain
                 print '  -- Channel-averaging'
@@ -95,8 +100,8 @@ for spw_index in range(spwNum):
                 VisSpec  = np.c_[VisSpec, BPCaledXspec]
             #
             #-------- Time index at on axis
-            scanAz, scanEl = AzElMatch(timeStamp, azelTime, AntID, refAntID, AZ, EL)
-            mjdSec = mjdSec + timeStamp.tolist()
+            scanAz, scanEl = AzElMatch(timeStamp[flagIndex], azelTime, AntID, refAntID, AZ, EL)
+            mjdSec = mjdSec + timeStamp[flagIndex].tolist()
             Az = Az + scanAz.tolist()
             El = El + scanEl.tolist()
             #for time_index in range(timeNum):

@@ -3,6 +3,7 @@ from scipy import stats
 import matplotlib.pyplot as plt
 execfile(SCR_DIR + 'interferometry.py')
 #-------- Initial Settings
+if 'SNR_THRESH' not in locals(): SNR_THRESH = 3.0
 msfile = prefix + '.ms'; msmd.open(msfile)
 antList = GetAntName(msfile)
 antNum = len(antList)
@@ -29,11 +30,13 @@ for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(ant
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 msmd.done(); msmd.close()
 #-------- Bandpass Table
-BPfileName = BPprefix + '-SPW' + `spw` + '-BPant.npy'
-print '---Loading bandpass table : ' + BPfileName
-BP_ant = np.load(BPfileName)
+if 'BPprefix' in locals():
+    BPfileName = BPprefix + '-REF' + antList[UseAnt[refantID]] +'-SPW' + `spw` + '-BPant.npy'
+    print '---Loading bandpass table : ' + BPfileName
+    BP_ant = np.load(BPfileName)
+#
 #-------- Loop for Scan
-GainAP, timeList, uvwList = [], [], []
+GainAP0, GainAP1, timeList, uvwList, flagList = [], [], [], [], []
 for scan in scanList:
     print 'Processing Scan ' + `scan`
     #-------- Baseline-based cross power spectra
@@ -43,20 +46,39 @@ for scan in scanList:
     if polNum == 4: polIndex = [0, 3]
     if polNum == 2: polIndex = [0, 1]
     if polNum == 1: polIndex = [0]
+    polNum = len(polIndex)
     tempSpec = ParaPolBL(Xspec[polIndex][:,:,blMap], blInv).transpose(3,2,0,1)  # Parallel Polarization Baseline Mapping : tempSpec[time, blMap, pol, ch]
-    BPCaledXspec = (tempSpec / (BP_ant[ant0]* BP_ant[ant1].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
+    if 'BP_ant' in locals():
+        BPCaledXspec = (tempSpec / (BP_ant[ant0]* BP_ant[ant1].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
+    else:
+        BPCaledXspec = tempSpec.transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
+    #
     #-------- Antenna-based Gain correction
     chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
-    GainAP = GainAP + [np.array([np.apply_along_axis(gainComplex, 0, chAvgVis[0]), np.apply_along_axis(gainComplex, 0, chAvgVis[1])])]
+    for time_index in range(timeNum):
+        gainFlag = np.ones(antNum)
+        tempGain, tempErr = gainComplexErr(chAvgVis[0, :, time_index]); GainAP0 = GainAP0 + [tempGain]
+        gainFlag[np.where(abs(tempGain) / tempErr  < SNR_THRESH)[0]] = 0.0
+        tempGain, tempErr = gainComplexErr(chAvgVis[1, :, time_index]); GainAP1 = GainAP1 + [tempGain]
+        gainFlag[np.where(abs(tempGain) / tempErr  < SNR_THRESH)[0]] = 0.0
+        flagList = flagList + [gainFlag]
+    #
     timeList.extend(timeStamp.tolist())
     uvwList = uvwList + [UVW[:,blMap]]
 #
-Gain, uvw = GainAP[0], uvwList[0]
+antFlag = np.array(flagList).T                          # [ant, time]
+Gain = np.array([GainAP0, GainAP1]).transpose(2,0,1)    # [ant, pol, time]
+np.save(prefix + '.Ant.npy', antList[antMap]) 
+np.save(prefix + '-SPW' + `spw` + '.TS.npy', np.array(timeList)) 
+np.save(prefix + '-SPW' + `spw` + '.GA.npy', Gain) 
+np.save(prefix + '-SPW' + `spw` + '.FG.npy', antFlag) 
+"""
+Gain, uvw = np.array(GainAP) , uvwList[0]
 for scan_index in range(1, len(scanList)):
     Gain = np.append(Gain, GainAP[scan_index], axis=2) 
     uvw  = np.append(uvw, uvwList[scan_index], axis=2) 
 #
-np.save(prefix + '.Ant.npy', antList[antMap]) 
 np.save(prefix + '.UVW.npy', uvw[:,KERNEL_BL[0:(antNum-1)]]) 
 np.save(prefix + '-SPW' + `spw` + '.TS.npy', np.array(timeList)) 
 np.save(prefix + '-SPW' + `spw` + '.GA.npy', Gain) 
+"""

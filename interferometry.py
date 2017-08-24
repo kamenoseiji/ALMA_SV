@@ -1419,6 +1419,25 @@ def gainComplex( bl_vis, niter=2 ):
     #
     return CompSol
 #
+def gainComplexErr( bl_vis, niter=2 ):
+    blNum  =  len(bl_vis)
+    antNum =  Bl2Ant(blNum)[0]
+    ant0, ant1, kernelBL = ANT0[0:blNum], ANT1[0:blNum], KERNEL_BL[range(antNum-1)].tolist()
+    CompSol = np.zeros(antNum, dtype=complex)
+    #---- Initial solution
+    CompSol[0] = sqrt(abs(bl_vis[0])) + 0j
+    CompSol[1:antNum] = bl_vis[kernelBL] / CompSol[0]
+    #----  Iteration
+    for iter_index in range(niter):
+        PTP        = PMatrix(CompSol)
+        L          = np.linalg.cholesky(PTP)         # Cholesky decomposition
+        Cresid     = bl_vis - CompSol[ant0]* CompSol[ant1].conjugate()
+        t          = np.linalg.solve(L, PTdotR(CompSol, Cresid))
+        correction = np.linalg.solve(L.T, t)
+        CompSol    = CompSol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
+    #
+    return CompSol, logamp_solve(abs(bl_vis - CompSol[ant0]* CompSol[ant1].conjugate()))
+#
 #-------- Function to calculate visibilities
 def polariVis( Xspec ):     # Xspec[polNum, blNum, chNum, timeNum]
     blNum, chNum, timeNum   = Xspec.shape[1], Xspec.shape[2], Xspec.shape[3]
