@@ -176,12 +176,14 @@ for spw_index in range(spwNum):
     if np.mean(np.cos(PA)) < 0.0: PA = np.arctan2(-np.sin(PA), -np.cos(PA)) +  np.pi
     PArange = np.arange(min(PA), max(PA), 0.01); CSrange, SNrange = np.cos(2.0*PArange), np.sin(2.0*PArange)
     UCmQS, QCpUS = QUsol[1]*CSrange - QUsol[0]* SNrange, QUsol[0]*CSrange + QUsol[1]* SNrange
-    plt.plot(PArange,  QCpUS + np.mean(Dx).real * UCmQS, '-', color='green')              # XX* - 1.0
+    #plt.plot(PArange,  QCpUS + np.mean(Dx).real * UCmQS, '-', color='green')              # XX* - 1.0
+    plt.plot(PArange,  QCpUS, '-', color='green')              # XX* - 1.0
     plt.plot(PArange,  UCmQS + np.mean(Dx).real * (1.0 - QCpUS) + np.mean(Dy).real* (1.0 + QCpUS), '-', color='cyan')   # ReXY
     plt.plot(PArange,  np.mean(Dx).imag* (1.0 - QCpUS) - np.mean(Dy).imag* (1.0 + QCpUS), '-', color='darkblue')       # ImXY
     plt.plot(PArange,  UCmQS + np.mean(Dx).real* (1.0 - QCpUS) + np.mean(Dy).real* (1.0 + QCpUS), '-', color='magenta')# ReYX
     plt.plot(PArange, -np.mean(Dx).imag* (1.0 - QCpUS) + np.mean(Dy).imag* (1.0 + QCpUS), '-', color='darkred')        # ImYX
-    plt.plot(PArange,  -QCpUS - np.mean(Dy).real * UCmQS, '-', color='orange')            # YY* - 1.0
+    #plt.plot(PArange,  -QCpUS - np.mean(Dy).real * UCmQS, '-', color='orange')            # YY* - 1.0
+    plt.plot(PArange,  -QCpUS, '-', color='orange')            # YY* - 1.0
     plt.plot(PA, Vis[0].real - 1.0, '.', label = 'XX* - 1.0',   color='green')
     plt.plot(PA, Vis[1].real, '.', label = 'ReXY*', color='cyan')
     plt.plot(PA, Vis[1].imag, '.', label = 'ImXY*', color='darkblue')
