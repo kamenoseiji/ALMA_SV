@@ -41,7 +41,7 @@ for spw_index in spw:
     BPList = BPList + [BP_ant]
     XYList = XYList + [XY_BP]
     XYdelayList = XYdelayList + [XYdelay]
-    print 'SPW%d: XY delay [sample] = %f' % (spw_index, XYdelay)
+    print 'SPW%d: %d/%d records (%.1f%% flagged) XY delay = %f [sample]' % (spw_index, Gain.shape[2], timeNum, 100.0* (timeNum - Gain.shape[2] + 0.0)/timeNum, XYdelay)
 #
 BP_ant = np.array(BPList).transpose(1,0,2,3)
 XYspec = np.array(XYList)
