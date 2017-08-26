@@ -2,7 +2,7 @@ import sys
 import analysisUtils as au
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Grid.py')
-msfile = prefix + '.ms'
+msfile = wd + prefix + '.ms'
 #-------- Check Antenna List
 antList = GetAntName(msfile)
 antNum = len(antList)

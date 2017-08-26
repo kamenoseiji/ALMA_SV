@@ -58,8 +58,8 @@ ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
 for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
 timeStamp, UVW = GetUVW(msfile, spw[0], msmd.scansforspw(spw[0])[0])
 uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
-refantID = bestRefant(uvDist)
-print '  Use ' + antList[UseAnt[refantID]] + ' as the refant.'
+refantID = bestRefant(uvDist); refantName = antList[UseAnt[refantID]]
+print '  Use ' + refantName + ' as the refant.'
 antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
 for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
@@ -114,12 +114,20 @@ for ant_index in antMap:
 chNum = np.array(DxList).shape[1]
 DxSpec, DySpec = np.array(DxList).reshape([UseAntNum, spwNum, chNum]), np.array(DyList).reshape([UseAntNum, spwNum, chNum])
 #-------- Bandpass Table
-print '---Generating antenna-based bandpass table'
 BPList = []
-for spw_index in spw:
-    BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPScan, blMap, blInv)
-    BP_ant[:,1] *= XY_BP
-    BPList = BPList + [BP_ant]
+if 'BPprefix' in locals():      # Load Bandpass table
+    for spw_index in spw:
+        BPantList, BP_ant, XYspec = np.load(BPprefix + '-REF' + refantName + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw_index` + '-BPant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw_index` + '-XYspec.npy')
+        BP_ant[:,1] *= XYspec
+        BPList = BPList + [BP_ant]
+    #
+else:
+    print '---Generating antenna-based bandpass table'
+    for spw_index in spw:
+        BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPScan, blMap, blInv)
+        BP_ant[:,1] *= XY_BP
+        BPList = BPList + [BP_ant]
+    #
 #
 if PLOTBP:
     figAnt = PlotBP(msfile, antList[antMap], spw, BPList)
@@ -127,7 +135,7 @@ if PLOTBP:
     if PLOTFMT == 'png': fileExt = '.png'
     for ant_index in range(UseAntNum):
         figAnt = plt.figure(ant_index)
-        plotFigFileName = 'BP_' + prefix + '_' + antList[antMap[ant_index]] + '_REF' + antList[UseAnt[refantID]] + '_Scan' + `BPScan` + fileExt
+        plotFigFileName = 'BP_' + prefix + '_' + antList[antMap[ant_index]] + '_REF' + refantName + '_Scan' + `BPScan` + fileExt
         figAnt.savefig(plotFigFileName)
     #
     plt.close('all')
@@ -140,11 +148,20 @@ AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
 PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), np.cos(PA))
 QUsolution = np.array([catalogStokesQ.get(EQcal), catalogStokesU.get(EQcal)])
 QCpUS = QUsolution[0]* np.cos(2.0* PA) + QUsolution[1]* np.sin(2.0* PA)
+#-------- Flag table
+if 'FGprefix' in locals():
+    print '---Checking Flag File'
+    FGList = []
+    for spw_index in range(spwNum): FG = np.load(FGprefix + '-SPW' + `spw[spw_index]` + '.FG.npy'); FGList = FGList + [np.min(FG, axis=0)]
+    FG = np.min( np.array(FGList), axis=0)
+    TS = np.load(FGprefix + '-SPW' + `spw[spw_index]` + '.TS.npy')
+#
 for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], EQScan)
+    flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
     chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-    tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)       # Cross Polarization Baseline Mapping : tempSpec[time, blMap, pol, ch]
+    tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)[flagIndex]       # Cross Polarization Baseline Mapping : tempSpec[time, blMap, pol, ch]
     BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
     #-------- Antenna-based Gain correction
     chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)[pPol]
@@ -165,10 +182,12 @@ AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
 PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), np.cos(PA))
 GainP, XYphase, caledVis = [], [], []
 scan_index = scanList.index(BPScan)
+flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
 for spw_index in range(spwNum):
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], BPScan)
+    flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
     timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-    tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
+    tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)[flagIndex]      # Cross Polarization Baseline Mapping
     BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
     chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
     GainP = GainP + [np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])]
@@ -213,9 +232,10 @@ print '---Flux densities of sources ---'
 pp, polLabel, Pcolor = PdfPages('FL_' + prefix + '_' + UniqBands[band_index] + '.pdf'), ['I', 'Q', 'U', 'V'], ['black', 'blue', 'red', 'green']
 #for scan_index in range(1):
 for scan_index in range(scanNum):
+    timeLabel = qa.time('%fs' % (timeXY[0]), form='ymd')[0]
     figScan = plt.figure(scan_index, figsize = (11, 8))
     figScan.suptitle(prefix + ' ' + UniqBands[band_index])
-    figScan.text(0.75, 0.95, qa.time('%fs' % timeStamp[0], form='ymd')[0]) 
+    figScan.text(0.75, 0.95, timeLabel) 
     figScan.text(0.45, 0.05, 'Projected baseline [m]') 
     figScan.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90) 
     ScanEL[scan_index] = np.median(OnEL[:,scan_index])
@@ -232,14 +252,16 @@ for scan_index in range(scanNum):
     BPCaledXspec = []
     #-------- UV distance
     timeStamp, UVW = GetUVW(msfile, spw[0], scanList[scan_index]);  uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
+    flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
     AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
-    PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
+    PA = (AzEl2PA(AzScan, ElScan) + BandPA[band_index])[flagIndex]; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
+    #-------- Flagging
     for spw_index in range(spwNum):
         #-------- Baseline-based cross power spectra
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], scanList[scan_index])
         timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum)); UseChNum = len(chRange)
         if np.max(abs(Xspec)) < 1.0e-9: continue
-        tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
+        tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)[flagIndex]      # Cross Polarization Baseline Mapping
         #-------- Bandpass Calibration
         BPCaledXspec = BPCaledXspec + [(tempSpec / (BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate())).transpose(2,3,1,0)] # Bandpass Cal
     #
