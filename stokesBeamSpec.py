@@ -17,6 +17,7 @@ def scanThresh( msfile, ant_index, thresh ):
     onAxisIndex = np.where( Offset[0, time_index]**2 + Offset[1, time_index]**2 < thresh**2 )[0]
     return time_index[onAxisIndex].tolist()
 #
+"""
 #-------- GridPoint
 def GridPoint( value, samp_x, samp_y, point_x, point_y, kernel ):
     #---- Check NaN and replace with 0
@@ -41,6 +42,7 @@ def GridData( value, samp_x, samp_y, grid_x, grid_y, kernel ):
     for index in range(gridNum): results[index] = GridPoint( value, samp_x, samp_y, grid_x[index], grid_y[index], kernel)
     return results
 #
+"""
 #----------------------------------------- Antenna Mapping
 # antList : (eg.) array(['DA41', 'DA42', 'DV01', ... ])     : antenna name list ordered in MS
 # antID   : [0,1,2,3,4,5,6,...]                             : one-by-one number on antList 

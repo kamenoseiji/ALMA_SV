@@ -36,11 +36,11 @@ if 'BPprefix' in locals():
     BP_ant = np.load(BPfileName)
 #
 #-------- Loop for Scan
-GainAP0, GainAP1, timeList, uvwList, flagList = [], [], [], [], []
+GainAP0, GainAP1, timeList, SNRList, flagList = [], [], [], [], []
 for scan in scanList:
     print 'Processing Scan ' + `scan`
     #-------- Baseline-based cross power spectra
-    timeUVW, UVW = GetUVW(msfile, spw, scan)
+    #timeUVW, UVW = GetUVW(msfile, spw, scan)
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)
     timeNum, polNum, chNum = Xspec.shape[3], Xspec.shape[0], Xspec.shape[1]
     if polNum == 4: polIndex = [0, 3]
@@ -56,29 +56,42 @@ for scan in scanList:
     #-------- Antenna-based Gain correction
     chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
     for time_index in range(timeNum):
-        gainFlag = np.ones(antNum)
-        tempGain, tempErr = gainComplexErr(chAvgVis[0, :, time_index]); GainAP0 = GainAP0 + [tempGain]
-        gainFlag[np.where(abs(tempGain) / tempErr  < SNR_THRESH)[0]] = 0.0
-        tempGain, tempErr = gainComplexErr(chAvgVis[1, :, time_index]); GainAP1 = GainAP1 + [tempGain]
-        gainFlag[np.where(abs(tempGain) / tempErr  < SNR_THRESH)[0]] = 0.0
+        gainFlag = np.ones(UseAntNum)
+        tempGain, tempErr = gainComplexErr(chAvgVis[0, :, time_index]); GainAP0 = GainAP0 + [tempGain]; tempSNR = abs(tempGain) / tempErr
+        SNRList = SNRList + [tempSNR]; gainFlag[np.where(tempSNR  < SNR_THRESH)[0]] = 0.0
+        #------
+        tempGain, tempErr = gainComplexErr(chAvgVis[1, :, time_index]); GainAP1 = GainAP1 + [tempGain]; tempSNR = abs(tempGain) / tempErr
+        SNRList = SNRList + [tempSNR]; gainFlag[np.where(tempSNR  < SNR_THRESH)[0]] = 0.0
         flagList = flagList + [gainFlag]
     #
     timeList.extend(timeStamp.tolist())
-    uvwList = uvwList + [UVW[:,blMap]]
+    #uvwList = uvwList + [UVW[:,blMap]]
 #
 antFlag = np.array(flagList).T                          # [ant, time]
+antSNR  = np.array(SNRList).reshape(timeNum, 2, UseAntNum).transpose(2,1,0)  # [ant, pol, time]
 Gain = np.array([GainAP0, GainAP1]).transpose(2,0,1)    # [ant, pol, time]
 np.save(prefix + '.Ant.npy', antList[antMap]) 
 np.save(prefix + '-SPW' + `spw` + '.TS.npy', np.array(timeList)) 
 np.save(prefix + '-SPW' + `spw` + '.GA.npy', Gain) 
 np.save(prefix + '-SPW' + `spw` + '.FG.npy', antFlag) 
-"""
-Gain, uvw = np.array(GainAP) , uvwList[0]
-for scan_index in range(1, len(scanList)):
-    Gain = np.append(Gain, GainAP[scan_index], axis=2) 
-    uvw  = np.append(uvw, uvwList[scan_index], axis=2) 
+#-------- Plot
+labelTime = range(int(min(timeStamp+9.9))/10*10, int(max(timeStamp))/10*10+1, 10)
+timeLabel = []
+for tickTime in labelTime: timeLabel = timeLabel + [qa.time('%fs' % (tickTime), form='hms')[0]]
+fig = plt.figure(figsize = (8,11))
+ax = fig.add_subplot(2, 1, 1 )
+ax.imshow(antSNR[:,0], cmap='gray', extent=[min(timeStamp), max(timeStamp), -0.5, UseAntNum-0.5], interpolation='none', clim=(0.0, 10.0), aspect=(max(timeStamp)-min(timeStamp))/(2.0* UseAntNum))
+Xticks = ax.set_xticks(labelTime); labels = ax.set_xticklabels(timeLabel, rotation=90, fontsize='small')
+Yticks = ax.set_yticks(range(UseAntNum)); labels = ax.set_yticklabels(antList[antMap], fontsize='small')
 #
-np.save(prefix + '.UVW.npy', uvw[:,KERNEL_BL[0:(antNum-1)]]) 
-np.save(prefix + '-SPW' + `spw` + '.TS.npy', np.array(timeList)) 
-np.save(prefix + '-SPW' + `spw` + '.GA.npy', Gain) 
-"""
+ax = fig.add_subplot(2, 1, 2)
+ax.imshow(antSNR[:,1], cmap='gray', extent=[min(timeStamp), max(timeStamp), -0.5, UseAntNum-0.5], interpolation='none', clim=(0.0, 10.0), aspect=(max(timeStamp)-min(timeStamp))/(2.0* UseAntNum))
+#
+Xticks = ax.set_xticks(labelTime); labels = ax.set_xticklabels(timeLabel, rotation=90, fontsize='small')
+Yticks = ax.set_yticks(range(UseAntNum)); labels = ax.set_yticklabels(antList[antMap], fontsize='small')
+
+#plt.subplot(2, 1, 2 ); plt.imshow(antSNR[:,1], cmap='gray', extent=[min(timeStamp), max(timeStamp), 0, antNum], interpolation='none', clim=(0.0, 10.0), aspect=(max(timeStamp)-min(timeStamp))/(2.0* antNum))
+#xi, yi = np.mgrid[0:antNum:1, min(timeStamp):max(timeStamp):(1.0j* timeNum)]
+#plt.contourf(xi, yi, antSNR[:,0])
+#plt.contourf(antSNR[:,0], xi, yi, np.linspace(0.0, 10.0))
+#SNRmap = GridData(antSNR[:,0].real, ,timeStamp, xi.reshape(xi.size), yi.reshape(xi.size), 1.0).reshape(len(xi), len(xi))
