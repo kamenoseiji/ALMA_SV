@@ -37,7 +37,15 @@ print '---Generating antenna-based bandpass table'
 BPList, XYList, XYdelayList = [], [], []
 spwNum = len(spw)
 for spw_index in spw:
-    BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPscan, blMap, blInv)
+    if 'FGprefix' in locals():  # Flag table
+        try:
+            FG = np.load(FGprefix + '-SPW' + `spw_index` + '.FG.npy'); FG = np.min(FG, axis=0)
+            TS = np.load(FGprefix + '-SPW' + `spw_index` + '.TS.npy')
+            BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPscan, blMap, blInv, FG, TS)
+        except:
+            BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPscan, blMap, blInv)
+        #
+    #
     BPList = BPList + [BP_ant]
     XYList = XYList + [XY_BP]
     XYdelayList = XYdelayList + [XYdelay]

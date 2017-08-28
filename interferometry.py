@@ -924,19 +924,21 @@ def delayCalSpec2( Xspec, chRange, sigma ):  # chRange = [startCH:stopCH] specif
 	#   
 	return delay_ant, delay_err, delayCalXspec
 #
-def BPtable(msfile, spw, BPScan, blMap, blInv): 
+def BPtable(msfile, spw, BPScan, blMap, blInv, FG=np.array([]), TS=np.array([])): 
     blNum = len(blMap); antNum = Bl2Ant(blNum)[0]
     #print '  -- Loading visibility data from MS...'
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan)    # Xspec[pol, ch, bl, time]
+    if len(FG) > 0: flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
+    else: flagIndex = range(len(timeStamp))
+    #
     ant0, ant1, polNum, chNum, timeNum = ANT0[0:blNum], ANT1[0:blNum], Pspec.shape[0], Pspec.shape[1], Pspec.shape[3]
     chRange = range(int(0.05*chNum), int(0.95*chNum))                   # Trim band edge
     BP_ant  = np.ones([antNum, 2, chNum], dtype=complex)          # BP_ant[ant, pol, ch]
     kernel_index = KERNEL_BL[0:(antNum-1)]
-    SNR_THRESH, GainAP0, GainAP1, flagList = 1.0, [], [], []
     if polNum == 4:
         polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
         #print '  -- Mapping baselines...'
-        Xspec  = CrossPolBL(Xspec[:,:,blMap], blInv)
+        Xspec  = CrossPolBL(Xspec[:,:,blMap], blInv)[:,:,:,flagIndex]
         #---- Delay Cal
         #print '  -- Delay Cal...'
         timeAvgSpecX, timeAvgSpecY = np.mean(Xspec[0,chRange][:,kernel_index], axis=2), np.mean(Xspec[3,chRange][:,kernel_index], axis=2)
@@ -948,18 +950,9 @@ def BPtable(msfile, spw, BPScan, blMap, blInv):
 	        delayCalTable[1,ant_index] = np.exp(pi* antDelayY[ant_index]* np.multiply(range(-chNum/2, chNum/2), 1j) / chNum )
         #
 		delayCaledXspec = (Xspec.transpose(3,0,2,1) * delayCalTable[polYindex][:,ant0] / delayCalTable[polXindex][:,ant1]).transpose(1, 3, 2, 0)
-        #---- Gain Cal with flagging
-        #print '  -- Gain Cal...'
-        for time_index in range(timeNum):
-            gainFlag = np.ones(antNum)
-            tempGain, tempErr = gainComplexErr(np.mean(delayCaledXspec[0,chRange], axis=0)[:,time_index]); GainAP0 = GainAP0 + [tempGain]; gainFlag[np.where(abs(tempGain) / tempErr  < SNR_THRESH)[0]] = 0.0
-            tempGain, tempErr = gainComplexErr(np.mean(delayCaledXspec[3,chRange], axis=0)[:,time_index]); GainAP1 = GainAP1 + [tempGain]; gainFlag[np.where(abs(tempGain) / tempErr  < SNR_THRESH)[0]] = 0.0
-            flagList = flagList + [gainFlag]
-        #
-        antFlag = np.array(flagList).T; timeFlag = np.where(np.min(antFlag, axis=0) == 1.0)[0].tolist()
-        Gain = np.array([np.array(GainAP0)[timeFlag].T, np.array(GainAP1)[timeFlag].T])
-        # Gain = np.array([gainComplexVec(np.mean(delayCaledXspec[0,chRange], axis=0)), gainComplexVec(np.mean(delayCaledXspec[3,chRange], axis=0))])
-        CaledXspec = (Xspec[:,:,:,timeFlag].transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())).transpose(1,0,2,3)
+        #---- Gain Cal
+        Gain = np.array([gainComplexVec(np.mean(delayCaledXspec[0,chRange], axis=0)), gainComplexVec(np.mean(delayCaledXspec[3,chRange], axis=0))])
+        CaledXspec = (Xspec.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())).transpose(1,0,2,3)
         #---- Coherent time-averaging
         #print '  -- Time Averaging...'
         XPspec = np.mean(CaledXspec, axis=3)  # Time Average
@@ -974,7 +967,7 @@ def BPtable(msfile, spw, BPScan, blMap, blInv):
         XYdelay = (float(chNum) / float(len(chRange)))* XYdelay
         BPCaledXYSpec = BPCaledXYSpec / abs(BPCaledXYSpec)
     else:
-        Xspec  = ParaPolBL(Xspec[:,:,blMap], blInv)
+        Xspec  = ParaPolBL(Xspec[:,:,blMap], blInv)[:,:,:,flagIndex]
         #---- Delay Cal
         timeAvgSpecX, timeAvgSpecY = np.mean(Xspec[0,chRange][:,kernel_index], axis=2), np.mean(Xspec[1,chRange][:,kernel_index], axis=2)
         antDelayX = np.append(np.array([0.0]), len(chRange)* np.apply_along_axis(delay_search, 0, timeAvgSpecX)[0]/chNum)
@@ -985,18 +978,9 @@ def BPtable(msfile, spw, BPScan, blMap, blInv):
 	        delayCalTable[1,ant_index] = np.exp(pi* antDelayY[ant_index]* np.multiply(range(-chNum/2, chNum/2), 1j) / chNum )
         #
 		delayCaledXspec = (Xspec.transpose(3,0,2,1) * delayCalTable[:,ant0] / delayCalTable[:,ant1]).transpose(1, 3, 2, 0)
-        #---- Gain Cal with flagging
-        for time_index in range(timeNum):
-            gainFlag = np.ones(antNum)
-            tempGain, tempErr = gainComplexErr(np.mean(delayCaledXspec[0,chRange], axis=0)[:,time_index]); GainAP0 = GainAP0 + [tempGain]; gainFlag[np.where(abs(tempGain) / tempErr  < SNR_THRESH)[0]] = 0.0
-            tempGain, tempErr = gainComplexErr(np.mean(delayCaledXspec[1,chRange], axis=0)[:,time_index]); GainAP1 = GainAP1 + [tempGain]; gainFlag[np.where(abs(tempGain) / tempErr  < SNR_THRESH)[0]] = 0.0
-            flagList = flagList + [gainFlag]
-        #
-        antFlag = np.array(flagList).T; timeFlag = np.where(np.min(antFlag, axis=0) == 1.0)[0].tolist()
-        Gain = np.array([np.array(GainAP0)[timeFlag].T, np.array(GainAP1)[timeFlag].T])
-        #Gain = np.array([gainComplexVec(np.mean(delayCaledXspec[0,chRange], axis=0)), gainComplexVec(np.mean(delayCaledXspec[1,chRange], axis=0))])
-        CaledXspec = (Xspec[:,:,:,timeFlag].transpose(1,0,2,3) / (Gain[:,ant0]* Gain[:,ant1].conjugate())).transpose(1,0,2,3)
-        #CaledXspec = (Xspec.transpose(1,0,2,3) / (Gain[:,ant0]* Gain[:,ant1].conjugate())).transpose(1,0,2,3)
+        #---- Gain Cal
+        Gain = np.array([gainComplexVec(np.mean(delayCaledXspec[0,chRange], axis=0)), gainComplexVec(np.mean(delayCaledXspec[1,chRange], axis=0))])
+        CaledXspec = (Xspec.transpose(1,0,2,3) / (Gain[:,ant0]* Gain[:,ant1].conjugate())).transpose(1,0,2,3)
         #---- Coherent time-averaging
         XPspec = np.mean(CaledXspec, axis=3)  # Time Average
         #---- Antenna-based bandpass table
