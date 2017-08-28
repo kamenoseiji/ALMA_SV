@@ -58,7 +58,12 @@ ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
 for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
 timeStamp, UVW = GetUVW(msfile, spw[0], msmd.scansforspw(spw[0])[0])
 uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
-refantID = bestRefant(uvDist); refantName = antList[UseAnt[refantID]]
+try:
+    refantID = np.where(antList[UseAnt] == refant )[0][0]
+except:
+    refantID = bestRefant(uvDist)
+#
+refantName = antList[UseAnt[refantID]]
 print '  Use ' + refantName + ' as the refant.'
 antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
 for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
@@ -113,6 +118,16 @@ for ant_index in antMap:
 #
 chNum = np.array(DxList).shape[1]
 DxSpec, DySpec = np.array(DxList).reshape([UseAntNum, spwNum, chNum]), np.array(DyList).reshape([UseAntNum, spwNum, chNum])
+#-------- Flag table
+if 'FGprefix' in locals():
+    print '---Checking Flag File'
+    FGList = []
+    for spw_index in range(spwNum): FG = np.load(FGprefix + '-SPW' + `spw[spw_index]` + '.FG.npy'); FGList = FGList + [np.min(FG, axis=0)]
+    FG = np.min( np.array(FGList), axis=0)
+    TS = np.load(FGprefix + '-SPW' + `spw[spw_index]` + '.TS.npy')
+    interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[0], EQScan); timeNum = len(timeStamp)
+    flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
+#
 #-------- Bandpass Table
 BPList = []
 if 'BPprefix' in locals():      # Load Bandpass table
@@ -144,22 +159,14 @@ if PLOTBP:
 relGain = np.ones([spwNum, 2, UseAntNum])
 polXindex, polYindex, scan_index = (arange(4)//2).tolist(), (arange(4)%2).tolist(), scanList.index(EQScan)
 interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[0], EQScan); timeNum = len(timeStamp)
-AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
+AzScan, ElScan = AzElMatch(timeStamp[flagIndex], azelTime, AntID, refantID, AZ, EL)
 PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), np.cos(PA))
 QUsolution = np.array([catalogStokesQ.get(EQcal), catalogStokesU.get(EQcal)])
 QCpUS = QUsolution[0]* np.cos(2.0* PA) + QUsolution[1]* np.sin(2.0* PA)
-#-------- Flag table
-if 'FGprefix' in locals():
-    print '---Checking Flag File'
-    FGList = []
-    for spw_index in range(spwNum): FG = np.load(FGprefix + '-SPW' + `spw[spw_index]` + '.FG.npy'); FGList = FGList + [np.min(FG, axis=0)]
-    FG = np.min( np.array(FGList), axis=0)
-    TS = np.load(FGprefix + '-SPW' + `spw[spw_index]` + '.TS.npy')
 #
 for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], EQScan)
-    flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
     chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
     tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)[flagIndex]       # Cross Polarization Baseline Mapping : tempSpec[time, blMap, pol, ch]
     BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
@@ -178,7 +185,8 @@ for spw_index in range(spwNum):
 ##-------- Iteration for Equalization using EQ scan
 #-------- XY phase using BP scan
 interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[0], BPScan); timeNum = len(timeStamp)
-AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
+flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
+AzScan, ElScan = AzElMatch(timeStamp[flagIndex], azelTime, AntID, refantID, AZ, EL)
 PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), np.cos(PA))
 GainP, XYphase, caledVis = [], [], []
 scan_index = scanList.index(BPScan)

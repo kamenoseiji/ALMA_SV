@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 execfile(SCR_DIR + 'interferometry.py')
 #-------- Initial Settings
 if 'SNR_THRESH' not in locals(): SNR_THRESH = 3.0
-msfile = prefix + '.ms'; msmd.open(msfile)
+msfile = wd + prefix + '.ms'; msmd.open(msfile)
 antList = GetAntName(msfile)
 antNum = len(antList)
 blNum = antNum* (antNum - 1) / 2
@@ -68,12 +68,13 @@ for scan in scanList:
     #uvwList = uvwList + [UVW[:,blMap]]
 #
 antFlag = np.array(flagList).T                          # [ant, time]
-antSNR  = np.array(SNRList).reshape(timeNum, 2, UseAntNum).transpose(2,1,0)  # [ant, pol, time]
+#antSNR  = np.array(SNRList).reshape(timeNum, 2, UseAntNum).transpose(2,1,0)  # [ant, pol, time]
 Gain = np.array([GainAP0, GainAP1]).transpose(2,0,1)    # [ant, pol, time]
 np.save(prefix + '.Ant.npy', antList[antMap]) 
 np.save(prefix + '-SPW' + `spw` + '.TS.npy', np.array(timeList)) 
 np.save(prefix + '-SPW' + `spw` + '.GA.npy', Gain) 
 np.save(prefix + '-SPW' + `spw` + '.FG.npy', antFlag) 
+"""
 #-------- Plot
 labelTime = range(int(min(timeStamp+9.9))/10*10, int(max(timeStamp))/10*10+1, 10)
 timeLabel = []
@@ -95,3 +96,4 @@ Yticks = ax.set_yticks(range(UseAntNum)); labels = ax.set_yticklabels(antList[an
 #plt.contourf(xi, yi, antSNR[:,0])
 #plt.contourf(antSNR[:,0], xi, yi, np.linspace(0.0, 10.0))
 #SNRmap = GridData(antSNR[:,0].real, ,timeStamp, xi.reshape(xi.size), yi.reshape(xi.size), 1.0).reshape(len(xi), len(xi))
+"""
