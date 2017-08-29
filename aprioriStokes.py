@@ -131,6 +131,7 @@ if 'FGprefix' in locals():
 #-------- Bandpass Table
 BPList = []
 if 'BPprefix' in locals():      # Load Bandpass table
+    print '---Loding bandpass table...'
     for spw_index in spw:
         BPantList, BP_ant, XYspec = np.load(BPprefix + '-REF' + refantName + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw_index` + '-BPant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw_index` + '-XYspec.npy')
         BP_ant[:,1] *= XYspec
