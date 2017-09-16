@@ -56,7 +56,8 @@ for ant_index in range(antNum):
         OffSpecList.append(Pspec[pPol][:,:,offTimeIndex])
         AmbSpecList.append(Pspec[pPol][:,:,ambTimeIndex])
         HotSpecList.append(Pspec[pPol][:,:,hotTimeIndex])
-        for scan_index in range(scanNum): OnSpecList.append(np.median( Pspec[pPol][:,:,OnTimeIndex[scan_index]], axis=2 ))
+        #for scan_index in range(scanNum): OnSpecList.append(np.median( Pspec[pPol][:,:,OnTimeIndex[scan_index]], axis=2 ))
+        for scan_index in range(len(scanList)): OnSpecList.append(np.median( Pspec[pPol][:,:,OnTimeIndex[scan_index]], axis=2 ))
     #
 #
 sys.stderr.write('\n')

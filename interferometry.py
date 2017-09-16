@@ -893,17 +893,11 @@ def bpPhsAnt(spec):			# Determine phase-only antenna-based BP
 #
 def delayCalSpec( Xspec, chRange ):     # chRange = [startCH:stopCH] specifies channels to determine delay 
     blNum, chNum = Xspec.shape[0], Xspec.shape[1]
-    delay_bl = np.zeros(blNum)
-    delayCalXspec = np.zeros([blNum, chNum], dtype=complex)
+    ant0, ant1 = np.array(ANT0[0:blNum]), np.array(ANT1[0:blNum])
     delayResults = np.apply_along_axis( delay_search, 1, Xspec[:, chRange] )    # BL delays in delayResults[:,0], Amps in delayResults[:,1]
-    #
-    delay_ant = cldelay_solve(delayResults[:,0], 1.0/delayResults[:,1])[0]
-    for bl_index in range(blNum):
-        ants = Bl2Ant(bl_index)
-        delay_bl[bl_index] = delay_ant[ants[0]] - delay_ant[ants[1]]
-    #
-    delayCalXspec = np.apply_along_axis( delay_cal, 0, Xspec, delay_bl)
-    return delay_ant, delayCalXspec
+    delay_ant = cldelay_solve(delayResults[:,0])* ((chNum + 0.0)/len(chRange)); antNum = len(delay_ant) # Antenna-based delay solutions
+    twiddleAnt = np.exp( pi* np.outer( delay_ant, np.multiply(range(-chNum/2, chNum/2), 1j) / chNum ) ) # Antenna-baased Twiddle factor
+    return Xspec * twiddleAnt[ant0] / twiddleAnt[ant1]
 #
 def delayCalSpec2( Xspec, chRange, sigma ):  # chRange = [startCH:stopCH] specifies channels to determine delay 
 	blNum, chNum = Xspec.shape[0], Xspec.shape[1]

@@ -4,7 +4,7 @@ from scipy import stats
 import matplotlib.pyplot as plt
 execfile(SCR_DIR + 'interferometry.py')
 #-------- Initial Settings
-if 'SNR_THRESH' not in locals(): SNR_THRESH = 3.0
+if 'SNR_THRESH' not in locals(): SNR_THRESH = 1.0
 msfile = wd + prefix + '.ms'; msmd.open(msfile)
 antList = GetAntName(msfile)
 antNum = len(antList)
@@ -37,9 +37,9 @@ if 'BPprefix' in locals():
     BP_ant = np.load(BPfileName)
 #
 #-------- Loop for Scan
-GainAP0, GainAP1, timeList, SNRList, flagList = [], [], [], [], []
+GainAP, timeList, SNRList, flagList, scanVis, scanWT = [], [], [], [], [], []
 for scan in scanList:
-    print 'Processing Scan ' + `scan`
+    print ' Processing Scan ' + `scan`,
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)
     timeNum, polNum, chNum = Xspec.shape[3], Xspec.shape[0], Xspec.shape[1]
@@ -55,28 +55,56 @@ for scan in scanList:
     #
     #-------- Antenna-based Gain correction
     chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
+    scanSNR, scanGain, scanFlag = [], [], []
     for time_index in range(timeNum):
         #------ Progress bar
         progress = (time_index + 1.0) / timeNum
         sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
-        #------
+        #------ X-pol
         gainFlag = np.ones(UseAntNum)
-        tempGain, tempErr = gainComplexErr(chAvgVis[0, :, time_index]); GainAP0 = GainAP0 + [tempGain]; tempSNR = abs(tempGain) / tempErr
-        SNRList = SNRList + [tempSNR]; gainFlag[np.where(tempSNR  < SNR_THRESH)[0]] = 0.0
-        #------
-        tempGain, tempErr = gainComplexErr(chAvgVis[1, :, time_index]); GainAP1 = GainAP1 + [tempGain]; tempSNR = abs(tempGain) / tempErr
-        SNRList = SNRList + [tempSNR]; gainFlag[np.where(tempSNR  < SNR_THRESH)[0]] = 0.0
-        flagList = flagList + [gainFlag]
+        for pol_index in range(2):
+            tempGain, tempErr = gainComplexErr(chAvgVis[polIndex[pol_index], :, time_index])
+            GainAP = GainAP + [tempGain]; tempSNR = abs(tempGain) / tempErr; SNRList = SNRList + [tempSNR]
+            scanSNR = scanSNR + [tempSNR]; scanGain = scanGain + [tempGain]
+            gainFlag[np.where(tempSNR  < SNR_THRESH)[0]] = 0.0
+        #
+        scanFlag = scanFlag + [gainFlag]; flagList = flagList + [gainFlag]
     #
+    print ''
+    #-------- Summary of scan
     timeList.extend(timeStamp.tolist())
+    scanFlag = np.array(scanFlag).reshape(timeNum, UseAntNum).T
+    scanSNR = np.array(scanSNR).reshape(timeNum, 2, UseAntNum).transpose(1,2,0)
+    for ant_index in range(UseAntNum):
+        print '%s : SNR(med) = %.1f, %.1f  [%d/%d flagged]' % (antList[antMap[ant_index]], np.median(scanSNR, axis=2)[0,ant_index], np.median(scanSNR, axis=2)[1,ant_index], len(np.where(scanFlag[ant_index] == 0.0)[0]), timeNum)
+    #
+    #-------- Average cross power spectra for scan
+    wt = np.array(scanSNR).reshape(timeNum, 2, UseAntNum).transpose(1,2,0)* scanFlag  # [pol, ant, time]
+    wtSum = np.sum(wt[:,ant0]* wt[:,ant1], axis=(1,2))                                # Weight sum
+    scanGain = np.array(scanGain).reshape(timeNum, 2, UseAntNum).transpose(1,2,0)     # [pol, ant, time]
+    scanPhas = scanGain / abs(scanGain)
+    gCalVis = (BPCaledXspec.transpose(1,0,2,3) * wt[:,ant0]* wt[:,ant1]) / (scanPhas[:,ant0]* scanPhas[:,ant1].conjugate()) # [ch, pol, bl, time]
+    timeAvgVis = np.sum(gCalVis,axis=3).transpose(1,2,0)  # [pol, bl, ch]
+    if DELAYCAL:
+        scanVis = scanVis + [np.sum(np.array([delayCalSpec(timeAvgVis[0],chRange), delayCalSpec(timeAvgVis[1],chRange)]), axis=1) ]
+    else:
+        scanVis = scanVis + [np.sum(timeAvgVis, axis=1)]
+    #
+    scanWT = scanWT + [wtSum]
 #
+scanVis = np.array(scanVis)
+scanWT  = np.array(scanWT)
+totalTimeNum = len(timeList)
 antFG  = np.array(flagList).T                          # [ant, time]
-antSNR = np.array(SNRList).reshape(timeNum, 2, UseAntNum).transpose(2,1,0)  # [ant, pol, time]
-Gain = np.array([GainAP0, GainAP1]).transpose(2,0,1)    # [ant, pol, time]
+antSNR = np.array(SNRList).reshape(totalTimeNum, 2, UseAntNum).transpose(2,1,0)  # [ant, pol, time]
+Gain = np.array(GainAP).reshape(totalTimeNum, 2, UseAntNum).transpose(2,1,0)
 np.save(prefix + '.Ant.npy', antList[antMap]) 
 np.save(prefix + '-SPW' + `spw` + '.TS.npy', np.array(timeList)) 
 np.save(prefix + '-SPW' + `spw` + '.GA.npy', Gain) 
+np.save(prefix + '-SPW' + `spw` + '.SN.npy', antSNR) 
 np.save(prefix + '-SPW' + `spw` + '.FG.npy', antFG) 
+np.save(prefix + '-SPW' + `spw` + '.SP.npy', scanVis) 
+np.save(prefix + '-SPW' + `spw` + '.WT.npy', scanWT) 
 """
 #-------- Plot
 fig = plt.figure(figsize = (8,11))
