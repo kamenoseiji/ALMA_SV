@@ -30,16 +30,36 @@ antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
 for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 msmd.done(); msmd.close()
+#-------- Az El
+azelTime, AntID, AZ, EL = GetAzEl(msfile)
+azelTime_index = np.where( AntID == refantID )[0].tolist()
 #-------- Bandpass Table
 if 'BPprefix' in locals():
     BPfileName = BPprefix + '-REF' + antList[UseAnt[refantID]] +'-SPW' + `spw` + '-BPant.npy'
     print '---Loading bandpass table : ' + BPfileName
     BP_ant = np.load(BPfileName)
 #
+chNum, chWid, Freq = GetChNum(msfile, spw)
+Freq *= 1.0e9
+#-------- Tau Table
+if 'TAUprefix' in locals():
+    scanEL = []
+    Tau0 = np.load(TAUprefix + '.Tau0.npy')
+    interval, BPtime = GetTimerecord(msfile, refantID, refantID, 0, spw, BPscan)
+    BPEL = EL[azelTime_index[argmin( abs(azelTime[azelTime_index] - median(BPtime)))]]
+    BP_ant *= np.exp(0.5*Tau0[spwList.index(spw)] / np.sin(BPEL))
+    print ' Bandpass Scan %d EL=%.1f Tau=%.3f' %(BPscan, 180.0*BPEL/pi, np.median(Tau0[spwList.index(spw)]/np.sin(BPEL)))
+    for scan in scanList:
+        interval, scanTime = GetTimerecord(msfile, refantID, refantID, 0, spw, scan)
+        scanEL = scanEL + [EL[azelTime_index[argmin( abs(azelTime[azelTime_index] - median(scanTime)))]]]
+    #
+#
 #-------- Loop for Scan
 GainAP, timeList, SNRList, flagList, scanVis, scanWT = [], [], [], [], [], []
 for scan in scanList:
-    print ' Processing Scan ' + `scan`,
+    scanIndex = scanList.index(scan)
+    print ' Processing Scan %d EL=%.1f Tau=%.3f' %(scan, 180.0*scanEL[scanIndex]/pi, np.median(Tau0[spwList.index(spw)]/np.sin(scanEL[scanIndex]))),
+    tauSpec = np.exp(Tau0[spwList.index(spw)] / np.sin(scanEL[scanIndex]))
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)
     timeNum, polNum, chNum = Xspec.shape[3], Xspec.shape[0], Xspec.shape[1]
@@ -49,7 +69,7 @@ for scan in scanList:
     polNum = len(polIndex)
     tempSpec = ParaPolBL(Xspec[polIndex][:,:,blMap], blInv).transpose(3,2,0,1)  # Parallel Polarization Baseline Mapping : tempSpec[time, blMap, pol, ch]
     if 'BP_ant' in locals():
-        BPCaledXspec = (tempSpec / (BP_ant[ant0]* BP_ant[ant1].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
+        BPCaledXspec = (tempSpec* tauSpec / (BP_ant[ant0]* BP_ant[ant1].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
     else:
         BPCaledXspec = tempSpec.transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
     #
@@ -105,6 +125,7 @@ np.save(prefix + '-SPW' + `spw` + '.SN.npy', antSNR)
 np.save(prefix + '-SPW' + `spw` + '.FG.npy', antFG) 
 np.save(prefix + '-SPW' + `spw` + '.SP.npy', scanVis) 
 np.save(prefix + '-SPW' + `spw` + '.WT.npy', scanWT) 
+np.save(prefix + '-SPW' + `spw` + '.FQ.npy', Freq) 
 """
 #-------- Plot
 fig = plt.figure(figsize = (8,11))

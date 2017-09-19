@@ -28,13 +28,22 @@ print '---Checking time for ambient and hot load'
 timeOFF, timeAMB, timeHOT, atmScanList = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT"), msmd.scansforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE").tolist()
 scanNum = len(atmScanList)
 if len(timeAMB) == 0:
+    ambTimeIndex, hotTimeIndex = [], []
     timeXY, Pspec = GetPSpec(msfile, 0, spwList[0])
     timeNum, chNum = Pspec.shape[2], Pspec.shape[1]
     if 'chRange' not in locals(): chRange = range(int(0.05*chNum), int(0.95*chNum))
     chAvgPower = np.mean(Pspec[0][chRange], axis=0)
     offTimeIndex = indexList(timeOFF, timeXY)
-    hotTimeIndex = (np.array(offTimeIndex) - 1).tolist()
-    ambTimeIndex = (np.array(offTimeIndex) - 2).tolist()
+    calTimeIndex = indexList(msmd.timesforintent("CALIBRATE_ATMOSPHERE#ON_SOURCE"), timeXY)
+    scanBreakIndex = np.where( np.diff(timeXY[calTimeIndex]) > 30.0)[0].tolist() + [len(calTimeIndex)-1]
+    startBreak = 0
+    for break_index in scanBreakIndex:
+        scanSeq = np.array(calTimeIndex)[startBreak:break_index]
+        ambHotBreak = np.where( np.diff(timeXY[scanSeq]) > 2.0* np.median(np.diff(timeXY[scanSeq])))[0][0]
+        ambTimeIndex = ambTimeIndex + scanSeq[1:(ambHotBreak-1)].tolist()
+        hotTimeIndex = hotTimeIndex + scanSeq[(ambHotBreak+1):(len(scanSeq)-1)].tolist()
+        startBreak = break_index + 1
+    #
     ambTime, hotTime, offTime = timeXY[ambTimeIndex], timeXY[hotTimeIndex], timeXY[offTimeIndex]
 else:
     tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spwList[0]`).getcol('TIME'); tb.close()
@@ -103,15 +112,15 @@ param = [0.0, 0.05]     # Initial Parameter
 Tau0, TantN = np.zeros([spwNum, chNum]), np.zeros([spwNum, chNum])
 for spw_index in range(spwNum):
     for ch_index in chRange:
-        if max(secZ[0]) - min(secZ[0]) > 0.5:
+        if 'Tant' in locals():
+            param = [0.05]
+            fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(np.median(tempAmb)-Tatm_OFS, np.median(secZ,axis=0), np.median(TskySpec, axis=(0,2))[spw_index, ch_index]-Tant[spw_index]))
+            Tau0[spw_index, ch_index]  = fit[0][0]
+            TantN[spw_index, ch_index] = Tant[spw_index]
+        else:
             fit = scipy.optimize.leastsq(residTskyTransfer, param, args=(np.median(tempAmb)-Tatm_OFS, np.median(secZ,axis=0), np.median(TskySpec, axis=(0,2))[spw_index, ch_index]))
             TantN[spw_index, ch_index] = fit[0][0]
             Tau0[spw_index, ch_index]  = fit[0][1]
-        else:
-            param = [0.05]
-            fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(np.median(tempAmb)-Tatm_OFS, np.median(secZ,axis=0), np.median(TskySpec, axis=(0,2))[spw_index, ch_index]))
-            Tau0[spw_index, ch_index]  = fit[0][0]
-            TantN[spw_index, ch_index] = Tatm_OFS
         #
     #
 #
