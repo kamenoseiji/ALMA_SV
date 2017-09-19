@@ -29,7 +29,8 @@ timeOFF, timeAMB, timeHOT, atmScanList = msmd.timesforintent("CALIBRATE_ATMOSPHE
 scanNum = len(atmScanList)
 if len(timeAMB) == 0:
     timeXY, Pspec = GetPSpec(msfile, 0, spw[0])
-    timeNum, chNum = Pspec.shape[2], Pspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
+    timeNum, chNum = Pspec.shape[2], Pspec.shape[1]
+    if 'chRange' not in locals(): chRange = range(int(0.05*chNum), int(0.95*chNum))
     chAvgPower = np.mean(Pspec[0][chRange], axis=0)
     offTimeIndex = indexList(timeOFF, timeXY)
     hotTimeIndex = (np.array(offTimeIndex) - 1).tolist()
