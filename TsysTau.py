@@ -81,7 +81,7 @@ for ant_index in range(antNum):
     if tempHot[ant_index] < 300: tempHot[ant_index] += 273.15
     for spw_index in range(spwNum):
         AntSpwIndex = ant_index* spwNum + spw_index
-        chNum = AmbSpecList[AntSpwIndex].shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
+        chNum = AmbSpecList[AntSpwIndex].shape[1]
         Trx, Tsky = np.zeros([2, chNum, len(offTime)]), np.zeros([2, chNum, len(offTime)])
         for pol_index in range(ppolNum):
             ambSpec, hotSpec = AmbSpecList[AntSpwIndex][pol_index], HotSpecList[AntSpwIndex][pol_index]
