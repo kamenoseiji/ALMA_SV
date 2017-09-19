@@ -28,7 +28,7 @@ print '---Checking time for ambient and hot load'
 timeOFF, timeAMB, timeHOT, atmScanList = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT"), msmd.scansforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE").tolist()
 scanNum = len(atmScanList)
 if len(timeAMB) == 0:
-    timeXY, Pspec = GetPSpec(msfile, 0, spw[0])
+    timeXY, Pspec = GetPSpec(msfile, 0, spwList[0])
     timeNum, chNum = Pspec.shape[2], Pspec.shape[1]
     if 'chRange' not in locals(): chRange = range(int(0.05*chNum), int(0.95*chNum))
     chAvgPower = np.mean(Pspec[0][chRange], axis=0)
@@ -37,7 +37,7 @@ if len(timeAMB) == 0:
     ambTimeIndex = (np.array(offTimeIndex) - 2).tolist()
     ambTime, hotTime, offTime = timeXY[ambTimeIndex], timeXY[hotTimeIndex], timeXY[offTimeIndex]
 else:
-    tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spw[0]`).getcol('TIME'); tb.close()
+    tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spwList[0]`).getcol('TIME'); tb.close()
     offTime, ambTime, hotTime = sort( list(set(timeXY) & set(timeOFF)) ), sort( list(set(timeXY) & set(timeAMB)) ), sort( list(set(timeXY) & set(timeHOT)) )
     offTimeIndex, ambTimeIndex, hotTimeIndex = indexList(offTime, timeXY),  indexList(ambTime, timeXY),  indexList(hotTime, timeXY)
 #
@@ -47,12 +47,12 @@ for scanID in atmScanList: OffTimeIndex.append( indexList(msmd.timesforscan(scan
 #-------- Load autocorrelation power spectra
 print '---Loading autocorr power spectra'
 OffSpecList, AmbSpecList, HotSpecList = [], [], []
-spwNum, ppolNum = len(spw), len(pPol)
+spwNum, ppolNum = len(spwList), len(pPol)
 for ant_index in range(antNum):
     for spw_index in range(spwNum):
         progress = (1.0* ant_index* spwNum + spw_index + 1.0) / (antNum* spwNum)
         sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
-        timeXY, Pspec = GetPSpec(msfile, ant_index, spw[spw_index])
+        timeXY, Pspec = GetPSpec(msfile, ant_index, spwList[spw_index])
         OffSpecList.append(Pspec[pPol][:,:,offTimeIndex])
         AmbSpecList.append(Pspec[pPol][:,:,ambTimeIndex])
         HotSpecList.append(Pspec[pPol][:,:,hotTimeIndex])
@@ -76,7 +76,7 @@ chAvgTrx, chAvgTsky, chAvgTsys = np.zeros([antNum, spwNum, 2, len(offTime)]), np
 TrxList, TskyList = [], []
 tempAmb, tempHot  = np.zeros([antNum]), np.zeros([antNum])
 for ant_index in range(antNum):
-    tempAmb[ant_index], tempHot[ant_index] = GetLoadTemp(msfile, ant_index, spw[0])
+    tempAmb[ant_index], tempHot[ant_index] = GetLoadTemp(msfile, ant_index, spwList[0])
     if tempAmb[ant_index] < 250: tempAmb[ant_index] += 273.15
     if tempHot[ant_index] < 300: tempHot[ant_index] += 273.15
     for spw_index in range(spwNum):
