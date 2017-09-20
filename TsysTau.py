@@ -17,7 +17,7 @@ def get_progressbar_str(progress):
     BAR_LEN = int(MAX_LEN * progress)
     return ('[' + '=' * BAR_LEN + ('>' if BAR_LEN < MAX_LEN else '') + ' ' * (MAX_LEN - BAR_LEN) + '] %.1f%%' % (progress * 100.))
 #
-Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
+Tatm_OFS  = 30.0     # Ambient-load temperature - Atmosphere temperature
 kb        = 1.38064852e3
 #-------- Check Ambient Load Timing
 msfile = prefix + '.ms'
@@ -107,6 +107,7 @@ for ant_index in range(antNum):
 #
 TrxSpec  = np.array(TrxList).reshape(antNum, spwNum, 2, chNum, len(offTime))
 TskySpec = np.array(TskyList).reshape(antNum, spwNum, 2, chNum, len(offTime))
+TsysSpec = TrxSpec + TskySpec
 #-------- Tau and TantN fitting
 param = [0.0, 0.05]     # Initial Parameter
 Tau0, TantN = np.zeros([spwNum, chNum]), np.zeros([spwNum, chNum])
@@ -124,9 +125,12 @@ for spw_index in range(spwNum):
         #
     #
 #
-np.save(prefix +  '.Trx.npy', TrxSpec) 
-np.save(prefix +  '.Tau0.npy', Tau0) 
+print 'TantN = ',;print np.median(TantN, axis=1)
+print 'Tatm  = %.1f' % (np.median(tempAmb)-Tatm_OFS)
+np.save(prefix +  '.Trx.npy', np.median(TrxSpec, axis=4))
 np.save(prefix +  '.TantN.npy', TantN) 
+np.save(prefix +  '.Tau0.npy', Tau0) 
+np.save(prefix +  '.Tsys.npy', TsysSpec) 
 #-------- Antenna-dependent leakage noise
 msmd.close()
 msmd.done()

@@ -39,15 +39,20 @@ if 'BPprefix' in locals():
     print '---Loading bandpass table : ' + BPfileName
     BP_ant = np.load(BPfileName)
 #
-chNum, chWid, Freq = GetChNum(msfile, spw)
-Freq *= 1.0e9
+chNum, chWid, Freq = GetChNum(msfile, spw); Freq *= 1.0e9
+spwIndex = spwList.index(spw)
 #-------- Tau Table
 if 'TAUprefix' in locals():
     scanEL = []
     Tau0 = np.load(TAUprefix + '.Tau0.npy')
+    #TantN= np.load(TAUprefix + '.TantN.npy')
+    Trx  = np.load(TAUprefix + '.Trx.npy')
     interval, BPtime = GetTimerecord(msfile, refantID, refantID, 0, spw, BPscan)
     BPEL = EL[azelTime_index[argmin( abs(azelTime[azelTime_index] - median(BPtime)))]]
-    BP_ant *= np.exp(0.5*Tau0[spwList.index(spw)] / np.sin(BPEL))
+    TauBP = Tau0[spwIndex] / np.sin(BPEL)
+    TsysBP = Trx[antMap][:,spwIndex] + 258.0* (1.0 - np.exp(-TauBP)) # + TantN[spwIndex] 
+    BP_ant *= np.exp(0.5*TauBP)
+    # BP_ant *= np.sqrt(TsysBP)
     print ' Bandpass Scan %d EL=%.1f Tau=%.3f' %(BPscan, 180.0*BPEL/pi, np.median(Tau0[spwList.index(spw)]/np.sin(BPEL)))
     for scan in scanList:
         interval, scanTime = GetTimerecord(msfile, refantID, refantID, 0, spw, scan)
@@ -59,7 +64,8 @@ GainAP, timeList, SNRList, flagList, scanVis, scanWT = [], [], [], [], [], []
 for scan in scanList:
     scanIndex = scanList.index(scan)
     print ' Processing Scan %d EL=%.1f Tau=%.3f' %(scan, 180.0*scanEL[scanIndex]/pi, np.median(Tau0[spwList.index(spw)]/np.sin(scanEL[scanIndex]))),
-    tauSpec = np.exp(Tau0[spwList.index(spw)] / np.sin(scanEL[scanIndex]))
+    tauSpec = np.exp(0.5* Tau0[spwList.index(spw)] / np.sin(scanEL[scanIndex]))
+    # TsysSpec = np.sqrt(Trx[antMap][:,spwIndex] + 258.0* (1.0 - np.exp(-tauSpec))) + TantN[spwIndex])
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)
     timeNum, polNum, chNum = Xspec.shape[3], Xspec.shape[0], Xspec.shape[1]
@@ -69,6 +75,7 @@ for scan in scanList:
     polNum = len(polIndex)
     tempSpec = ParaPolBL(Xspec[polIndex][:,:,blMap], blInv).transpose(3,2,0,1)  # Parallel Polarization Baseline Mapping : tempSpec[time, blMap, pol, ch]
     if 'BP_ant' in locals():
+        # BPCaledXspec = (tempSpec* tauSpec* TsysSpec[ant0]* TsysSpec[ant1]  / (BP_ant[ant0]* BP_ant[ant1].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
         BPCaledXspec = (tempSpec* tauSpec / (BP_ant[ant0]* BP_ant[ant1].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
     else:
         BPCaledXspec = tempSpec.transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
@@ -93,13 +100,14 @@ for scan in scanList:
     print ''
     #-------- Summary of scan
     timeList.extend(timeStamp.tolist())
-    scanFlag = np.array(scanFlag).reshape(timeNum, UseAntNum).T
-    scanSNR = np.array(scanSNR).reshape(timeNum, 2, UseAntNum).transpose(1,2,0)
+    scanFlag = np.array(scanFlag).reshape(timeNum, UseAntNum)
+    scanSNR = np.mean(np.array(scanSNR).reshape(timeNum, 2, UseAntNum), axis=0)
+    #scanSNR = np.mean(np.array(scanSNR).reshape(timeNum, 2, UseAntNum).transpose(1,2,0), axis=0)
     for ant_index in range(UseAntNum):
-        print '%s : SNR(med) = %.1f, %.1f  [%d/%d flagged]' % (antList[antMap[ant_index]], np.median(scanSNR, axis=2)[0,ant_index], np.median(scanSNR, axis=2)[1,ant_index], len(np.where(scanFlag[ant_index] == 0.0)[0]), timeNum)
+        print '%s : SNR(med) = %.1f, %.1f  [%d/%d flagged]' % (antList[antMap[ant_index]], scanSNR[0,ant_index], scanSNR[1,ant_index], len(np.where(scanFlag[:,ant_index] == 0.0)[0]), timeNum)
     #
     #-------- Average cross power spectra for scan
-    wt = np.array(scanSNR).reshape(timeNum, 2, UseAntNum).transpose(1,2,0)* scanFlag  # [pol, ant, time]
+    wt = (np.array([scanFlag*scanSNR[0] , scanFlag*scanSNR[1]]).transpose(0,2,1))     # [pol, ant, time]
     wtSum = np.sum(wt[:,ant0]* wt[:,ant1], axis=(1,2))                                # Weight sum
     scanGain = np.array(scanGain).reshape(timeNum, 2, UseAntNum).transpose(1,2,0)     # [pol, ant, time]
     scanPhas = scanGain / abs(scanGain)
@@ -126,40 +134,3 @@ np.save(prefix + '-SPW' + `spw` + '.FG.npy', antFG)
 np.save(prefix + '-SPW' + `spw` + '.SP.npy', scanVis) 
 np.save(prefix + '-SPW' + `spw` + '.WT.npy', scanWT) 
 np.save(prefix + '-SPW' + `spw` + '.FQ.npy', Freq) 
-"""
-#-------- Plot
-fig = plt.figure(figsize = (8,11))
-#-- pol loop
-for pol_index in range(2):
-    plt.subplot(2, 1, pol_index + 1 )
-    plt.pcolormesh(antSNR[:,pol_index], cmap='gray', vmin=0.0, vmax=SNR_THRESH)
-    #plt.pcolormesh(antFlag)
-    plt.colorbar()
-    plt.xlim(1, timeNum); plt.ylim(0, UseAntNum)
-    #plt.xticks(arange(timeNum), timeStamp)
-    plt.yticks(arange(UseAntNum)+0.5, antList[antMap])
-#
-mjdTick = range(int(min(timeStamp+59.9))/60*60, int(max(timeStamp))/60*60+1, 60)
-tickPos = (max(timeStamp) - min(timeStamp)) / timeNum
-timeLabel = []
-for tickTime in mjdTick: timeLabel = timeLabel + [qa.time('%fs' % (tickTime), form='hm')[0]]
-
-
-fig = plt.figure(figsize = (11,8))
-ax = fig.add_subplot(2, 1, 1 )
-ax.imshow(antSNR[:,0], cmap='gray', extent=[min(timeStamp), max(timeStamp), -0.5, UseAntNum-0.5], interpolation='none', clim=(0.0, 10.0), aspect=(max(timeStamp)-min(timeStamp))/(2.0* UseAntNum))
-Xticks = ax.set_xticks(labelTime); labels = ax.set_xticklabels(timeLabel, rotation=90, fontsize='small')
-Yticks = ax.set_yticks(range(UseAntNum)); labels = ax.set_yticklabels(antList[antMap], fontsize='small')
-#
-ax = fig.add_subplot(2, 1, 2)
-ax.imshow(antSNR[:,1], cmap='gray', extent=[min(timeStamp), max(timeStamp), -0.5, UseAntNum-0.5], interpolation='none', clim=(0.0, 10.0), aspect=(max(timeStamp)-min(timeStamp))/(2.0* UseAntNum))
-#
-Xticks = ax.set_xticks(labelTime); labels = ax.set_xticklabels(timeLabel, rotation=90, fontsize='small')
-Yticks = ax.set_yticks(range(UseAntNum)); labels = ax.set_yticklabels(antList[antMap], fontsize='small')
-
-#plt.subplot(2, 1, 2 ); plt.imshow(antSNR[:,1], cmap='gray', extent=[min(timeStamp), max(timeStamp), 0, antNum], interpolation='none', clim=(0.0, 10.0), aspect=(max(timeStamp)-min(timeStamp))/(2.0* antNum))
-#xi, yi = np.mgrid[0:antNum:1, min(timeStamp):max(timeStamp):(1.0j* timeNum)]
-#plt.contourf(xi, yi, antSNR[:,0])
-#plt.contourf(antSNR[:,0], xi, yi, np.linspace(0.0, 10.0))
-#SNRmap = GridData(antSNR[:,0].real, ,timeStamp, xi.reshape(xi.size), yi.reshape(xi.size), 1.0).reshape(len(xi), len(xi))
-"""
