@@ -23,7 +23,7 @@ ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
 for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
 timeStamp, UVW = GetUVW(msfile, spw, msmd.scansforspw(spw)[0])
 uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
-if 'refant' in locals():    refantID = indexList(np.array([refant]), antList)[0]
+if 'refant' in locals():    refantID = indexList(np.array([refant]), antList[UseAnt])[0]
 else: refantID = bestRefant(uvDist)
 print '  Use ' + antList[UseAnt[refantID]] + ' as the refant.'
 antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
@@ -45,14 +45,10 @@ spwIndex = spwList.index(spw)
 if 'TAUprefix' in locals():
     scanEL = []
     Tau0 = np.load(TAUprefix + '.Tau0.npy')
-    #TantN= np.load(TAUprefix + '.TantN.npy')
-    Trx  = np.load(TAUprefix + '.Trx.npy')
     interval, BPtime = GetTimerecord(msfile, refantID, refantID, 0, spw, BPscan)
     BPEL = EL[azelTime_index[argmin( abs(azelTime[azelTime_index] - median(BPtime)))]]
     TauBP = Tau0[spwIndex] / np.sin(BPEL)
-    TsysBP = Trx[antMap][:,spwIndex] + 258.0* (1.0 - np.exp(-TauBP)) # + TantN[spwIndex] 
     BP_ant *= np.exp(0.5*TauBP)
-    # BP_ant *= np.sqrt(TsysBP)
     print ' Bandpass Scan %d EL=%.1f Tau=%.3f' %(BPscan, 180.0*BPEL/pi, np.median(Tau0[spwList.index(spw)]/np.sin(BPEL)))
     for scan in scanList:
         interval, scanTime = GetTimerecord(msfile, refantID, refantID, 0, spw, scan)
@@ -65,7 +61,6 @@ for scan in scanList:
     scanIndex = scanList.index(scan)
     print ' Processing Scan %d EL=%.1f Tau=%.3f' %(scan, 180.0*scanEL[scanIndex]/pi, np.median(Tau0[spwList.index(spw)]/np.sin(scanEL[scanIndex]))),
     tauSpec = np.exp(0.5* Tau0[spwList.index(spw)] / np.sin(scanEL[scanIndex]))
-    # TsysSpec = np.sqrt(Trx[antMap][:,spwIndex] + 258.0* (1.0 - np.exp(-tauSpec))) + TantN[spwIndex])
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)
     timeNum, polNum, chNum = Xspec.shape[3], Xspec.shape[0], Xspec.shape[1]
@@ -75,7 +70,6 @@ for scan in scanList:
     polNum = len(polIndex)
     tempSpec = ParaPolBL(Xspec[polIndex][:,:,blMap], blInv).transpose(3,2,0,1)  # Parallel Polarization Baseline Mapping : tempSpec[time, blMap, pol, ch]
     if 'BP_ant' in locals():
-        # BPCaledXspec = (tempSpec* tauSpec* TsysSpec[ant0]* TsysSpec[ant1]  / (BP_ant[ant0]* BP_ant[ant1].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
         BPCaledXspec = (tempSpec* tauSpec / (BP_ant[ant0]* BP_ant[ant1].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
     else:
         BPCaledXspec = tempSpec.transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
@@ -102,7 +96,6 @@ for scan in scanList:
     timeList.extend(timeStamp.tolist())
     scanFlag = np.array(scanFlag).reshape(timeNum, UseAntNum)
     scanSNR = np.mean(np.array(scanSNR).reshape(timeNum, 2, UseAntNum), axis=0)
-    #scanSNR = np.mean(np.array(scanSNR).reshape(timeNum, 2, UseAntNum).transpose(1,2,0), axis=0)
     for ant_index in range(UseAntNum):
         print '%s : SNR(med) = %.1f, %.1f  [%d/%d flagged]' % (antList[antMap[ant_index]], scanSNR[0,ant_index], scanSNR[1,ant_index], len(np.where(scanFlag[:,ant_index] == 0.0)[0]), timeNum)
     #
