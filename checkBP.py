@@ -19,7 +19,7 @@ try:
 except:
     ant0 = ANT0[0:UseBlNum]; ant1 = ANT1[0:UseBlNum]
     for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
-    timeStamp, UVW = GetUVW(msfile, spw[0], BPscan)
+    timeStamp, UVW = GetUVW(msfile, spwList[0], BPscan)
     uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     refantID = bestRefant(uvDist)
 #
@@ -35,8 +35,8 @@ print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 #-------- Bandpass Table
 print '---Generating antenna-based bandpass table'
 BPList, XYList, XYdelayList = [], [], []
-spwNum = len(spw)
-for spw_index in spw:
+spwNum = len(spwList)
+for spw_index in spwList:
     if 'FGprefix' in locals():  # Flag table
         try:
             FG = np.load(FGprefix + '-SPW' + `spw_index` + '.FG.npy'); FG = np.min(FG, axis=0)
@@ -60,9 +60,9 @@ PolList = ['X', 'Y']
 #-------- Save CalTables
 np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '.Ant.npy', antList[antMap]) 
 for spw_index in range(spwNum):
-    np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SPW' + `spw[spw_index]` + '-BPant.npy', BP_ant[:,spw_index]) 
-    np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SPW' + `spw[spw_index]` + '-XYspec.npy', XYspec[spw_index]) 
-    np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SPW' + `spw[spw_index]` + '-XYdelay.npy', XYdelay[spw_index]) 
+    np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SPW' + `spwList[spw_index]` + '-BPant.npy', BP_ant[:,spw_index]) 
+    np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SPW' + `spwList[spw_index]` + '-XYspec.npy', XYspec[spw_index]) 
+    np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SPW' + `spwList[spw_index]` + '-XYdelay.npy', XYdelay[spw_index]) 
 #
 #-------- Plots
 if BPPLOT:
@@ -79,7 +79,7 @@ if BPPLOT:
     for ant_index in range(UseAntNum):
         figAnt = plt.figure(ant_index)
         for spw_index in range(spwNum):
-            chNum, chWid, Freq = GetChNum(msfile, spw[spw_index]); Freq = 1.0e-9* Freq  # GHz
+            chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index]); Freq = 1.0e-9* Freq  # GHz
             BPampPL = figAnt.add_subplot( 2, spwNum, spw_index + 1 )
             BPphsPL = figAnt.add_subplot( 2, spwNum, spw_index + spwNum + 1 )
             for pol_index in range(ppolNum):
@@ -94,8 +94,8 @@ if BPPLOT:
             #
             BPampPL.legend(loc = 'lower left', prop={'size' :7}, numpoints = 1)
             BPphsPL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
-            BPampPL.text( np.min(Freq), 1.1* plotMax, 'SPW=' + `spw[spw_index]` + ' Amp')
-            BPphsPL.text( np.min(Freq), 2.5, 'SPW=' + `spw[spw_index]` + ' Phase')
+            BPampPL.text( np.min(Freq), 1.1* plotMax, 'SPW=' + `spwList[spw_index]` + ' Amp')
+            BPphsPL.text( np.min(Freq), 2.5, 'SPW=' + `spwList[spw_index]` + ' Phase')
         #
         if PLOTFMT == 'png':
             figAnt.savefig('BP_' + prefix + '_' + antList[antMap[ant_index]] + '-REF' + antList[UseAnt[refantID]] + '_Scan' + `BPscan` + '.png')

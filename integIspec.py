@@ -39,7 +39,7 @@ if 'BPprefix' in locals():
     print '---Loading bandpass table : ' + BPfileName
     BP_ant = np.load(BPfileName)
 #
-chNum, chWid, Freq = GetChNum(msfile, spw); Freq *= 1.0e9
+chNum, chWid, Freq = GetChNum(msfile, spw); Freq *= 1.0e-9
 spwIndex = spwList.index(spw)
 #-------- Tau Table
 if 'TAUprefix' in locals():

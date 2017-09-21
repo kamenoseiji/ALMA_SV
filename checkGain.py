@@ -70,6 +70,7 @@ for scan in scanList:
     #
     timeList.extend(timeStamp.tolist())
 #
+timeNum = len(timeList)
 antFG  = np.array(flagList).T                          # [ant, time]
 antSNR = np.array(SNRList).reshape(timeNum, 2, UseAntNum).transpose(2,1,0)  # [ant, pol, time]
 Gain = np.array([GainAP0, GainAP1]).transpose(2,0,1)    # [ant, pol, time]
