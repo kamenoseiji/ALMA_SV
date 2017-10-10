@@ -270,11 +270,11 @@ for scan_index in range(scanNum):
     text_sd = ' %02d %010s EL=%4.1f deg' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi ); logfile.write(text_sd + '\n'); print text_sd
     figScan.text(0.05, 0.95, text_sd)
     if(onsourceScans[scan_index] in SSOscanID):
-        SSO_flag = T
+        SSO_flag = True
         SSO_ID = SSOscanID.index(onsourceScans[scan_index])
         text_sd = ' SPW  Frequency    I               Q               U               V             | Model I'; logfile.write(text_sd + '\n'); print text_sd
     else:
-        SSO_flag = F
+        SSO_flag = False
         text_sd = ' SPW  Frequency    I               Q               U               V           %Pol     EVPA '; logfile.write(text_sd + '\n'); print text_sd
     #
     text_sd = ' ------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
