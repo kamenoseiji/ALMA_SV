@@ -45,6 +45,8 @@ for spw_index in spwList:
         except:
             BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPscan, blMap, blInv)
         #
+    else:
+        BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPscan, blMap, blInv)
     #
     BPList = BPList + [BP_ant]
     XYList = XYList + [XY_BP]
