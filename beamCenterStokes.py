@@ -86,7 +86,10 @@ for spw_index in range(spwNum):
             #-------- Load Visibilities
             print '-- Loading visibility data %s SPW=%d SCAN=%d...' % (prefix, spw, scan)
             timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)  # Xspec[POL, CH, BL, TIME]
-            flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
+            if 'FG' in locals():
+                flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
+            else:
+                flagIndex = range(len(timeStamp))
             if chNum == 1:
                 print '  -- Channel-averaged data: no BP and delay cal'
                 chAvgVis= np.c_[chAvgVis, CrossPolBL(Xspec[:,:,blMap], blInv)[:,0]]
