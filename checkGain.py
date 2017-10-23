@@ -23,7 +23,7 @@ ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
 for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
 timeStamp, UVW = GetUVW(msfile, spw, msmd.scansforspw(spw)[0])
 uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
-if 'refant' in locals():    refantID = indexList(np.array([refant]), antList)[0]
+if 'refant' in locals():    refantID = indexList(np.array([refant]), antList[UseAnt])[0]
 else: refantID = bestRefant(uvDist)
 print '  Use ' + antList[UseAnt[refantID]] + ' as the refant.'
 antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
