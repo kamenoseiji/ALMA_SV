@@ -66,6 +66,7 @@ sys.stderr.flush()
 azelTime, AntID, AZ, EL = GetAzEl(msfile)
 OnAZ, OnEL, OffEL = np.ones([antNum, scanNum]), np.ones([antNum, scanNum]), np.ones([antNum, len(offTimeIndex)])
 for ant_index in range(antNum):
+    if flagAnt[ant_index] < 1.0: continue
     azelTime_index = np.where( AntID == ant_index )[0].tolist()
     for scan_index in range(scanNum):
         refTime = np.median(msmd.timesforscan(scanList[scan_index]))
@@ -84,6 +85,7 @@ TrxFlag, TsysFlag, onTau = np.ones([antNum, spwNum, 2, len(offTime)]), np.ones([
 TrxList, TskyList = [], []
 tempAmb, tempHot  = np.zeros([antNum]), np.zeros([antNum])
 for ant_index in range(antNum):
+    if flagAnt[ant_index] < 1.0: continue
     tempAmb[ant_index], tempHot[ant_index] = GetLoadTemp(msfile, ant_index, spw[0])
     if tempAmb[ant_index] < 250: tempAmb[ant_index] += 273.15
     if tempHot[ant_index] < 300: tempHot[ant_index] += 273.15
@@ -115,6 +117,7 @@ for ant_index in range(antNum):
 param = [0.0, 0.05]     # Initial Parameter
 Tau0, TantN, Trms = np.zeros([antNum, spwNum, 2]), np.zeros([antNum, spwNum, 2]), np.zeros([antNum, spwNum, 2])
 for ant_index in range(antNum):
+    if flagAnt[ant_index] < 1.0: continue
     for spw_index in range(spwNum):
         for pol_index in range(2):
             if max(secZ[0]) - min(secZ[0]) > 0.5:
@@ -133,6 +136,7 @@ for ant_index in range(antNum):
 Tau0err, Tau0med = np.std(Tau0, axis=(0,2)), np.mean(Tau0, axis=(0,2))
 #-------- Trx Transfer
 for ant_index in range(antNum):
+    if flagAnt[ant_index] < 1.0: continue
     for spw_index in range(spwNum):
         for pol_index in range(ppolNum):
             flgIndex = np.where( TrxFlag[ant_index, spw_index, pol_index] == 0 )[0].tolist()
@@ -174,6 +178,7 @@ for spw_index in range(spwNum): text_sd = ' PolX   SPW%02d  PolY           |' % 
 logfile.write('\n'); print ' '
 text_sd = ' ----:--------------------------------+-------------------------------+-------------------------------+-------------------------------+'; logfile.write(text_sd + '\n'); print text_sd
 for ant_index in range(antNum):
+    if flagAnt[ant_index] < 1.0: continue
     text_sd = antList[ant_index] + ' : '; logfile.write(text_sd); print text_sd,
     for spw_index in range(spwNum):
         for pol_index in range(2):
@@ -193,6 +198,7 @@ for spw_index in range(spwNum): text_sd = ' SPW%02d X        Y |' % (spw[spw_ind
 logfile.write('\n'); print ' '
 text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; logfile.write(text_sd + '\n'); print text_sd
 for ant_index in range(antNum):
+    if flagAnt[ant_index] < 1.0: continue
     text_sd =  antList[ant_index] + ' : '; logfile.write(text_sd); print text_sd,
     for spw_index in range(spwNum):
         for pol_index in range(2):
@@ -207,6 +213,7 @@ for spw_index in range(spwNum): text_sd = ' SPW%02d X        Y |' % (spw[spw_ind
 logfile.write('\n'); print ' '
 text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; logfile.write(text_sd + '\n'); print text_sd
 for ant_index in range(antNum):
+    if flagAnt[ant_index] < 1.0: continue
     text_sd =  antList[ant_index] + ' : '; logfile.write(text_sd); print text_sd,
     for spw_index in range(spwNum):
         for pol_index in range(2):

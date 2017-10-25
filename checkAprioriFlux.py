@@ -33,7 +33,7 @@ try:
 except:
     FCScans = np.append(msmd.scansforintent("CALIBRATE_AMPLI#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
 try:
-    ONScans = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
+    ONScans = msmd.scansforintent("*#ON_SOURCE")
 except:
     ONScans = FCScans
 try:
