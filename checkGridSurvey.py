@@ -17,15 +17,15 @@ blNum = antNum* (antNum - 1) / 2
 msmd.open(msfile)
 print prefix
 print '---Checking spectral windows'
-spw = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); spw.sort()
-if not 'spwNames' in locals(): spwNames = msmd.namesforspws(spw)
+spwList = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); spwList.sort()
+if not 'spwNames' in locals(): spwNames = msmd.namesforspws(spwList)
 BandNames, pattern = [], r'RB_..'
 for spwName in spwNames: BandNames = BandNames + re.findall(pattern, spwName)
 UniqBands = unique(BandNames).tolist(); NumBands = len(UniqBands)
 spwLists, BandScans, BandPA = [], [], []
 for band_index in range(NumBands):
     BandPA = BandPA + [(BANDPA[int(UniqBands[band_index][3:5])] + 90.0)*pi/180.0]
-    spwLists = spwLists + [np.array(spw)[indexList( np.array([UniqBands[band_index]]), np.array(BandNames))].tolist()]
+    spwLists = spwLists + [np.array(spwList)[indexList( np.array([UniqBands[band_index]]), np.array(BandNames))].tolist()]
     BandScans = BandScans + [msmd.scansforspw(spwLists[band_index][0])]
     print ' ',
     print UniqBands[band_index] + ': SPW=' + `spwLists[band_index]`
@@ -45,7 +45,7 @@ print ''; print '  Solar System Objects:',
 for index in SSOList: print sourceList[index],
 print ''
 #-------- Check Scans of BandPass, EQualization, and FluxScaling
-polNum = msmd.ncorrforpol(msmd.polidfordatadesc(spw[0]))
+polNum = msmd.ncorrforpol(msmd.polidfordatadesc(spwList[0]))
 try:
     FCScans = np.append(msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
 except:
@@ -103,7 +103,7 @@ for band_index in range(NumBands):
     BPcalText = 'Use %s [EL = %4.1f deg] as Bandpass Calibrator' % (BPcal, 180.0* OnEL[onsourceScans.index(BPScan)]/np.pi); print BPcalText
     EQcalText = 'Use %s [EL = %4.1f deg] as Gain Equalizer' % (EQcal, 180.0* OnEL[onsourceScans.index(EQScan)]/np.pi); print EQcalText
     #-------- Polarization setup
-    spw = spwLists[band_index]; spwNum = len(spw)
+    spwList = spwLists[band_index]; spwNum = len(spwList)
     pPol, cPol = [0,1], []  # parallel and cross pol
     PolList = ['X', 'Y']
     if polNum == 4: pPol, cPol = [0,3], [1,2]  # parallel and cross pol

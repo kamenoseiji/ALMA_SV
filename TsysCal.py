@@ -26,7 +26,7 @@ msmd.open(msfile)
 print '---Checking time for ambient and hot load'
 timeOFF, timeAMB, timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
 if len(timeAMB) == 0:
-    timeXY, Pspec = GetPSpec(msfile, 0, spw[0])
+    timeXY, Pspec = GetPSpec(msfile, 0, spwList[0])
     timeNum, chNum = Pspec.shape[2], Pspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
     chAvgPower = np.mean(Pspec[0][chRange], axis=0)
     offTimeIndex = indexList(timeOFF, timeXY)
@@ -34,7 +34,7 @@ if len(timeAMB) == 0:
     ambTimeIndex = (np.array(offTimeIndex) - 2).tolist()
     ambTime, hotTime, offTime = timeXY[ambTimeIndex], timeXY[hotTimeIndex], timeXY[offTimeIndex]
 else:
-    tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spw[0]`).getcol('TIME'); tb.close()
+    tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spwList[0]`).getcol('TIME'); tb.close()
     offTime, ambTime, hotTime = sort( list(set(timeXY) & set(timeOFF)) ), sort( list(set(timeXY) & set(timeAMB)) ), sort( list(set(timeXY) & set(timeHOT)) )
     offTimeIndex, ambTimeIndex, hotTimeIndex = indexList(offTime, timeXY),  indexList(ambTime, timeXY),  indexList(hotTime, timeXY)
 #
@@ -43,12 +43,12 @@ for scanID in scanList: OnTimeIndex.append( indexList(msmd.timesforscan(scanID),
 #-------- Load autocorrelation power spectra
 print '---Loading autocorr power spectra'
 OnSpecList, OffSpecList, AmbSpecList, HotSpecList = [], [], [], []
-spwNum, ppolNum = len(spw), len(pPol)
+spwNum, ppolNum = len(spwList), len(pPol)
 for ant_index in range(antNum):
     for spw_index in range(spwNum):
         progress = (1.0* ant_index* spwNum + spw_index + 1.0) / (antNum* spwNum)
         sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
-        timeXY, Pspec = GetPSpec(msfile, ant_index, spw[spw_index])
+        timeXY, Pspec = GetPSpec(msfile, ant_index, spwList[spw_index])
         #if len(timeXY) < maxTimeIndex:
         #    chNum, addTimeNum = Pspec.shape[1], maxTimeIndex - len(timeXY) + 1
         #    Pspec = np.concatenate((Pspec, np.zeros([polNum, chNum, addTimeNum])), axis=2)
@@ -86,7 +86,7 @@ TrxList, TskyList = [], []
 tempAmb, tempHot  = np.zeros([antNum]), np.zeros([antNum])
 for ant_index in range(antNum):
     if flagAnt[ant_index] < 1.0: continue
-    tempAmb[ant_index], tempHot[ant_index] = GetLoadTemp(msfile, ant_index, spw[0])
+    tempAmb[ant_index], tempHot[ant_index] = GetLoadTemp(msfile, ant_index, spwList[0])
     if tempAmb[ant_index] < 250: tempAmb[ant_index] += 273.15
     if tempHot[ant_index] < 300: tempHot[ant_index] += 273.15
     for spw_index in range(spwNum):
@@ -164,7 +164,7 @@ for scan_index in range(scanNum):
     tempTau = -np.log((chAvgTsky[:,:,:,offTimeIndex] - TantN - np.median(tempAmb) + Tatm_OFS) / (2.718 - np.median(tempAmb) + Tatm_OFS))
     onTau[:,scan_index] = np.median(tempTau.transpose(1,2,0).reshape(spwNum, -1), axis=1)
 #
-for spw_index in range(spwNum): text_sd = 'SPW=%d : Tau(zenith) = %6.4f +- %6.4f' % (spw[spw_index], Tau0med[spw_index], Tau0err[spw_index]); logfile.write(text_sd + '\n'); print text_sd
+for spw_index in range(spwNum): text_sd = 'SPW=%d : Tau(zenith) = %6.4f +- %6.4f' % (spwList[spw_index], Tau0med[spw_index], Tau0err[spw_index]); logfile.write(text_sd + '\n'); print text_sd
 #
 np.save(prefix +  '-' + bandName + '.Trx.npy', TrxList) 
 np.save(prefix +  '-' + bandName + '.Tsky.npy', TskyList) 
@@ -173,7 +173,7 @@ np.save(prefix +  '-' + bandName + '.Tau0.npy', Tau0)
 #-------- Antenna-dependent leakage noise
 param = [0.0]
 text_sd = ' TantN:'; logfile.write(text_sd); print text_sd,
-for spw_index in range(spwNum): text_sd = ' PolX   SPW%02d  PolY           |' % (spw[spw_index]); logfile.write(text_sd); print text_sd,
+for spw_index in range(spwNum): text_sd = ' PolX   SPW%02d  PolY           |' % (spwList[spw_index]); logfile.write(text_sd); print text_sd,
 #
 logfile.write('\n'); print ' '
 text_sd = ' ----:--------------------------------+-------------------------------+-------------------------------+-------------------------------+'; logfile.write(text_sd + '\n'); print text_sd
@@ -194,7 +194,7 @@ logfile.write('\n'); print ''
 np.save(prefix +  '-' + bandName + '.TantN.npy', TantN) 
 #-------- Trx
 text_sd = ' Trec: '; logfile.write(text_sd); print text_sd,
-for spw_index in range(spwNum): text_sd = ' SPW%02d X        Y |' % (spw[spw_index]); logfile.write(text_sd); print text_sd,
+for spw_index in range(spwNum): text_sd = ' SPW%02d X        Y |' % (spwList[spw_index]); logfile.write(text_sd); print text_sd,
 logfile.write('\n'); print ' '
 text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; logfile.write(text_sd + '\n'); print text_sd
 for ant_index in range(antNum):
@@ -209,7 +209,7 @@ for ant_index in range(antNum):
 print ' '
 #-------- Tsys
 text_sd = ' Tsys: '; logfile.write(text_sd); print text_sd,
-for spw_index in range(spwNum): text_sd = ' SPW%02d X        Y |' % (spw[spw_index]); logfile.write(text_sd); print text_sd,
+for spw_index in range(spwNum): text_sd = ' SPW%02d X        Y |' % (spwList[spw_index]); logfile.write(text_sd); print text_sd,
 logfile.write('\n'); print ' '
 text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; logfile.write(text_sd + '\n'); print text_sd
 for ant_index in range(antNum):
@@ -222,7 +222,8 @@ for ant_index in range(antNum):
         text_sd = '|'; logfile.write(text_sd); print text_sd,
     logfile.write('\n'); print ' '
 #-------- Plot optical depth
-if PLOTTAU: plotTau(prefix + '_' + bandName, antList, spw, secZ, (chAvgTsky.transpose(3,0,1,2) - TantN).transpose(1,2,3,0), np.median(tempAmb) - Tatm_OFS, Tau0med, TrxFlag, 2.0*np.median(chAvgTsky), PLOTFMT) 
-if PLOTTSYS: plotTsys(prefix + '_' + bandName, antList, ambTime, spw, TrxList, TskyList, PLOTFMT)
+if not 'PLOTFMT' in locals():   PLOTFMT = 'pdf'
+if PLOTTAU: plotTau(prefix + '_' + bandName, antList, spwList, secZ, (chAvgTsky.transpose(3,0,1,2) - TantN).transpose(1,2,3,0), np.median(tempAmb) - Tatm_OFS, Tau0med, TrxFlag, 2.0*np.median(chAvgTsky), PLOTFMT) 
+if PLOTTSYS: plotTsys(prefix + '_' + bandName, antList, ambTime, spwList, TrxList, TskyList, PLOTFMT)
 msmd.close()
 msmd.done()

@@ -17,7 +17,7 @@ for bl_index in range(UseBlNum):
 #
 #-------- Center frequency of each SPW
 for spw_index in range(spwNum): 
-    chNum, chWid, Freq = GetChNum(msfile, spw[spw_index])
+    chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index])
     centerFreqList.append( np.median(Freq)*1.0e-9 )
 #
 #-------- SSO Model
@@ -43,14 +43,14 @@ for ssoIndex in range(SSONum):
         continue
     #
     FLScaleText = 'Flux Calibrator is %s at %s' % (sourceList[BandSSOList[ssoIndex]], timeLabel);  print FLScaleText
-    timeStamp, UVW = GetUVW(msfile, spw[spw_index], scanID)
+    timeStamp, UVW = GetUVW(msfile, spwList[spw_index], scanID)
     uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     for spw_index in range(spwNum):
         uvWave = uvw[0:2,:]* centerFreqList[spw_index] / 0.299792458    # UV distance in wavelength
         uvFlag[ssoIndex, spw_index, np.where( uvDist* centerFreqList[spw_index] / 0.299792458 > UVlimit )[0].tolist()] = 0.0
         SSOmodelVis = SSOmodelVis + [diskVisBeam(SSOshape[ssoIndex], uvWave[0], uvWave[1], 1.13* 0.299792458* primaryBeam/centerFreqList[spw_index])]
         #-------- for debug
-        text_sd = 'SPW=%d uv limit = %5.0f klambda' % (spw[spw_index], UVlimit*1.0e-3); print text_sd
+        text_sd = 'SPW=%d uv limit = %5.0f klambda' % (spwList[spw_index], UVlimit*1.0e-3); print text_sd
         for ant0_index in range(1, UseAntNum):
             text_sd = antList[antMap[ant0_index]] + ' : '; print text_sd,
             blList = np.where(np.array(ant0) == ant0_index)[0].tolist()
