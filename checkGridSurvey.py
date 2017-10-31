@@ -19,6 +19,8 @@ print prefix
 print '---Checking spectral windows'
 spwList = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); spwList.sort()
 if not 'spwNames' in locals(): spwNames = msmd.namesforspws(spwList)
+if len(spwList) < 1: sys.exit('No available SPWs found.\n')
+#
 BandNames, pattern = [], r'RB_..'
 for spwName in spwNames: BandNames = BandNames + re.findall(pattern, spwName)
 UniqBands = unique(BandNames).tolist(); NumBands = len(UniqBands)

@@ -300,13 +300,17 @@ polLabel = ['I', 'Q', 'U', 'V']
 Pcolor   = ['black', 'blue', 'red', 'green']
 #for scan_index in range(1):
 for scan_index in range(scanNum):
+    #-------- UV distance
+    timeStamp, UVW = GetUVW(msfile, spwList[spw_index], onsourceScans[scan_index])
+    uvw = np.mean(UVW[:,SAblMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
+    #-------- Prepare plots
     figScan = plt.figure(scan_index, figsize = (11, 8))
     figScan.suptitle(prefix + ' ' + UniqBands[band_index])
     figScan.text(0.75, 0.95, qa.time('%fs' % timeStamp[0], form='ymd')[0])
     figScan.text(0.45, 0.05, 'Projected baseline [m]')
     figScan.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90)
     ScanEL[scan_index] = np.median(OnEL[:,scan_index])
-    text_sd = ' %02d %010s EL=%4.1f deg' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi ); logfile.write(text_sd + '\n'); print text_sd
+    text_sd = ' %02d %010s EL=%4.1f deg %s' % (scanList[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi, timeLabel); logfile.write(text_sd + '\n'); print text_sd
     figScan.text(0.05, 0.95, text_sd)
     if(onsourceScans[scan_index] in SSOscanID):
         SSO_flag = True
@@ -314,9 +318,9 @@ for scan_index in range(scanNum):
         text_sd = ' SPW  Frequency    I               Q               U               V             | Model I'; logfile.write(text_sd + '\n'); print text_sd
     else:
         SSO_flag = False
-        text_sd = ' SPW  Frequency    I               Q               U               V           %Pol     EVPA '; logfile.write(text_sd + '\n'); print text_sd
+        text_sd = ' SPW  Frequency    I                 Q                 U                 V                 %Pol     EVPA '; logfile.write(text_sd + '\n'); print text_sd
     #
-    text_sd = ' ------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
+    text_sd = ' --------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
     BPCaledXspec = []
     SEFD = np.ones([spwNum, 2, UseAntNum])
     #-------- Sub-array with unflagged antennas (short baselines)
@@ -338,9 +342,6 @@ for scan_index in range(scanNum):
             continue
         #
         #
-        #-------- UV distance
-        timeStamp, UVW = GetUVW(msfile, spwList[spw_index], onsourceScans[scan_index])
-        uvw = np.mean(UVW[:,SAblMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
         #-------- Baseline-based cross power spectra
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], onsourceScans[scan_index])
         timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum)); UseChNum = len(chRange)
@@ -397,7 +398,7 @@ for scan_index in range(scanNum):
                 text_sd = 'Only %d vis.    ' % (len(visFlag)) ; logfile.write(text_sd + '\n'); print text_sd,
                 continue
             #
-            text_sd = '%6.3f (%.3f) ' % (ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index]); logfile.write(text_sd); print text_sd,
+            text_sd = '%7.4f (%.4f) ' % (ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index]); logfile.write(text_sd); print text_sd,
         #
         StokesI_PL.plot( uvDist, StokesVis[0], '.', label=polLabel[0], color=Pcolor[0])
         StokesP_PL.plot( uvDist, StokesVis[1], '.', label=polLabel[1], color=Pcolor[1])
@@ -427,13 +428,13 @@ for scan_index in range(scanNum):
     figScan.savefig(pp, format='pdf')
     #
     freqArray = np.array(centerFreqList)[range(spwNum)]; meanFreq = np.mean(freqArray); relFreq = freqArray - meanFreq
-    text_sd = ' ------------------------------------------------------------------------------------------------'; logfile.write(text_sd); print text_sd,
+    text_sd = ' --------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
     logfile.write('\n'); print ''
     pflux, pfluxerr = np.zeros(4), np.zeros(4)
     text_sd = ' mean  %5.1f GHz' % (meanFreq); logfile.write(text_sd); print text_sd,
     for pol_index in range(4):
         sol, solerr = linearRegression(relFreq, ScanFlux[scan_index, :, pol_index], ErrFlux[scan_index, :, pol_index] ); pflux[pol_index], pfluxerr[pol_index] = sol[0], solerr[0]
-        text_sd = '%6.3f (%.3f) ' % (pflux[pol_index], pfluxerr[pol_index]) ; logfile.write(text_sd); print text_sd,
+        text_sd = '%7.4f (%.4f) ' % (pflux[pol_index], pfluxerr[pol_index]) ; logfile.write(text_sd); print text_sd,
     #
     text_sd = '%6.3f   %6.1f ' % (100.0* np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi); logfile.write(text_sd); print text_sd,
     logfile.write('\n')
