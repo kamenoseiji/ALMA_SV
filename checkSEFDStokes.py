@@ -253,16 +253,20 @@ for spw_index in range(spwNum):
     #
 #
 logfile.write('\n'); print ''
+logjy = open(prefix + '-' + UniqBands[band_index] + '-JyK.log', 'w')
 for ant_index in range(UseAntNum):
     text_sd = '%s :' % (antList[antMap[ant_index]]); logfile.write(text_sd); print text_sd,
     for spw_index in range(spwNum):
         for pol_index in range(2):
+            #logjy.write( '%s %s %d %' % (prefix, antList[antMap[ant_index]], spwList[spw_index])
             text_sd = '  %4.1f%% ' % (100.0* AEFF[ant_index, pol_index, spw_index]); logfile.write(text_sd); print text_sd,
+            text_jy = '%s %s %d %s %f %s %s %fe+9 %e %5.1f %5.1f' % (prefix, antList[antMap[ant_index]], spwList[spw_index], PolList[pol_index], 2.0* kb / (0.25* AEFF[ant_index, pol_index, spw_index]* pi*antDia[antMap[ant_index]]**2), timeLabel, UniqBands[band_index], centerFreqList[spw_index], len(chRange)* chWid[0], FLEL, tempAtm); logjy.write(text_jy + '\n')
         #
     #
-    logfile.write('\n'); print ''
+    logfile.write('\n'); print ''; logjy.write('\n')
 ##
 logfile.write('\n'); print ''
+logjy.write('\n'); logjy.close()
 #-------- XY phase using BP scan
 interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spwList[0], BPScan); timeNum = len(timeStamp)
 AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
@@ -429,7 +433,6 @@ for scan_index in range(scanNum):
     #
     freqArray = np.array(centerFreqList)[range(spwNum)]; meanFreq = np.mean(freqArray); relFreq = freqArray - meanFreq
     text_sd = ' --------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
-    logfile.write('\n'); print ''
     pflux, pfluxerr = np.zeros(4), np.zeros(4)
     text_sd = ' mean  %5.1f GHz' % (meanFreq); logfile.write(text_sd); print text_sd,
     for pol_index in range(4):

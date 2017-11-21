@@ -83,6 +83,7 @@ print '---Analyzing Trec and Tsky using atmCal scans'
 chAvgTrx, chAvgTsky, chAvgTsys = np.zeros([antNum, spwNum, 2, len(offTime)]), np.zeros([antNum, spwNum, 2, len(offTime)]), np.zeros([antNum, spwNum, 2, scanNum])
 TrxFlag, TsysFlag, onTau = np.ones([antNum, spwNum, 2, len(offTime)]), np.ones([antNum, spwNum, 2, scanNum]), np.zeros([spwNum, scanNum])
 TrxList, TskyList = [], []
+tempAtm = GetTemp(msfile)
 tempAmb, tempHot  = np.zeros([antNum]), np.zeros([antNum])
 for ant_index in range(antNum):
     if flagAnt[ant_index] < 1.0: continue
@@ -121,12 +122,12 @@ for ant_index in range(antNum):
     for spw_index in range(spwNum):
         for pol_index in range(2):
             if max(secZ[0]) - min(secZ[0]) > 0.5:
-                fit = scipy.optimize.leastsq(residTskyTransfer, param, args=(tempAmb[ant_index]-Tatm_OFS, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
+                fit = scipy.optimize.leastsq(residTskyTransfer, param, args=(tempAtm-Tatm_OFS, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
                 TantN[ant_index, spw_index, pol_index] = fit[0][0]
                 Tau0[ant_index, spw_index, pol_index]  = fit[0][1]
             else:
                 param = [0.05]
-                fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAmb[ant_index]-Tatm_OFS, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
+                fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm-Tatm_OFS, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
                 Tau0[ant_index, spw_index, pol_index]  = fit[0][0]
                 TantN[ant_index, spw_index, pol_index] = Tatm_OFS
         #

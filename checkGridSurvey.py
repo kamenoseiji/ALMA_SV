@@ -97,7 +97,7 @@ for band_index in range(NumBands):
     if not 'FLcal' in locals(): FLcal = sourceList[sourceIDscan[np.argmax(FLscore)]]
     if FLcal in sourceList: FCScan = list(set(msmd.scansforfield(FLcal)) & set(onsourceScans))[0]; FLsel = FLcal
     else: FCScan = onsourceScans[np.argmax(FLscore)]; FLsel = sourceList[sourceIDscan[np.argmax(FLscore)]]
-    FLScaleText = 'Use %s [EL = %4.1f deg] as Flux Scaler' % (FLsel, 180.0* OnEL[onsourceScans.index(FCScan)]/np.pi); print FLScaleText
+    FLEL = 180.0* OnEL[onsourceScans.index(FCScan)]/np.pi; FLScaleText = 'Use %s [EL = %4.1f deg] as Flux Scaler' % (FLsel, FLEL); print FLScaleText
     BPcal = sourceList[sourceIDscan[np.argmax(BPquality)]]; BPScan = onsourceScans[np.argmax(BPquality)]
     EQcal = sourceList[sourceIDscan[np.argmax(EQquality)]]; EQScan = onsourceScans[np.argmax(EQquality)]
     #-------- SSO in observed source list

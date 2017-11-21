@@ -12,8 +12,8 @@ azelTime, AntID, AZ, EL = GetAzEl(msfile)
 antList = GetAntName(msfile)
 antNum = len(antList)
 blNum = antNum* (antNum - 1) / 2
-spwNum = len(spw)
-spwName = msmd.namesforspws(spw[0])[0]
+spwNum = len(spwList)
+spwName = msmd.namesforspws(spwList[0])[0]
 BandName = re.findall(r'RB_..', spwName)[0]; BandID = int(BandName[3:5])
 #-------- Configure Array
 print '---Checking array configulation'
@@ -42,7 +42,7 @@ print text_sd
 blMap, blInv= range(UseBlNum), [False]* UseBlNum
 ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
 for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
-timeStamp, UVW = GetUVW(msfile, spw[0], msmd.scansforspw(spw[0])[0])
+timeStamp, UVW = GetUVW(msfile, spwList[0], msmd.scansforspw(spwList[0])[0])
 uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
 if 'refant' in locals():    refantID = indexList(np.array([refant]), antList)[0]
 else: refantID = bestRefant(uvDist)
@@ -72,7 +72,7 @@ if not 'DPATH' in locals(): DPATH = SCR_DIR
 print '---Checking D-term files in ' + DPATH
 DantList, noDlist = [], []
 for ant_index in UseAnt:
-    Dfile = DPATH + 'B' + `BandID` + '-SPW0-' + antList[ant_index] + '.DSpec.npy'
+    Dfile = DPATH + 'B' + `BandID` + '-SPW' + `spwList[0]` + '-' + antList[ant_index] + '.DSpec.npy'
     if os.path.exists(Dfile): DantList += [ant_index]
     else: noDlist += [ant_index]
 #   
@@ -89,8 +89,8 @@ if noDantNum > 0:
 DxList, DyList = [], []
 print '---Loading D-term table'
 for ant_index in antMap:
-    for spw_index in spw:
-        Dfile = DPATH + 'B' + `BandID` + '-SPW' + `spw_index` + '-' + antList[ant_index] + '.DSpec.npy'
+    for spw in spwList:
+        Dfile = DPATH + 'B' + `BandID` + '-SPW' + `spw` + '-' + antList[ant_index] + '.DSpec.npy'
         Dterm = np.load(Dfile)
         DxList = DxList + [splineComplex(Dterm[0], Dterm[1] + (0.0 + 1.0j)* Dterm[2])]
         DyList = DyList + [splineComplex(Dterm[0], Dterm[3] + (0.0 + 1.0j)* Dterm[4])]
@@ -101,9 +101,9 @@ DxSpec, DySpec = np.array(DxList).reshape([UseAntNum, spwNum, chNum]), np.array(
 #-------- Bandpass Table
 BPList = []
 print '---Loading bandpass table'
-for spw_index in spw:
-    BP_ant = np.load(BPprefix + '-SPW' + `spw_index` + '-BPant.npy')
-    XY_BP  = splineComplex(Dterm[0], np.load(BPprefix + '-SPW' + `spw_index` + '-XYspec.npy'))
+for spw in spwList:
+    BP_ant = np.load(BPprefix + '-SPW' + `spw` + '-BPant.npy')
+    XY_BP  = splineComplex(Dterm[0], np.load(BPprefix + '-SPW' + `spw` + '-XYspec.npy'))
     BP_ant[:,1] *= XY_BP
     if 'XYsign' in locals(): BP_ant[:,1] *= XYsign
     BPList = BPList + [BP_ant]
@@ -113,7 +113,7 @@ relGain = np.ones([spwNum, 2, UseAntNum])
 polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
 for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
-    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], EQScan)
+    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], EQScan)
     AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
     PA = AzEl2PA(AzScan, ElScan) + (BANDPA[BandID] + 90.0)*pi/180.0
     QCpUS = QUmodel[0]* np.cos(2.0* PA) + QUmodel[1]* np.sin(2.0* PA)         # Q cos + U sin
@@ -137,7 +137,7 @@ for spw_index in range(spwNum):
 #
 #-------- Flux Density
 spw_index = 0
-chNum, chWid, Freq = GetChNum(msfile, spw[spw_index]); Freq *= 1.0e-9
+chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index]); Freq *= 1.0e-9
 print '---Stokes Spectrum densities of sources ---'
 pp, polLabel, Pcolor = PdfPages('SP_' + prefix + '_' + BandName + '.pdf'), ['I', 'Q', 'U', 'V'], ['black', 'blue', 'red', 'green']
 page_index = 0
@@ -145,10 +145,11 @@ for scan in scanList:
     figScan = plt.figure(page_index, figsize = (8,11))
     figScan.suptitle(prefix + ' ' + BandName + ' Scan' + `scan`)
     figScan.text(0.45, 0.05, 'Frequency [GHz]') 
+    #figScan.text(0.45, 0.05, 'Spectral Channel') 
     figScan.text(0.03, 0.45, 'Stokes Parameters [Jy]', rotation=90) 
     BPCaledXspec = []
     #-------- UV distance
-    timeStamp, UVW = GetUVW(msfile, spw[0], scan);  uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
+    timeStamp, UVW = GetUVW(msfile, spwList[0], scan);  uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     figScan.text(0.75, 0.95, qa.time('%fs' % timeStamp[0], form='ymd')[0]) 
     AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
     PA = AzEl2PA(AzScan, ElScan) + (BANDPA[BandID] + 90.0)*pi/180.0; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
@@ -158,7 +159,11 @@ for scan in scanList:
     chAvgTsys = chAvgTrx + 285.0* (1.0 - np.exp(-TauObs))
     figScan.text(0.05, 0.95, text_sd) 
     #-------- Baseline-based cross power spectra
-    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw[spw_index], scan)
+    if 'FIELDID' in locals():
+        timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], scan, FIELDID)
+    else :
+        timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], scan)
+    #
     timeNum, chNum = Xspec.shape[3], Xspec.shape[1]
     UseChNum = len(chRange)
     if np.max(abs(Xspec)) < 1.0e-9: continue
@@ -191,9 +196,16 @@ for scan in scanList:
     StokesP_PL.plot( Freq[chRange], StokesSpec[1, chRange], ls='steps-mid', label=polLabel[1], color=Pcolor[1])
     StokesP_PL.plot( Freq[chRange], StokesSpec[2, chRange], ls='steps-mid', label=polLabel[2], color=Pcolor[2])
     StokesP_PL.plot( Freq[chRange], StokesSpec[3, chRange], ls='steps-mid', label=polLabel[3], color=Pcolor[3])
+    #StokesI_PL.plot( np.array(chRange), StokesSpec[0, chRange], ls='steps-mid', label=polLabel[0], color=Pcolor[0])
+    #StokesP_PL.plot( np.array([min(chRange), max(chRange)]), np.array([0.0,0.0]), '-', color='gray')
+    #StokesP_PL.plot( np.array(chRange), StokesSpec[1, chRange], ls='steps-mid', label=polLabel[1], color=Pcolor[1])
+    #StokesP_PL.plot( np.array(chRange), StokesSpec[2, chRange], ls='steps-mid', label=polLabel[2], color=Pcolor[2])
+    #StokesP_PL.plot( np.array(chRange), StokesSpec[3, chRange], ls='steps-mid', label=polLabel[3], color=Pcolor[3])
     plotMax = max(StokesSpec[0, chRange])
     StokesI_PL.axis([min(Freq[chRange]), max(Freq[chRange]), 0.0, 1.2* plotMax])
     StokesP_PL.axis([min(Freq[chRange]), max(Freq[chRange]), -0.10*plotMax, 0.10*plotMax ])
+    #StokesI_PL.axis([min(chRange), max(chRange), 0.0, 1.2* plotMax])
+    #StokesP_PL.axis([min(chRange), max(chRange), -0.10*plotMax, 0.10*plotMax ])
     #
     StokesI_PL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
     StokesP_PL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
