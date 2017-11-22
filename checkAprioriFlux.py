@@ -37,9 +37,9 @@ try:
 except:
     ONScans = FCScans
 try:
-    BPScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
+    BCScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
 except:
-    BPScans = ONScans
+    BCScans = ONScans
 #
 PolList = ['X', 'Y']
 msmd.close()
@@ -50,9 +50,9 @@ for band_index in range(NumBands):
     msmd.open(msfile)
     bandName = UniqBands[band_index]; bandID = int(bandName[3:5])-1
     ONScan = BandScans[band_index][indexList( ONScans, BandScans[band_index] )]
-    BPScan = BandScans[band_index][indexList( BPScans, BandScans[band_index] )][0]
+    BCScan = BandScans[band_index][indexList( BCScans, BandScans[band_index] )][0]
     FCScan = BandScans[band_index][indexList( FCScans, BandScans[band_index] )]
-    onsourceScans = unique([BPScan] + FCScan.tolist() + ONScan.tolist()).tolist()
+    onsourceScans = unique([BCScan] + FCScan.tolist() + ONScan.tolist()).tolist()
     scanNum = len(onsourceScans)
     SSOScanIndex = []
     #-------- Check AZEL
@@ -79,10 +79,30 @@ for band_index in range(NumBands):
             SSOScanIndex = SSOScanIndex + [scan_index]
         #
     #
-    BPcal = sourceList[sourceIDscan[np.argmax(BPquality)]]; BPScan = onsourceScans[np.argmax(BPquality)]; timeLabelBP = qa.time('%fs' % (refTime[np.argmax(BPquality)]), form='ymd')[0]
-    EQcal = sourceList[sourceIDscan[np.argmax(EQquality)]]; EQScan = onsourceScans[np.argmax(EQquality)]; timeLabelEQ = qa.time('%fs' % (refTime[np.argmax(EQquality)]), form='ymd')[0]
-    BPcalText = 'Use %s [EL = %4.1f deg] %s as Bandpass Calibrator' % (BPcal, 180.0* OnEL[onsourceScans.index(BPScan)]/np.pi, timeLabelBP); print BPcalText
-    EQcalText = 'Use %s [EL = %4.1f deg] %s as Gain Equalizer' % (EQcal, 180.0* OnEL[onsourceScans.index(EQScan)]/np.pi, timeLabelEQ); print EQcalText
+    #-------- Select Bandpass Calibrator
+    if 'BPScan' not in locals():
+        BPscanIndex = np.argmax(BPquality)
+    else:
+        if BPScan < 0:
+            BPscanIndex = np.argmax(BPquality)
+        else:
+            BPscanIndex = onsourceScans.index(BPScan)
+        #
+    #
+    BPScan = onsourceScans[BPscanIndex]; BPcal = sourceList[sourceIDscan[BPscanIndex]]; timeLabelBP = qa.time('%fs' % (refTime[BPscanIndex]), form='ymd')[0]
+    #-------- Select Equalization Calibrator
+    if 'EQScan' not in locals():
+        EQscanIndex = np.argmax(EQquality)
+    else:
+        if EQScan < 0:
+            EQscanIndex = np.argmax(EQquality)
+        else:
+            EQscanIndex = onsourceScans.index(EQScan)
+        #
+    #
+    EQScan = onsourceScans[EQscanIndex]; EQcal = sourceList[sourceIDscan[EQscanIndex]]; timeLabelEQ = qa.time('%fs' % (refTime[EQscanIndex]), form='ymd')[0]
+    BPcalText = 'Use %s [Scan%d EL=%4.1f deg] %s as Bandpass Calibrator' % (BPcal, BPScan, 180.0* OnEL[onsourceScans.index(BPScan)]/np.pi, timeLabelBP); print BPcalText
+    EQcalText = 'Use %s [Scan%d EL=%4.1f deg] %s as Gain Equalizer' % (EQcal, EQScan, 180.0* OnEL[onsourceScans.index(EQScan)]/np.pi, timeLabelEQ); print EQcalText
     #-------- Polarization setup 
     spw = spwLists[band_index]; spwNum = len(spw); polNum = msmd.ncorrforpol(msmd.polidfordatadesc(spw[0]))
     if polNum == 4:

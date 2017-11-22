@@ -314,13 +314,14 @@ for scan_index in range(scanNum):
         StokesVis, StokesErr = Stokes.real, Stokes.imag
         #-------- Visibility slope vs uvdist using Stokes I
         percent75 = np.percentile(StokesVis[0], 75); sdvis = np.std(StokesVis[0])
-        visFlag = np.where(abs(StokesVis[0] - percent75) < 2.0* sdvis )[0]
+        visFlag = np.where(abs(StokesVis[0] - percent75) < 2.0* sdvis )[0].tolist()
         weight = np.zeros(SAblNum); weight[visFlag] = 1.0/np.var(StokesVis[0][visFlag])
         P, W = np.c_[np.ones(SAblNum), uvDist], np.diag(weight)
         PtWP_inv = scipy.linalg.inv(P.T.dot(W.dot(P)))
         solution, solerr = PtWP_inv.dot(P.T.dot(weight* StokesVis[0])),  np.sqrt(np.diag(PtWP_inv)) # solution[0]:intercept, solution[1]:slope
+        slopeSNR = abs(solution[1]) / abs(solerr[1]) #print 'Slope SNR = ' + `slopeSNR`
+        if slopeSNR < 5.0: solution[1] = 0.0; solution[0] = np.median(StokesVis[0][visFlag])
         ScanFlux[scan_index, spw_index, 0], ScanSlope[scan_index, spw_index, 0], ErrFlux[scan_index, spw_index, 0] = solution[0], solution[1], solerr[0]
-        if abs(solution[1]) < 5.0* solerr[1]: solution[1] = 0.0
         for pol_index in range(1,4):
             ScanSlope[scan_index, spw_index, pol_index] = ScanSlope[scan_index, spw_index, 0] * np.median(StokesVis[pol_index])/ScanFlux[scan_index, spw_index, 0]
             solution[0] = (weight.dot(StokesVis[pol_index]) - ScanSlope[scan_index, spw_index, pol_index]* weight.dot(uvDist))/(np.sum(weight))
