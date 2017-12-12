@@ -42,8 +42,8 @@ if not TsysDone :
 msmd.open(msfile)
 #-------- Array Configuration
 print '---Checking array configuration'
-flagList = np.where(np.median(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) > 2.0* np.median(chAvgTrx))[0].tolist()
-#flagList = unique(flagList + np.where(np.min(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) < 1.0 )[0].tolist()).tolist()
+flagList = np.where(np.median(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) > 2.0* np.percentile(chAvgTrx, 75))[0].tolist()
+flagList = unique(flagList + np.where(np.min(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) < 1.0 )[0].tolist()).tolist()
 flagAnt[flagList] = 0.0 # Flagging by abnormal Trx
 UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
 text_sd = '  Usable antennas: '
@@ -168,7 +168,10 @@ polXindex, polYindex, scan_index = (arange(4)//2).tolist(), (arange(4)%2).tolist
 interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spwList[0], EQScan); timeNum = len(timeStamp)
 AzScan, ElScan = AzElMatch(timeStamp[flagIndex], azelTime, AntID, refantID, AZ, EL)
 PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), np.cos(PA))
-QUsolution = np.array([catalogStokesQ.get(EQcal), catalogStokesU.get(EQcal)])
+try:
+    QUsolution = np.array([catalogStokesQ.get(EQcal), catalogStokesU.get(EQcal)])
+except:
+    QUsolution = np.zeros(2)
 QCpUS = QUsolution[0]* np.cos(2.0* PA) + QUsolution[1]* np.sin(2.0* PA)
 #
 for spw_index in range(spwNum):

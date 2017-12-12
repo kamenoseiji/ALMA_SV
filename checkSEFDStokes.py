@@ -41,7 +41,7 @@ TsysDone = True
 msmd.open(msfile)
 #-------- Array Configuration
 print '---Checking array configuration'
-flagList = np.where(np.median(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) > 2.0* np.median(chAvgTrx))[0].tolist()
+flagList = np.where(np.median(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) > 2.0* np.percentile(chAvgTrx, 75))[0].tolist()
 flagList = unique(flagList + np.where(np.min(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) < 1.0 )[0].tolist()).tolist()
 flagAnt[flagList] = 0.0 # Flagging by abnormal Trx
 UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
@@ -306,7 +306,7 @@ Pcolor   = ['black', 'blue', 'red', 'green']
 for scan_index in range(scanNum):
     #-------- UV distance
     timeStamp, UVW = GetUVW(msfile, spwList[spw_index], onsourceScans[scan_index])
-    uvw = np.mean(UVW[:,SAblMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
+    uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     #-------- Prepare plots
     figScan = plt.figure(scan_index, figsize = (11, 8))
     figScan.suptitle(prefix + ' ' + UniqBands[band_index])
@@ -385,17 +385,18 @@ for scan_index in range(scanNum):
         visFlag = np.where(abs(StokesVis[0] - percent75) < 2.0* sdvis )[0]
         if len(visFlag) < 2 : continue
         weight = np.zeros(SAblNum); weight[visFlag] = 1.0/np.var(StokesVis[0][visFlag])
-        P, W = np.c_[np.ones(SAblNum), uvDist], np.diag(weight)
+        P, W = np.c_[np.ones(len(weight)), uvDist[SAbl]], np.diag(weight)
+        #P, W = np.c_[np.ones(SAblNum), uvDist], np.diag(weight)
         PtWP_inv = scipy.linalg.inv(P.T.dot(W.dot(P)))
         solution, solerr = PtWP_inv.dot(P.T.dot(weight* StokesVis[0])),  np.sqrt(np.diag(PtWP_inv)) # solution[0]:intercept, solution[1]:slope
         ScanFlux[scan_index, spw_index, 0], ScanSlope[scan_index, spw_index, 0], ErrFlux[scan_index, spw_index, 0] = solution[0], solution[1], solerr[0]
         if abs(solution[1]) < 5.0* solerr[1]: solution[1] = 0.0
         for pol_index in range(1,4):
             ScanSlope[scan_index, spw_index, pol_index] = ScanSlope[scan_index, spw_index, 0] * np.median(StokesVis[pol_index])/ScanFlux[scan_index, spw_index, 0]
-            solution[0] = (weight.dot(StokesVis[pol_index]) - ScanSlope[scan_index, spw_index, pol_index]* weight.dot(uvDist))/(np.sum(weight))
+            solution[0] = (weight.dot(StokesVis[pol_index]) - ScanSlope[scan_index, spw_index, pol_index]* weight.dot(uvDist[SAbl]))/(np.sum(weight))
             ScanFlux[scan_index, spw_index, pol_index] = solution[0]
             # print 'Pol %d : median=%f slope=%f intercept=%f slopeI= %f' % (pol_index, np.median(StokesVis[pol_index]), ScanSlope[scan_index, spw_index, pol_index], ScanFlux[scan_index, spw_index, pol_index], solution[1])
-            resid = StokesVis[pol_index] - ScanSlope[scan_index, spw_index, pol_index]* uvDist - solution[0]; ErrFlux[scan_index, spw_index, pol_index] = np.sqrt(weight.dot(resid**2)/np.sum(weight))
+            resid = StokesVis[pol_index] - ScanSlope[scan_index, spw_index, pol_index]* uvDist[SAbl] - solution[0]; ErrFlux[scan_index, spw_index, pol_index] = np.sqrt(weight.dot(resid**2)/np.sum(weight))
         #
         for pol_index in range(4):
             if len(visFlag) < 6:
@@ -404,10 +405,10 @@ for scan_index in range(scanNum):
             #
             text_sd = '%7.4f (%.4f) ' % (ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index]); logfile.write(text_sd); print text_sd,
         #
-        StokesI_PL.plot( uvDist, StokesVis[0], '.', label=polLabel[0], color=Pcolor[0])
-        StokesP_PL.plot( uvDist, StokesVis[1], '.', label=polLabel[1], color=Pcolor[1])
-        StokesP_PL.plot( uvDist, StokesVis[2], '.', label=polLabel[2], color=Pcolor[2])
-        StokesP_PL.plot( uvDist, StokesVis[3], '.', label=polLabel[3], color=Pcolor[3])
+        StokesI_PL.plot( uvDist[SAbl], StokesVis[0], '.', label=polLabel[0], color=Pcolor[0])
+        StokesP_PL.plot( uvDist[SAbl], StokesVis[1], '.', label=polLabel[1], color=Pcolor[1])
+        StokesP_PL.plot( uvDist[SAbl], StokesVis[2], '.', label=polLabel[2], color=Pcolor[2])
+        StokesP_PL.plot( uvDist[SAbl], StokesVis[3], '.', label=polLabel[3], color=Pcolor[3])
         if(SSO_flag):
             text_sd = '| %6.3f ' % (SSOflux0[SSO_ID, spw_index]); logfile.write(text_sd); print text_sd,
             logfile.write('\n'); print ''
@@ -416,7 +417,7 @@ for scan_index in range(scanNum):
             logfile.write('\n'); print ''
         #
     #
-    uvMin, uvMax, IMax = min(uvDist), max(uvDist), max(ScanFlux[scan_index,:,0])
+    uvMin, uvMax, IMax = min(uvDist[SAbl]), max(uvDist[SAbl]), max(ScanFlux[scan_index,:,0])
     for spw_index in range(spwNum):
         StokesI_PL = figScan.add_subplot( 2, spwNum, spw_index + 1 )
         StokesP_PL = figScan.add_subplot( 2, spwNum, spwNum + spw_index + 1 )

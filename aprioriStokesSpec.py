@@ -203,7 +203,7 @@ for scan in scanList:
     #StokesP_PL.plot( np.array(chRange), StokesSpec[3, chRange], ls='steps-mid', label=polLabel[3], color=Pcolor[3])
     plotMax = max(StokesSpec[0, chRange])
     StokesI_PL.axis([min(Freq[chRange]), max(Freq[chRange]), 0.0, 1.2* plotMax])
-    StokesP_PL.axis([min(Freq[chRange]), max(Freq[chRange]), -0.10*plotMax, 0.10*plotMax ])
+    StokesP_PL.axis([min(Freq[chRange]), max(Freq[chRange]), -0.025*plotMax, 0.025*plotMax ])
     #StokesI_PL.axis([min(chRange), max(chRange), 0.0, 1.2* plotMax])
     #StokesP_PL.axis([min(chRange), max(chRange), -0.10*plotMax, 0.10*plotMax ])
     #
