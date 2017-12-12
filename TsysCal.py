@@ -12,11 +12,7 @@ def residTskyTransfer2( param, Tamb, Tau0, secz, Tsky, weight ):
     exp_Tau = np.exp( -Tau0* secz )
     return weight* (Tsky - (param[0] + 2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
 #
-def get_progressbar_str(progress):
-    MAX_LEN = 48
-    BAR_LEN = int(MAX_LEN * progress)
-    return ('[' + '=' * BAR_LEN + ('>' if BAR_LEN < MAX_LEN else '') + ' ' * (MAX_LEN - BAR_LEN) + '] %.1f%%' % (progress * 100.))
-#
+tsysLog = open(prefix + '-' + UniqBands[band_index] + '-Tsys.log', 'w')
 Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
 kb        = 1.38064852e3
 #-------- Check Ambient Load Timing
@@ -165,7 +161,7 @@ for scan_index in range(scanNum):
     tempTau = -np.log((chAvgTsky[:,:,:,offTimeIndex] - TantN - np.median(tempAmb) + Tatm_OFS) / (2.718 - np.median(tempAmb) + Tatm_OFS))
     onTau[:,scan_index] = np.median(tempTau.transpose(1,2,0).reshape(spwNum, -1), axis=1)
 #
-for spw_index in range(spwNum): text_sd = 'SPW=%d : Tau(zenith) = %6.4f +- %6.4f' % (spwList[spw_index], Tau0med[spw_index], Tau0err[spw_index]); logfile.write(text_sd + '\n'); print text_sd
+for spw_index in range(spwNum): text_sd = 'SPW=%d : Tau(zenith) = %6.4f +- %6.4f' % (spwList[spw_index], Tau0med[spw_index], Tau0err[spw_index]); tsysLog.write(text_sd + '\n'); print text_sd
 #
 np.save(prefix +  '-' + bandName + '.Trx.npy', TrxList) 
 np.save(prefix +  '-' + bandName + '.Tsky.npy', TskyList) 
@@ -173,14 +169,14 @@ np.save(prefix +  '-' + bandName + '.TrxFlag.npy', TrxFlag)
 np.save(prefix +  '-' + bandName + '.Tau0.npy', Tau0) 
 #-------- Antenna-dependent leakage noise
 param = [0.0]
-text_sd = ' TantN:'; logfile.write(text_sd); print text_sd,
-for spw_index in range(spwNum): text_sd = ' PolX   SPW%02d  PolY           |' % (spwList[spw_index]); logfile.write(text_sd); print text_sd,
+text_sd = ' TantN:'; tsysLog.write(text_sd); print text_sd,
+for spw_index in range(spwNum): text_sd = ' PolX   SPW%02d  PolY           |' % (spwList[spw_index]); tsysLog.write(text_sd); print text_sd,
 #
-logfile.write('\n'); print ' '
-text_sd = ' ----:--------------------------------+-------------------------------+-------------------------------+-------------------------------+'; logfile.write(text_sd + '\n'); print text_sd
+tsysLog.write('\n'); print ' '
+text_sd = ' ----:--------------------------------+-------------------------------+-------------------------------+-------------------------------+'; tsysLog.write(text_sd + '\n'); print text_sd
 for ant_index in range(antNum):
     if flagAnt[ant_index] < 1.0: continue
-    text_sd = antList[ant_index] + ' : '; logfile.write(text_sd); print text_sd,
+    text_sd = antList[ant_index] + ' : '; tsysLog.write(text_sd); print text_sd,
     for spw_index in range(spwNum):
         for pol_index in range(2):
             fit = scipy.optimize.leastsq(residTskyTransfer2, param, args=(tempAmb[ant_index]-Tatm_OFS, Tau0med[spw_index], secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index]))
@@ -188,41 +184,42 @@ for ant_index in range(antNum):
             resid = residTskyTransfer([fit[0][0], Tau0med[spw_index]], tempAmb[ant_index]-Tatm_OFS, secZ[ant_index], chAvgTsky[ant_index, spw_index, pol_index], TrxFlag[ant_index, spw_index, pol_index])
             Trms[ant_index, spw_index, pol_index]  = sqrt(np.dot(resid, resid) / len(np.where(TrxFlag[ant_index, spw_index, pol_index] > 0.0)[0]))
             text_sd = '%4.1f (%4.1f) K ' % (TantN[ant_index, spw_index, pol_index], Trms[ant_index, spw_index, pol_index])
-            logfile.write(text_sd); print text_sd,
-        text_sd = '|'; logfile.write(text_sd); print text_sd,
-    logfile.write('\n'); print ''
-logfile.write('\n'); print ''
+            tsysLog.write(text_sd); print text_sd,
+        text_sd = '|'; tsysLog.write(text_sd); print text_sd,
+    tsysLog.write('\n'); print ''
+tsysLog.write('\n'); print ''
 np.save(prefix +  '-' + bandName + '.TantN.npy', TantN) 
 #-------- Trx
-text_sd = ' Trec: '; logfile.write(text_sd); print text_sd,
-for spw_index in range(spwNum): text_sd = ' SPW%02d X        Y |' % (spwList[spw_index]); logfile.write(text_sd); print text_sd,
-logfile.write('\n'); print ' '
-text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; logfile.write(text_sd + '\n'); print text_sd
+text_sd = ' Trec: '; tsysLog.write(text_sd); print text_sd,
+for spw_index in range(spwNum): text_sd = ' SPW%02d X        Y |' % (spwList[spw_index]); tsysLog.write(text_sd); print text_sd,
+tsysLog.write('\n'); print ' '
+text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; tsysLog.write(text_sd + '\n'); print text_sd
 for ant_index in range(antNum):
     if flagAnt[ant_index] < 1.0: continue
-    text_sd =  antList[ant_index] + ' : '; logfile.write(text_sd); print text_sd,
+    text_sd =  antList[ant_index] + ' : '; tsysLog.write(text_sd); print text_sd,
     for spw_index in range(spwNum):
         for pol_index in range(2):
             text_sd = '%6.1f K' % (chAvgTrx[ant_index, spw_index, pol_index])
-            logfile.write(text_sd); print text_sd,
-        text_sd = '|'; logfile.write(text_sd); print text_sd,
-    logfile.write('\n'); print ' '
+            tsysLog.write(text_sd); print text_sd,
+        text_sd = '|'; tsysLog.write(text_sd); print text_sd,
+    tsysLog.write('\n'); print ' '
 print ' '
 #-------- Tsys
-text_sd = ' Tsys: '; logfile.write(text_sd); print text_sd,
-for spw_index in range(spwNum): text_sd = ' SPW%02d X        Y |' % (spwList[spw_index]); logfile.write(text_sd); print text_sd,
-logfile.write('\n'); print ' '
-text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; logfile.write(text_sd + '\n'); print text_sd
+text_sd = ' Tsys: '; tsysLog.write(text_sd); print text_sd,
+for spw_index in range(spwNum): text_sd = ' SPW%02d X        Y |' % (spwList[spw_index]); tsysLog.write(text_sd); print text_sd,
+tsysLog.write('\n'); print ' '
+text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; tsysLog.write(text_sd + '\n'); print text_sd
 for ant_index in range(antNum):
     if flagAnt[ant_index] < 1.0: continue
-    text_sd =  antList[ant_index] + ' : '; logfile.write(text_sd); print text_sd,
+    text_sd =  antList[ant_index] + ' : '; tsysLog.write(text_sd); print text_sd,
     for spw_index in range(spwNum):
         for pol_index in range(2):
             text_sd = '%6.1f K' % (chAvgTrx[ant_index, spw_index, pol_index] + np.median(chAvgTsky[ant_index, spw_index, pol_index]))
-            logfile.write(text_sd); print text_sd,
-        text_sd = '|'; logfile.write(text_sd); print text_sd,
-    logfile.write('\n'); print ' '
+            tsysLog.write(text_sd); print text_sd,
+        text_sd = '|'; tsysLog.write(text_sd); print text_sd,
+    tsysLog.write('\n'); print ' '
 #-------- Plot optical depth
+tsysLog.close()
 if not 'PLOTFMT' in locals():   PLOTFMT = 'pdf'
 if PLOTTAU: plotTau(prefix + '_' + bandName, antList, spwList, secZ, (chAvgTsky.transpose(3,0,1,2) - TantN).transpose(1,2,3,0), np.median(tempAmb) - Tatm_OFS, Tau0med, TrxFlag, 2.0*np.median(chAvgTsky), PLOTFMT) 
 if PLOTTSYS: plotTsys(prefix + '_' + bandName, antList, ambTime, spwList, TrxList, TskyList, PLOTFMT)

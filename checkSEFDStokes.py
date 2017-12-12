@@ -27,6 +27,7 @@ msmd.done()
 TsysDone = False
 execfile(SCR_DIR + 'TsysCal.py')  
 TsysDone = True
+msmd.done()
 ######## Outputs from TsysCal.py :
 #  TantN[ant, spw, pol] : Antenna noise pickup. ant order is the same with MS
 #  chAvgTrx[ant, spw, pol, scan]  : Channel-averaged receiver noise temperature
