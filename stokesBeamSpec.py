@@ -95,7 +95,6 @@ blWeight = antWeight[ant0]* antWeight[ant1]
 print '-- Loading D-term table %s SPW=%d ...' % (prefix, spw)
 DxList, DyList = [], []
 for ant_index in range(trkAntNum):
-    Dpath = SCR_DIR + 'DtermB' + `Band` + '/'
     Dfile = Dpath + 'B' + `Band` + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DSpec.npy'
     Dterm = np.load(Dfile)
     DxList = DxList + [Dterm[1] + (0.0 + 1.0j)* Dterm[2]]
