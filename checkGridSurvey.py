@@ -89,9 +89,7 @@ for band_index in range(NumBands):
         CS, SN = np.cos(2.0* OnPA[scan_index]), np.sin(2.0* OnPA[scan_index])
         QCpUS = catalogIQUV[1]*CS + catalogIQUV[2]*SN   # Qcos + Usin
         UCmQS = catalogIQUV[2]*CS - catalogIQUV[1]*SN   # Ucos - Qsin
-        # BPquality = BPquality + [1000.0* abs(UCmQS)* catalogIQUV[0]* dPA * np.sin(OnEL[scan_index] - ELshadow)]
-        BPquality = BPquality + [1000.0* abs(UCmQS)* dPA* np.sin(OnEL[scan_index] - ELshadow) / (1.0e-4 + abs(QCpUS)) ]
-        # EQquality = EQquality + [catalogIQUV[0]* np.sin(OnEL[scan_index] - ELshadow) / (1.0e-4 + QCpUS**2)]
+        BPquality = BPquality + [1000.0* abs(UCmQS)* dPA* np.sin(OnEL[scan_index]) / (1.0e-4 + abs(QCpUS)) ]
         EQquality = EQquality + [catalogIQUV[0]* np.sin(OnEL[scan_index] - ELshadow) / (1.0e-4 + abs(QCpUS))]
         if sourceIDscan[scan_index] in SSOList:
             BPquality[scan_index], EQquality[scan_index] = -100.0, -100.0

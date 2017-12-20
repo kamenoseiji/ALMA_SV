@@ -157,7 +157,7 @@ for spw_index in range(spwNum):
     tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)       # Cross Polarization Baseline Mapping : tempSpec[time, blMap, pol, ch]
     BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
     #-------- Antenna-based Gain correction
-    chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)[pPol]
+    chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)[pPol]  # chAvgVis[pPol,bl,time]
     GainP = GainP + [np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[1])])]
     pCalVisX, pCalVisY = np.mean(chAvgVis[0] / (GainP[spw_index][0,ant0]* GainP[spw_index][0,ant1].conjugate()), axis=1), np.mean(chAvgVis[1] / (GainP[spw_index][1,ant0]* GainP[spw_index][1,ant1].conjugate()), axis=1)
     #-------- Antenna-based Gain
@@ -167,6 +167,7 @@ for spw_index in range(spwNum):
 GainP = np.array(GainP) # GainP[spw, pol, ant, time]
 AeSeqX, AeSeqY = np.array(AeSeqX), np.array(AeSeqY) # AeSeqX[spw, antMap], AeSeqX[spw, antMap] : (relative) aperture efficiency, assuming 1 Jy
 #
+##-------- inter-SPW phasing using EQ scan
 spwPhase = [0.0]* 2* spwNum
 for ant_index in range(1,UseAntNum):
     for pol_index in range(2):
@@ -283,10 +284,10 @@ for spw_index in range(spwNum):
     GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
     SEFD = 2.0* kb* chAvgTsys[antMap,spw_index, :,scan_index] / Ae[:,:,spw_index]
     caledVis.append(np.mean((chAvgVis / (GainP[polYindex][:,ant0]* GainP[polXindex][:,ant1].conjugate())).transpose(2, 0, 1)* np.sqrt(SEFD[ant0][:,polYindex].T* SEFD[ant1][:,polXindex].T), axis=2).T)
-#
 caledVis = np.array(caledVis)   # [spw, pol, time]
-QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
-#QUsolution = np.array([catalogStokesQ.get(BPcal), catalogStokesU.get(BPcal)])
+if 'QUMODEL' in locals():
+    if QUMODEL: QUsolution = np.array([catalogStokesQ.get(BPcal), catalogStokesU.get(BPcal)])
+else: QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
 #-------- XY phase cal in Bandpass table
 for spw_index in range(spwNum):
     XYphase = XY2Phase(PA, QUsolution[0], QUsolution[1], caledVis[spw_index][[1,2]])
