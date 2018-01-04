@@ -1,5 +1,5 @@
 Arguments <- commandArgs(trailingOnly = T)
-timeWindow <- 60	# Days
+timeWindow <- 45	# Days
 #-------- Function to return residuals in RM fit
 residEVPA <- function(x, y, w){	# Optimization function for RM fit
 	return(function(para){
@@ -45,11 +45,11 @@ for(sourceName in srcList){
 			estQ[freq_index] <- median(srcFreqDF$Q); errQ[freq_index] <- median(srcFreqDF$eQ) * 10.0
 			estU[freq_index] <- median(srcFreqDF$U); errU[freq_index] <- median(srcFreqDF$eU) * 10.0
 		} else {
-			fit <- lm(data=srcFreqDF, formula=I ~ timeDiff, weights=1.0 / eI^2 / abs(timeDiff + 1))
+			fit <- lm(data=srcFreqDF, formula=I ~ timeDiff, weights=1.0 / eI^2 / (abs(timeDiff) + 1))
 			estI[freq_index] <- summary(fit)$coefficients[1,'Estimate'];  errI[freq_index] <- summary(fit)$coefficients[1,'Std. Error']
-			fit <- lm(data=srcFreqDF, formula=Q ~ timeDiff, weights=1.0 / eQ^2 / abs(timeDiff + 1))
+			fit <- lm(data=srcFreqDF, formula=Q ~ timeDiff, weights=1.0 / eQ^2 / (abs(timeDiff) + 1))
 			estQ[freq_index] <- summary(fit)$coefficients[1,'Estimate'];  errQ[freq_index] <- summary(fit)$coefficients[1,'Std. Error']
-			fit <- lm(data=srcFreqDF, formula=U ~ timeDiff, weights=1.0 / eU^2 / abs(timeDiff + 1))
+			fit <- lm(data=srcFreqDF, formula=U ~ timeDiff, weights=1.0 / eU^2 / (abs(timeDiff) + 1))
 			estU[freq_index] <- summary(fit)$coefficients[1,'Estimate'];  errU[freq_index] <- summary(fit)$coefficients[1,'Std. Error']
 		}
 	}
