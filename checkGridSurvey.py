@@ -105,9 +105,9 @@ for band_index in range(NumBands):
         QCpUS = catalogIQUV[1]*CS + catalogIQUV[2]*SN   # Qcos + Usin
         UCmQS = catalogIQUV[2]*CS - catalogIQUV[1]*SN   # Ucos - Qsin
         if QUMODEL:
-            BPquality = BPquality + [1000.0* abs(UCmQS)* np.sin(OnEL[scan_index] - 0.5*ELshadow)]
+            BPquality = BPquality + [1000.0* abs(UCmQS)* np.sin(OnEL[scan_index] - 0.5*ELshadow) / np.sqrt(catalogIQUV[0])]
         else:
-            BPquality = BPquality + [1000.0* abs(UCmQS)* dPA* np.sin(OnEL[scan_index] - 0.5*ELshadow)]
+            BPquality = BPquality + [1000.0* abs(UCmQS)* dPA* np.sin(OnEL[scan_index] - 0.5*ELshadow) / np.sqrt(catalogIQUV[0])]
         EQquality = EQquality + [catalogIQUV[0]* np.sin(OnEL[scan_index] - ELshadow) / (1.0e-4 + abs(QCpUS))]
         if sourceIDscan[scan_index] in SSOList:
             BPquality[scan_index], EQquality[scan_index] = -100.0, -100.0
