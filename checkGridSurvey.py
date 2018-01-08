@@ -17,7 +17,9 @@ blNum = antNum* (antNum - 1) / 2
 msmd.open(msfile)
 print prefix
 print '---Checking spectral windows'
-spwList = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); spwList.sort()
+if not 'spwList' in locals():
+    spwList = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); spwList.sort()
+#
 if not 'spwNames' in locals(): spwNames = msmd.namesforspws(spwList)
 if len(spwList) < 1: sys.exit('No available SPWs found.\n')
 #
@@ -145,3 +147,4 @@ for band_index in range(NumBands):
         #
     #
 #
+del(spwList)
