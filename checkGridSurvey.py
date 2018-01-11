@@ -102,17 +102,20 @@ for band_index in range(NumBands):
         PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; dPA = np.std(np.sin(PA)) #dPA = abs(np.sin(max(PA) - min(PA)))
         OnAZ.append(np.median(AzScan)); OnEL.append(np.median(ElScan)); OnPA.append(np.median(PA))
         refTime = refTime + [np.median(timeStamp)]
-        catalogIQUV = np.array([catalogStokesI.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesQ.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesU.get(sourceList[sourceIDscan[scan_index]], 0.0), 0.0])
-        CS, SN = np.cos(2.0* OnPA[scan_index]), np.sin(2.0* OnPA[scan_index])
-        QCpUS = catalogIQUV[1]*CS + catalogIQUV[2]*SN   # Qcos + Usin
-        UCmQS = catalogIQUV[2]*CS - catalogIQUV[1]*SN   # Ucos - Qsin
-        if QUMODEL:
-            BPquality = BPquality + [1000.0* abs(UCmQS)* np.sin(OnEL[scan_index] - 0.5*ELshadow) / np.sqrt(catalogIQUV[0])]
-        else:
-            BPquality = BPquality + [1000.0* abs(UCmQS)* dPA* np.sin(OnEL[scan_index] - 0.5*ELshadow) / np.sqrt(catalogIQUV[0])]
-        EQquality = EQquality + [catalogIQUV[0]* np.sin(OnEL[scan_index] - ELshadow) / (1.0e-4 + abs(QCpUS))]
         if sourceIDscan[scan_index] in SSOList:
-            BPquality[scan_index], EQquality[scan_index] = -100.0, -100.0
+            BPquality = BPquality + [-1.0]
+            EQquality = EQquality + [-1.0]
+        else:
+            catalogIQUV = np.array([catalogStokesI.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesQ.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesU.get(sourceList[sourceIDscan[scan_index]], 0.0), 0.0])
+            CS, SN = np.cos(2.0* OnPA[scan_index]), np.sin(2.0* OnPA[scan_index])
+            QCpUS = catalogIQUV[1]*CS + catalogIQUV[2]*SN   # Qcos + Usin
+            UCmQS = catalogIQUV[2]*CS - catalogIQUV[1]*SN   # Ucos - Qsin
+            if QUMODEL:
+                BPquality = BPquality + [1000.0* abs(UCmQS)* np.sin(OnEL[scan_index] - 0.5*ELshadow) / np.sqrt(catalogIQUV[0])]
+            else:
+                BPquality = BPquality + [1000.0* abs(UCmQS)* dPA* np.sin(OnEL[scan_index] - 0.5*ELshadow) / np.sqrt(catalogIQUV[0])]
+            #
+            EQquality = EQquality + [catalogIQUV[0]* np.sin(OnEL[scan_index] - ELshadow) / (1.0e-4 + abs(QCpUS))]
         #
         print 'Scan%02d : %10s AZ=%6.1f EL=%4.1f PA=%6.1f dPA=%5.2f pRes=%5.2f BPquality=%7.4f EQquality=%6.0f' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0*OnAZ[scan_index]/np.pi, 180.0*OnEL[scan_index]/np.pi, 180.0*OnPA[scan_index]/np.pi, 180.0*dPA/np.pi, UCmQS, BPquality[scan_index], EQquality[scan_index]) 
         if sourceIDscan[scan_index] in SSOList: FLscore[scan_index] = np.exp(np.log(math.sin(OnEL[scan_index])-0.34))* SSOscore[bandID-1][SSOCatalog.index(sourceList[sourceIDscan[scan_index]])]
@@ -120,7 +123,8 @@ for band_index in range(NumBands):
     if not 'FLcal' in locals(): FLcal = sourceList[sourceIDscan[np.argmax(FLscore)]]
     if FLcal in sourceList: FCScan = list(set(msmd.scansforfield(FLcal)) & set(onsourceScans))[0]; FLsel = FLcal
     else: FCScan = onsourceScans[np.argmax(FLscore)]; FLsel = sourceList[sourceIDscan[np.argmax(FLscore)]]
-    FLEL = 180.0* OnEL[onsourceScans.index(FCScan)]/np.pi; FLScaleText = 'Use %s [EL = %4.1f deg] as Flux Scaler' % (FLsel, FLEL); print FLScaleText
+    FLEL = 180.0* OnEL[onsourceScans.index(FCScan)]/np.pi
+    #FLScaleText = 'Use %s [EL = %4.1f deg] as Flux Scaler' % (FLsel, FLEL); print FLScaleText
     if 'BPcal' in locals():
         BPScan = onsourceScans[sourceIDscan.index(sourceList.index(BPcal))]
     else:
@@ -150,7 +154,7 @@ for band_index in range(NumBands):
             if polNum == 4: pPol, cPol = [0,3], [1,2]; ppolNum, cpolNum = len(pPol), len(cPol); execfile(SCR_DIR + 'aprioriStokes.py')
         #
     #
+    del(FLcal)
+    del(BPcal)
 #
 del(spwList)
-del(FLcal)
-del(BPcal)

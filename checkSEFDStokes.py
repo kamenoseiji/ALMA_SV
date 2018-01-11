@@ -19,7 +19,7 @@ kb        = 1.38064852e3
 ingestFile = open(prefix + '-' + UniqBands[band_index] + '-Ingest.log', 'w') 
 text_sd = '#source,   RA,eRA,dec,edec,frequency,  flux,eflux,degree,edeg,EVPA,eEVPA,uvmin,uvmax,date\n'; ingestFile.write(text_sd)
 logfile = open(prefix + '-' + UniqBands[band_index] + '-Flux.log', 'w') 
-logfile.write(FLScaleText + '\n'); logfile.write(BPcalText + '\n'); logfile.write(EQcalText + '\n')
+logfile.write(BPcalText + '\n'); logfile.write(EQcalText + '\n')
 #-------- Tsys measurements
 scanList = onsourceScans
 msmd.close()
@@ -215,6 +215,10 @@ for sso_index in range(SSONum):
         index = np.where(AeX[:, spw_index, sso_index] > 1.0)[0].tolist()
         if len(index) < 4: SSO_flag[sso_index] = 0.0; continue
         FLX_stat, FLY_stat = AeX[index, spw_index, sso_index]/AeNominal[np.array(antMap)[index].tolist()], AeY[index, spw_index, sso_index]/AeNominal[np.array(antMap)[index].tolist()]
+        if np.median(FLX_stat) < 0.7: SSO_flag[sso_index] = 0.0 
+        if np.median(FLY_stat) < 0.7: SSO_flag[sso_index] = 0.0 
+        if np.median(FLX_stat) > 1.5: SSO_flag[sso_index] = 0.0 
+        if np.median(FLY_stat) > 1.5: SSO_flag[sso_index] = 0.0 
         if np.percentile(FLX_stat, 75) / np.median(FLX_stat) > 1.25: SSO_flag[sso_index] = 0.0
         if np.percentile(FLY_stat, 75) / np.median(FLY_stat) > 1.25: SSO_flag[sso_index] = 0.0
     #

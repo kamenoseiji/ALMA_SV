@@ -21,12 +21,11 @@ print '---Checking time series in MS and atmCal scans'
 tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spwList[0]`).getcol('TIME'); tb.close()
 scanList = onsourceScans
 #-------- Tsys measurements
-if not TsysDone :
-    try:
-        if TSYSCAL : execfile(SCR_DIR + 'TsysCal.py')
-        else : execfile(SCR_DIR + 'TsysTransfer.py')
-    except:
-        execfile(SCR_DIR + 'TsysCal.py')
+try:
+    if TSYSCAL : execfile(SCR_DIR + 'TsysCal.py')
+    else : execfile(SCR_DIR + 'TsysTransfer.py')
+except:
+    execfile(SCR_DIR + 'TsysCal.py')
 #
 ######## Outputs from TsysCal.py :
 #  TantN[ant, spw, pol] : Antenna noise pickup. ant order is the same with MS
@@ -85,39 +84,38 @@ for ant_index in antMap:
 #
 AeX, AeY = np.array(AeX), np.array(AeY) # in antMap order 
 #-------- Check D-term files
-if not Dloaded:
-    if not 'DPATH' in locals(): DPATH = SCR_DIR
-    print '---Checking D-term files in ' + DPATH
-    DantList, noDlist = [], []
-    Dpath = DPATH + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
-    for ant_index in UseAnt:
-        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW0-' + antList[ant_index] + '.DSpec.npy'
-        if os.path.exists(Dfile): DantList += [ant_index]
-        else: noDlist += [ant_index]
-    #   
-    DantNum, noDantNum = len(DantList), len(noDlist)
-    print 'Antennas with D-term file (%d):' % (DantNum),
-    for ant_index in DantList: print '%s ' % antList[ant_index],
-    print ''
-    if noDantNum > 0:
-        print 'Antennas without D-term file (%d) : ' % (noDantNum),
-        for ant_index in noDlist: print '%s ' % antList[ant_index],
-        sys.exit(' Run DtermTransfer first!!')
-    #   
-    #-------- Load D-term file
-    DxList, DyList = [], []
-    print '---Loading D-term table'
-    for ant_index in antMap:
-        Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
-        for spw_index in range(spwNum):
-            Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[ant_index] + '.DSpec.npy'
-            Dterm = np.load(Dfile)
-            DxList = DxList + [Dterm[1] + (0.0 + 1.0j)* Dterm[2]]
-            DyList = DyList + [Dterm[3] + (0.0 + 1.0j)* Dterm[4]]
-        #
+if not 'DPATH' in locals(): DPATH = SCR_DIR
+print '---Checking D-term files in ' + DPATH
+DantList, noDlist = [], []
+Dpath = DPATH + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
+for ant_index in UseAnt:
+    Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW0-' + antList[ant_index] + '.DSpec.npy'
+    if os.path.exists(Dfile): DantList += [ant_index]
+    else: noDlist += [ant_index]
+#   
+DantNum, noDantNum = len(DantList), len(noDlist)
+print 'Antennas with D-term file (%d):' % (DantNum),
+for ant_index in DantList: print '%s ' % antList[ant_index],
+print ''
+if noDantNum > 0:
+    print 'Antennas without D-term file (%d) : ' % (noDantNum),
+    for ant_index in noDlist: print '%s ' % antList[ant_index],
+    sys.exit(' Run DtermTransfer first!!')
+#   
+#-------- Load D-term file
+DxList, DyList = [], []
+print '---Loading D-term table'
+for ant_index in antMap:
+    Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
+    for spw_index in range(spwNum):
+        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[ant_index] + '.DSpec.npy'
+        Dterm = np.load(Dfile)
+        DxList = DxList + [Dterm[1] + (0.0 + 1.0j)* Dterm[2]]
+        DyList = DyList + [Dterm[3] + (0.0 + 1.0j)* Dterm[4]]
     #
-    chNum = np.array(DxList).shape[1]
-    DxSpec, DySpec = np.array(DxList).reshape([UseAntNum, spwNum, chNum]), np.array(DyList).reshape([UseAntNum, spwNum, chNum])
+#
+chNum = np.array(DxList).shape[1]
+DxSpec, DySpec = np.array(DxList).reshape([UseAntNum, spwNum, chNum]), np.array(DyList).reshape([UseAntNum, spwNum, chNum])
 #
 #-------- Flag table
 if 'FGprefix' in locals():
@@ -133,34 +131,31 @@ else :
     flagIndex = range(timeNum)
 #
 #-------- Bandpass Table
-if not BPDone :
-    BPList = []
-    if 'BPprefix' in locals():      # Load Bandpass table
-        print '---Loding bandpass table...'
-        for spw_index in spwList:
-            BPantList, BP_ant, XYspec = np.load(BPprefix + '-REF' + refantName + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw_index` + '-BPant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw_index` + '-XYspec.npy')
-            BP_ant[:,1] *= XYspec
-            BPList = BPList + [BP_ant]
-        #
-    else:
-        print '---Generating antenna-based bandpass table'
-        for spw_index in spwList:
-            BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPScan, blMap, blInv)
-            BP_ant[:,1] *= XY_BP
-            BPList = BPList + [BP_ant]
-        #
+BPList = []
+if 'BPprefix' in locals():      # Load Bandpass table
+    print '---Loding bandpass table...'
+    for spw_index in spwList:
+        BPantList, BP_ant, XYspec = np.load(BPprefix + '-REF' + refantName + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw_index` + '-BPant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw_index` + '-XYspec.npy')
+        BP_ant[:,1] *= XYspec
+        BPList = BPList + [BP_ant]
     #
-    if PLOTBP:
-        figAnt = PlotBP(msfile, antList[antMap], spwList, BPList)
-        fileExt = '.pdf'
-        if PLOTFMT == 'png': fileExt = '.png'
-        for ant_index in range(UseAntNum):
-            figAnt = plt.figure(ant_index)
-            plotFigFileName = 'BP_' + prefix + '_' + antList[antMap[ant_index]] + '_REF' + refantName + '_Scan' + `BPScan` + fileExt
-            figAnt.savefig(plotFigFileName)
-        #
-        plt.close('all')
+else:
+    print '---Generating antenna-based bandpass table'
+    for spw_index in spwList:
+        BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPScan, blMap, blInv)
+        BP_ant[:,1] *= XY_BP
+        BPList = BPList + [BP_ant]
     #
+if PLOTBP:
+    figAnt = PlotBP(msfile, antList[antMap], spwList, BPList)
+    fileExt = '.pdf'
+    if PLOTFMT == 'png': fileExt = '.png'
+    for ant_index in range(UseAntNum):
+        figAnt = plt.figure(ant_index)
+        plotFigFileName = 'BP_' + prefix + '_' + antList[antMap[ant_index]] + '_REF' + refantName + '_Scan' + `BPScan` + fileExt
+        figAnt.savefig(plotFigFileName)
+    #
+    plt.close('all')
 #
 ##-------- Equalization using EQ scan
 relGain = np.ones([spwNum, 2, UseAntNum])
