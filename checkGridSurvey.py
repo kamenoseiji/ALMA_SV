@@ -105,6 +105,7 @@ for band_index in range(NumBands):
         if sourceIDscan[scan_index] in SSOList:
             BPquality = BPquality + [-1.0]
             EQquality = EQquality + [-1.0]
+            QCpUS, UCmQS = 0.0, 0.0
         else:
             catalogIQUV = np.array([catalogStokesI.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesQ.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesU.get(sourceList[sourceIDscan[scan_index]], 0.0), 0.0])
             CS, SN = np.cos(2.0* OnPA[scan_index]), np.sin(2.0* OnPA[scan_index])
