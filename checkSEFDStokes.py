@@ -312,6 +312,7 @@ Pcolor   = ['black', 'blue', 'red', 'green']
 for scan_index in range(scanNum):
     #-------- UV distance
     timeStamp, UVW = GetUVW(msfile, spwList[spw_index], onsourceScans[scan_index])
+    timeText = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
     uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     #-------- Prepare plots
     figScan = plt.figure(scan_index, figsize = (11, 8))
@@ -320,7 +321,7 @@ for scan_index in range(scanNum):
     figScan.text(0.45, 0.05, 'Projected baseline [m]')
     figScan.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90)
     ScanEL[scan_index] = np.median(OnEL[:,scan_index])
-    text_sd = ' %02d %010s EL=%4.1f deg %s' % (scanList[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi, timeLabel); logfile.write(text_sd + '\n'); print text_sd
+    text_sd = ' %02d %010s EL=%4.1f deg %s' % (scanList[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi, timeText); logfile.write(text_sd + '\n'); print text_sd
     figScan.text(0.05, 0.95, text_sd)
     if(onsourceScans[scan_index] in SSOscanID):
         SSO_flag = True

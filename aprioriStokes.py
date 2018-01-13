@@ -252,10 +252,10 @@ for scan_index in range(scanNum):
     #-------- UV distance
     timeStamp, UVW = GetUVW(msfile, spwList[0], scanList[scan_index]);  timeNum, uvw = len(timeStamp), np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     #-------- Plot Frame
-    timeLabel = qa.time('%fs' % (timeStamp[0]), form='ymd')[0]
+    timeText = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
     figScan = plt.figure(scan_index, figsize = (11, 8))
     figScan.suptitle(prefix + ' ' + UniqBands[band_index])
-    figScan.text(0.75, 0.95, timeLabel) 
+    figScan.text(0.75, 0.95, timeText) 
     figScan.text(0.45, 0.05, 'Projected baseline [m]') 
     figScan.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90) 
     ScanEL[scan_index] = np.median(OnEL[:,scan_index])
@@ -265,7 +265,7 @@ for scan_index in range(scanNum):
         SAantMap, SAblMap, SAblInv = antMap, blMap, blInv
     if SSO_flag: continue
     SAantNum = len(SAantennas); SAblNum = len(SAblMap)
-    text_sd = ' %02d %010s EL=%4.1f deg %s' % (scanList[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi, timeLabel); logfile.write(text_sd + '\n'); print text_sd
+    text_sd = ' %02d %010s EL=%4.1f deg %s' % (scanList[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* ScanEL[scan_index]/pi, timeText); logfile.write(text_sd + '\n'); print text_sd
     figScan.text(0.05, 0.95, text_sd) 
     text_sd = ' SPW  Frequency    I                 Q                 U                 V                 %Pol     EVPA '; logfile.write(text_sd + '\n'); print text_sd
     text_sd = ' --------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
@@ -362,12 +362,12 @@ for scan_index in range(scanNum):
     print '\n'; logfile.write('\n')
     if not SSO_flag:
         waveLength = 299.792458/meanFreq    # wavelength in mm
-        text_sd = '%s, NE, NE, NE, NE, %.2fE+09, %.3f, %.3f, %.3f, %.3f, %.2f, %.2f, %.2f, %.2f, %s\n' % (sourceList[sourceIDscan[scan_index]], meanFreq, pflux[0], pfluxerr[0], np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi, np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/np.sqrt(pflux[1]**2 + pflux[2]**2)*90.0/pi, uvMin/waveLength, uvMax/waveLength, timeLabel[0:10].replace('/','-'))
+        text_sd = '%s, NE, NE, NE, NE, %.2fE+09, %.3f, %.3f, %.3f, %.3f, %.2f, %.2f, %.2f, %.2f, %s\n' % (sourceList[sourceIDscan[scan_index]], meanFreq, pflux[0], pfluxerr[0], np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi, np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/np.sqrt(pflux[1]**2 + pflux[2]**2)*90.0/pi, uvMin/waveLength, uvMax/waveLength, timeText[0:10].replace('/','-'))
         ingestFile.write(text_sd)
     #
     if COMPDB & (not SSO_flag) : 
         print ' -------- Comparison with ALMA Calibrator Catalog --------'
-        au.searchFlux(sourcename='%s' % (sourceList[sourceIDscan[scan_index]]), band=int(UniqBands[band_index][3:5]), date=timeLabel[0:10], maxrows=3)
+        au.searchFlux(sourcename='%s' % (sourceList[sourceIDscan[scan_index]]), band=int(UniqBands[band_index][3:5]), date=timeText[0:10], maxrows=3)
     #
     print '\n'; logfile.write('')
 #
