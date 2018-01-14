@@ -12,7 +12,27 @@ class END(Exception):
 msmd.open(msfile)
 #-------- Configure Array
 print '---Checking array configulation'
+antDia = np.ones(antNum)
+for ant_index in range(antNum): antDia[ant_index] = msmd.antennadiameter(antList[ant_index])['value']
 flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
+print '  -- usable antenna checking for EQ scan'
+spwList = spwLists[band_index]
+blAmp = np.zeros([blNum])
+for spw_index in range(spwNum):
+    #-------- Baseline-based cross power spectra
+    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], EQScan)
+    timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange, timeRange = range(int(0.05*chNum), int(0.95*chNum)), range(int(0.5*timeNum), int(timeNum))
+    Xspec = np.mean(Xspec[pPol][:,chRange][:,:,:,timeRange], axis=3)
+    for pol_index in range(2):
+        for bl_index in range(blNum):
+            blD, blA = delay_search( Xspec[pol_index,:,bl_index] )
+            blAmp[bl_index] = blA
+        #
+        antAmp =  clamp_solve(blAmp) / antDia
+        flagAnt[np.where(antAmp < 0.5* np.median(antAmp))[0].tolist()] = 0.0
+    #
+#
+antFlag = antList[np.where(flagAnt < 1.0)[0].tolist()]
 Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
 kb        = 1.38064852e3
 #-------- Check Scans for atmCal
@@ -62,8 +82,6 @@ print '  Use ' + antList[UseAnt[refantID]] + ' as the refant.'
 antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
 for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
-antDia = np.ones(antNum)
-for ant_index in range(antNum): antDia[ant_index] = msmd.antennadiameter(antList[ant_index])['value']
 AeNominal = 0.6* 0.25* np.pi* antDia**2      # Nominal Collecting Area
 #-------- Check D-term files
 Dloaded = False
