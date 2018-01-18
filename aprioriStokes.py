@@ -7,6 +7,7 @@ execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Plotters.py')
 from matplotlib.backends.backend_pdf import PdfPages
 #-------- Configure Array
+msmd.open(msfile)
 print '---Checking array configulation'
 antDia = np.ones(antNum)
 for ant_index in range(antNum): antDia[ant_index] = msmd.antennadiameter(antList[ant_index])['value']
@@ -40,6 +41,8 @@ logfile.write(EQcalText + '\n')
 print '---Checking time series in MS and atmCal scans'
 tb.open(msfile); timeXY = tb.query('ANTENNA1 == 0 && ANTENNA2 == 0 && DATA_DESC_ID == '+`spwList[0]`).getcol('TIME'); tb.close()
 scanList = onsourceScans
+msmd.close()
+msmd.done()
 #-------- Tsys measurements
 try:
     if TSYSCAL : execfile(SCR_DIR + 'TsysCal.py')
@@ -47,6 +50,8 @@ try:
 except:
     execfile(SCR_DIR + 'TsysCal.py')
 #
+msmd.close()
+msmd.done()
 ######## Outputs from TsysCal.py :
 #  TantN[ant, spw, pol] : Antenna noise pickup. ant order is the same with MS
 #  chAvgTrx[ant, spw, pol, scan]  : Channel-averaged receiver noise temperature
