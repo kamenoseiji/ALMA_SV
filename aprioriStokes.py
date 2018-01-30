@@ -6,6 +6,7 @@ import analysisUtils as au
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Plotters.py')
 from matplotlib.backends.backend_pdf import PdfPages
+RADperHzMeterArcsec = 2.0* pi / 299792458 / (180*3600/pi)
 #-------- Configure Array
 msmd.open(msfile)
 print '---Checking array configulation'
@@ -265,17 +266,19 @@ if 'PolEQ' in locals():
     if PolEQ: execfile(SCR_DIR + 'PolEqualize.py')
 #
 #-------- Flux Density
-ScanFlux, ScanSlope, ErrFlux, ScanEL, centerFreqList = np.zeros([scanNum, spwNum, 4]), np.zeros([scanNum, spwNum, 4]), np.zeros([scanNum, spwNum, 4]), np.zeros([scanNum]), []
+ScanFlux, ScanSlope, ErrFlux, ScanEL, centerFreqList, FreqList = np.zeros([scanNum, spwNum, 4]), np.zeros([scanNum, spwNum, 4]), np.zeros([scanNum, spwNum, 4]), np.zeros([scanNum]), [], []
 for spw_index in range(spwNum):
     chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index])
     centerFreqList.append( np.median(Freq)*1.0e-9 )
+    FreqList = FreqList + [Freq]
 #
 print '---Flux densities of sources ---'
 pp, polLabel, Pcolor = PdfPages('FL_' + prefix + '_' + UniqBands[band_index] + '.pdf'), ['I', 'Q', 'U', 'V'], ['black', 'blue', 'red', 'green']
 #for scan_index in range(1):
 for scan_index in range(scanNum):
     #-------- UV distance
-    timeStamp, UVW = GetUVW(msfile, spwList[0], scanList[scan_index]);  timeNum, uvw = len(timeStamp), np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
+    timeStamp, UVW = GetUVW(msfile, spwList[0], scanList[scan_index]);  timeNum, uvw = len(timeStamp), UVW[:,blMap]
+    uvDist = np.sqrt(np.mean(uvw[0], axis=1)**2 + np.mean(uvw[1], axis=1)**2)
     #-------- Plot Frame
     timeText = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
     figScan = plt.figure(scan_index, figsize = (11, 8))
@@ -295,8 +298,6 @@ for scan_index in range(scanNum):
     text_sd = ' SPW  Frequency    I                 Q                 U                 V                 %Pol     EVPA '; logfile.write(text_sd + '\n'); print text_sd
     text_sd = ' --------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
     BPCaledXspec = []
-    ##-------- UV distance
-    #timeStamp, UVW = GetUVW(msfile, spwList[0], scanList[scan_index]);  timeNum, uvw = len(timeStamp), np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     if 'FG' in locals(): flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
     else: flagIndex = range(timeNum)
     AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
@@ -307,18 +308,30 @@ for scan_index in range(scanNum):
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], scanList[scan_index])
         timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum)); UseChNum = len(chRange)
         if np.max(abs(Xspec)) < 1.0e-9: continue
-        tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)[flagIndex]      # Cross Polarization Baseline Mapping
+        #-------- Position offset phase correction
+        if 'offAxis' in locals():
+            lm = np.array(offAxis[sourceIDscan[scan_index]])
+            Twiddle =  np.exp((0.0 + 1.0j)* np.outer(FreqList[spw_index], uvw[0:2].transpose(1,2,0).dot(lm)).reshape([chNum, UseBlNum, timeNum])* RADperHzMeterArcsec)
+            tempSpec = CrossPolBL(Xspec[:,:,SAblMap]*Twiddle, SAblInv).transpose(3,2,0,1)[flagIndex]      # Cross Polarization Baseline Mapping
+        else:
+            tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)[flagIndex]      # Cross Polarization Baseline Mapping
         #-------- Bandpass Calibration
-        BPCaledXspec = BPCaledXspec + [(tempSpec / (BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate())).transpose(2,3,1,0)] # Bandpass Cal
+        BPCaledXspec = BPCaledXspec + [(tempSpec / (BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate())).transpose(2,3,1,0)] 
     #
     #-------- Antenna-based Phase Solution
     BPCaledXspec = np.array(BPCaledXspec)   # BPCaledXspec[spw, pol, ch, bl, time]
     chAvgVis = np.mean(np.array(BPCaledXspec)[:,:,chRange], axis=(0,2)) # chAvgVis[pol, bl, time]
-    GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
+    if 'timeBunch' in locals():
+        useTimeNum = timeNum / timeBunch * timeBunch
+        leapNum = timeNum - useTimeNum
+        timeAvgVis = np.mean(chAvgVis[:,:,range(useTimeNum)].reshape(polNum, UseBlNum, timeNum / timeBunch, timeBunch), axis=3)
+        GainP = np.array([np.apply_along_axis(clphase_solve, 0, timeAvgVis[0]), np.apply_along_axis(clphase_solve, 0, timeAvgVis[3])]).repeat(timeBunch, axis=2)
+        if leapNum > 0: GainP = np.append(GainP,  GainP[:,:,(useTimeNum-1):(useTimeNum)].repeat(leapNum, axis=2), axis=2)
+    else:
+        GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
+    #
     pCalVis = (BPCaledXspec.transpose(0,2,1,3,4) / (GainP[polYindex][:,SAant0]* GainP[polXindex][:,SAant1].conjugate()))[:,chRange]
     for spw_index in range(spwNum):
-        chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index])
-        centerFreqList.append( np.median(Freq)*1.0e-9 )
         atmCorrect, TA = np.exp(-onTau[spw_index, scan_index]), 0.0
         SEFD = 2.0* kb* (chAvgTsys[SAantMap, spw_index, :,scan_index] + TA).T / (np.array([AeX[SAantennas], AeY[SAantennas]])* atmCorrect)/ (relGain[spw_index][:,SAantennas]**2)
         AmpCalVis = np.mean(pCalVis[spw_index], axis=(0,3))[[0,3]]* np.sqrt(SEFD[:,SAant0]* SEFD[:,SAant1]) 

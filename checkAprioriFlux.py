@@ -36,10 +36,10 @@ try:
     ONScans = msmd.scansforintent("*#ON_SOURCE")
 except:
     ONScans = FCScans
-try:
-    BCScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
-except:
-    BCScans = ONScans
+#try:
+#    BCScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
+#except:
+#    BCScans = ONScans
 #
 PolList = ['X', 'Y']
 msmd.close()
@@ -50,9 +50,10 @@ for band_index in range(NumBands):
     msmd.open(msfile)
     bandName = UniqBands[band_index]; bandID = int(bandName[3:5])-1
     ONScan = BandScans[band_index][indexList( ONScans, BandScans[band_index] )]
-    BCScan = BandScans[band_index][indexList( BCScans, BandScans[band_index] )][0]
+    #BCScan = BandScans[band_index][indexList( BCScans, BandScans[band_index] )][0]
     FCScan = BandScans[band_index][indexList( FCScans, BandScans[band_index] )]
-    onsourceScans = unique([BCScan] + FCScan.tolist() + ONScan.tolist()).tolist()
+    #onsourceScans = unique([BCScan] + FCScan.tolist() + ONScan.tolist()).tolist()
+    onsourceScans = unique(FCScan.tolist() + ONScan.tolist()).tolist()
     scanNum = len(onsourceScans)
     SSOScanIndex = []
     #-------- Check AZEL

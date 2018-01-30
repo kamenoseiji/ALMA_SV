@@ -34,6 +34,8 @@ else:
     offTime, ambTime, hotTime = sort( list(set(timeXY) & set(timeOFF)) ), sort( list(set(timeXY) & set(timeAMB)) ), sort( list(set(timeXY) & set(timeHOT)) )
     offTimeIndex, ambTimeIndex, hotTimeIndex = indexList(offTime, timeXY),  indexList(ambTime, timeXY),  indexList(hotTime, timeXY)
 #
+#hotTimeIndex = hotTimeIndex[0:18] + hotTimeIndex[17:19] + hotTimeIndex[18:28]; hotTime = timeXY[hotTimeIndex]
+#offTimeIndex = offTimeIndex[0:8] + offTimeIndex[24:26] + offTimeIndex[8:26]; offTime = timeXY[offTimeIndex]
 OnTimeIndex = []
 for scanID in scanList: OnTimeIndex.append( indexList(msmd.timesforscan(scanID), timeXY) )
 #-------- Load autocorrelation power spectra
@@ -77,7 +79,8 @@ secZ = 1.0 / np.sin( OffEL )
 #-------- Time-interpolation of ambient and hot
 print '---Analyzing Trec and Tsky using atmCal scans'
 chAvgTrx, chAvgTsky, chAvgTsys = np.zeros([antNum, spwNum, 2, len(offTime)]), np.zeros([antNum, spwNum, 2, len(offTime)]), np.zeros([antNum, spwNum, 2, scanNum])
-TrxFlag, TsysFlag, onTau = np.ones([antNum, spwNum, 2, len(offTime)]), np.ones([antNum, spwNum, 2, scanNum]), np.zeros([spwNum, scanNum])
+#TrxFlag, TsysFlag, onTau = np.ones([antNum, spwNum, 2, len(offTime)]), np.ones([antNum, spwNum, 2, scanNum]), np.zeros([spwNum, scanNum])
+TrxFlag, TsysFlag, onTau = np.ones([antNum, spwNum, 2, len(ambTime)]), np.ones([antNum, spwNum, 2, scanNum]), np.zeros([spwNum, scanNum])
 TrxList, TskyList = [], []
 tempAtm = GetTemp(msfile)
 tempAmb, tempHot  = np.zeros([antNum]), np.zeros([antNum])
@@ -92,6 +95,7 @@ for ant_index in range(antNum):
         Trx, Tsky = np.zeros([2, chNum, len(offTime)]), np.zeros([2, chNum, len(offTime)])
         for pol_index in range(ppolNum):
             ambSpec, hotSpec = AmbSpecList[AntSpwIndex][pol_index], HotSpecList[AntSpwIndex][pol_index]
+            #for time_index in range(len(offTime)):
             for time_index in range(len(offTime)):
                 Psamb, Pshot = np.median(ambSpec, axis=1), np.median(hotSpec, axis=1)
                 Psoff = OffSpecList[AntSpwIndex][pol_index][:,time_index]
