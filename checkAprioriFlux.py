@@ -3,58 +3,56 @@ import analysisUtils as au
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Grid.py')
 msfile = wd + prefix + '.ms'
+execfile(SCR_DIR + 'TsysCal.py')
 #-------- Check Antenna List
 antList = GetAntName(msfile)
 antNum = len(antList)
 blNum = antNum* (antNum - 1) / 2
 #-------- Check SPWs
-print '---Checking spectral windows for ' + prefix
 msmd.open(msfile)
-spw = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); spw.sort()
-if not 'spwNames' in locals(): spwNames = msmd.namesforspws(spw)
-BandNames, pattern = [], r'RB_..'
-for spwName in spwNames: BandNames = BandNames + re.findall(pattern, spwName)
-UniqBands = unique(BandNames).tolist(); NumBands = len(UniqBands)
-spwLists, BandScans, BandPA = [], [], []
+print '---Checking spectral windows with atmCal for ' + prefix
+atmSPWs = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); atmSPWs.sort()
+bpSPWs  = msmd.spwsforintent("CALIBRATE_BANDPASS*").tolist(); bpSPWs.sort()
+atmspwNames, bpspwNames = msmd.namesforspws(atmSPWs), msmd.namesforspws(bpSPWs)
+bpSPWs = np.array(bpSPWs)[indexList(np.array(atmspwNames), np.array(bpspwNames))].tolist(); bpspwNames = msmd.namesforspws(bpSPWs)
+atmBandNames, atmPattern = [], r'RB_..'
+for spwName in atmspwNames : atmBandNames = atmBandNames + re.findall(atmPattern, spwName)
+UniqBands = unique(atmBandNames).tolist(); NumBands = len(UniqBands)
+atmspwLists, bpspwLists, atmscanLists, bpscanLists, BandPA = [], [], [], [], []
 for band_index in range(NumBands):
     BandPA = BandPA + [(BANDPA[int(UniqBands[band_index][3:5])] + 90.0)*pi/180.0]
-    spwLists = spwLists + [np.array(spw)[indexList( np.array([UniqBands[band_index]]), np.array(BandNames))].tolist()]
-    BandScans = BandScans + [msmd.scansforspw(spwLists[band_index][0])]
+    atmspwLists = atmspwLists + [np.array(atmSPWs)[indexList(np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()]
+    bpspwLists  = bpspwLists  + [np.array(bpSPWs)[indexList( np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()]
+    atmscanLists= atmscanLists+ [msmd.scansforspw(atmspwLists[band_index][0]).tolist()]
+    bpscanLists = bpscanLists + [msmd.scansforspw(bpspwLists[band_index][0]).tolist()]
     print ' ',
-    print UniqBands[band_index] + ': SPW=' + `spwLists[band_index]`
+    print UniqBands[band_index] + ': atmSPW=' + `atmspwLists[band_index]` + ' bpSPW=' + `bpspwLists[band_index]`
 #
 #-------- Check source list
 print '---Checking source list'
 sourceList, posList = GetSourceList(msfile); sourceList = sourceRename(sourceList); numSource = len(sourceList)
 SSOList   = indexList( np.array(SSOCatalog), np.array(sourceList))
 #-------- Scan Intents
-try:
-    FCScans = np.append(msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
-except:
-    FCScans = np.append(msmd.scansforintent("CALIBRATE_AMPLI#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
-try:
-    ONScans = msmd.scansforintent("*#ON_SOURCE")
-except:
-    ONScans = FCScans
 #try:
-#    BCScans = msmd.scansforintent("CALIBRATE_BANDPASS#ON_SOURCE")
+#    FCScans = np.append(msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
 #except:
-#    BCScans = ONScans
-#
+#    FCScans = np.append(msmd.scansforintent("CALIBRATE_AMPLI#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
+#try:
+#    ONScans = msmd.scansforintent("*#ON_SOURCE")
+#except:
+#    ONScans = FCScans
+ONScans = msmd.scansforintent("*#ON_SOURCE")
 PolList = ['X', 'Y']
 msmd.close()
 msmd.done()
 #-------- Loop for Bands
-#for band_index in range(1):
 for band_index in range(NumBands):
     msmd.open(msfile)
     bandName = UniqBands[band_index]; bandID = int(bandName[3:5])-1
-    ONScan = BandScans[band_index][indexList( ONScans, BandScans[band_index] )]
-    #BCScan = BandScans[band_index][indexList( BCScans, BandScans[band_index] )][0]
-    FCScan = BandScans[band_index][indexList( FCScans, BandScans[band_index] )]
-    #onsourceScans = unique([BCScan] + FCScan.tolist() + ONScan.tolist()).tolist()
-    onsourceScans = unique(FCScan.tolist() + ONScan.tolist()).tolist()
-    scanNum = len(onsourceScans)
+    ONScan = np.array(bpscanLists[band_index])[indexList( ONScans, np.array(bpscanLists[band_index]))]
+    ATMScan= np.array(atmscanLists[band_index])[indexList( ONScans, np.array(atmscanLists[band_index]))]
+    onsourceScans, atmScans = ONScan.tolist(), ATMScan.tolist()
+    scanNum, atmscanNum = len(onsourceScans), len(atmScans)
     SSOScanIndex = []
     #-------- Check AZEL
     azelTime, AntID, AZ, EL = GetAzEl(msfile)
@@ -63,7 +61,7 @@ for band_index in range(NumBands):
     OnAZ, OnEL, OnPA, BPquality, EQquality, PQquality, sourceIDscan, FLscore, refTime = [], [], [], [], [], [], [], np.zeros(scanNum), []
     for scan_index in range(scanNum):
         sourceIDscan.append( msmd.sourceidforfield(msmd.fieldsforscan(onsourceScans[scan_index])[0]))
-        interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spwLists[band_index][0], onsourceScans[scan_index])
+        interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, bpspwLists[band_index][0], onsourceScans[scan_index])
         AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, 0, AZ, EL)
         PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; dPA = np.std(np.sin(PA))
         OnAZ.append(np.median(AzScan)); OnEL.append(np.median(ElScan)); OnPA.append(np.median(PA))
@@ -105,11 +103,13 @@ for band_index in range(NumBands):
     BPcalText = 'Use %s [Scan%d EL=%4.1f deg] %s as Bandpass Calibrator' % (BPcal, BPScan, 180.0* OnEL[onsourceScans.index(BPScan)]/np.pi, timeLabelBP); print BPcalText
     EQcalText = 'Use %s [Scan%d EL=%4.1f deg] %s as Gain Equalizer' % (EQcal, EQScan, 180.0* OnEL[onsourceScans.index(EQScan)]/np.pi, timeLabelEQ); print EQcalText
     #-------- Polarization setup 
-    spw = spwLists[band_index]; spwNum = len(spw); polNum = msmd.ncorrforpol(msmd.polidfordatadesc(spw[0]))
+    atmspw = atmspwLists[band_index]; spwNum = len(atmspw)
+    scnspw = bpspwLists[band_index]; scnspwNum = len(scnspw)
+    polNum = msmd.ncorrforpol(msmd.polidfordatadesc(scnspw[0]))
     if polNum == 4:
         pPol, cPol = [0,3], [1,2]   # Full polarizations
         ppolNum, cpolNum = len(pPol), len(cPol)
-        execfile(SCR_DIR + 'aprioriStokes.py')
+        #execfile(SCR_DIR + 'aprioriStokes.py')
     else:
         pPol, cPol = [0,1], []              # Only parallel polarizations
         ppolNum, cpolNum = len(pPol), len(cPol)

@@ -422,6 +422,18 @@ def GetPSpec(msfile, ant, spwID):
     tb.close()
     return timeXY, dataXY.real
 #
+def GetPSpecScan(msfile, ant, spwID, scanID):
+    Out='ANTENNA1 == '+`ant`+' && ANTENNA2 == '+`ant` + ' && DATA_DESC_ID == '+`spwID` + ' && SCAN_NUMBER == ' + `scanID`
+    tb.open(msfile)
+    antXantYspw = tb.query(Out)
+    timeXY = antXantYspw.getcol('TIME')
+    try:
+        dataXY = antXantYspw.getcol('DATA')
+    except:
+        dataXY = antXantYspw.getcol('FLOAT_DATA')
+    tb.close()
+    return timeXY, dataXY.real
+#
 #-------- Mapping antList in refList
 def antRefScan( msfile, timeRange, antFlag=[] ):    # Check scanning and tracking antennas
     antList = GetAntName(msfile)
