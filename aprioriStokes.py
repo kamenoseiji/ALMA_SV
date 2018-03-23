@@ -210,7 +210,7 @@ QCpUS = QUsolution[0]* np.cos(2.0* PA) + QUsolution[1]* np.sin(2.0* PA)
 #TsysIndexOffset = antNum* bpspwNum* atmScanOffset* 2
 #TsysEQScan = np.array(chAvgTsys[TsysIndexOffset:(TsysIndexOffset + antNum* atmScanNumInThisBand* bpspwNum* 2)]).reshape([atmScanNumInThisBand, antNum, bpspwNum, 2])[scan_index][antMap]
 #TsysEQScan = np.array(chAvgTsys).reshape([atmScanNumInThisBand, antNum, bpspwNum, 2])[scan_index][antMap]
-TsysEQScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([antNum, spwNum, 2]).transpose(2,0,1) + np.mean(Tskyspec[:,chRange], axis=1)[:,scan_index].reshape([antNum, spwNum])).transpose(1,2,0)
+TsysEQScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([antNum, spwNum, 2]).transpose(2,0,1) + np.mean(Tskyspec[:,chRange], axis=1)[:,scan_index].reshape([antNum, spwNum])).transpose(1,2,0)[antMap]
 for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], EQScan)
@@ -245,7 +245,7 @@ scan_index = scanList.index(BPScan)
 #else: flagIndex = range(timeNum)
 #
 #TsysBPScan = np.array(chAvgTsys[TsysIndexOffset:(TsysIndexOffset + antNum* atmScanNumInThisBand* bpspwNum* 2)]).reshape([atmScanNumInThisBand, antNum, bpspwNum, 2])[scan_index][antMap]
-TsysBPScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([antNum, spwNum, 2]).transpose(2,0,1) + np.mean(Tskyspec[:,chRange], axis=1)[:,scan_index].reshape([antNum, spwNum])).transpose(1,2,0)
+TsysBPScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([antNum, spwNum, 2]).transpose(2,0,1) + np.mean(Tskyspec[:,chRange], axis=1)[:,scan_index].reshape([antNum, spwNum])).transpose(1,2,0)[antMap]
 for spw_index in range(spwNum):
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], BPScan); timeNum = len(timeStamp)
     if 'FG' in locals(): flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
@@ -302,8 +302,8 @@ pp, polLabel, Pcolor = PdfPages('FL_' + prefix + '_' + UniqBands[band_index] + '
 #for scan_index in range(1):
 for scan_index in range(scanNum):
     #-------- UV distance
-    timeStamp, UVW = GetUVW(msfile, spwList[0], scanList[scan_index]);  timeNum, uvw = len(timeStamp), UVW[:,blMap]
-    uvDist = np.sqrt(np.mean(uvw[0], axis=1)**2 + np.mean(uvw[1], axis=1)**2)
+    timeStamp, UVW = GetUVW(msfile, spwList[0], scanList[scan_index]);  timeNum = len(timeStamp)
+    uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     #-------- Plot Frame
     timeText = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
     figScan = plt.figure(scan_index, figsize = (11, 8))
@@ -357,7 +357,7 @@ for scan_index in range(scanNum):
     pCalVis = (BPCaledXspec.transpose(0,2,1,3,4) / (GainP[polYindex][:,SAant0]* GainP[polXindex][:,SAant1].conjugate()))[:,chRange]
     for spw_index in range(spwNum):
         atmCorrect, TA = np.exp(Tau0spec[spw_index] / np.sin(OnEL[scan_index])), 0.0
-        TsysSPW = Trxspec[spw_index::spwNum].transpose(1,0,2) + Tskyspec[spw_index::spwNum][:,:,scan_index]
+        TsysSPW = (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tskyspec[spw_index::spwNum][:,:,scan_index])[:,SAantennas]
         SEFD = 2.0* kb* (TsysSPW * atmCorrect).transpose(2,0,1) /  (np.array([AeX[SAantennas], AeY[SAantennas]]) / relGain[spw_index][:,SAantennas]**2)
         AmpCalVis = np.mean(np.mean(pCalVis[spw_index], axis=3)[:,[0,3]] * np.sqrt(SEFD[chRange][:,:,SAant0]* SEFD[chRange][:,:,SAant1]), axis=0)
         indivRelGain = abs(gainComplexVec(AmpCalVis.T)); indivRelGain /= np.percentile(indivRelGain, 75, axis=0)

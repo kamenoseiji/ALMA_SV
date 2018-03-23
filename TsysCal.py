@@ -139,7 +139,7 @@ for band_index in range(NumBands):
     TrxFlag = np.ones([antNum, spwNum, 2, atmscanNum])
     tempAmb, tempHot  = np.zeros([antNum]), np.zeros([antNum])
     for ant_index in range(antNum):
-        if flagAnt[ant_index] < 1.0: continue
+        # if flagAnt[ant_index] < 1.0: continue
         tempAmb[ant_index], tempHot[ant_index] = GetLoadTemp(msfile, ant_index, atmspwLists[band_index][0])
         if tempAmb[ant_index] < 240: tempAmb[ant_index] += 273.15       # Old MS describes the load temperature in Celsius
         if tempHot[ant_index] < 240: tempHot[ant_index] += 273.15       #
