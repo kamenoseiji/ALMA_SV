@@ -7,7 +7,7 @@ execfile(SCR_DIR + 'interferometry.py')
 msmd.open(msfile)
 #-------- Flux models for solar system objects
 SSONum = len(BandSSOList)
-timeLabel = qa.time('%fs' % (timeXY[0]), form='ymd')[0]
+timeLabel = qa.time('%fs' % (timeStamp[0]), form='ymd')[0]
 SSOflux0, SSOshape, centerFreqList = [], [], []
 #-------- Primary beam for each baseline
 primaryBeam = np.ones([UseBlNum])
