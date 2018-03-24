@@ -123,6 +123,7 @@ for band_index in range(NumBands):
     EQcalText = 'Use %s [Scan%d EL=%4.1f deg] %s as Gain Equalizer' % (EQcal, EQScan, 180.0* OnEL[onsourceScans.index(EQScan)]/np.pi, timeLabelEQ); print EQcalText
     #-------- SSO in observed source list
     BandSSOList = list( set(SSOList) & set(sourceIDscan) )
+    if len(BandSSOList) == 0: Apriori = True
     #-------- Polarization setup
     atmspw = atmspwLists[band_index]; spwNum = len(atmspw)
     scnspw = bpspwLists[band_index]; scnspwNum = len(scnspw)
@@ -132,11 +133,11 @@ for band_index in range(NumBands):
     if polNum == 4:
         pPol, cPol = [0,3], [1,2];  ppolNum, cpolNum = len(pPol), len(cPol)
         if not Apriori:
-            try:
+            #try:
                 execfile(SCR_DIR + 'checkSEFDStokes.py')
-            except:
-                print '  --SSO-based flux calibration falied. Switch to a priori (SEFD) calibration.'
-                execfile(SCR_DIR + 'aprioriStokes.py')
+            #except:
+            #    print '  --SSO-based flux calibration falied. Switch to a priori (SEFD) calibration.'
+            #    execfile(SCR_DIR + 'aprioriStokes.py')
         else:
             execfile(SCR_DIR + 'aprioriStokes.py')
     #

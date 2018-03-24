@@ -402,7 +402,7 @@ for scan_index in range(scanNum):
     #-------- Full-Stokes parameters
     for spw_index in range(spwNum):
         atmCorrect = np.exp(Tau0spec[spw_index] / np.sin(OnEL[scan_index]))
-        TsysSPW = (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tskyspec[spw_index::spwNum][:,:,scan_index])[:,SAantMap]
+        TsysSPW = (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tskyspec[spw_index::spwNum][:,:,scan_index])  #[:,SAantMap]
         SEFD = 2.0* kb* (TsysSPW * atmCorrect).transpose(2,0,1) / Ae[:,:,spw_index].T   # SEFD[ch,pol,ant]
         #-------- Additional equalizaiton
         if not SSO_flag:        # Additional equalization for point sources
