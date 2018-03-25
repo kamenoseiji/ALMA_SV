@@ -4,7 +4,6 @@
 #    PLOTTAU    : (boolean)   plot optical depths (True or False)
 #    PLOTTSYS   : (boolean)   plot Trx and Tsys spectra (True or False)
 #    prefix     : (character) UID name (e.g. 'uid___A002_Xc02418_X3f67' )
-#    antFlag    : (list)      antenna names to flag out (e.g. ['DA41'])
 #
 # outputs
 #  chAvgTsys[band* scan* ant* spw* pol] : List of channel-averaged system noise temperature

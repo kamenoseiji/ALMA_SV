@@ -55,6 +55,7 @@ print '---Checking array configuration'
 flagList = np.where(np.median(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) > 2.0* np.percentile(chAvgTrx, 75))[0].tolist()  # Avoid too-high Trx
 flagList = unique(flagList + np.where(np.min(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) < 1.0 )[0].tolist()).tolist()     # Avoid too-low Trx
 flagAnt[flagList] = 0.0 # Flagging by abnormal Trx
+flagList = np.where(flagAnt == 0)[0].tolist()
 UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
 text_sd = '  Usable antennas: '
 for ants in antList[UseAnt].tolist(): text_sd = text_sd + ants + ' '
@@ -402,7 +403,7 @@ for scan_index in range(scanNum):
     #-------- Full-Stokes parameters
     for spw_index in range(spwNum):
         atmCorrect = np.exp(Tau0spec[spw_index] / np.sin(OnEL[scan_index]))
-        TsysSPW = (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tskyspec[spw_index::spwNum][:,:,scan_index])  #[:,SAantMap]
+        TsysSPW = (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tskyspec[spw_index::spwNum][:,:,scan_index])[:,SAantMap]
         SEFD = 2.0* kb* (TsysSPW * atmCorrect).transpose(2,0,1) / Ae[:,:,spw_index].T   # SEFD[ch,pol,ant]
         #-------- Additional equalizaiton
         if not SSO_flag:        # Additional equalization for point sources
