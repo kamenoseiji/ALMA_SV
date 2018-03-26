@@ -267,3 +267,4 @@ for band_index in range(NumBands):
 #-------- Plot optical depth
 msmd.close()
 msmd.done()
+del TrxList, TskyList, TrxFlag, Tau0spec, TrxSpec, TskySpec

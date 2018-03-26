@@ -442,3 +442,4 @@ np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceLis
 np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', OnEL)
 msmd.close()
 msmd.done()
+del AntID, Xspec, tempSpec, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, Trxspec, Tskyspec, azelTime, azelTime_index, chAvgVis, W
