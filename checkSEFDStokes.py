@@ -34,7 +34,6 @@ for spw_index in range(spwNum):
     #
 #
 antFlag = antList[np.where(flagAnt < 1.0)[0].tolist()]
-Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
 kb        = 1.38064852e3
 #-------- Check Scans for atmCal
 ingestFile = open(prefix + '-' + UniqBands[band_index] + '-Ingest.log', 'w') 
@@ -379,6 +378,11 @@ for scan_index in range(scanNum):
         atmCorrect = np.exp(Tau0spec[spw_index] / np.sin(OnEL[scan_index]))
         if SSO_flag: TA = Ae[SAantennas,:,spw_index]* SSOflux0[SSO_ID, spw_index]* np.mean(atmCorrect)  / (2.0* kb)
         TsysSPW = Trxspec[spw_index::spwNum][SAantennas].transpose(1,0,2) + Tskyspec[spw_index::spwNum][SAantennas,:,scan_index]
+        #---- Flagged by Tsys
+        tsysFlagAntIndex = unique(np.where(TsysSPW <0.0)[1]).tolist()
+        if len(tsysFlagAntIndex) > 0:
+            for ant_index in tsysFlagAntIndex: TsysSPW[:,ant_index] = Trxspec[spw_index::spwNum][ant_index] + tempAtm* (1.0 - np.exp(-Tau0spec[spw_index] / np.sin(OnEL[scan_index])))
+        #
         SEFD = 2.0* kb* (TsysSPW * atmCorrect).transpose(2,0,1) / Ae[SAantennas,:,spw_index].T   # SEFD[ch,pol,ant]
         SAantNum = len(SAantennas); SAblNum = len(SAblMap)
         if SAblNum < 6:
@@ -404,6 +408,11 @@ for scan_index in range(scanNum):
     for spw_index in range(spwNum):
         atmCorrect = np.exp(Tau0spec[spw_index] / np.sin(OnEL[scan_index]))
         TsysSPW = (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tskyspec[spw_index::spwNum][:,:,scan_index])[:,SAantMap]
+        #---- Flagged by Tsys
+        tsysFlagAntIndex = unique(np.where(TsysSPW <0.0)[1]).tolist()
+        if len(tsysFlagAntIndex) > 0:
+            for ant_index in tsysFlagAntIndex: TsysSPW[:,ant_index] = Trxspec[spw_index::spwNum][ant_index] + tempAtm* (1.0 - np.exp(-Tau0spec[spw_index] / np.sin(OnEL[scan_index])))
+        #
         SEFD = 2.0* kb* (TsysSPW * atmCorrect).transpose(2,0,1) / Ae[:,:,spw_index].T   # SEFD[ch,pol,ant]
         #-------- Additional equalizaiton
         if not SSO_flag:        # Additional equalization for point sources

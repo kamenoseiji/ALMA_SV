@@ -84,7 +84,7 @@ for band_index in range(NumBands):
             QCpUS = catalogIQUV[1]*CS + catalogIQUV[2]*SN   # Qcos + Usin
             UCmQS = catalogIQUV[2]*CS - catalogIQUV[1]*SN   # Ucos - Qsin
             if QUMODEL:
-                BPquality = BPquality + [1000.0* abs(UCmQS)* np.sin(OnEL[scan_index] - 0.5*ELshadow) ]  / np.sqrt(catalogIQUV[0])]
+                BPquality = BPquality + [1000.0* abs(UCmQS)* np.sin(OnEL[scan_index] - 0.5*ELshadow)]  # / np.sqrt(catalogIQUV[0])]
             else:
                 BPquality = BPquality + [1000.0* abs(UCmQS)* dPA* np.sin(OnEL[scan_index] - 0.5*ELshadow) / np.sqrt(catalogIQUV[0])]
             #
@@ -133,11 +133,11 @@ for band_index in range(NumBands):
     if polNum == 4:
         pPol, cPol = [0,3], [1,2];  ppolNum, cpolNum = len(pPol), len(cPol)
         if not Apriori:
-            try:
+            #try:
                 execfile(SCR_DIR + 'checkSEFDStokes.py')
-            except:
-                print '  --SSO-based flux calibration falied. Switch to a priori (SEFD) calibration.'
-                execfile(SCR_DIR + 'aprioriStokes.py')
+            #except:
+            #    print '  --SSO-based flux calibration falied. Switch to a priori (SEFD) calibration.'
+            #    execfile(SCR_DIR + 'aprioriStokes.py')
         else:
             execfile(SCR_DIR + 'aprioriStokes.py')
     #
