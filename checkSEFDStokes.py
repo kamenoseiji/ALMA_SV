@@ -345,6 +345,7 @@ for scan_index in range(scanNum):
     timeText = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
     uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
+    if min(ElScan) < 20.0 / 180.0* pi: continue
     PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
     #-------- Prepare plots
     figScan = plt.figure(scan_index, figsize = (11, 8))
