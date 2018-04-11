@@ -115,10 +115,10 @@ if 'FGprefix' in locals():
     for spw_index in range(spwNum): FG = np.load(FGprefix + '-SPW' + `spwList[spw_index]` + '.FG.npy'); FGList = FGList + [np.min(FG, axis=0)]
     FG = np.min( np.array(FGList), axis=0)
     TS = np.load(FGprefix + '-SPW' + `spwList[spw_index]` + '.TS.npy')
-    interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spwList[0], EQScan); timeNum = len(timeStamp)
+    interval, timeStamp = GetTimerecord(msfile, 0, 0, EQScan); timeNum = len(timeStamp)
     flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
 else :
-    interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spwList[0], EQScan); timeNum = len(timeStamp)
+    interval, timeStamp = GetTimerecord(msfile, 0, 0, EQScan); timeNum = len(timeStamp)
     flagIndex = range(timeNum)
 #
 #-------- Bandpass Table
@@ -218,12 +218,12 @@ AeX, AeY = np.zeros([UseAntNum, spwNum, SSONum]), np.zeros([UseAntNum, spwNum, S
 SSO_flag = np.ones(SSONum)
 for sso_index in range(SSONum):
     scan_index = indexList(np.array(SSOscanID), np.array(onsourceScans))[sso_index]
-    TsysSSOScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([antNum, spwNum, 2]).transpose(2,0,1) + np.mean(Tskyspec[:,chRange], axis=1)[:,scan_index].reshape([antNum, spwNum])).transpose(1,2,0)  # TsysSSOScan[ant, spw, pol]
+    TsysSSOScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([antNum, spwNum, 2]).transpose(2,0,1) + np.mean(Tskyspec[:,chRange], axis=1)[:,scan_index].reshape([antNum, spwNum])).transpose(1,2,0)  # TsysSSOScan[ant, spw, pol], antList order
     for spw_index in range(spwNum):
         SAantennas, SAbl, SAblFlag, SAant0, SAant1 = subArrayIndex(uvFlag[sso_index, spw_index]) # in Canonical ordering
         if len(SAantennas) < 4: continue #  Too few antennas
         SAantMap, SAblMap, SAblInv = np.array(antMap)[SAantennas].tolist(), np.array(blMap)[SAbl].tolist(), np.array(blInv)[SAbl].tolist()
-        #print 'Subarray : ',; print antList[SAantMap]
+        # print 'Subarray : ',; print antList[SAantMap]
         #-------- Baseline-based cross power spectra
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], SSOscanID[sso_index])
         chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
@@ -247,8 +247,8 @@ for sso_index in range(SSONum):
         if np.median(FLY_stat) < 0.7: SSO_flag[sso_index] = 0.0 
         if np.median(FLX_stat) > 1.5: SSO_flag[sso_index] = 0.0 
         if np.median(FLY_stat) > 1.5: SSO_flag[sso_index] = 0.0 
-        if np.percentile(FLX_stat, 75) / np.median(FLX_stat) > 1.25: SSO_flag[sso_index] = 0.0
-        if np.percentile(FLY_stat, 75) / np.median(FLY_stat) > 1.25: SSO_flag[sso_index] = 0.0
+        if np.percentile(FLX_stat, 75) / np.median(FLX_stat) > 1.5: SSO_flag[sso_index] = 0.0
+        if np.percentile(FLY_stat, 75) / np.median(FLY_stat) > 1.5: SSO_flag[sso_index] = 0.0
     #
     try:
         if SSO_flag[sso_index] == 0.0: raise END
@@ -302,7 +302,7 @@ for ant_index in range(UseAntNum):
 logfile.write('\n'); print ''
 logjy.write('\n'); logjy.close()
 #-------- XY phase using BP scan
-interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spwList[0], BPScan); timeNum = len(timeStamp)
+interval, timeStamp = GetTimerecord(msfile, 0, 0, BPScan); timeNum = len(timeStamp)
 AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
 PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), np.cos(PA))
 XYphase, caledVis = [], []
@@ -362,8 +362,7 @@ for scan_index in range(scanNum):
     else:
         SSO_flag = False
         text_sd = ' SPW  Frequency    I                 Q                 U                 V                 %Pol     EVPA '; logfile.write(text_sd + '\n'); print text_sd
-    #
-    text_sd = ' --------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
+    # text_sd = ' --------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
     BPCaledXspec = []
     SEFD = np.ones([spwNum, 2, UseAntNum])
     #-------- Sub-array with unflagged antennas (short baselines)
@@ -414,14 +413,15 @@ for scan_index in range(scanNum):
         if len(tsysFlagAntIndex) > 0:
             for ant_index in tsysFlagAntIndex: TsysSPW[:,ant_index] = Trxspec[spw_index::spwNum][ant_index] + tempAtm* (1.0 - np.exp(-Tau0spec[spw_index] / np.sin(OnEL[scan_index])))
         #
-        SEFD = 2.0* kb* (TsysSPW * atmCorrect).transpose(2,0,1) / Ae[:,:,spw_index].T   # SEFD[ch,pol,ant]
+        SEFD = 2.0* kb* (TsysSPW * atmCorrect).transpose(2,0,1) / Ae[SAantennas,:,spw_index].T   # SEFD[ch,pol,ant]
         #-------- Additional equalizaiton
         if not SSO_flag:        # Additional equalization for point sources
-            AmpCalVis = np.mean(np.mean(pCalVis[spw_index], axis=3)[:,[0,3]] * np.sqrt(SEFD[chRange][:,:,SAant0]* SEFD[chRange][:,:,SAant1]), axis=0)
+            #AmpCalVis = np.mean(np.mean(pCalVis[spw_index], axis=3)[:,[0,3]] * np.sqrt(SEFD[chRange][:,:,SAant0]* SEFD[chRange][:,:,SAant1]), axis=0)
+            AmpCalVis = np.mean(np.mean(pCalVis[spw_index], axis=3)[:,[0,3]] * np.sqrt(SEFD[chRange][:,:,ant0[0:SAblNum]]* SEFD[chRange][:,:,ant1[0:SAblNum]]), axis=0)
             indivRelGain = abs(gainComplexVec(AmpCalVis.T)); indivRelGain /= np.percentile(indivRelGain, 75, axis=0)
             SEFD /= (indivRelGain**2).T
         #
-        AmpCalVis = (pCalVis[spw_index].transpose(3,0,1,2)* np.sqrt(SEFD[chRange][:,polYindex][:,:,SAant0]* SEFD[chRange][:,polXindex][:,:,SAant1])).transpose(3,2,1,0)
+        AmpCalVis = (pCalVis[spw_index].transpose(3,0,1,2)* np.sqrt(SEFD[chRange][:,polYindex][:,:,ant0[0:SAblNum]]* SEFD[chRange][:,polXindex][:,:,ant1[0:SAblNum]])).transpose(3,2,1,0)
         StokesI_PL = figScan.add_subplot( 2, spwNum, spw_index + 1 )
         StokesP_PL = figScan.add_subplot( 2, spwNum, spwNum + spw_index + 1 )
         text_sd = ' SPW%02d %5.1f GHz ' % (spwList[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
@@ -440,8 +440,8 @@ for scan_index in range(scanNum):
         P, W = np.c_[np.ones(len(weight)), uvDist[SAblMap]], np.diag(weight)
         PtWP_inv = scipy.linalg.inv(P.T.dot(W.dot(P)))
         solution, solerr = PtWP_inv.dot(P.T.dot(weight* StokesVis[0])),  np.sqrt(np.diag(PtWP_inv)) # solution[0]:intercept, solution[1]:slope
+        if abs(solution[1]) < 5.0* solerr[1]: solution[0], solution[1] = np.median(StokesVis[0][visFlag]), 0.0
         ScanFlux[scan_index, spw_index, 0], ScanSlope[scan_index, spw_index, 0], ErrFlux[scan_index, spw_index, 0] = solution[0], solution[1], solerr[0]
-        if abs(solution[1]) < 5.0* solerr[1]: solution[1] = 0.0
         for pol_index in range(1,4):
             ScanSlope[scan_index, spw_index, pol_index] = ScanSlope[scan_index, spw_index, 0] * np.median(StokesVis[pol_index])/ScanFlux[scan_index, spw_index, 0]
             solution[0] = (weight.dot(StokesVis[pol_index]) - ScanSlope[scan_index, spw_index, pol_index]* weight.dot(uvDist[SAblMap]))/(np.sum(weight))

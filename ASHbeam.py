@@ -32,7 +32,7 @@ for ant_index in range(antNum): antDia[ant_index] = msmd.antennadiameter(antList
 BPScan, ASHScan = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")[0], msmd.scansforintent("MAP_ANTENNA_SURFACE#ON_SOURCE")[0]
 spw = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("MAP_ANTENNA_SURFACE#ON_SOURCE"))); spw.sort(); spwNum = len(spw)
 #-------- Scanning and Tracking antennas
-interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[0], ASHScan)
+interval, timeStamp = GetTimerecord(msfile, 0, 0, spw[0], ASHScan)
 timeNum = len(timeStamp)
 trkAnt, scnAnt, scanTime, AzElOffset = antRefScan(msfile, [min(timeStamp), max(timeStamp)])
 trkAntNum, scnAntNum = len(trkAnt), len(scnAnt)

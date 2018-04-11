@@ -311,7 +311,7 @@ def GetBasePair(AntNum):
 			BasePair.append(Test)
 	return BasePair
 
-def GetTimerecord(msfile, ant1, ant2, pol, spwID, PScan):
+def GetTimerecord(msfile, ant1, ant2, spwID, PScan):
 	Out='ANTENNA1 == '+`ant1`+' && ANTENNA2 == '+`ant2` + ' && DATA_DESC_ID == '+`spwID`  + ' && SCAN_NUMBER == ' + `PScan`
 	tb.open(msfile)
 	antXantYspw = tb.query(Out)
@@ -1049,7 +1049,7 @@ def GetBunchedVis(msfile, ant1, ant2, pol, spw, field, chBunch, timeBunch):
 #-------- First baseline to get time index
 def bandpassCorrection(msfile, antnum, pol, spw, field, chBunch, timeBunch):
 	blnum = antnum* (antnum - 1) / 2
-	timeXY = GetTimerecord(msfile, 0, 1, pol, spw, field)
+	timeXY = GetTimerecord(msfile, 0, 1, spw, field)
 	chNum, chWid  = GetChNum(msfile, spw)
 
 	scanEnd   = np.where(np.diff(timeXY) > 5.0)[0]

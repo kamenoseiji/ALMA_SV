@@ -45,13 +45,13 @@ spwIndex = spwList.index(spw)
 if 'TAUprefix' in locals():
     scanEL = []
     Tau0 = np.load(TAUprefix + '.Tau0.npy')
-    interval, BPtime = GetTimerecord(msfile, refantID, refantID, 0, spw, BPscan)
+    interval, BPtime = GetTimerecord(msfile, refantID, refantID, spw, BPscan)
     BPEL = EL[azelTime_index[argmin( abs(azelTime[azelTime_index] - median(BPtime)))]]
     TauBP = Tau0[spwIndex] / np.sin(BPEL)
     BP_ant *= np.exp(0.5*TauBP)
     print ' Bandpass Scan %d EL=%.1f Tau=%.3f' %(BPscan, 180.0*BPEL/pi, np.median(Tau0[spwList.index(spw)]/np.sin(BPEL)))
     for scan in scanList:
-        interval, scanTime = GetTimerecord(msfile, refantID, refantID, 0, spw, scan)
+        interval, scanTime = GetTimerecord(msfile, refantID, refantID, spw, scan)
         scanEL = scanEL + [EL[azelTime_index[argmin( abs(azelTime[azelTime_index] - median(scanTime)))]]]
     #
 #

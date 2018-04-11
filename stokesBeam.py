@@ -57,7 +57,7 @@ chNum, chWid, Freq = GetChNum(msfile, spw); Freq = Freq* 1.0e-9
 ##-------- Antenna List
 antList = GetAntName(msfile)
 flagAnt = indexList(antFlag, antList)
-interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw, scan); timeNum = len(timeStamp)
+interval, timeStamp = GetTimerecord(msfile, 0, 0, spw, scan); timeNum = len(timeStamp)
 trkAnt, scnAnt, scanTime, AzElOffset = antRefScan(msfile, [min(timeStamp), max(timeStamp)])
 trkAnt, scnAnt  = list(set(trkAnt) - set(flagAnt)), list(set(scnAnt) - set(flagAnt)); scnAnt.sort()
 if refantName not in antList[trkAnt]:

@@ -40,7 +40,7 @@ antNum = len(antList)
 #-------- Reference and Scan Antennas
 refAnt, scanAnt, scanTime, Offset = antRefScan(msfile)
 #-------- Visibility sampling points
-interval, timeStamp = GetTimerecord(msfile, 0, refAnt[0], scanAnt[0], spw[0], scan[0])
+interval, timeStamp = GetTimerecord(msfile, refAnt[0], scanAnt[0], spw[0], scan[0])
 timeNum = len(timeStamp)
 ScanAz = np.zeros([timeNum]); ScanEl = np.zeros([timeNum])
 for time_index in range(timeNum):

@@ -18,7 +18,7 @@ for sourceIndex in range(len(scan)):
 	az_src = np.zeros(len(scan[sourceIndex])); el_src = np.zeros(len(scan[sourceIndex])); secz_src = np.zeros(len(scan[sourceIndex]))
 	for index in range(len(scan[sourceIndex])):
 		scanID = scan[sourceIndex][index]
-		interval, timeXY = GetTimerecord( msfile, refant, refant, polID, spwID, scanID) 
+		interval, timeXY = GetTimerecord( msfile, refant, refant, spwID, scanID) 
 		timeIndex = TimeExtract(antNum, refant, timeXY, timeAzEl)
 		xlim = [min(np.append(timeAzEl[timeIndex]-timeOffset, xlim[0])), max(np.append(timeAzEl[timeIndex] - timeOffset, xlim[1]))]
 

@@ -11,7 +11,7 @@ def GetAntName(msfile):
 	tb.close()
 	return antList
 
-def GetTimerecord(msfile, ant1, ant2, pol, spwID, scanID):
+def GetTimerecord(msfile, ant1, ant2, spwID, scanID):
 	Out='ANTENNA1 == '+`ant1`+' && ANTENNA2 == '+`ant2` + ' && DATA_DESC_ID == '+`spwID`  + ' && SCAN_NUMBER == ' + `scanID`
 	tb.open(msfile)
 	antXantYspw = tb.query(Out)
@@ -190,7 +190,7 @@ def IFPointing( prefix, polID, spwID, scanID):
 	spwNum = len(spwID)
 	polNum = len(polID)
 	#-------- Time Recores for the scan
-	timeXY = GetTimerecord(msfile, 0, 1, polID[0], spwID[0], scanID)
+	timeXY = GetTimerecord(msfile, 0, 1, spwID[0], scanID)
 	timeNum = len(timeXY)
 	#-------- Scan pattern
 	scanTime, AntID, Offset = GetAzOffset(msfile)

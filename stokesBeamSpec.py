@@ -75,7 +75,7 @@ if QUmodel: CalQ, CalU = QUsol[0], QUsol[1]
 mjdSec, Az, El, dAz, dEl = np.ones([0]), np.ones([0]), np.ones([0]), np.ones([0]), np.ones([0])
 chNum, chWid, Freq = GetChNum(msfile, spw); Freq = Freq* 1.0e-9
 #-------- Antenna List
-interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw, scan); timeNum = len(timeStamp)
+interval, timeStamp = GetTimerecord(msfile, 0, 0, spw, scan); timeNum = len(timeStamp)
 trkAnt, scnAnt, scanTime, AzElOffset = antRefScan(msfile, [min(timeStamp), max(timeStamp)])
 trkAnt, scnAnt  = list(set(trkAnt) - set(flagAnt)), list(set(scnAnt) - set(flagAnt))
 if refantName not in antList[trkAnt]: sys.exit('%s does not exist in this MS.' % refantName)

@@ -1,5 +1,5 @@
 print '---- Gain Equalization between X and Y polarizations'
-interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw[0], EQScan); timeNum = len(timeStamp)
+interval, timeStamp = GetTimerecord(msfile, 0, 0, spw[0], EQScan); timeNum = len(timeStamp)
 AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
 PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), np.cos(PA))
 scan_index = onsourceScans.index(EQScan)

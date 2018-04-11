@@ -20,7 +20,7 @@ for bl_index in range(blNum):
 	blMap[bl_index], blInv[bl_index]  = Ant2BlD(refant[ants[0]], refant[ants[1]])
 #
 #-------- Procedures
-interval, timeStamp = GetTimerecord(msfile, 0, 0, pol[0], spw[0], BPscan)
+interval, timeStamp = GetTimerecord(msfile, 0, 0, spw[0], BPscan)
 timeNum = len(timeStamp)
 #
 #-------- Prepare Plots

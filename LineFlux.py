@@ -119,7 +119,7 @@ ACAFreq = Freq* 1.0e-9  # [GHz]
 ACATrxList, ACATsysList = tsysSpec( prefixACA, TsysScan, ACATsysSPW )   # List of Trx[antNum, polNum, chNum], Tsys[antNum, polNum, chNum]
 #-------- Az, El scan pattern
 scanTime, AntID, az, el = GetAzEl(msBLC)
-interval, timeStamp = GetTimerecord(msBLC, 0, 0, 0, spw_BLC[0], scan[0])
+interval, timeStamp = GetTimerecord(msBLC, 0, 0, spw_BLC[0], scan[0])
 timeNum = len(timeStamp)
 ScanAz = np.zeros([timeNum]); ScanEl = np.zeros([timeNum])
 for time_index in range(timeNum):

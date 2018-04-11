@@ -22,7 +22,7 @@ scanNum = len(scan)
 scanPtr = np.zeros(scanNum)		# Cumulative time num
 timeStamp = np.zeros(0)
 for scan_index in range(scanNum):
-	interval, tempTime = GetTimerecord(msfile, 0, 0, 0, spwList[0], scan[scan_index])
+	interval, tempTime = GetTimerecord(msfile, 0, 0, spwList[0], scan[scan_index])
 	timeStamp = np.r_[timeStamp, tempTime]
 	if(scan_index < (scanNum - 1)):
 		scanPtr[scan_index + 1] = len(timeStamp)
@@ -35,7 +35,7 @@ gain_ant   = np.zeros([antNum, spwNum, polNum, timeNum], dtype=complex)
 #-------- Determine Antenna-based Delay and Gain
 for scan_index in range(scanNum):
 	for spw_index in range(spwNum):
-		interval, tempTime = GetTimerecord(msfile, 0, 0, 0, spwList[spw_index], scan[scan_index])
+		interval, tempTime = GetTimerecord(msfile, 0, 0, spwList[spw_index], scan[scan_index])
 		chNum, chWid, freq = GetChNum(msfile, spwList[spw_index])
 		tempTime, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], scan[scan_index])
 		chRange = range(int(0.1*chNum), int(0.9*chNum))

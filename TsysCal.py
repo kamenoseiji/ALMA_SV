@@ -31,23 +31,28 @@ def residTskyTransfer2( param, Tamb, Tau0, secz, Tsky, weight ):
 def scanAtmSpec(msfile, antNum, scanList, spwList, timeOFF=0, timeON=0, timeAMB=0, timeHOT=0):
     timeList, offSpecList, ambSpecList, hotSpecList = [], [], [], []
     scanNum, spwNum = len(scanList), len(spwList)
-    pPol = [0,1]
-    index = 0
+    scanTimeList = []
+    for scanID in scanList:
+        interval, scanTimeRec = GetTimerecord(msfile, 0, 0, spwList[0], scanID)
+        scanTimeList = scanTimeList + [scanTimeRec]
+    #
+    #index = 0
     for ant_index in range(antNum):
         progress = (1.0* ant_index + 1.0) / antNum
         sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
         for spwID in spwList:
-            for scanID in scanList:
-                # print '----%s SPW%02d Scan%02d Index%02d' % (antList[ant_index], spwID, scanID, index)
-                timeXY, Pspec = GetPSpecScan(msfile, ant_index, spwID, scanID)
-                chNum = Pspec.shape[1]
-                if Pspec.shape[0] == 4: pPol = [0,3]
-                offTime, ambTime, hotTime = sort( list(set(timeXY) & set(timeOFF)) ), sort( list(set(timeXY) & set(timeAMB)) ), sort( list(set(timeXY) & set(timeHOT)) )
+            timeXY, Pspec = GetPSpec(msfile, ant_index, spwID)
+            chNum = Pspec.shape[1]
+            pPol = [0,1]
+            if Pspec.shape[0] == 4: pPol = [0,3]
+            for scan_index in range(scanNum):
+                scanID = scanList[scan_index]
+                scanTimeRec = scanTimeList[scan_index]
+                offTime, ambTime, hotTime = sort(list(set(scanTimeRec) & set(timeOFF))), sort(list(set(scanTimeRec) & set(timeAMB))), sort(list(set(scanTimeRec) & set(timeHOT)))
                 offTimeIndex, ambTimeIndex, hotTimeIndex = indexList(offTime, timeXY)[-1],  indexList(ambTime, timeXY)[-1],  indexList(hotTime, timeXY)[-1]
-                if ((ant_index == 0) & (spwID == spwList[0]) & (len(timeAMB) > 0)):
-                    timeList = timeList + [offTime[-1]]
-                # 
-                if ((ant_index == 0) & (spwID == spwList[0]) & (len(timeAMB) == 0)):
+                if ((ant_index == 0) & (spwID == spwList[0]) & (len(ambTime) > 0)): timeList = timeList + [offTime[-1]] # Record off-position time
+                #
+                if ((ant_index == 0) & (spwID == spwList[0]) & (len(ambTime) == 0)):    # No available ambient load data
                     chRange = range(int(0.05*chNum), int(0.95*chNum)); chAvgPower = np.mean(Pspec[0][chRange], axis=0)
                     offTimeIndex = indexList(timeOFF, timeXY)
                     ambhotTimeIndex = indexList(timeON, timeXY)
@@ -56,11 +61,11 @@ def scanAtmSpec(msfile, antNum, scanList, spwList, timeOFF=0, timeON=0, timeAMB=
                     ambTimeIndex = np.array(ambhotTimeIndex)[np.where( chAvgPower[ambhotTimeIndex] < ambhotThresh )[0].tolist()].tolist()
                     timeList = timeList + [np.median(timeXY[offTimeIndex])]
                 #
-                if len(timeAMB) > 0 :
+                if len(ambTime) > 0 :
                     offSpecList = offSpecList + [Pspec[pPol][:,:,offTimeIndex]]
                     ambSpecList = ambSpecList + [Pspec[pPol][:,:,ambTimeIndex]]
                     hotSpecList = hotSpecList + [Pspec[pPol][:,:,hotTimeIndex]]
-                    index += 1
+                    #index += 1
                 else:
                     offSpecList = offSpecList + [np.median(Pspec[pPol][:,:,offTimeIndex], axis=2)]
                     ambSpecList = ambSpecList + [np.median(Pspec[pPol][:,:,ambTimeIndex], axis=2)]

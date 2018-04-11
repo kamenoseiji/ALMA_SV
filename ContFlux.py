@@ -114,7 +114,7 @@ antListInACA = antIndex(prefix, antList)
 chRange = range( int(chNum* 0.04), int(chNum* 0.98))
 #-------- Az, El scan pattern
 scanTime, AntID, az, el = GetAzEl(msfile)
-interval, timeStamp = GetTimerecord(msfile, 0, 0, 0, spw_ACA[0], scan[0])
+interval, timeStamp = GetTimerecord(msfile, 0, 0, spw_ACA[0], scan[0])
 timeNum = len(timeStamp)
 ScanAz = np.zeros([timeNum]); ScanEl = np.zeros([timeNum])
 for time_index in range(timeNum):

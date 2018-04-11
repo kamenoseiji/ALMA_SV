@@ -49,7 +49,7 @@ figPhs.text(0.45, 0.05, 'Time')
 for scan_index in range(scanNum):
 #
 	#-------- Procedures
-	interval, timeStamp = GetTimerecord(msfile, 0, 0, pol[0], spw[0], scan[scan_index])
+	interval, timeStamp = GetTimerecord(msfile, 0, 0, spw[0], scan[scan_index])
 	timeNum = len(timeStamp)
 	BunchXspec =  np.zeros([polNum, chNum/chBunch, blNum, timeNum/timeBunch], dtype=complex)
 	#

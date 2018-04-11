@@ -133,7 +133,7 @@ AntIndex = refAnt + scanAnt
 antWeight = np.ones(antNum)
 antWeight[scanAnt] = 0.5
 #-------- Visibility sampling points
-interval, timeStamp = GetTimerecord(msfile, 0, refAnt[0], scanAnt[0], spw[0], scan[0])
+interval, timeStamp = GetTimerecord(msfile, refAnt[0], scanAnt[0], spw[0], scan[0])
 timeNum = len(timeStamp)
 ScanAz = np.zeros([timeNum]); ScanEl = np.zeros([timeNum])
 for time_index in range(timeNum):

@@ -89,7 +89,7 @@ for bl_index in range(blNum):
 for scan_index in range(scanNum):
 #
 	#-------- Procedures
-	interval, timeStamp = GetTimerecord(msfile, 0, 0, pol[0], spw[0], scan[scan_index])
+	interval, timeStamp = GetTimerecord(msfile, 0, 0, spw[0], scan[scan_index])
 	timeNum = len(timeStamp)
 	Gain_ant = np.zeros([antNum, timeNum], dtype=complex)
 	gainCalSpec =  np.zeros([timeNum, polNum, spwNum, blNum, chNum/chBunch], dtype=complex)
