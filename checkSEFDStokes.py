@@ -377,7 +377,8 @@ for scan_index in range(scanNum):
     for spw_index in range(spwNum):
         atmCorrect = np.exp(Tau0spec[spw_index] / np.sin(OnEL[scan_index]))
         if SSO_flag: TA = Ae[SAantennas,:,spw_index]* SSOflux0[SSO_ID, spw_index]* np.mean(atmCorrect)  / (2.0* kb)
-        TsysSPW = Trxspec[spw_index::spwNum][SAantennas].transpose(1,0,2) + Tskyspec[spw_index::spwNum][SAantennas,:,scan_index]
+        #TsysSPW = Trxspec[spw_index::spwNum][SAantennas].transpose(1,0,2) + Tskyspec[spw_index::spwNum][SAantennas,:,scan_index]
+        TsysSPW = Trxspec[spw_index::spwNum][SAantennas].transpose(1,0,2) + Tskyspec[spw_index::spwNum][SAantMap,:,scan_index]
         #---- Flagged by Tsys
         tsysFlagAntIndex = unique(np.where(TsysSPW <0.0)[1]).tolist()
         if len(tsysFlagAntIndex) > 0:
