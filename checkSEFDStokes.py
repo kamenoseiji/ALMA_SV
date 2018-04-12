@@ -115,10 +115,10 @@ if 'FGprefix' in locals():
     for spw_index in range(spwNum): FG = np.load(FGprefix + '-SPW' + `spwList[spw_index]` + '.FG.npy'); FGList = FGList + [np.min(FG, axis=0)]
     FG = np.min( np.array(FGList), axis=0)
     TS = np.load(FGprefix + '-SPW' + `spwList[spw_index]` + '.TS.npy')
-    interval, timeStamp = GetTimerecord(msfile, 0, 0, EQScan); timeNum = len(timeStamp)
+    interval, timeStamp = GetTimerecord(msfile, 0, 0, spwList[0], EQScan); timeNum = len(timeStamp)
     flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
 else :
-    interval, timeStamp = GetTimerecord(msfile, 0, 0, EQScan); timeNum = len(timeStamp)
+    interval, timeStamp = GetTimerecord(msfile, 0, 0, spwList[0], EQScan); timeNum = len(timeStamp)
     flagIndex = range(timeNum)
 #
 #-------- Bandpass Table
@@ -302,7 +302,7 @@ for ant_index in range(UseAntNum):
 logfile.write('\n'); print ''
 logjy.write('\n'); logjy.close()
 #-------- XY phase using BP scan
-interval, timeStamp = GetTimerecord(msfile, 0, 0, BPScan); timeNum = len(timeStamp)
+interval, timeStamp = GetTimerecord(msfile, 0, 0, spwList[0], BPScan); timeNum = len(timeStamp)
 AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
 PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), np.cos(PA))
 XYphase, caledVis = [], []
