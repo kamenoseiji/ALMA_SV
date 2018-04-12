@@ -362,7 +362,7 @@ for scan_index in range(scanNum):
     else:
         SSO_flag = False
         text_sd = ' SPW  Frequency    I                 Q                 U                 V                 %Pol     EVPA '; logfile.write(text_sd + '\n'); print text_sd
-    # text_sd = ' --------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
+    text_sd = ' --------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
     BPCaledXspec = []
     SEFD = np.ones([spwNum, 2, UseAntNum])
     #-------- Sub-array with unflagged antennas (short baselines)
