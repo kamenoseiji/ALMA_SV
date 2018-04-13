@@ -132,6 +132,7 @@ for band_index in range(NumBands):
     for ant_index in range(antNum):
         if flagAnt[ant_index] < 1.0: continue
         azelTime_index = np.where( AntID == ant_index )[0].tolist()
+        if len(azelTime_index) == 0: azelTime_index = np.where( AntID == 0 )[0].tolist()
         for scan_index in range(atmscanNum): AtmEL[ant_index, scan_index] = EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - atmTimeRef[scan_index]))]]
         for scan_index in range(scanNum):     OnEL[ant_index, scan_index] = EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - scanTimeRef[scan_index]))]]
     #
