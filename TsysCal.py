@@ -77,7 +77,7 @@ def scanAtmSpec(msfile, antNum, scanList, spwList, timeOFF=0, timeON=0, timeAMB=
     sys.stderr.write('\n'); sys.stderr.flush()
     return np.array(timeList), offSpecList, ambSpecList, hotSpecList
 #
-Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
+Tatm_OFS  = 5.0     # Ambient-load temperature - Atmosphere temperature
 Tcmb      = 2.725    # CMB temperature
 #-------- Check MS file
 msfile = prefix + '.ms'

@@ -84,7 +84,7 @@ for band_index in range(NumBands):
             QCpUS = catalogIQUV[1]*CS + catalogIQUV[2]*SN   # Qcos + Usin
             UCmQS = catalogIQUV[2]*CS - catalogIQUV[1]*SN   # Ucos - Qsin
             if QUMODEL:
-                BPquality = BPquality + [1000.0* abs(UCmQS)* np.sin(OnEL[scan_index] - 0.5*ELshadow)]  # / np.sqrt(catalogIQUV[0])]
+                BPquality = BPquality + [1000.0* abs(UCmQS)* np.sin(OnEL[scan_index] - 0.5*ELshadow) / np.sqrt(catalogIQUV[0])]
             else:
                 BPquality = BPquality + [1000.0* abs(UCmQS)* dPA* np.sin(OnEL[scan_index] - 0.5*ELshadow) / np.sqrt(catalogIQUV[0])]
             #
@@ -153,4 +153,4 @@ for band_index in range(NumBands):
             execfile(SCR_DIR + 'aprioriFlux.py')
     #
 #
-del msfile, UniqBands, flagAnt
+del msfile, UniqBands, flagAnt, BPScans, EQScans
