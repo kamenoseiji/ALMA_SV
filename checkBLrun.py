@@ -9,6 +9,7 @@ class END(Exception):
 #
 #-------- Procedures
 msfile = wd + prefix + '.ms'
+execfile(SCR_DIR + 'TsysCal.py')
 #-------- Check Antenna List
 antList = GetAntName(msfile)
 antNum = len(antList)
