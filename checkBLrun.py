@@ -106,7 +106,8 @@ for band_index in range(NumBands):
     BPcalText = 'Use %s [EL = %4.1f deg] as Bandpass Calibrator' % (BPcal, 180.0* OnEL[onsourceScans.index(BPScan)]/np.pi); print BPcalText
     EQcalText = 'Use %s [EL = %4.1f deg] as Gain Equalizer' % (EQcal, 180.0* OnEL[onsourceScans.index(EQScan)]/np.pi); print EQcalText
     #-------- Polarization setup
-    spwList = spwLists[band_index]; spwNum = len(spwList)
+    scnspw = bpspwLists[band_index]; scnspwNum = len(scnspw)
+    #spwList = spwLists[band_index]; spwNum = len(spwList)
     pPol, cPol = [0,1], []  # parallel and cross pol
     PolList = ['X', 'Y']
     if polNum == 4: pPol, cPol = [0,3], [1,2]  # parallel and cross pol

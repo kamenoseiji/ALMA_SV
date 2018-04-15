@@ -16,6 +16,7 @@
 #
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Plotters.py')
+"""
 def residTskyTransfer( param, Tamb, secz, Tsky, weight ):
     exp_Tau = np.exp( -param[1]* secz )
     return weight* (Tsky - (param[0] + 2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
@@ -28,6 +29,7 @@ def residTskyTransfer2( param, Tamb, Tau0, secz, Tsky, weight ):
     exp_Tau = np.exp( -Tau0* secz )
     return weight* (Tsky - (param[0] + 2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
 #
+"""
 def scanAtmSpec(msfile, antNum, scanList, spwList, timeOFF=0, timeON=0, timeAMB=0, timeHOT=0):
     timeList, offSpecList, ambSpecList, hotSpecList = [], [], [], []
     scanNum, spwNum = len(scanList), len(spwList)
@@ -77,8 +79,7 @@ def scanAtmSpec(msfile, antNum, scanList, spwList, timeOFF=0, timeON=0, timeAMB=
     sys.stderr.write('\n'); sys.stderr.flush()
     return np.array(timeList), offSpecList, ambSpecList, hotSpecList
 #
-Tatm_OFS  = 5.0     # Ambient-load temperature - Atmosphere temperature
-Tcmb      = 2.725    # CMB temperature
+Tatm_OFS  = 5.0     # nominal value of Ambient-load temperature - Atmosphere temperature
 #-------- Check MS file
 msfile = prefix + '.ms'
 tempAtm = GetTemp(msfile)
@@ -266,6 +267,8 @@ for band_index in range(NumBands):
     np.save(prefix +  '-' + UniqBands[band_index] + '.Tsky.npy', TskyList) 
     np.save(prefix +  '-' + UniqBands[band_index] + '.TrxFlag.npy', TrxFlag) 
     np.save(prefix +  '-' + UniqBands[band_index] + '.Tau0.npy', Tau0spec) 
+    np.save(prefix +  '-' + UniqBands[band_index] + '.OnEL.npy', OnEL) 
+    np.save(prefix +  '-' + UniqBands[band_index] + '.AtmEL.npy', AtmEL) 
     #---- Plots
     if not 'PLOTFMT' in locals():   PLOTFMT = 'pdf'
     if PLOTTAU: plotTau(prefix + '_' + UniqBands[band_index], antList, atmspwLists[band_index], atmsecZ, (chAvgTsky.transpose(2,0,1) - TantN).transpose(1,2,0), tempAtm - Tatm_OFS, Tau0med, np.min(TrxFlag, axis=2), 2.0*np.median(chAvgTsky), PLOTFMT) 
