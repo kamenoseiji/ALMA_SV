@@ -14,8 +14,6 @@ antDia = np.ones(antNum)
 for ant_index in range(antNum): antDia[ant_index] = msmd.antennadiameter(antList[ant_index])['value']
 flagAnt, flagRef, refIndex = np.ones([antNum]), np.ones([antNum]), []
 if 'antFlag' in locals(): flagAnt[indexList(antFlag, antList)] = 0.0; del(antFlag)
-if 'gainRef' in locals(): flagRef = np.zeros([antNum]); refIndex = indexList(gainRef, antList); flagRef[refIndex] = 1.0; del(gainRef)
-if len(refIndex) == 0: refIndex = range(antNum)
 Tatm_OFS  = 5.0     # Ambient-load temperature - Atmosphere temperature
 kb        = 1.38064852e3
 #-------- Review scans
@@ -81,6 +79,8 @@ except:
 refantName = antList[UseAnt[refantID]]
 print '  Use ' + refantName + ' as the refant.'
 antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
+if 'gainRef' in locals(): flagRef = np.zeros([UseAntNum]); refIndex = indexList(gainRef, antList[antMap]); flagRef[refIndex] = 1.0; del(gainRef)
+if len(refIndex) == 0: refIndex = range(UseAntNum)
 for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 #-------- Load Aeff file
@@ -232,9 +232,8 @@ for spw_index in range(spwNum):
     aprioriVisX = np.mean(pCaledVis[0] / (1.0 + QCpUS), axis=1) * np.sqrt(aprioriSEFD[0, ant0]* aprioriSEFD[0, ant1])
     aprioriVisY = np.mean(pCaledVis[1] / (1.0 - QCpUS), axis=1) * np.sqrt(aprioriSEFD[1, ant0]* aprioriSEFD[1, ant1])
     #-------- Determine Antenna-based Gain
-    relAntIndex = np.array(antMap)[refIndex].tolist()
-    relGain[spw_index, 0] = abs(gainComplex(aprioriVisX)); relGain[spw_index, 0] /= np.median( abs(relGain[spw_index, 0, relAntIndex]) ) # X-pol delta gain
-    relGain[spw_index, 1] = abs(gainComplex(aprioriVisY)); relGain[spw_index, 1] /= np.median( abs(relGain[spw_index, 1, relAntIndex]) ) # Y-pol delta gain
+    relGain[spw_index, 0] = abs(gainComplex(aprioriVisX)); relGain[spw_index, 0] /= np.median( abs(relGain[spw_index, 0, refIndex]) ) # X-pol delta gain
+    relGain[spw_index, 1] = abs(gainComplex(aprioriVisY)); relGain[spw_index, 1] /= np.median( abs(relGain[spw_index, 1, refIndex]) ) # Y-pol delta gain
 #
 ##-------- Iteration for Equalization using EQ scan
 #-------- XY phase using BP scan
@@ -456,4 +455,4 @@ np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceLis
 np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', OnEL)
 msmd.close()
 msmd.done()
-del AntID, Xspec, tempSpec, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, Trxspec, TsysSPW, azelTime, azelTime_index, chAvgVis, W, refIndex
+del flagAnt, AntID, Xspec, tempSpec, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, Trxspec, TsysSPW, azelTime, azelTime_index, chAvgVis, W, refIndex
