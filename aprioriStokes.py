@@ -12,7 +12,10 @@ msmd.open(msfile)
 print '---Checking array configulation'
 antDia = np.ones(antNum)
 for ant_index in range(antNum): antDia[ant_index] = msmd.antennadiameter(antList[ant_index])['value']
-flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
+flagAnt, flagRef, refIndex = np.ones([antNum]), np.ones([antNum]), []
+if 'antFlag' in locals(): flagAnt[indexList(antFlag, antList)] = 0.0; del(antFlag)
+if 'gainRef' in locals(): flagRef = np.zeros([antNum]); refIndex = indexList(gainRef, antList); flagRef[refIndex] = 1.0; del(gainRef)
+if len(refIndex) == 0: refIndex = range(antNum)
 Tatm_OFS  = 5.0     # Ambient-load temperature - Atmosphere temperature
 kb        = 1.38064852e3
 #-------- Review scans
@@ -42,7 +45,6 @@ for spw_index in range(spwNum):
         flagAnt[np.where(antAmp < 0.5* np.median(antAmp))[0].tolist()] = 0.0
     #
 #
-antFlag = antList[np.where(flagAnt < 1.0)[0].tolist()]
 msmd.close()
 msmd.done()
 #-------- Load Tsys table
@@ -230,8 +232,9 @@ for spw_index in range(spwNum):
     aprioriVisX = np.mean(pCaledVis[0] / (1.0 + QCpUS), axis=1) * np.sqrt(aprioriSEFD[0, ant0]* aprioriSEFD[0, ant1])
     aprioriVisY = np.mean(pCaledVis[1] / (1.0 - QCpUS), axis=1) * np.sqrt(aprioriSEFD[1, ant0]* aprioriSEFD[1, ant1])
     #-------- Determine Antenna-based Gain
-    relGain[spw_index, 0] = abs(gainComplex(aprioriVisX)); relGain[spw_index, 0] /= np.median( abs(relGain[spw_index, 0]) ) # X-pol delta gain
-    relGain[spw_index, 1] = abs(gainComplex(aprioriVisY)); relGain[spw_index, 1] /= np.median( abs(relGain[spw_index, 1]) ) # Y-pol delta gain
+    relAntIndex = np.array(antMap)[refIndex].tolist()
+    relGain[spw_index, 0] = abs(gainComplex(aprioriVisX)); relGain[spw_index, 0] /= np.median( abs(relGain[spw_index, 0, relAntIndex]) ) # X-pol delta gain
+    relGain[spw_index, 1] = abs(gainComplex(aprioriVisY)); relGain[spw_index, 1] /= np.median( abs(relGain[spw_index, 1, relAntIndex]) ) # Y-pol delta gain
 #
 ##-------- Iteration for Equalization using EQ scan
 #-------- XY phase using BP scan
@@ -453,4 +456,4 @@ np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceLis
 np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', OnEL)
 msmd.close()
 msmd.done()
-del AntID, Xspec, tempSpec, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, Trxspec, TsysSPW, azelTime, azelTime_index, chAvgVis, W
+del AntID, Xspec, tempSpec, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, Trxspec, TsysSPW, azelTime, azelTime_index, chAvgVis, W, refIndex
