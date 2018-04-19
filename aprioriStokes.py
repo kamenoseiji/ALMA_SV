@@ -237,7 +237,7 @@ for spw_index in range(spwNum):
 #
 print '---Equalized aperture efficiencies (Pol-X, Pol-Y) in %'
 antRelGain = np.median(relGain, axis=0)
-for ant_index in range(antNum):
+for ant_index in range(UseAntNum):
     print '%s  %.2f  %.2f' % (antList[antMap[ant_index]], etaX[ant_index]* antRelGain[0,ant_index]**2, etaY[ant_index]* antRelGain[1,ant_index]**2)
 #
 ##-------- Iteration for Equalization using EQ scan
@@ -251,11 +251,6 @@ AzScan, ElScan = AzElMatch(timeStamp[flagIndex], azelTime, AntID, refantID, AZ, 
 PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), np.cos(PA))
 GainP, XYphase, caledVis = [], [], []
 scan_index = scanList.index(BPScan)
-#if 'FG' in locals(): flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
-#else: flagIndex = range(timeNum)
-#
-#TsysBPScan = np.array(chAvgTsys[TsysIndexOffset:(TsysIndexOffset + antNum* atmScanNumInThisBand* bpspwNum* 2)]).reshape([atmScanNumInThisBand, antNum, bpspwNum, 2])[scan_index][antMap]
-#TsysBPScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([antNum, spwNum, 2]).transpose(2,0,1) + np.mean(Tskyspec[:,chRange], axis=1)[:,scan_index].reshape([antNum, spwNum])).transpose(1,2,0)[antMap]
 exp_Tau = np.exp(-Tau0spec / np.sin(OnEL[scan_index]))
 TsysBPScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([antNum, spwNum, 2]).transpose(2,0,1) + Tatm_OFS + Tcmb* np.mean(exp_Tau, axis=1) + (tempAtm-Tatm_OFS)* (1.0 - np.mean(exp_Tau[:,chRange], axis=1))).transpose(1,2,0)[antMap]
 for spw_index in range(spwNum):
@@ -267,7 +262,6 @@ for spw_index in range(spwNum):
     BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
     chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
     GainP = GainP + [np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])]
-    #SEFD = 2.0* kb* chAvgTsys[antMap, spw_index, :,scan_index].T / np.array([AeX, AeY]) / (relGain[spw_index]**2)
     SEFD = 2.0* kb* TsysBPScan[:,spw_index].T / np.array([AeX, AeY]) / (relGain[spw_index]**2)
     caledVis.append(np.mean((chAvgVis / (GainP[spw_index][polYindex][:,ant0]* GainP[spw_index][polXindex][:,ant1].conjugate())).transpose(2, 0, 1)* np.sqrt(SEFD[polYindex][:,ant0]* SEFD[polXindex][:,ant1]), axis=2).T)
 #
@@ -278,9 +272,7 @@ spwPhase = [0.0]* 2* spwNum
 for ant_index in range(1,UseAntNum):
     for pol_index in range(2):
         spwPhase = spwPhase + [0.0]
-        for spw_index in range(1,spwNum):
-            spwPhase = spwPhase + [np.angle(GainP[spw_index, pol_index, ant_index].dot(GainP[0, pol_index, ant_index].conjugate()))]
-        #
+        for spw_index in range(1,spwNum): spwPhase = spwPhase + [np.angle(GainP[spw_index, pol_index, ant_index].dot(GainP[0, pol_index, ant_index].conjugate()))]
     #
 #
 spwPhase = np.array(spwPhase).reshape([UseAntNum, 2, spwNum]); spwTwiddle = exp(1.0j *spwPhase)
@@ -369,8 +361,6 @@ for scan_index in range(scanNum):
     for spw_index in range(spwNum):
         atmCorrect, TA = np.exp(Tau0spec[spw_index] / np.sin(OnEL[scan_index])), 0.0
         exp_Tau = 1.0 / atmCorrect
-        #TsysSPW = (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tskyspec[spw_index::spwNum][:,:,scan_index])[:,SAantMap]
-        #TsysSPW = (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tskyspec[spw_index::spwNum][:,:,scan_index])[:,SAantMap]
         TsysSPW =  (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tatm_OFS + Tcmb* exp_Tau + (tempAtm - Tatm_OFS)* (1.0 - exp_Tau))[:,SAantMap]
         #---- Flagged by Tsys
         tsysFlagAntIndex = unique(np.where(TsysSPW <0.0)[1]).tolist()
@@ -378,11 +368,9 @@ for scan_index in range(scanNum):
             for ant_index in tsysFlagAntIndex: TsysSPW[:,ant_index] = Trxspec[spw_index::spwNum][ant_index] + tempAtm* (1.0 - np.exp(-Tau0spec[spw_index] / np.sin(OnEL[scan_index])))
         #
         SEFD = 2.0* kb* (TsysSPW * atmCorrect).transpose(2,0,1) /  (np.array([AeX[SAantennas], AeY[SAantennas]]) / relGain[spw_index][:,SAantennas]**2)
-        #AmpCalVis = np.mean(np.mean(pCalVis[spw_index], axis=3)[:,[0,3]] * np.sqrt(SEFD[chRange][:,:,SAant0]* SEFD[chRange][:,:,SAant1]), axis=0)
         AmpCalVis = np.mean(np.mean(pCalVis[spw_index], axis=3)[:,[0,3]] * np.sqrt(SEFD[chRange][:,:,ant0[0:SAblNum]]* SEFD[chRange][:,:,ant1[0:SAblNum]]), axis=0)
         indivRelGain = abs(gainComplexVec(AmpCalVis.T)); indivRelGain /= np.percentile(indivRelGain, 75, axis=0)
         SEFD /= (indivRelGain**2).T
-        #AmpCalVis = (pCalVis[spw_index].transpose(3,0,1,2)* np.sqrt(SEFD[chRange][:,polYindex][:,:,SAant0]* SEFD[chRange][:,polXindex][:,:,SAant1])).transpose(3,2,1,0) # AmpCalVis[bl, pol, ch, time]
         AmpCalVis = (pCalVis[spw_index].transpose(3,0,1,2)* np.sqrt(SEFD[chRange][:,polYindex][:,:,ant0[0:SAblNum]]* SEFD[chRange][:,polXindex][:,:,ant1[0:SAblNum]])).transpose(3,2,1,0)
         StokesI_PL = figScan.add_subplot( 2, spwNum, spw_index + 1 )
         StokesP_PL = figScan.add_subplot( 2, spwNum, spwNum + spw_index + 1 )
