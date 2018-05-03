@@ -27,7 +27,7 @@ for band_index in range(NumBands):
     bpscanLists  = bpscanLists +  [msmd.scansforintent('CALIBRATE_BANDPASS*').tolist()]
     #print ' ',
     #print UniqBands[band_index] + ': Bandpass =' + `atmspwLists[band_index]` + ' bpSPW=' + `bpspwLists[band_index]`
-    BPcal = bpscanLists[band_index] 
+    BPscans = bpscanLists[band_index] 
 #
 #----------------------------------------- Check Bandpass and PolCal Scans
 
