@@ -32,10 +32,47 @@ for band_index in range(NumBands):
     BandID = BandID + [int(UniqBands[band_index][3:5])]
 #
 #----------------------------------------- A priori QU model
+pPol = [0,3]
 azelTime, AntID, AZ, EL = GetAzEl(msfile)
 azelTime_index = np.where( AntID == 0 )[0].tolist()
 azel = np.r_[AZ[azelTime_index], EL[azelTime_index]].reshape(2, len(azelTime_index))
 for band_index in range(NumBands):
+    #-------- Configure Array
+    print '---Checking array configulation'
+    antDia = np.ones(antNum)
+    for ant_index in range(antNum): antDia[ant_index] = msmd.antennadiameter(antList[ant_index])['value']
+    flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
+    print '  -- usable antenna checking for BP scan'
+    blAmp = np.zeros([blNum])
+    spwNum = len(bpspwLists[band_index])
+    for spw_index in range(spwNum):
+        #-------- Baseline-based cross power spectra
+        timeStamp, Pspec, Xspec = GetVisAllBL(msfile, bpspwLists[band_index][spw_index], bpscanLists[band_index][0])
+        timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange, timeRange = range(int(0.05*chNum), int(0.95*chNum)), range(int(0.5*timeNum), int(timeNum))
+        Xspec = np.mean(Xspec[pPol][:,chRange][:,:,:,timeRange], axis=3)
+        for pol_index in range(2):
+            for bl_index in range(blNum):
+                blD, blA = delay_search( Xspec[pol_index,:,bl_index] )
+                blAmp[bl_index] = blA
+            #
+            antAmp =  clamp_solve(blAmp) / antDia
+            flagAnt[np.where(antAmp < 0.5* np.median(antAmp))[0].tolist()] = 0.0
+        #
+    #
+    antFlag = antList[np.where(flagAnt < 1.0)[0].tolist()]
+#
+
+'''
+
+
+    #-------- check Stokes parameters in catalog
+blMap, blInv= range(UseBlNum), [False]* UseBlNum
+ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
+for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
+timeStamp, UVW = GetUVW(msfile, spwList[0], msmd.scansforspw(spwList[0])[0])
+uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
+refantID = bestRefant(uvDist)
+
     #-------- check Stokes parameters in catalog
     os.system('rm -rf CalQU.data')
     text_sd = R_DIR + 'Rscript %spolQuery.R -D%s -F%f' % (SCR_DIR, qa.time('%fs' % (azelTime[0]), form='ymd')[0], BANDFQ[BandID[band_index]])
@@ -49,6 +86,18 @@ for band_index in range(NumBands):
     interval, timeStamp = GetTimerecord(msfile, 0, 0, bpspwLists[band_index][0], bpscanLists[band_index][0])
     AzBP, ElBP = AzElMatch(timeStamp, azelTime, AntID, 0, AZ, EL)
     PABP = AzEl2PA(AzBP, ElBP) + BandPA[band_index]
+    CS, SN = np.cos(2.0* PABP), np.sin(2.0* PABP)
+    QCpUS = BPStokes[1]*CS + BPStokes[2]*SN   # Qcos + Usin
+    UCmQS = BPStokes[2]*CS - BPStokes[1]*SN   # Ucos - Qsin
+    print '---Generating antenna-based bandpass table'
+    BPList = []
+    for spwID in bpspwLists[0]:
+        BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spwID, bpscanLists[band_index][0], blMap, blInv)
+        BP_ant[:,1] *= XY_BP
+        BPList = BPList + [BP_ant]
+    #
+
+
 
 
 
@@ -69,7 +118,6 @@ for band_index in range(NumBands):
 #
 msmd.done(msfile)
 msmd.close(msfile)
-'''
 
 #----------------------------------------- Procedures
 fileNum, spwNum = len(prefixList), len(spwList)
