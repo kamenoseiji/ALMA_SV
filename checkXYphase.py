@@ -19,21 +19,54 @@ UniqBands = unique(bandNames).tolist(); NumBands = len(UniqBands)
 #----------------------------------------- Check source list
 sourceList, posList = GetSourceList(msfile); sourceList = sourceRename(sourceList); numSource = len(sourceList)
 #----------------------------------------- Check Bandpass and PolCal Scans
-bpspwLists, bpscanLists, polscanLists, BandPA = [], [], [], []
+bpspwLists, bpscanLists, polscanLists, BandID, BandPA, BPcal, PLcal = [], [], [], [], [], [], []
 for band_index in range(NumBands):
     BandPA = BandPA + [(BANDPA[int(UniqBands[band_index][3:5])] + 90.0)*pi/180.0]
     bpspwLists  = bpspwLists  + [np.array(bpSPWs)[indexList( np.array([UniqBands[band_index]]), np.array(bandNames))].tolist()]
     polscanLists = polscanLists + [msmd.scansforintent('CALIBRATE_POL*').tolist()]
     bpscanLists  = bpscanLists +  [msmd.scansforintent('CALIBRATE_BANDPASS*').tolist()]
-    #print ' ',
-    #print UniqBands[band_index] + ': Bandpass =' + `atmspwLists[band_index]` + ' bpSPW=' + `bpspwLists[band_index]`
-    BPscans = bpscanLists[band_index] 
+    BPcal = BPcal + [sourceList[msmd.sourceidforfield(msmd.fieldsforscan(bpscanLists[band_index][0]))]]
+    PLcal = PLcal + [sourceList[msmd.sourceidforfield(msmd.fieldsforscan(polscanLists[band_index][0]))]]
+    print UniqBands[band_index] + ': Bandpass calibrator is     ' + BPcal[band_index] + ' Scan ' +`bpscanLists[band_index]`
+    print UniqBands[band_index] + ': Polarization calibrator is ' + PLcal[band_index] + ' Scan ' + `polscanLists[band_index]`
+    BandID = BandID + [int(UniqBands[band_index][3:5])]
 #
-#----------------------------------------- Check Bandpass and PolCal Scans
+#----------------------------------------- A priori QU model
+azelTime, AntID, AZ, EL = GetAzEl(msfile)
+azelTime_index = np.where( AntID == 0 )[0].tolist()
+azel = np.r_[AZ[azelTime_index], EL[azelTime_index]].reshape(2, len(azelTime_index))
+for band_index in range(NumBands):
+    #-------- check Stokes parameters in catalog
+    os.system('rm -rf CalQU.data')
+    text_sd = R_DIR + 'Rscript %spolQuery.R -D%s -F%f' % (SCR_DIR, qa.time('%fs' % (azelTime[0]), form='ymd')[0], BANDFQ[BandID[band_index]])
+    #---- Bandpass Cal
+    os.system(text_sd + ' ' + BPcal[band_index]); fp = open('CalQU.data'); lines = fp.readlines(); fp.close()
+    BPStokes = np.array([float(lines[0].split()[1]), float(lines[0].split()[2]), float(lines[0].split()[3]), 0.0])
+    #---- Pol Cal
+    os.system(text_sd + ' ' + PLcal[band_index]); fp = open('CalQU.data'); lines = fp.readlines(); fp.close()
+    PLStokes = np.array([float(lines[0].split()[1]), float(lines[0].split()[2]), float(lines[0].split()[3]), 0.0])
+    #-------- Check AZEL in BP scan
+    interval, timeStamp = GetTimerecord(msfile, 0, 0, bpspwLists[band_index][0], bpscanLists[band_index][0])
+    AzBP, ElBP = AzElMatch(timeStamp, azelTime, AntID, 0, AZ, EL)
+    PABP = AzEl2PA(AzBP, ElBP) + BandPA[band_index]
 
-sourceIDscan.append( msmd.sourceidforfield(msmd.fieldsforscan(onsourceScans[scan_index])[0]))
 
 
+#----------------------------------------- Generate bandpass
+for band_index in range(NumBands):
+    #-------- Check AZEL
+
+        interval, timeStamp = GetTimerecord(msfile, 0, 0, bpspwLists[band_index][0], onsourceScans[scan_index])
+        AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, 0, AZ, EL)
+        PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; dPA = np.std(np.sin(PA)) #dPA = abs(np.sin(max(PA) - min(PA)))
+        OnAZ.append(np.median(AzScan)); OnEL.append(np.median(ElScan)); OnPA.append(np.median(PA))
+        refTime = refTime + [np.median(timeStamp)]
+        catalogIQUV = np.array([catalogStokesI.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesQ.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesU.get(sourceList[sourceIDscan[scan_index]], 0.0), 0.0])
+
+    OnAZ, OnEL, OnPA, BPquality, EQquality, PQquality, sourceIDscan, FLscore, refTime = [], [], [], [], [], [], [], np.zeros(scanNum), []
+    #-------- Check QU catalog
+
+#
 msmd.done(msfile)
 msmd.close(msfile)
 '''
