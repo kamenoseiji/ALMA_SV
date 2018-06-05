@@ -99,8 +99,12 @@ for spwName in atmspwNames : atmBandNames = atmBandNames + re.findall(atmPattern
 UniqBands = unique(atmBandNames).tolist(); NumBands = len(UniqBands)
 atmspwLists, bpspwLists, atmscanLists, bpscanLists = [], [], [], []
 for band_index in range(NumBands):
-    atmspwLists = atmspwLists + [np.array(atmSPWs)[indexList(np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()]
-    bpspwLists  = bpspwLists  + [np.array(bpSPWs)[indexList( np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()]
+    bandAtmSPWs = np.array(atmSPWs)[indexList(np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()
+    bandBpSPWs  = np.array(bpSPWs)[indexList( np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()
+    # bandAtmSPWs = [17, 21, 25, 29]
+    # bandBpSPWs  = [33, 37, 41, 45]
+    atmspwLists = atmspwLists + [bandAtmSPWs]
+    bpspwLists  = bpspwLists  + [bandBpSPWs]
     atmscanList = list(set(msmd.scansforspw(atmspwLists[band_index][0]))& set(msmd.scansforintent("CALIBRATE_ATMOSPHERE*"))); atmscanList.sort(); atmscanLists = atmscanLists + [atmscanList]
     bpscanList  = list(set(msmd.scansforspw(bpspwLists[band_index][0])) & set(msmd.scansforintent("*#ON_SOURCE"))); bpscanList.sort(); bpscanLists = bpscanLists + [bpscanList]
     print ' ',
@@ -151,7 +155,8 @@ for band_index in range(NumBands):
         if tempAmb[ant_index] < 240: tempAmb[ant_index] += 273.15       # Old MS describes the load temperature in Celsius
         if tempHot[ant_index] < 240: tempHot[ant_index] += 273.15       #
         for spw_index in range(spwNum):
-            chNum = offSpec[spw_index* atmscanNum].shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum)); chOut = sort(list(set(range(chNum)) - set(chRange)))
+            chNum = offSpec[spw_index* atmscanNum].shape[1]
+            chRange = range(int(0.05*chNum), int(0.95*chNum)); chOut = sort(list(set(range(chNum)) - set(chRange)))
             TrxSpec, TskySpec = np.zeros([2, chNum, atmscanNum]), np.zeros([2, chNum, atmscanNum])
             for pol_index in range(2):
                 for scan_index in range(atmscanNum):
@@ -188,7 +193,9 @@ for band_index in range(NumBands):
                 Tau0[ant_index, spw_index]  = fit[0][1]
     #
     else: Tau0 = 0.05*np.ones([antNum, spwNum]); TantN = Tatm_OFS* np.ones([antNum, spwNum])
+    freqList = []
     for spw_index in range(spwNum):
+        chNum, chWid, Freq = GetChNum(msfile, atmspwLists[band_index][spw_index]); freqList = freqList + [Freq* 1.0e-9]
         chNum = TskyList[spw_index].shape[0]; chTau = np.zeros([antNum, chNum])
         for ant_index in range(antNum):
             if flagAnt[ant_index] < 1.0: continue
@@ -270,9 +277,9 @@ for band_index in range(NumBands):
     np.save(prefix +  '-' + UniqBands[band_index] + '.OnEL.npy', OnEL) 
     np.save(prefix +  '-' + UniqBands[band_index] + '.AtmEL.npy', AtmEL) 
     #---- Plots
-    if not 'PLOTFMT' in locals():   PLOTFMT = 'pdf'
-    if PLOTTAU: plotTau(prefix + '_' + UniqBands[band_index], antList, atmspwLists[band_index], atmsecZ, (chAvgTsky.transpose(2,0,1) - TantN).transpose(1,2,0), tempAtm - Tatm_OFS, Tau0med, np.min(TrxFlag, axis=2), 2.0*np.median(chAvgTsky), PLOTFMT) 
-    if PLOTTSYS: plotTsys(prefix + '_' + UniqBands[band_index], antList, atmTimeRef, atmspwLists[band_index], TrxList, TskyList, PLOTFMT)
+    #if not 'PLOTFMT' in locals():   PLOTFMT = 'pdf'
+    if PLOTTAU: plotTau(prefix + '_' + UniqBands[band_index], atmspwLists[band_index], freqList, Tau0spec) 
+    if PLOTTSYS: plotTsys(prefix + '_' + UniqBands[band_index], antList, atmspwLists[band_index], freqList, atmTimeRef, TrxList, TskyList)
 #
 #-------- Plot optical depth
 msmd.close()
