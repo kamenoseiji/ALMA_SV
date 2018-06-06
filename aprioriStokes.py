@@ -303,7 +303,7 @@ for spw_index in range(spwNum):
 #
 print '---Flux densities of sources ---'
 pp, polLabel, Pcolor = PdfPages('FL_' + prefix + '_' + UniqBands[band_index] + '.pdf'), ['I', 'Q', 'U', 'V'], ['black', 'blue', 'red', 'green']
-
+XYD, XYC = [], []      # XY delay and correlation
 #for scan_index in range(1):
 for scan_index in range(scanNum):
     #-------- UV distance
@@ -360,6 +360,14 @@ for scan_index in range(scanNum):
         GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
     #
     pCalVis = (BPCaledXspec.transpose(0,2,1,3,4) / (GainP[polYindex][:,SAant0]* GainP[polXindex][:,SAant1].conjugate()))[:,chRange]
+    #-------- XY phase spectra
+    for spw_index in range(spwNum):
+        delayFact = (chNum + 0.0)/len(chRange)
+        XYspec = np.mean(pCalVis[spw_index, :, 1:3, :], axis=(2,3)).T
+        XYdelay, XYamp = delay_search(XYspec[:,0]); YXdelay, YXamp = delay_search(XYspec[:,1])
+        XYD = XYD + [XYdelay* delayFact, YXdelay* delayFact]
+        XYC = XYC + [np.mean(delay_cal(XYspec[:,0], XYdelay)), np.mean(delay_cal(XYspec[:,1], YXdelay))]
+    #-------- Full-Stokes parameters
     for spw_index in range(spwNum):
         atmCorrect, TA = np.exp(Tau0spec[spw_index] / np.sin(OnEL[scan_index])), 0.0
         exp_Tau = 1.0 / atmCorrect
@@ -452,6 +460,8 @@ np.save(prefix + '-' + UniqBands[band_index] + '.Flux.npy', ScanFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Ferr.npy', ErrFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceList)[sourceIDscan])
 np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', OnEL)
+np.save(prefix + '-' + UniqBands[band_index] + '.XYC.npy', np.array(XYC).reshape([scanNum, spwNum, 2]))
+np.save(prefix + '-' + UniqBands[band_index] + '.XYD.npy', np.array(XYD).reshape([scanNum, spwNum, 2]))
 msmd.close()
 msmd.done()
 del flagAnt, AntID, Xspec, tempSpec, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, Trxspec, TsysSPW, azelTime, azelTime_index, chAvgVis, W, refIndex

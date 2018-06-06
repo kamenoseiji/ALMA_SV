@@ -339,6 +339,7 @@ print '---Flux densities of sources ---'
 pp = PdfPages('FL_' + prefix + '_' + UniqBands[band_index] + '.pdf')
 polLabel = ['I', 'Q', 'U', 'V']
 Pcolor   = ['black', 'blue', 'red', 'green']
+XYD, XYC = [], []      # XY delay and correlation
 for scan_index in range(scanNum):
     #-------- UV distance
     timeStamp, UVW = GetUVW(msfile, spwList[spw_index], onsourceScans[scan_index])
@@ -405,6 +406,13 @@ for scan_index in range(scanNum):
     else: chAvgVis = np.mean(BPCaledXspec[:, :, chRange], axis=(0,2))
     GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
     pCalVis = (BPCaledXspec.transpose(0,2,1,3,4) / (GainP[polYindex][:,ant0[0:SAblNum]]* GainP[polXindex][:,ant1[0:SAblNum]].conjugate()))[:,chRange]
+    #-------- XY phase spectra
+    for spw_index in range(spwNum):
+        delayFact = (chNum + 0.0)/len(chRange)
+        XYspec = np.mean(pCalVis[spw_index, :, 1:3, :], axis=(2,3)).T
+        XYdelay, XYamp = delay_search(XYspec[:,0]); YXdelay, YXamp = delay_search(XYspec[:,1])
+        XYD = XYD + [XYdelay* delayFact, YXdelay* delayFact]
+        XYC = XYC + [np.mean(delay_cal(XYspec[:,0], XYdelay)), np.mean(delay_cal(XYspec[:,1], YXdelay))]
     #-------- Full-Stokes parameters
     for spw_index in range(spwNum):
         atmCorrect = np.exp(Tau0spec[spw_index] / np.sin(OnEL[scan_index]))
@@ -417,7 +425,6 @@ for scan_index in range(scanNum):
         SEFD = 2.0* kb* (TsysSPW * atmCorrect).transpose(2,0,1) / Ae[SAantennas,:,spw_index].T   # SEFD[ch,pol,ant]
         #-------- Additional equalizaiton
         if not SSO_flag:        # Additional equalization for point sources
-            #AmpCalVis = np.mean(np.mean(pCalVis[spw_index], axis=3)[:,[0,3]] * np.sqrt(SEFD[chRange][:,:,SAant0]* SEFD[chRange][:,:,SAant1]), axis=0)
             AmpCalVis = np.mean(np.mean(pCalVis[spw_index], axis=3)[:,[0,3]] * np.sqrt(SEFD[chRange][:,:,ant0[0:SAblNum]]* SEFD[chRange][:,:,ant1[0:SAblNum]]), axis=0)
             indivRelGain = abs(gainComplexVec(AmpCalVis.T)); indivRelGain /= np.percentile(indivRelGain, 75, axis=0)
             SEFD /= (indivRelGain**2).T
@@ -514,6 +521,8 @@ np.save(prefix + '-' + UniqBands[band_index] + '.Flux.npy', ScanFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Ferr.npy', ErrFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceList)[sourceIDscan])
 np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', np.array(OnEL))
+np.save(prefix + '-' + UniqBands[band_index] + '.XYC.npy', np.array(XYC).reshape([scanNum, spwNum, 2]))
+np.save(prefix + '-' + UniqBands[band_index] + '.XYD.npy', np.array(XYD).reshape([scanNum, spwNum, 2]))
 msmd.close()
 msmd.done()
 del AntID, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, Trxspec, Tskyspec, azelTime, azelTime_index, chAvgVis, W

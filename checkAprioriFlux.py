@@ -59,6 +59,20 @@ for band_index in range(NumBands):
     azelTime_index = np.where( AntID == 0 )[0].tolist()
     azel = np.r_[AZ[azelTime_index], EL[azelTime_index]].reshape(2, len(azelTime_index))
     OnAZ, OnEL, OnPA, BPquality, EQquality, PQquality, sourceIDscan, FLscore, refTime = [], [], [], [], [], [], [], np.zeros(scanNum), []
+    if QUMODEL: # A priori QU model from Rdata
+        os.system('rm -rf CalQU.data')
+        text_sd = R_DIR + 'Rscript %spolQuery.R -D%s -F%f' % (SCR_DIR, qa.time('%fs' % (azelTime[0]), form='ymd')[0], BANDFQ[bandID])
+        for source in sourceList: text_sd = text_sd + ' ' + source
+        os.system(text_sd)
+        fp = open('CalQU.data')
+        lines = fp.readlines()
+        fp.close()
+        for eachLine in lines:
+            catalogStokesI[eachLine.split()[0]] = float(eachLine.split()[1])
+            catalogStokesQ[eachLine.split()[0]] = float(eachLine.split()[2])
+            catalogStokesU[eachLine.split()[0]] = float(eachLine.split()[3])
+        #
+    #
     for scan_index in range(scanNum):
         sourceIDscan.append( msmd.sourceidforfield(msmd.fieldsforscan(onsourceScans[scan_index])[0]))
         interval, timeStamp = GetTimerecord(msfile, 0, 0, bpspwLists[band_index][0], onsourceScans[scan_index])

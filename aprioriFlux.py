@@ -31,17 +31,12 @@ for scan_index in range(atmscanNum): atmTimeIndex.append( indexList(msmd.timesfo
 #except:
 #    execfile(SCR_DIR + 'TsysCal.py')
 #
-######## Outputs from TsysCal.py :
-#  TantN[ant, spw, pol] : Antenna noise pickup. ant order is the same with MS
-#  chAvgTrx[ant, spw, pol, scan]  : Channel-averaged receiver noise temperature
-#  chAvgTsky[ant, spw, pol, scan] : Channel-averaged sky noise temperature
-#  chAvgTsys[ant, spw, pol, scan] : Channel-averaged system noise temperature
-#  TsysFlag[ant, spw, pol, scan] : 0 = invalid, 1=valid
-#  Tau0med[spw] : median-value of the zenith optical depth
-#  onTau[spw, scan] : on-source optical depth
-#
-#  They include all of antennas (even if flagged) in MS order
-########
+#-------- Load Tsys table
+Tau0spec = np.load(prefix +  '-' + UniqBands[band_index] + '.Tau0.npy') # Tau0spec[spw][ch]
+Trxspec  = np.load(prefix +  '-' + UniqBands[band_index] + '.Trx.npy')  # Trxspec[ant*spw][pol, ch]
+OnEL = np.load(prefix +  '-' + UniqBands[band_index] + '.OnEL.npy')
+AtmEL = np.load(prefix +  '-' + UniqBands[band_index] + '.AtmEL.npy')
+OnEL = np.median(OnEL, axis=0)
 msmd.open(msfile)
 #-------- Array Configuration
 print '---Checking array configuration'
@@ -142,8 +137,8 @@ centerFreqList = np.array(centerFreqList)
 print '---Flux densities of sources ---'
 pp = PdfPages('FL_' + prefix + '_' + UniqBands[band_index] + '.pdf')
 text_sd = ' Scan     Source     EL(deg) '
-for spw_index in range(scnspwNum): text_sd = text_sd + ' SPW%02d %5.1f GHz ' % (scnspw[spw_index], centerFreqList[spw_index])
-text_sd = text_sd + '| mean '; logfile.write(text_sd + '\n'); print text_sd
+for spw_index in range(scnspwNum): text_sd = text_sd + ' SPW%02d %5.1f GHz   ' % (scnspw[spw_index], centerFreqList[spw_index])
+text_sd = text_sd + '|  mean  %5.1f GHz' % (np.mean(centerFreqList)); logfile.write(text_sd + '\n'); print text_sd
 text_sd = ' ------------------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
 for scan_index in range(scanNum):
     figScan = plt.figure(scan_index, figsize = (11, 8))
@@ -158,7 +153,7 @@ for scan_index in range(scanNum):
         SAantMap, SAblMap, SAblInv = antMap, blMap, blInv
     if SSO_flag: continue
     SAantNum = len(SAantennas); SAblNum = len(SAblMap)
-    text_sd = ' %02d %016s   %4.1f' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* OnEL[scan_index]/pi )
+    text_sd = ' %02d %016s %4.1f' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* OnEL[scan_index]/pi )
     figScan.text(0.05, 0.95, text_sd) 
     BPCaledXspec = []
     #-------- UV distance
@@ -209,7 +204,7 @@ for scan_index in range(scanNum):
     #-------- Statistics for all SPWs
     relFreq = centerFreqList - np.mean(centerFreqList)
     sol, solerr = linearRegression(relFreq, ScanFlux[scan_index], ErrFlux[scan_index] )
-    text_sd = text_sd + '  | %6.3f (%.3f) ' % (sol[0], solerr[0])
+    text_sd = text_sd + '  | %7.4f (%.4f) ' % (sol[0], solerr[0])
     #
     logfile.write(text_sd + '\n'); print text_sd
     figScan.savefig(pp, format='pdf')

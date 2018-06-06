@@ -118,6 +118,20 @@ for band_index in range(NumBands):
 #
 print '---Checking time for ambient and hot load'
 timeOFF, timeON, timeAMB, timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#ON_SOURCE"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
+if len(timeAMB) == 0:
+    timeXY, Pspec = GetPSpec(msfile, 0, atmSPWs[0])
+    timeNum, chNum = Pspec.shape[2], Pspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
+    chAvgPower = np.mean(Pspec[0][chRange], axis=0)
+    offTimeIndex = indexList(timeOFF, timeXY)
+    gapList = np.where(np.diff(chAvgPower) > 5.0* np.std(chAvgPower[offTimeIndex]))[0]
+    gapList = np.append(gapList, [max(gapList) + 6])
+    hotTimeIndex, ambTimeIndex = [], []
+    for gap_index in range(0, len(gapList)-1, 2):
+        ambTimeIndex = ambTimeIndex + range((gapList[gap_index] + 2), (gapList[gap_index + 1]-1))
+        hotTimeIndex = hotTimeIndex + range((gapList[gap_index+1] + 2), (gapList[gap_index + 2]-1))
+    #
+    timeAMB, timeHOT = timeXY[ambTimeIndex], timeXY[hotTimeIndex]
+#
 azelTime, AntID, AZ, EL = GetAzEl(msfile)
 # timeOFF : mjd of CALIBRATE_ATMOSPHERE#OFF_SOURCE
 # timeON  : mjd of CALIBRATE_ATMOSPHERE#ON_SOURCE (becore Cycle 3, ambient + hot loads
