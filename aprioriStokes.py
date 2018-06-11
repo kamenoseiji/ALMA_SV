@@ -55,11 +55,14 @@ OnEL = np.median(OnEL, axis=0)
 ########
 msmd.open(msfile)
 #-------- Array Configuration
+UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt)
 print '---Checking array configuration'
-flagList = np.where(np.median(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) > 2.0* np.percentile(chAvgTrx, 75))[0].tolist()  # Avoid too-high Trx
-flagList = unique(flagList + np.where(np.min(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) < 1.0 )[0].tolist()).tolist()     # Avoid too-low Trx
-flagAnt[flagList] = 0.0 # Flagging by abnormal Trx
-UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
+flagList = np.where(np.median(chAvgTrx.reshape(UseAntNum, 2* spwNum), axis=1) > 2.0* np.percentile(chAvgTrx, 75))[0].tolist()  # Avoid too-high Trx
+flagList = unique(flagList + np.where(np.min(chAvgTrx.reshape(UseAntNum, 2* spwNum), axis=1) < 1.0 )[0].tolist()).tolist()     # Avoid too-low Trx
+if len(flagList) >0 : 
+    for index in flagList: del UseAnt[index]
+#
+UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
 text_sd = '  Usable antennas: '
 for ants in antList[UseAnt].tolist(): text_sd = text_sd + ants + ' '
 logfile.write(text_sd + '\n'); print text_sd
@@ -215,9 +218,10 @@ if catalogStokesQ.get(EQcal) > 0.0 :
     QUsolution = np.array([catalogStokesQ.get(EQcal), catalogStokesU.get(EQcal)])
 QCpUS = (QUsolution[0]* np.cos(2.0* PA) + QUsolution[1]* np.sin(2.0* PA)) / catalogStokesI.get(EQcal)
 #
+useAntMapRev = indexList(np.array(antMap), np.array(UseAnt))
 exp_Tau = np.exp(-Tau0spec / np.sin(OnEL[scan_index]))
 #TsysEQScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([antNum, spwNum, 2]).transpose(2,0,1) + Tatm_OFS + Tcmb* np.mean(exp_Tau, axis=1) + (tempAtm-Tatm_OFS)* (1.0 - np.mean(exp_Tau[:,chRange], axis=1))).transpose(1,2,0)[antMap]
-TsysEQScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([antNum, spwNum, 2]).transpose(2,0,1) + Tcmb* np.mean(exp_Tau, axis=1) + tempAtm* (1.0 - np.mean(exp_Tau[:,chRange], axis=1))).transpose(1,2,0)[antMap]
+TsysEQScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([UseAntNum, spwNum, 2]).transpose(2,0,1) + Tcmb* np.mean(exp_Tau, axis=1) + tempAtm* (1.0 - np.mean(exp_Tau[:,chRange], axis=1))).transpose(1,2,0)[useAntMapRev]
 for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], EQScan)
@@ -253,8 +257,8 @@ PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), 
 GainP, XYphase, caledVis = [], [], []
 scan_index = scanList.index(BPScan)
 exp_Tau = np.exp(-Tau0spec / np.sin(OnEL[scan_index]))
-#TsysBPScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([antNum, spwNum, 2]).transpose(2,0,1) + Tatm_OFS + Tcmb* np.mean(exp_Tau, axis=1) + (tempAtm-Tatm_OFS)* (1.0 - np.mean(exp_Tau[:,chRange], axis=1))).transpose(1,2,0)[antMap]
-TsysBPScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([antNum, spwNum, 2]).transpose(2,0,1) + Tcmb* np.mean(exp_Tau, axis=1) + tempAtm* (1.0 - np.mean(exp_Tau[:,chRange], axis=1))).transpose(1,2,0)[antMap]
+#TsysBPScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([antNum, spwNum, 2]).transpose(2,0,1) + Tcmb* np.mean(exp_Tau, axis=1) + tempAtm* (1.0 - np.mean(exp_Tau[:,chRange], axis=1))).transpose(1,2,0)[antMap]
+TsysBPScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([UseAntNum, spwNum, 2]).transpose(2,0,1) + Tcmb* np.mean(exp_Tau, axis=1) + tempAtm* (1.0 - np.mean(exp_Tau[:,chRange], axis=1))).transpose(1,2,0)[useAntMapRev]
 for spw_index in range(spwNum):
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], BPScan); timeNum = len(timeStamp)
     if 'FG' in locals(): flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
@@ -372,7 +376,7 @@ for scan_index in range(scanNum):
         atmCorrect, TA = np.exp(Tau0spec[spw_index] / np.sin(OnEL[scan_index])), 0.0
         exp_Tau = 1.0 / atmCorrect
         #TsysSPW =  (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tatm_OFS + Tcmb* exp_Tau + (tempAtm - Tatm_OFS)* (1.0 - exp_Tau))[:,SAantMap]
-        TsysSPW =  (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tcmb* exp_Tau + tempAtm * (1.0 - exp_Tau))[:,SAantMap]
+        TsysSPW =  (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tcmb* exp_Tau + tempAtm * (1.0 - exp_Tau))[:,useAntMapRev]
         #---- Flagged by Tsys
         tsysFlagAntIndex = unique(np.where(TsysSPW <0.0)[1]).tolist()
         if len(tsysFlagAntIndex) > 0:

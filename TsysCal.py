@@ -30,9 +30,9 @@ def residTskyTransfer2( param, Tamb, Tau0, secz, Tsky, weight ):
     return weight* (Tsky - (param[0] + 2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
 #
 """
-def scanAtmSpec(msfile, antNum, scanList, spwList, timeOFF=0, timeON=0, timeAMB=0, timeHOT=0):
+def scanAtmSpec(msfile, useAnt, scanList, spwList, timeOFF=0, timeON=0, timeAMB=0, timeHOT=0):
     timeList, offSpecList, ambSpecList, hotSpecList = [], [], [], []
-    scanNum, spwNum = len(scanList), len(spwList)
+    antNum, scanNum, spwNum = len(useAnt), len(scanList), len(spwList)
     scanTimeList = []
     for scanID in scanList:
         interval, scanTimeRec = GetTimerecord(msfile, 0, 0, spwList[0], scanID)
@@ -43,7 +43,7 @@ def scanAtmSpec(msfile, antNum, scanList, spwList, timeOFF=0, timeON=0, timeAMB=
         progress = (1.0* ant_index + 1.0) / antNum
         sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
         for spwID in spwList:
-            timeXY, Pspec = GetPSpec(msfile, ant_index, spwID)
+            timeXY, Pspec = GetPSpec(msfile, useAnt[ant_index], spwID)
             chNum = Pspec.shape[1]
             pPol = [0,1]
             if Pspec.shape[0] == 4: pPol = [0,3]
@@ -86,6 +86,8 @@ tempAtm = GetTemp(msfile)
 antList = GetAntName(msfile)
 antNum = len(antList)
 if 'flagAnt' not in locals(): flagAnt = np.ones(antNum)
+if 'antFlag' in locals(): flagAnt[indexList(antFlag, antList)] = 0.0
+useAnt = np.where(flagAnt == 1.0)[0].tolist(); useAntNum = len(useAnt)
 #-------- Check SPWs
 msmd.open(msfile)
 print '---Checking spectral windows and scans with atmCal for ' + prefix
@@ -142,15 +144,15 @@ OnElList = []
 for band_index in range(NumBands):
     TrxList, TskyList, chAvgTsys = [], [], []
     tsysLog = open(prefix + '-' + UniqBands[band_index] + '-Tsys.log', 'w')
-    atmTimeRef, offSpec, ambSpec, hotSpec = scanAtmSpec(msfile, antNum, atmscanLists[band_index], atmspwLists[band_index], timeOFF, timeON, timeAMB, timeHOT)
+    atmTimeRef, offSpec, ambSpec, hotSpec = scanAtmSpec(msfile, useAnt, atmscanLists[band_index], atmspwLists[band_index], timeOFF, timeON, timeAMB, timeHOT)
     atmscanNum, scanNum = len(atmscanLists[band_index]), len(bpscanLists[band_index])
     #-------- Az and El position at atmCal and onsource scans
-    AtmEL, OnEL = np.ones([antNum, atmscanNum]), np.ones([antNum, scanNum])
+    AtmEL, OnEL = np.ones([useAntNum, atmscanNum]), np.ones([useAntNum, scanNum])
     scanTimeRef = np.zeros(scanNum)
     for scan_index in range(scanNum): scanTimeRef[scan_index] = np.median(msmd.timesforscan(bpscanLists[band_index][scan_index]))
-    for ant_index in range(antNum):
-        if flagAnt[ant_index] < 1.0: continue
-        azelTime_index = np.where( AntID == ant_index )[0].tolist()
+    for ant_index in range(useAntNum):
+        # if flagAnt[ant_index] < 1.0: continue
+        azelTime_index = np.where( AntID == useAnt[ant_index] )[0].tolist()
         if len(azelTime_index) == 0: azelTime_index = np.where( AntID == 0 )[0].tolist()
         for scan_index in range(atmscanNum): AtmEL[ant_index, scan_index] = EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - atmTimeRef[scan_index]))]]
         for scan_index in range(scanNum):     OnEL[ant_index, scan_index] = EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - scanTimeRef[scan_index]))]]
@@ -160,12 +162,12 @@ for band_index in range(NumBands):
     #-------- Time-interpolation of ambient and hot
     print '---Analyzing ' + UniqBands[band_index] + ' Trec and Tsky using atmCal scans'
     spwNum = len(atmspwLists[band_index])
-    chAvgTrx, chAvgTsky = np.zeros([antNum, spwNum, 2, atmscanNum]), np.zeros([antNum, spwNum, 2, atmscanNum])
-    TrxFlag = np.ones([antNum, spwNum, 2, atmscanNum])
-    tempAmb, tempHot  = np.zeros([antNum]), np.zeros([antNum])
-    for ant_index in range(antNum):
+    chAvgTrx, chAvgTsky = np.zeros([useAntNum, spwNum, 2, atmscanNum]), np.zeros([useAntNum, spwNum, 2, atmscanNum])
+    TrxFlag = np.ones([useAntNum, spwNum, 2, atmscanNum])
+    tempAmb, tempHot  = np.zeros([useAntNum]), np.zeros([useAntNum])
+    for ant_index in range(useAntNum):
         # if flagAnt[ant_index] < 1.0: continue
-        tempAmb[ant_index], tempHot[ant_index] = GetLoadTemp(msfile, ant_index, atmspwLists[band_index][0])
+        tempAmb[ant_index], tempHot[ant_index] = GetLoadTemp(msfile, useAnt[ant_index], atmspwLists[band_index][0])
         if tempAmb[ant_index] < 240: tempAmb[ant_index] += 273.15       # Old MS describes the load temperature in Celsius
         if tempHot[ant_index] < 240: tempHot[ant_index] += 273.15       #
         for spw_index in range(spwNum):
@@ -196,23 +198,23 @@ for band_index in range(NumBands):
     chAvgTsky = np.mean(chAvgTsky, axis=2)  # Sky is unpolarized
     #-------- Tau and TantN fitting
     param = [0.0, 0.05]     # Initial Parameter
-    Tau0, TantN, Tau0err, Tau0med = np.zeros([antNum, spwNum]), np.zeros([antNum, spwNum]), np.zeros(spwNum), np.zeros(spwNum)
+    Tau0, TantN, Tau0err, Tau0med = np.zeros([useAntNum, spwNum]), np.zeros([useAntNum, spwNum]), np.zeros(spwNum), np.zeros(spwNum)
     Tau0spec = []
     if max(atmsecZ[0]) - min(atmsecZ[0]) > 0.5:
-        for ant_index in range(antNum):
-            if flagAnt[ant_index] < 1.0: continue
+        for ant_index in range(useAntNum):
+            #if flagAnt[ant_index] < 1.0: continue
             for spw_index in range(spwNum):
                 fit = scipy.optimize.leastsq(residTskyTransfer, param, args=(tempAtm-Tatm_OFS, atmsecZ[ant_index], chAvgTsky[ant_index, spw_index], np.min(TrxFlag, axis=2)[ant_index, spw_index]))
                 TantN[ant_index, spw_index] = fit[0][0]
                 Tau0[ant_index, spw_index]  = fit[0][1]
     #
-    else: Tau0 = 0.05*np.ones([antNum, spwNum]); TantN = Tatm_OFS* np.ones([antNum, spwNum])
+    else: Tau0 = 0.05*np.ones([useAntNum, spwNum]); TantN = Tatm_OFS* np.ones([useAntNum, spwNum])
     freqList = []
     for spw_index in range(spwNum):
         chNum, chWid, Freq = GetChNum(msfile, atmspwLists[band_index][spw_index]); freqList = freqList + [Freq* 1.0e-9]
-        chNum = TskyList[spw_index].shape[0]; chTau = np.zeros([antNum, chNum])
-        for ant_index in range(antNum):
-            if flagAnt[ant_index] < 1.0: continue
+        chNum = TskyList[spw_index].shape[0]; chTau = np.zeros([useAntNum, chNum])
+        for ant_index in range(useAntNum):
+            # if flagAnt[ant_index] < 1.0: continue
             index = ant_index* spwNum + spw_index
             for ch_index in range(chNum):
                 fit = scipy.optimize.leastsq(residTskyTransfer0, [Tau0[ant_index, spw_index]], args=(tempAtm-Tatm_OFS, atmsecZ[ant_index], TskyList[index][ch_index]-TantN[ant_index,spw_index], np.min(TrxFlag, axis=2)[ant_index, spw_index]))
@@ -228,7 +230,7 @@ for band_index in range(NumBands):
     bpSPWs = bpspwLists[band_index]; bpspwNum = len(bpSPWs)
     #-------- Tsys for onsource scans
     for scan_index in range(scanNum):
-        for ant_index in range(antNum):
+        for ant_index in range(useAntNum):
             for spw_index in range(bpspwNum):
                 index = ant_index* spwNum + spw_index
                 exp_Tau = np.exp(-OnsecZ[ant_index, scan_index]* Tau0spec[spw_index] )
@@ -242,9 +244,9 @@ for band_index in range(NumBands):
     #
     #-------- Log TantN
     text_sd = 'TantN:----------+---------+---------+---------+\n'; tsysLog.write(text_sd); print text_sd,
-    for ant_index in range(antNum):
+    for ant_index in range(useAntNum):
         if flagAnt[ant_index] < 1.0: continue
-        text_sd = antList[ant_index] + ' : '; tsysLog.write(text_sd); print text_sd,
+        text_sd = antList[useAnt[ant_index]] + ' : '; tsysLog.write(text_sd); print text_sd,
         for spw_index in range(spwNum):
             text_sd = '%5.1f K' % (TantN[ant_index, spw_index])
             tsysLog.write(text_sd); print text_sd,
@@ -256,9 +258,9 @@ for band_index in range(NumBands):
     for spw_index in range(spwNum): text_sd = text_sd + '  SPW%02d X        Y |' % (atmspwLists[band_index][spw_index])
     tsysLog.write(text_sd + '\n'); print text_sd
     text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; tsysLog.write(text_sd + '\n'); print text_sd
-    for ant_index in range(antNum):
-        if flagAnt[ant_index] < 1.0: continue
-        text_sd =  antList[ant_index] + ' : '; tsysLog.write(text_sd); print text_sd,
+    for ant_index in range(useAntNum):
+        # if flagAnt[ant_index] < 1.0: continue
+        text_sd =  antList[useAnt[ant_index]] + ' : '; tsysLog.write(text_sd); print text_sd,
         for spw_index in range(spwNum):
             for pol_index in range(2):
                 text_sd = '%6.1f K' % (chAvgTrx[ant_index, spw_index, pol_index])
@@ -271,12 +273,12 @@ for band_index in range(NumBands):
     for spw_index in range(spwNum): text_sd = text_sd + '  SPW%02d X        Y |' % (atmspwLists[band_index][spw_index])
     tsysLog.write(text_sd + '\n'); print text_sd
     text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; tsysLog.write(text_sd + '\n'); print text_sd
-    for ant_index in range(antNum):
-        if flagAnt[ant_index] < 1.0: continue
-        text_sd =  antList[ant_index] + ' : '; tsysLog.write(text_sd); print text_sd,
+    for ant_index in range(useAntNum):
+        # if flagAnt[ant_index] < 1.0: continue
+        text_sd =  antList[useAnt[ant_index]] + ' : '; tsysLog.write(text_sd); print text_sd,
         for spw_index in range(spwNum):
             for pol_index in range(2):
-                index = (((arange(scanNum)* antNum + ant_index)* spwNum + spw_index)* 2 + pol_index).tolist()
+                index = (((arange(scanNum)* useAntNum + ant_index)* spwNum + spw_index)* 2 + pol_index).tolist()
                 text_sd = '%6.1f K' % (np.median(np.array(chAvgTsys)[index]))
                 tsysLog.write(text_sd); print text_sd,
             text_sd = '|'; tsysLog.write(text_sd); print text_sd,
@@ -293,7 +295,7 @@ for band_index in range(NumBands):
     #---- Plots
     #if not 'PLOTFMT' in locals():   PLOTFMT = 'pdf'
     if PLOTTAU: plotTau(prefix + '_' + UniqBands[band_index], atmspwLists[band_index], freqList, Tau0spec) 
-    if PLOTTSYS: plotTsys(prefix + '_' + UniqBands[band_index], antList, atmspwLists[band_index], freqList, atmTimeRef, TrxList, TskyList)
+    if PLOTTSYS: plotTsys(prefix + '_' + UniqBands[band_index], antList[useAnt], atmspwLists[band_index], freqList, atmTimeRef, TrxList, TskyList)
 #
 #-------- Plot optical depth
 msmd.close()
