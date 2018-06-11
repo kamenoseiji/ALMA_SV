@@ -50,12 +50,14 @@ Trxspec  = np.load(prefix +  '-' + UniqBands[band_index] + '.Trx.npy')  # Trxspe
 Tskyspec  = np.load(prefix +  '-' + UniqBands[band_index] + '.Tsky.npy')# Tskyspec[ant*spw][ch,scan]
 msmd.open(msfile)
 #-------- Array Configuration
+UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt)
 print '---Checking array configuration'
-flagList = np.where(np.median(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) > 2.0* np.percentile(chAvgTrx, 75))[0].tolist()  # Avoid too-high Trx
-flagList = unique(flagList + np.where(np.min(chAvgTrx.reshape(antNum, 2* spwNum), axis=1) < 1.0 )[0].tolist()).tolist()     # Avoid too-low Trx
-flagAnt[flagList] = 0.0 # Flagging by abnormal Trx
-flagList = np.where(flagAnt == 0)[0].tolist()
-UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
+flagList = np.where(np.median(chAvgTrx.reshape(UseAntNum, 2* spwNum), axis=1) > 2.0* np.percentile(chAvgTrx, 75))[0].tolist()  # Avoid too-high Trx
+flagList = unique(flagList + np.where(np.min(chAvgTrx.reshape(UseAntNum, 2* spwNum), axis=1) < 1.0 )[0].tolist()).tolist()     # Avoid too-low Trx
+if len(flagList) >0 :
+    for index in flagList: del UseAnt[index]
+#
+UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
 text_sd = '  Usable antennas: '
 for ants in antList[UseAnt].tolist(): text_sd = text_sd + ants + ' '
 logfile.write(text_sd + '\n'); print text_sd
@@ -70,6 +72,7 @@ uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
 refantID = bestRefant(uvDist)
 print '  Use ' + antList[UseAnt[refantID]] + ' as the refant.'
 antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
+useAntMapRev = indexList(np.array(antMap), np.array(UseAnt))
 for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 AeNominal = 0.6* 0.25* np.pi* antDia**2      # Nominal Collecting Area
@@ -95,11 +98,11 @@ if noDantNum > 0:
 #
 #-------- Load D-term file
 DxList, DyList = [], []
-for ant_index in antMap:
+for ant_index in range(UseAntNum):
     Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
     for spw_index in range(spwNum):
-        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[ant_index] + '.DSpec.npy'
-        #print 'Loading %s' % (Dfile)
+        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[antMap[ant_index]] + '.DSpec.npy'
+        # print 'Loading %s' % (Dfile)
         Dterm = np.load(Dfile)
         DxList = DxList + [Dterm[1] + (0.0 + 1.0j)* Dterm[2]]
         DyList = DyList + [Dterm[3] + (0.0 + 1.0j)* Dterm[4]]
@@ -172,7 +175,7 @@ BPDone = True
 scanList = onsourceScans
 GainP, AeSeqX, AeSeqY = [], [], []  # effective area x flux density of the equalizer
 polXindex, polYindex, scan_index = (arange(4)//2).tolist(), (arange(4)%2).tolist(), onsourceScans.index(EQScan)
-TsysEQScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([antNum, spwNum, 2]).transpose(2,0,1) + np.mean(Tskyspec[:,chRange], axis=1)[:,scan_index].reshape([antNum, spwNum])).transpose(1,2,0)
+TsysEQScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([UseAntNum, spwNum, 2]).transpose(2,0,1) + np.mean(Tskyspec[:,chRange], axis=1)[:,scan_index].reshape([UseAntNum, spwNum])).transpose(1,2,0)
 for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], EQScan)
@@ -186,11 +189,11 @@ for spw_index in range(spwNum):
     pCalVisX, pCalVisY = np.mean(chAvgVis[0] / (GainP[spw_index][0,ant0]* GainP[spw_index][0,ant1].conjugate()), axis=1), np.mean(chAvgVis[1] / (GainP[spw_index][1,ant0]* GainP[spw_index][1,ant1].conjugate()), axis=1)
 
     #-------- Antenna-based Gain
-    AeSeqX = AeSeqX + [2.0* kb* TsysEQScan[antMap, spw_index, 0]* abs(gainComplex(pCalVisX))**2] # Ae x Seq (X-pol)
-    AeSeqY = AeSeqY + [2.0* kb* TsysEQScan[antMap, spw_index, 1]* abs(gainComplex(pCalVisY))**2] # Ae x Seq (Y-pol)
+    AeSeqX = AeSeqX + [2.0* kb* TsysEQScan[useAntMapRev, spw_index, 0]* abs(gainComplex(pCalVisX))**2] # Ae x Seq (X-pol)
+    AeSeqY = AeSeqY + [2.0* kb* TsysEQScan[useAntMapRev, spw_index, 1]* abs(gainComplex(pCalVisY))**2] # Ae x Seq (Y-pol)
 #
 GainP = np.array(GainP) # GainP[spw, pol, ant, time]
-AeSeqX, AeSeqY = np.array(AeSeqX), np.array(AeSeqY) # AeSeqX[spw, antMap], AeSeqX[spw, antMap] : (relative) aperture efficiency, assuming 1 Jy
+AeSeqX, AeSeqY = np.array(AeSeqX), np.array(AeSeqY) # AeSeqX[spw, useAntMapRev], AeSeqX[spw, useAntMapRev] : (relative) aperture efficiency, assuming 1 Jy
 #
 ##-------- inter-SPW phasing using EQ scan
 spwPhase = [0.0]* 2* spwNum
@@ -218,11 +221,12 @@ AeX, AeY = np.zeros([UseAntNum, spwNum, SSONum]), np.zeros([UseAntNum, spwNum, S
 SSO_flag = np.ones(SSONum)
 for sso_index in range(SSONum):
     scan_index = indexList(np.array(SSOscanID), np.array(onsourceScans))[sso_index]
-    TsysSSOScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([antNum, spwNum, 2]).transpose(2,0,1) + np.mean(Tskyspec[:,chRange], axis=1)[:,scan_index].reshape([antNum, spwNum])).transpose(1,2,0)  # TsysSSOScan[ant, spw, pol], antList order
+    TsysSSOScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([UseAntNum, spwNum, 2]).transpose(2,0,1) + np.mean(Tskyspec[:,chRange], axis=1)[:,scan_index].reshape([UseAntNum, spwNum])).transpose(1,2,0)  # TsysSSOScan[ant, spw, pol], antList order
     for spw_index in range(spwNum):
         SAantennas, SAbl, SAblFlag, SAant0, SAant1 = subArrayIndex(uvFlag[sso_index, spw_index]) # in Canonical ordering
         if len(SAantennas) < 4: continue #  Too few antennas
         SAantMap, SAblMap, SAblInv = np.array(antMap)[SAantennas].tolist(), np.array(blMap)[SAbl].tolist(), np.array(blInv)[SAbl].tolist()
+        SAuseAntMapRev = indexList(np.array(SAantMap), np.array(UseAnt))
         # print 'Subarray : ',; print antList[SAantMap]
         #-------- Baseline-based cross power spectra
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], SSOscanID[sso_index])
@@ -232,8 +236,8 @@ for sso_index in range(SSONum):
         chAvgVis = (np.mean(BPCaledXspec[:, chRange], axis=1)[pPol].transpose(0,2,1)/SSOmodelVis[sso_index, spw_index,SAbl]).transpose(0,2,1)
         GainX, GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[0]), np.apply_along_axis( gainComplex, 0, chAvgVis[1])
         Ta = SSOflux[sso_index, spw_index]* AeNominal[SAantMap] / (2.0* kb)
-        AeX[SAantennas, spw_index, sso_index] = 2.0* kb* np.percentile(abs(GainX), 75, axis=1)**2 * (Ta + TsysSSOScan[SAantMap, spw_index, 0]) / SSOflux[sso_index, spw_index]
-        AeY[SAantennas, spw_index, sso_index] = 2.0* kb* np.percentile(abs(GainY), 75, axis=1)**2 * (Ta + TsysSSOScan[SAantMap, spw_index, 1]) / SSOflux[sso_index, spw_index]
+        AeX[SAantennas, spw_index, sso_index] = 2.0* kb* np.percentile(abs(GainX), 75, axis=1)**2 * (Ta + TsysSSOScan[SAuseAntMapRev, spw_index, 0]) / SSOflux[sso_index, spw_index]
+        AeY[SAantennas, spw_index, sso_index] = 2.0* kb* np.percentile(abs(GainY), 75, axis=1)**2 * (Ta + TsysSSOScan[SAuseAntMapRev, spw_index, 1]) / SSOflux[sso_index, spw_index]
         #
     #
 #
@@ -307,7 +311,7 @@ AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
 PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), np.cos(PA))
 XYphase, caledVis = [], []
 scan_index = onsourceScans.index(BPScan)
-TsysBPScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([antNum, spwNum, 2]).transpose(2,0,1) + np.mean(Tskyspec[:,chRange], axis=1)[:,scan_index].reshape([antNum, spwNum])).transpose(1,2,0)[antMap]
+TsysBPScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([UseAntNum, spwNum, 2]).transpose(2,0,1) + np.mean(Tskyspec[:,chRange], axis=1)[:,scan_index].reshape([UseAntNum, spwNum])).transpose(1,2,0)[useAntMapRev]
 for spw_index in range(spwNum):
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], BPScan); timeNum = len(timeStamp)
     if 'FG' in locals(): flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
@@ -370,16 +374,17 @@ for scan_index in range(scanNum):
     if SSO_flag:
         SAantennas, SAbl, SAblFlag, SAant0, SAant1 = subArrayIndex(uvFlag[SSO_ID, spwNum - 1])
         SAantMap, SAblMap, SAblInv = np.array(antMap)[SAantennas].tolist(), np.array(blMap)[SAbl].tolist(), np.array(blInv)[SAbl].tolist()
+        SAuseAntMapRev = indexList(np.array(SAantMap), np.array(UseAnt))
     else:
         SAantennas, SAbl, SAblFlag, SAant0, SAant1 = range(UseAntNum), range(UseBlNum), np.ones([blNum]), ant0, ant1
         SAantMap, SAblMap, SAblInv = antMap, blMap, blInv
+        SAuseAntMapRev = indexList(np.array(SAantMap), np.array(UseAnt))
         TA = 0.0
     #
     for spw_index in range(spwNum):
         atmCorrect = np.exp(Tau0spec[spw_index] / np.sin(OnEL[scan_index]))
         if SSO_flag: TA = Ae[SAantennas,:,spw_index]* SSOflux0[SSO_ID, spw_index]* np.mean(atmCorrect)  / (2.0* kb)
-        #TsysSPW = Trxspec[spw_index::spwNum][SAantennas].transpose(1,0,2) + Tskyspec[spw_index::spwNum][SAantennas,:,scan_index]
-        TsysSPW = Trxspec[spw_index::spwNum][SAantennas].transpose(1,0,2) + Tskyspec[spw_index::spwNum][SAantMap,:,scan_index]
+        TsysSPW = Trxspec[spw_index::spwNum][SAuseAntMapRev].transpose(1,0,2) + Tskyspec[spw_index::spwNum][SAuseAntMapRev,:,scan_index]
         #---- Flagged by Tsys
         tsysFlagAntIndex = unique(np.where(TsysSPW <0.0)[1]).tolist()
         if len(tsysFlagAntIndex) > 0:
@@ -416,7 +421,7 @@ for scan_index in range(scanNum):
     #-------- Full-Stokes parameters
     for spw_index in range(spwNum):
         atmCorrect = np.exp(Tau0spec[spw_index] / np.sin(OnEL[scan_index]))
-        TsysSPW = (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tskyspec[spw_index::spwNum][:,:,scan_index])[:,SAantMap]
+        TsysSPW = (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tskyspec[spw_index::spwNum][:,:,scan_index])[:,SAuseAntMapRev]
         #---- Flagged by Tsys
         tsysFlagAntIndex = unique(np.where(TsysSPW <0.0)[1]).tolist()
         if len(tsysFlagAntIndex) > 0:

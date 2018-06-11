@@ -126,10 +126,10 @@ if noDantNum > 0:
 #-------- Load D-term file
 DxList, DyList = [], []
 print '---Loading D-term table'
-for ant_index in antMap:
+for ant_index in range(UseAntNum):
     Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
     for spw_index in range(spwNum):
-        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[ant_index] + '.DSpec.npy'
+        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[antMap[ant_index]] + '.DSpec.npy'
         Dterm = np.load(Dfile)
         DxList = DxList + [Dterm[1] + (0.0 + 1.0j)* Dterm[2]]
         DyList = DyList + [Dterm[3] + (0.0 + 1.0j)* Dterm[4]]
