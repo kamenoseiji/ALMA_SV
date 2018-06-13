@@ -140,6 +140,7 @@ for band_index in range(NumBands):
                 execfile(SCR_DIR + 'aprioriStokes.py')
         else:
             execfile(SCR_DIR + 'aprioriStokes.py')
+        #
     #
     if polNum == 2:
         cPol = [0,1], []; ppolNum, cpolNum = len(pPol), len(cPol)
