@@ -20,6 +20,14 @@ flagAnt = indexList(antFlag, antList)
 UseAnt = sort(list(set(range(antNum)) - set(flagAnt))).tolist()
 UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
 ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
+#----------------------------------------- SPW and Band name
+msmd.open(msfile)
+spwName = msmd.namesforspws([spw])
+spwPattern = r'RB_..'
+BandName = re.findall(spwPattern, spwName[0])[0]
+BandPA = (BANDPA[int(BandName[3:5])] + 90.0)*pi/180.0
+msmd.close()
+msmd.done()
 #----------------------------------------- Find BP table
 BPpath = BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'
 XYpath = BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy'
@@ -68,6 +76,7 @@ BP_bl = BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate()    # Ba
 #----------------------------------------- Access to MS
 msfile = wd + prefix + '.ms'
 chNum, chWid, Freq = GetChNum(msfile, spw); chRange = range(int(0.05*chNum), int(0.95*chNum)); Freq *= 1.0e-9   # [Hz]-> [GHz]
+chOut = sort(list(set(range(chNum)) - set(chRange)))
 #----------------------------------------- D-term table to store
 Dx, Dy = np.zeros([UseAntNum, chNum], dtype=complex), np.zeros([UseAntNum, chNum], dtype=complex)
 Dx[0:DantNum], Dy[0:DantNum] = np.array(DxList), np.array(DyList)
@@ -75,7 +84,7 @@ Dx[0:DantNum], Dy[0:DantNum] = np.array(DxList), np.array(DyList)
 timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)
 #-------- AZ, EL, PA
 azelTime, AntID, az, el = GetAzEl(msfile)
-AZ, EL = AzElMatch(timeStamp, azelTime, AntID, refAntID, az, el); PA = AzEl2PA(AZ, EL, ALMA_lat) + BANDPA; PAnum = len(PA)
+AZ, EL = AzElMatch(timeStamp, azelTime, AntID, refAntID, az, el); PA = AzEl2PA(AZ, EL, ALMA_lat) + BandPA; PAnum = len(PA)
 #----------------------------------------- Visibility Calibration
 tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)
 BPCaledXspec = (tempSpec / BP_bl).transpose(2,3,1,0)            # BP Cal
@@ -89,7 +98,8 @@ VisSpec = BPCaledXspec.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXi
 ant0, ant1 = ANT0[0:DblNum], ANT1[0:DblNum]
 PS = InvPAVector(PA, np.ones(PAnum))
 StokesVis = np.zeros([4, chNum], dtype=complex)
-for ch_index in range(chNum):
+#for ch_index in range(chNum):
+for ch_index in chRange:
     Minv = InvMullerVector(Dx[ant1, ch_index], Dy[ant1, ch_index], Dx[ant0, ch_index], Dy[ant0, ch_index], np.ones(DblNum))
     StokesVis[:,ch_index] = PS.reshape(4, 4*PAnum).dot(Minv.reshape(4, 4*DblNum).dot(VisSpec[ch_index][:,0:DblNum].reshape(4*DblNum, PAnum)).reshape(4*PAnum)) / (PAnum* DblNum)
 QUsol = np.mean(StokesVis[[1,2]][:,chRange], axis=1).real
@@ -106,9 +116,12 @@ PS = PSvector(PA, np.array([1.0, QUsol[0], QUsol[1], 0.0])).real
 for ant_index in range(DantNum, UseAntNum):
     print 'Determining D-term of ' + antList[antMap[ant_index]]
     DtransBL = range(ant_index* (ant_index - 1) / 2, ant_index* (ant_index - 1) / 2 + DantNum)
-    for ch_index in range(chNum):
+    #for ch_index in range(chNum):
+    for ch_index in chRange:
         Dx[ant_index, ch_index], Dy[ant_index, ch_index] = TransferD(VisSpec[ch_index][:, DtransBL], Dx[0:DantNum, ch_index], Dy[0:DantNum, ch_index], PS) 
     #
+    Dx[ant_index, chOut] = np.median( Dx[ant_index, chRange] )
+    Dy[ant_index, chOut] = np.median( Dy[ant_index, chRange] )
 #
 #-------- Save D-term spectra
 np.save(prefix + '-SPW' + `spw` + '-' + refantName + '.Ant.npy', antList[antMap])

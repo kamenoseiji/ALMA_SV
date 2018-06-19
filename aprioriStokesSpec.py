@@ -15,6 +15,7 @@ blNum = antNum* (antNum - 1) / 2
 spwNum = len(spwList)
 spwName = msmd.namesforspws(spwList[0])[0]
 BandName = re.findall(r'RB_..', spwName)[0]; BandID = int(BandName[3:5])
+BandPA = (BANDPA[int(BandName[3:5])] + 90.0)*pi/180.0
 #-------- Configure Array
 print '---Checking array configulation'
 flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
@@ -23,19 +24,25 @@ Tatm_OFS  = 5.0     # Ambient-load temperature - Atmosphere temperature
 kb        = 1.38064852e3
 #-------- Load Tsys File
 if 'QUfile' in locals(): QUmodel = np.load(QUfile + '.QUXY.npy')
-Tau0spec = np.load(prefix +  '-' + UniqBands[band_index] + '.Tau0.npy') # Tau0spec[spw][ch]
-Trxspec  = np.load(prefix +  '-' + UniqBands[band_index] + '.Trx.npy')  # Trxspec[ant*spw][pol, ch]
-OnEL = np.load(prefix +  '-' + UniqBands[band_index] + '.OnEL.npy')
-AtmEL = np.load(prefix +  '-' + UniqBands[band_index] + '.AtmEL.npy')
+#Tau0spec = np.load(prefix +  '-' + UniqBands[band_index] + '.Tau0.npy') # Tau0spec[spw][ch]
+#Trxspec  = np.load(prefix +  '-' + UniqBands[band_index] + '.Trx.npy')  # Trxspec[ant*spw][pol, ch]
+#OnEL = np.load(prefix +  '-' + UniqBands[band_index] + '.OnEL.npy')
+#AtmEL = np.load(prefix +  '-' + UniqBands[band_index] + '.AtmEL.npy')
+Tau0spec = np.load(TSprefix + '.Tau0.npy') # Tau0spec[spw][ch]
+Trxspec  = np.load(TSprefix + '.Trx.npy')  # Trxspec[ant*spw][pol, ch]
+OnEL = np.load(TSprefix + '.OnEL.npy')
+AtmEL = np.load(TSprefix + '.AtmEL.npy')
 OnEL = np.median(OnEL, axis=0)
+UseAntNum = AtmEL.shape[0]; TrxSPWnum = Trxspec.shape[0]/UseAntNum
+chAvgTrx = np.median(Trxspec, axis=2).reshape([UseAntNum, TrxSPWnum, 2])
 #TRchNum = Trec.shape[2]; TRchRange = range(int(0.05*TRchNum), int(0.95*TRchNum))
 #chAvgTrx = np.median(np.mean(Trec[:,:,TRchRange], axis=2), axis=2)
 #Tau0 = np.median(Tau0)
 #-------- Array Configuration
 UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt)
 print '---Checking array configuration'
-flagList = np.where(np.median(chAvgTrx.reshape(UseAntNum, 2* spwNum), axis=1) > 2.0* np.percentile(chAvgTrx, 75))[0].tolist()  # Avoid too-high Trx
-flagList = unique(flagList + np.where(np.min(chAvgTrx.reshape(UseAntNum, 2* spwNum), axis=1) < 1.0 )[0].tolist()).tolist()     # Avoid too-low Trx
+flagList = np.where(np.max(chAvgTrx, axis=(1,2)) > 2.0* np.percentile(chAvgTrx, 75))[0].tolist()  # Avoid too-high Trx
+flagList = unique(flagList + np.where(np.min(chAvgTrx, axis=(1,2)) < Tatm_OFS )[0].tolist()).tolist()     # Avoid too-low Trx
 if len(flagList) >0 :
     for index in flagList: del UseAnt[index]
 #
@@ -105,6 +112,20 @@ for ant_index in antMap:
 #
 chNum = np.array(DxList).shape[1]
 DxSpec, DySpec = np.array(DxList).reshape([UseAntNum, spwNum, chNum]), np.array(DyList).reshape([UseAntNum, spwNum, chNum])
+#
+#-------- Flag table
+if 'FGprefix' in locals():
+    print '---Checking Flag File'
+    FGList = []
+    for spw_index in range(spwNum): FG = np.load(FGprefix + '-SPW' + `spwList[spw_index]` + '.FG.npy'); FGList = FGList + [np.min(FG, axis=0)]
+    FG = np.min( np.array(FGList), axis=0)
+    TS = np.load(FGprefix + '-SPW' + `spwList[spw_index]` + '.TS.npy')
+    interval, timeStamp = GetTimerecord(msfile, 0, 0, spwList[0], EQScan); timeNum = len(timeStamp)
+    flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
+else :
+    interval, timeStamp = GetTimerecord(msfile, 0, 0, spwList[0], EQScan); timeNum = len(timeStamp)
+    flagIndex = range(timeNum)
+#
 #-------- Bandpass Table
 BPList = []
 print '---Loading bandpass table'
@@ -116,37 +137,40 @@ for spw in spwList:
     BPList = BPList + [BP_ant]
 #
 ##-------- Equalization using EQ scan
-relGain = np.ones([spwNum, 2, UseAntNum])
+relGain = np.ones([2, UseAntNum])
 polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
 interval, timeStamp = GetTimerecord(msfile, 0, 0, spwList[0], EQScan); timeNum = len(timeStamp)
 AzScan, ElScan = AzElMatch(timeStamp[flagIndex], azelTime, AntID, refantID, AZ, EL)
-PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), np.cos(PA))
+PA = AzEl2PA(AzScan, ElScan) + BandPA; PA = np.arctan2( np.sin(PA), np.cos(PA))
 useAntMapRev = indexList(np.array(antMap), np.array(UseAnt))
+exp_Tau = np.exp(-Tau0spec / np.sin(np.mean(ElScan)))
 TsysEQScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([UseAntNum, spwNum, 2]).transpose(2,0,1) + Tcmb* np.mean(exp_Tau, axis=1) + tempAtm* (1.0 - np.mean(exp_Tau[:,chRange], axis=1))).transpose(1,2,0)[useAntMapRev]
-for spw_index in range(spwNum):
-    #-------- Baseline-based cross power spectra
-    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], EQScan)
-    AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
-    PA = AzEl2PA(AzScan, ElScan) + (BANDPA[BandID] + 90.0)*pi/180.0
-    QCpUS = QUmodel[0]* np.cos(2.0* PA) + QUmodel[1]* np.sin(2.0* PA)         # Q cos + U sin
-    TauObs = Tau0 / np.sin(np.mean(ElScan)); atmCorrect = np.exp(-TauObs)
-    chAvgTsys = chAvgTrx + 285.0* (1.0 - np.exp(-TauObs))
-    chNum = Xspec.shape[1]
-    tempSpec = CrossPolBL(Xspec[:,BPchRange][:,:,blMap], blInv).transpose(3,2,0,1)       # Cross Polarization Baseline Mapping : tempSpec[time, blMap, pol, ch]
-    BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex][:,:,BPchRange]* BPList[spw_index][ant1][:,polXindex][:,:,BPchRange].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
-    #-------- Antenna-based Gain correction
-    chAvgVis = np.mean(BPCaledXspec, axis=1)[pPol]
-    GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[1])])
-    #aprioriSEFD = 2.0* kb* chAvgTsys[antMap].T / np.array([AeX, AeY])
-    aprioriSEFD = 2.0* kb* TsysEQScan[:,spw_index].T / np.array([AeX, AeY])
-    aprioriVisX = np.mean(chAvgVis[0] / ((1.0 + QCpUS)* GainP[0,ant0]* GainP[0,ant1].conjugate()), axis=1) * np.sqrt(aprioriSEFD[0, ant0]* aprioriSEFD[0, ant1])
-    aprioriVisY = np.mean(chAvgVis[1] / ((1.0 - QCpUS)* GainP[1,ant0]* GainP[1,ant1].conjugate()), axis=1) * np.sqrt(aprioriSEFD[1, ant0]* aprioriSEFD[1, ant1])
-    #-------- Determine Antenna-based Gain
-    relGain[spw_index, 0] = abs(gainComplex(aprioriVisX))
-    relGain[spw_index, 1] = abs(gainComplex(aprioriVisY))
-    medGain = np.median( abs(relGain) )
-    relGain[spw_index, 0] /= medGain # X-pol delta gain
-    relGain[spw_index, 1] /= medGain # Y-pol delta gain
+#
+#for spw_index in range(spwNum):
+spw_index = 0
+#-------- Baseline-based cross power spectra
+timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], EQScan)
+AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
+PA = AzEl2PA(AzScan, ElScan) + (BANDPA[BandID] + 90.0)*pi/180.0
+QCpUS = QUmodel[0]* np.cos(2.0* PA) + QUmodel[1]* np.sin(2.0* PA)         # Q cos + U sin
+    # TauObs = Tau0 / np.sin(np.mean(ElScan)); atmCorrect = np.exp(-TauObs)
+    # chAvgTsys = chAvgTrx + 285.0* (1.0 - np.exp(-TauObs))
+chNum = Xspec.shape[1]
+tempSpec = CrossPolBL(Xspec[:,chRange][:,:,blMap], blInv).transpose(3,2,0,1)       # Cross Polarization Baseline Mapping : tempSpec[time, blMap, pol, ch]
+BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex][:,:,chRange]* BPList[spw_index][ant1][:,polXindex][:,:,chRange].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
+#-------- Antenna-based Gain correction
+chAvgVis = np.mean(BPCaledXspec, axis=1)[pPol]
+GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[1])])
+#aprioriSEFD = 2.0* kb* chAvgTsys[antMap].T / np.array([AeX, AeY])
+aprioriSEFD = 2.0* kb* TsysEQScan[:,spw_index].T / np.array([AeX, AeY])
+aprioriVisX = np.mean(chAvgVis[0] / ((1.0 + QCpUS)* GainP[0,ant0]* GainP[0,ant1].conjugate()), axis=1) * np.sqrt(aprioriSEFD[0, ant0]* aprioriSEFD[0, ant1])
+aprioriVisY = np.mean(chAvgVis[1] / ((1.0 - QCpUS)* GainP[1,ant0]* GainP[1,ant1].conjugate()), axis=1) * np.sqrt(aprioriSEFD[1, ant0]* aprioriSEFD[1, ant1])
+#-------- Determine Antenna-based Gain
+relGain[0] = abs(gainComplex(aprioriVisX))
+relGain[1] = abs(gainComplex(aprioriVisY))
+medGain = np.median( abs(relGain) )
+relGain[0] /= medGain # X-pol delta gain
+relGain[1] /= medGain # Y-pol delta gain
 #
 #-------- Flux Density
 spw_index = 0
@@ -168,7 +192,7 @@ for scan in scanList:
     text_sd = ' AZ=%4.1f EL=%4.1f X-feed-PA=%4.1f' % (np.median(AzScan)*180.0/pi, np.median(ElScan)*180.0/pi, np.median(PA)*180.0/pi)
     print text_sd
     #-------- Tsys calibration
-    atmCorrect = np.exp(Tau0spec[spw_index] / np.sin(OnEL[scan_index]))
+    atmCorrect = np.exp(Tau0spec[spw_index] / np.sin(np.mean(ElScan)))
     exp_Tau = 1.0 / atmCorrect
     TsysSPW =  (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tcmb* exp_Tau + tempAtm * (1.0 - exp_Tau))[:,useAntMapRev]
     #---- Flagged by Tsys
@@ -176,7 +200,7 @@ for scan in scanList:
     if len(tsysFlagAntIndex) > 0:
         for ant_index in tsysFlagAntIndex: TsysSPW[:,ant_index] = Trxspec[spw_index::spwNum][ant_index] + tempAtm* (1.0 - np.exp(-Tau0spec[spw_index] / np.sin(OnEL[scan_index])))
     #
-    SEFD = 2.0* kb* (TsysSPW * atmCorrect).transpose(2,0,1) /  (np.array([AeX[0:UseAntNum], AeY[0:UseAntNum]]) / relGain[spw_index][:,0:UseAntNum]**2)
+    SEFD = 2.0* kb* (TsysSPW * atmCorrect).transpose(2,0,1) /  (np.array([AeX[0:UseAntNum], AeY[0:UseAntNum]]) / relGain[:,0:UseAntNum]**2)
     #TauObs = Tau0 / np.sin(np.mean(ElScan)); atmCorrect = np.exp(-TauObs)
     #chAvgTsys = chAvgTrx + 285.0* (1.0 - np.exp(-TauObs))
     figScan.text(0.05, 0.95, text_sd) 
@@ -198,14 +222,14 @@ for scan in scanList:
     pCalVis = (BPCaledXspec.transpose(1,0,2,3) / (GainP[polYindex][:,ant0]* GainP[polXindex][:,ant1].conjugate()))
     # SEFD = 2.0* kb* chAvgTsys[antMap].T / (np.array([AeX, AeY]) * atmCorrect)/ (relGain[spw_index]**2)
     # AmpCalVis = (pCalVis.transpose(0,3,1,2)* np.sqrt(SEFD[polYindex][:,ant0]* SEFD[polXindex][:,ant1])).transpose(3,2,0,1) # AmpCalVis[bl,pol,ch,time]
-    AmpCalVis = (pCalVis[spw_index].transpose(3,0,1,2)* np.sqrt(SEFD[chRange][:,polYindex][:,:,ant0[0:UseBlNum]]* SEFD[chRange][:,polXindex][:,:,ant1[0:UseBlNum]])).transpose(3,2,1,0)
-    StokesI_PL = figScan.add_subplot( 2, spwNum, 0* spwNum + spw_index + 1)
-    StokesP_PL = figScan.add_subplot( 2, spwNum, 1* spwNum + spw_index + 1)
-    Stokes = np.zeros([4,blNum, chNum], dtype=complex)  # Stokes[stokes, bl, ch]
+    AmpCalVis = (pCalVis[chRange].transpose(3,0,1,2)* np.sqrt(SEFD[chRange][:,polYindex][:,:,ant0[0:UseBlNum]]* SEFD[chRange][:,polXindex][:,:,ant1[0:UseBlNum]])).transpose(3,2,1,0)
+    StokesI_PL = figScan.add_subplot( 2, 1, 1)
+    StokesP_PL = figScan.add_subplot( 2, 1, 2)
+    Stokes = np.zeros([4,blNum, UseChNum], dtype=complex)  # Stokes[stokes, bl, ch]
     for bl_index in range(UseBlNum):
         Minv = InvMullerVector(DxSpec[ant1[bl_index],spw_index], DySpec[ant1[bl_index],spw_index], DxSpec[ant0[bl_index],spw_index], DySpec[ant0[bl_index],spw_index], np.ones(chNum))
         for time_index in range(timeNum):
-            for ch_index in range(chNum):
+            for ch_index in range(UseChNum):
                 Stokes[:,bl_index,ch_index] += PS[:,:,time_index].dot(Minv[:,:,ch_index].dot(AmpCalVis[bl_index, :, ch_index, time_index]))
             #
         #
@@ -214,19 +238,19 @@ for scan in scanList:
     StokesSpec, StokesErr = Stokes.real, Stokes.imag
     np.save(prefix + '-' + BandName + '-Scan' + `scan` + '.StokesSpec.npy', StokesSpec)
     np.save(prefix + '-' + BandName + '-Scan' + `scan` + '.StokesErr.npy', StokesErr)
-    StokesI_PL.plot( Freq[chRange], StokesSpec[0, chRange], ls='steps-mid', label=polLabel[0], color=Pcolor[0])
+    StokesI_PL.plot( Freq[chRange], StokesSpec[0], ls='steps-mid', label=polLabel[0], color=Pcolor[0])
     StokesP_PL.plot( np.array([min(Freq[chRange]), max(Freq[chRange])]), np.array([0.0,0.0]), '-', color='gray')
-    StokesP_PL.plot( Freq[chRange], StokesSpec[1, chRange], ls='steps-mid', label=polLabel[1], color=Pcolor[1])
-    StokesP_PL.plot( Freq[chRange], StokesSpec[2, chRange], ls='steps-mid', label=polLabel[2], color=Pcolor[2])
-    StokesP_PL.plot( Freq[chRange], StokesSpec[3, chRange], ls='steps-mid', label=polLabel[3], color=Pcolor[3])
+    StokesP_PL.plot( Freq[chRange], StokesSpec[1], ls='steps-mid', label=polLabel[1], color=Pcolor[1])
+    StokesP_PL.plot( Freq[chRange], StokesSpec[2], ls='steps-mid', label=polLabel[2], color=Pcolor[2])
+    StokesP_PL.plot( Freq[chRange], StokesSpec[3], ls='steps-mid', label=polLabel[3], color=Pcolor[3])
     #StokesI_PL.plot( np.array(chRange), StokesSpec[0, chRange], ls='steps-mid', label=polLabel[0], color=Pcolor[0])
     #StokesP_PL.plot( np.array([min(chRange), max(chRange)]), np.array([0.0,0.0]), '-', color='gray')
     #StokesP_PL.plot( np.array(chRange), StokesSpec[1, chRange], ls='steps-mid', label=polLabel[1], color=Pcolor[1])
     #StokesP_PL.plot( np.array(chRange), StokesSpec[2, chRange], ls='steps-mid', label=polLabel[2], color=Pcolor[2])
     #StokesP_PL.plot( np.array(chRange), StokesSpec[3, chRange], ls='steps-mid', label=polLabel[3], color=Pcolor[3])
-    plotMax = max(StokesSpec[0, chRange])
+    plotMax = max(StokesSpec[0])
     StokesI_PL.axis([min(Freq[chRange]), max(Freq[chRange]), 0.0, 1.2* plotMax])
-    StokesP_PL.axis([min(Freq[chRange]), max(Freq[chRange]), -0.025*plotMax, 0.025*plotMax ])
+    StokesP_PL.axis([min(Freq[chRange]), max(Freq[chRange]), -0.15*plotMax, 0.15*plotMax ])
     #StokesI_PL.axis([min(chRange), max(chRange), 0.0, 1.2* plotMax])
     #StokesP_PL.axis([min(chRange), max(chRange), -0.10*plotMax, 0.10*plotMax ])
     #

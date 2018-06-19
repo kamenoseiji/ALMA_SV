@@ -14,10 +14,10 @@ Tatm_OFS  = 15.0     # Ambient-load temperature - Atmosphere temperature
 kb        = 1.38064852e3
 #-------- Check Scans for atmCal
 logfile = open(prefix + '-' + UniqBands[band_index] + '-Flux.log', 'w') 
-logfile.write(FLScaleText + '\n'); logfile.write(BPcalText + '\n'); logfile.write(EQcalText + '\n')
+#logfile.write(FLScaleText + '\n'); logfile.write(BPcalText + '\n'); logfile.write(EQcalText + '\n')
 print '---Checking time series in MS and atmCal scans'
 #-------- Tsys measurements
-execfile(SCR_DIR + 'TsysCal.py')
+#execfile(SCR_DIR + 'TsysCal.py')
 ######## Outputs from TsysCal.py :
 #  TantN[ant, spw, pol] : Antenna noise pickup. ant order is the same with MS
 #  chAvgTrx[ant, spw, pol, scan]  : Channel-averaged receiver noise temperature
