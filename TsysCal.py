@@ -16,20 +16,6 @@
 #
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Plotters.py')
-"""
-def residTskyTransfer( param, Tamb, secz, Tsky, weight ):
-    exp_Tau = np.exp( -param[1]* secz )
-    return weight* (Tsky - (param[0] + 2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
-#
-def residTskyTransfer0( param, Tamb, secz, Tsky, weight ):
-    exp_Tau = np.exp( -param[0]* secz )
-    return weight* (Tsky - (2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
-#
-def residTskyTransfer2( param, Tamb, Tau0, secz, Tsky, weight ):
-    exp_Tau = np.exp( -Tau0* secz )
-    return weight* (Tsky - (param[0] + 2.718* exp_Tau  + Tamb* (1.0 - exp_Tau)))
-#
-"""
 def scanAtmSpec(msfile, useAnt, scanList, spwList, timeOFF=0, timeON=0, timeAMB=0, timeHOT=0):
     timeList, offSpecList, ambSpecList, hotSpecList = [], [], [], []
     antNum, scanNum, spwNum = len(useAnt), len(scanList), len(spwList)
@@ -286,6 +272,10 @@ for band_index in range(NumBands):
     print ' '
     for spw_index in range(spwNum): text_sd = 'SPW=%d : Tau(zenith) = %6.4f +- %6.4f' % (atmspwLists[band_index][spw_index], Tau0med[spw_index], Tau0err[spw_index]); tsysLog.write(text_sd + '\n'); print text_sd
     tsysLog.close()
+    for ant_index in range(useAntNum):
+        for spw_index in range(spwNum):
+            TrxList[ant_index* spwNum + spw_index] += TantN[ant_index, spw_index]
+    #
     np.save(prefix +  '-' + UniqBands[band_index] + '.Trx.npy', TrxList) 
     np.save(prefix +  '-' + UniqBands[band_index] + '.Tsky.npy', TskyList) 
     np.save(prefix +  '-' + UniqBands[band_index] + '.TrxFlag.npy', TrxFlag) 
