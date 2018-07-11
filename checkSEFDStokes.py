@@ -406,7 +406,7 @@ for scan_index in range(scanNum):
         if SSO_flag: TA = Ae[SAantennas,:,spw_index]* SSOflux0[SSO_ID, spw_index]* np.mean(atmCorrect)  / (2.0* kb)
         #TsysSPW = Trxspec[spw_index::spwNum][SAuseAntMapRev].transpose(1,0,2) + Tskyspec[spw_index::spwNum][SAuseAntMapRev,:,scan_index]
         TsysSPW =  (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tcmb* exp_Tau + tempAtm * (1.0 - exp_Tau))[:,useAntMapRev]
-        TsysSPW = TsysSPW / TsysShape[spw_index]
+        TsysSPW = (TsysSPW / TsysShape[spw_index])[:,SAantennas]
         #---- Flagged by Tsys
         tsysFlagAntIndex = unique(np.where(TsysSPW <0.0)[1]).tolist()
         if len(tsysFlagAntIndex) > 0:
@@ -448,7 +448,7 @@ for scan_index in range(scanNum):
         atmCorrect = np.exp(Tau0spec[spw_index] / np.mean(np.sin(ElScan)))
         exp_Tau = 1.0 / atmCorrect
         TsysSPW =  (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tcmb* exp_Tau + tempAtm * (1.0 - exp_Tau))[:,useAntMapRev]
-        TsysSPW = TsysSPW / TsysShape[spw_index]
+        TsysSPW = (TsysSPW / TsysShape[spw_index])[:,SAantennas]
         #---- Flagged by Tsys
         tsysFlagAntIndex = unique(np.where(TsysSPW <0.0)[1]).tolist()
         if len(tsysFlagAntIndex) > 0:

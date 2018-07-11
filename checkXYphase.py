@@ -7,11 +7,13 @@ antList = GetAntName(msfile)
 antNum = len(antList)
 blNum = antNum* (antNum - 1) / 2
 msmd.open(msfile)
-bpSPWs  = msmd.spwsforintent("CALIBRATE_BANDPASS*").tolist(); bpSPWs.sort()
-bpspwNames, fullResPattern, spwNum =  msmd.namesforspws(bpSPWs), 'FULL_', len(bpSPWs)
+bpSPWs  = msmd.spwsforintent("CALIBRATE_BANDPASS*").tolist(); bpSPWs.sort(); chAvgSPWs = bpSPWs.copy()
+bpspwNames, fullResPattern, chAvgPattern, spwNum =  msmd.namesforspws(bpSPWs), 'FULL_', 'CH_AVG', len(bpSPWs)
 for spw_index in range(spwNum-1, -1, -1):
     if re.findall(fullResPattern, bpspwNames[spw_index]) == []: del bpSPWs[spw_index]   
+    if re.findall(chAvgPattern, bpspwNames[spw_index]) == []: del chAvgSPWs[spw_index]   
 #
+"""
 bpspwNames = msmd.namesforspws(bpSPWs)
 bandNames, bandPattern = [], r'RB_..'
 for spwName in bpspwNames : bandNames = bandNames + re.findall(bandPattern, spwName)
@@ -44,7 +46,8 @@ for band_index in range(NumBands):
     flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
     print '  -- usable antenna checking for BP scan'
     blAmp = np.zeros([blNum])
-    spwNum = len(bpspwLists[band_index])
+    # spwNum = len(bpspwLists[band_index])
+    spwNum = 1
     for spw_index in range(spwNum):
         #-------- Baseline-based cross power spectra
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, bpspwLists[band_index][spw_index], bpscanLists[band_index][0])
@@ -61,6 +64,7 @@ for band_index in range(NumBands):
     #
     antFlag = antList[np.where(flagAnt < 1.0)[0].tolist()]
 #
+"""
 
 '''
 

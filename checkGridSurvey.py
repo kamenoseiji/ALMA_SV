@@ -138,6 +138,7 @@ for band_index in range(NumBands):
             except:
                 print '  --SSO-based flux calibration falied. Switch to a priori (SEFD) calibration.'
                 execfile(SCR_DIR + 'aprioriStokes.py')
+            #
         else:
             execfile(SCR_DIR + 'aprioriStokes.py')
         #
