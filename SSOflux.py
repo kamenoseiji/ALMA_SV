@@ -10,16 +10,12 @@ SSONum = len(BandSSOList)
 timeLabel = qa.time('%fs' % (timeStamp[0]), form='ymd')[0]
 SSOflux0, SSOshape, centerFreqList = [], [], []
 #-------- Primary beam for each baseline
-primaryBeam = np.ones([UseBlNum])
-for bl_index in range(UseBlNum):
-    beam0, beam1 = 1.0/antDia[antMap[ant0[bl_index]]], 1.0/antDia[antMap[ant1[bl_index]]] 
-    primaryBeam[bl_index] = np.sqrt(2.0/ ((beam0)**2 + (beam1)**2 )) * beam0* beam1
-#
+beam0, beam1 = 1.0/antDia[ANT0[0:blNum]], 1.0/antDia[ANT1[0:blNum]]
+primaryBeam = np.sqrt(2.0/ ((beam0)**2 + (beam1)**2 )) * beam0* beam1
 #-------- Center frequency of each SPW
 for spw_index in range(spwNum): 
     chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index])
     centerFreqList.append( np.median(Freq)*1.0e-9 )
-#
 #-------- SSO Model
 for ssoIndex in range(SSONum):
     for spw_index in range(spwNum): 
@@ -32,7 +28,7 @@ for ssoIndex in range(SSONum):
 #
 plt.close('all')
 SSOflux0= np.array(SSOflux0).reshape(SSONum, spwNum)     # [SSO, spw]
-uvFlag = np.ones([SSONum, spwNum, UseBlNum])
+uvFlag = np.zeros([SSONum, spwNum, blNum])
 SSOmodelVis, SSOscanID = [], []
 for ssoIndex in range(SSONum):
     UVlimit = 0.32 / SSOshape[ssoIndex][0]  # Maximum uv distane(lambda) available for the SSO size
@@ -43,16 +39,17 @@ for ssoIndex in range(SSONum):
     #
     FLScaleText = 'Flux Calibrator is %s at %s' % (sourceList[BandSSOList[ssoIndex]], timeLabel);  print FLScaleText
     timeStamp, UVW = GetUVW(msfile, spwList[spw_index], scanID)
-    uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
+    uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     for spw_index in range(spwNum):
         uvWave = uvw[0:2,:]* centerFreqList[spw_index] / 0.299792458    # UV distance in wavelength
-        uvFlag[ssoIndex, spw_index, np.where( uvDist* centerFreqList[spw_index] / 0.299792458 > UVlimit )[0].tolist()] = 0.0
+        uvFlag[ssoIndex, spw_index, np.where( uvDist* centerFreqList[spw_index] / 0.299792458 < UVlimit )[0].tolist()] = 1.0
         SSOmodelVis = SSOmodelVis + [diskVisBeam(SSOshape[ssoIndex], uvWave[0], uvWave[1], 1.13* 0.299792458* primaryBeam/centerFreqList[spw_index])]
         #-------- for debug
         text_sd = 'SPW=%d uv limit = %5.0f klambda' % (spwList[spw_index], UVlimit*1.0e-3); print text_sd
-        for ant0_index in range(1, UseAntNum):
-            text_sd = antList[antMap[ant0_index]] + ' : '; print text_sd,
-            blList = np.where(np.array(ant0) == ant0_index)[0].tolist()
+        for ant0_index in range(1, antNum):
+            #text_sd = antList[antMap[ant0_index]] + ' : '; print text_sd,
+            text_sd = antList[ant0_index] + ' : '; print text_sd,
+            blList = np.where(np.array(ANT0[0:blNum]) == ant0_index)[0].tolist()
             for bl_index in blList:
                 uvLambda = uvDist[bl_index]* centerFreqList[spw_index] / 0.299792458
                 if uvFlag[ssoIndex, spw_index, bl_index] < 1.0: text_sd = '\033[91m%4.0f\033[0m' % (uvLambda*1.0e-3)
@@ -62,13 +59,15 @@ for ssoIndex in range(SSONum):
             print ''
         #
         print '       ',
-        for ant0_index in range(0, UseAntNum - 1):
-            print antList[antMap[ant0_index]],
+        #for ant0_index in range(0, UseAntNum - 1):
+        for ant0_index in range(antNum - 1):
+            #print antList[antMap[ant0_index]],
+            print antList[ant0_index],
         #
         print ''
     #
 #
-SSOmodelVis = np.array(SSOmodelVis).reshape(SSONum, spwNum, UseBlNum)
+SSOmodelVis = np.array(SSOmodelVis).reshape(SSONum, spwNum, blNum)
 #FCSmodelVis = SSOmodelVis[FCS_ID]
 #FCSFlag     = uvFlag[FCS_ID]
 #

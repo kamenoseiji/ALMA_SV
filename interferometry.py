@@ -62,20 +62,19 @@ def Ant2Bl_RevLex(ant1, ant2, antnum):    # Reverse Lexical, without autcorr
     antenna1 = max(ant1, ant2); antenna2 = min(ant1, ant2)
     return int(antnum* antenna2 - (antenna2 + 1)* (antenna2 + 2) / 2  + antenna1)
 #
-def subArrayIndex(Flag):          #-------- SubArray Indexing
-    blNum = len(Flag); antNum = Bl2Ant(blNum)[0]; kernelBL = KERNEL_BL[range(antNum-1)].tolist()
-    ant0, ant1 = ANT0[0:blNum], ANT1[0:blNum]
-    flagIndex = np.where(Flag == 1)[0].tolist()       # Baselines: uvDist < UVlimit
-    flagRefIndex = list( set(flagIndex) & set(kernelBL))            # Baselines including refant and uvDist < UVlimit 
-    SAantennas = [0] + list(np.array(ant0)[flagRefIndex]); SAantennas.sort()
+def subArrayIndex(Flag, refant):          #-------- SubArray Indexing
+    blNum = len(Flag); antNum = Bl2Ant(blNum)[0]
+    ant0, ant1 = np.array(ANT0[0:blNum]), np.array(ANT1[0:blNum])
+    kernelBL = np.where(ant0 == refant)[0].tolist() + np.where(ant1 == refant)[0].tolist()
+    flagIndex = np.where(Flag[kernelBL] > 0.5)[0].tolist()
+    useKernelBL = np.array(kernelBL)[flagIndex].tolist()
+    SAantennas = unique(np.append(ant0[useKernelBL], ant1[useKernelBL]))
+    SAantMap = [refant] + sort(np.array(list(set(SAantennas) - set([refant])))).tolist()
     SAantNum = len(SAantennas); SAblNum = SAantNum* (SAantNum - 1)/2
-    SAblMap = []
-    for bl_index in range(SAblNum):
-        SAblMap = SAblMap + [Ant2Bl(SAantennas[ant0[bl_index]], SAantennas[ant1[bl_index]])]
-    #
-    SAblFlag = np.zeros([SAblNum]); SAblFlag[indexList(np.array(flagIndex), np.array(SAblMap))] = 1.0
-    SAant0, SAant1 = np.array(ant0)[SAblMap].tolist(), np.array(ant1)[SAblMap].tolist()
-    return SAantennas, SAblMap, SAblFlag, SAant0, SAant1
+    SAblMap, SAblInv = range(SAblNum), range(SAblNum)
+    for bl_index in range(SAblNum): SAblMap[bl_index], SAblInv[bl_index] = Ant2BlD(SAantMap[ant0[bl_index]], SAantMap[ant1[bl_index]])
+    SAant0, SAant1 = ant0[SAblMap].tolist(), ant1[SAblMap].tolist()
+    return SAantMap, SAblMap, SAblInv, SAant0, SAant1
 #
 #-------- Muller Matrix
 def MullerMatrix(Dx0, Dy0, Dx1, Dy1):
@@ -1601,9 +1600,9 @@ def bestRefant(uvDist):
     blCounter = np.zeros([antNum])
     distOrder = np.argsort(uvDist)
     for bl_index in distOrder:
-        blCounter[ant0[bl_index]] += 1
-        blCounter[ant1[bl_index]] += 1
-        if np.max(blCounter) > 3: break
+        blCounter[ant0[bl_index]] += (blNum - bl_index)
+        blCounter[ant1[bl_index]] += (blNum - bl_index)
+        if np.max(blCounter) > 2* blNum: break
     #
     return np.argmax(blCounter)
 #

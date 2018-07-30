@@ -231,7 +231,6 @@ for band_index in range(NumBands):
     #-------- Log TantN
     text_sd = 'TantN:----------+---------+---------+---------+\n'; tsysLog.write(text_sd); print text_sd,
     for ant_index in range(useAntNum):
-        if flagAnt[ant_index] < 1.0: continue
         text_sd = antList[useAnt[ant_index]] + ' : '; tsysLog.write(text_sd); print text_sd,
         for spw_index in range(spwNum):
             text_sd = '%5.1f K' % (TantN[ant_index, spw_index])
@@ -245,7 +244,6 @@ for band_index in range(NumBands):
     tsysLog.write(text_sd + '\n'); print text_sd
     text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; tsysLog.write(text_sd + '\n'); print text_sd
     for ant_index in range(useAntNum):
-        # if flagAnt[ant_index] < 1.0: continue
         text_sd =  antList[useAnt[ant_index]] + ' : '; tsysLog.write(text_sd); print text_sd,
         for spw_index in range(spwNum):
             for pol_index in range(2):
@@ -260,7 +258,6 @@ for band_index in range(NumBands):
     tsysLog.write(text_sd + '\n'); print text_sd
     text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; tsysLog.write(text_sd + '\n'); print text_sd
     for ant_index in range(useAntNum):
-        # if flagAnt[ant_index] < 1.0: continue
         text_sd =  antList[useAnt[ant_index]] + ' : '; tsysLog.write(text_sd); print text_sd,
         for spw_index in range(spwNum):
             for pol_index in range(2):
