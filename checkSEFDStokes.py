@@ -74,7 +74,6 @@ print '  Use ' + antList[UseAnt[refantID]] + ' as the refant.'
 
 antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
 useAntMap = indexList(antList[antMap], antList[UseAnt])
-#useAntMapRev = indexList(np.array(antMap), np.array(UseAnt))
 for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 AeNominal = 0.6* 0.25* np.pi* antDia**2      # Nominal Collecting Area
@@ -337,11 +336,9 @@ for spw_index in range(spwNum):
     else : flagIndex = range(timeNum)
     chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
     tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
-    # BPCaledXspec = (tempSpec / (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal
     BPCaledXspec = (tempSpec * TsysBL/ (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
     chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
     GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
-    #SEFD = (2.0* kb* TsysBPScan[:,spw_index] / Ae[:,:,spw_index]).T
     SEFD = 2.0* kb / Ae[:,:,spw_index].T
     caledVis.append(np.mean((chAvgVis / (GainP[polYindex][:,ant0]* GainP[polXindex][:,ant1].conjugate())).transpose(2, 0, 1)* np.sqrt(SEFD[polYindex][:,ant0]* SEFD[polXindex][:,ant1]), axis=2).T)
 #

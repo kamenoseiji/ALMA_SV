@@ -132,16 +132,15 @@ for band_index in range(NumBands):
     msmd.done()
     if polNum == 4:
         pPol, cPol = [0,3], [1,2];  ppolNum, cpolNum = len(pPol), len(cPol)
-        execfile(SCR_DIR + 'checkSEFDStokes.py')
-        #if not Apriori:
-        #    try:
-        #        execfile(SCR_DIR + 'checkSEFDStokes.py')
-        #    except:
-        #        print '  --SSO-based flux calibration falied. Switch to a priori (SEFD) calibration.'
-        #        execfile(SCR_DIR + 'aprioriStokes.py')
-        #    #
-        #else:
-        #    execfile(SCR_DIR + 'aprioriStokes.py')
+        if not Apriori:
+            try:
+                execfile(SCR_DIR + 'checkSEFDStokes.py')
+            except:
+                print '  --SSO-based flux calibration falied. Switch to a priori (SEFD) calibration.'
+                execfile(SCR_DIR + 'aprioriStokes.py')
+            #
+        else:
+            execfile(SCR_DIR + 'aprioriStokes.py')
         #
     #
     if polNum == 2:
@@ -156,7 +155,7 @@ for band_index in range(NumBands):
             execfile(SCR_DIR + 'aprioriFlux.py')
     #
 #
-#del msfile, UniqBands
-#if 'flagAnt' in locals(): del flagAnt
-#if 'BPScans' in locals(): del BPScans
-#if 'EQScans' in locals(): del EQScans
+del msfile, UniqBands
+if 'flagAnt' in locals(): del flagAnt
+if 'BPScans' in locals(): del BPScans
+if 'EQScans' in locals(): del EQScans
