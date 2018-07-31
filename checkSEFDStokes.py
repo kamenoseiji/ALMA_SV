@@ -227,14 +227,17 @@ flaggedBlList = list(set(range(blNum)) - set(blMap)); uvFlag[:,:,flaggedBlList] 
 atmCorrect = np.exp(-outer( np.mean(Tau0spec, axis=1),  1.0/np.sin( np.array(OnEL)[indexList(np.array(SSOscanID), np.array(onsourceScans))]))).T
 SSOflux = SSOflux0* atmCorrect # SSOflux[SSO, spw] : attenuated SSO flux
 ##-------- Scaling with the flux calibrator
-AeX, AeY = np.zeros([antNum, spwNum, SSONum]), np.zeros([antNum, spwNum, SSONum])
+AeX, AeY = np.zeros([UseAntNum, spwNum, SSONum]), np.zeros([UseAntNum, spwNum, SSONum])
 #-------- Sub-array with unflagged antennas (short baselines)
 SSO_flag = np.ones(SSONum)
 for sso_index in range(SSONum):
     scan_index = indexList(np.array(SSOscanID), np.array(onsourceScans))[sso_index]
     TsysSSOScan = (np.mean(Trxspec[:,:,chRange],axis=2).reshape([UseAntNum, spwNum, 2]).transpose(2,0,1) + np.mean(Tskyspec[:,chRange], axis=1)[:,scan_index].reshape([UseAntNum, spwNum])).transpose(1,2,0)  # TsysSSOScan[ant, spw, pol], antList order
     for spw_index in range(spwNum):
-        SAantMap, SAblMap, SAblInv, SAant0, SAant1 = subArrayIndex(uvFlag[sso_index, spw_index], UseAnt[refantID]) # in Canonical ordering
+        SAantMap, SAblMap, SAblInv = subArrayIndex(uvFlag[sso_index, spw_index], UseAnt[refantID]) # in Canonical ordering
+        SAblIndex = indexList(np.array(SAblMap), np.array(blMap))
+        SAant0, SAant1 = np.array(ant0)[SAblIndex].tolist(), np.array(ant1)[SAblIndex].tolist()
+        SAinAntMap = indexList(np.array(SAantMap), np.array(antMap))
         if len(SAantMap) < 4: continue #  Too few antennas
         # SAuseAntMapRev = indexList(np.array(SAantMap), np.array(UseAnt))
         print 'Subarray : ',; print antList[SAantMap]
@@ -242,20 +245,15 @@ for sso_index in range(SSONum):
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], SSOscanID[sso_index])
         chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
         tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
-
-        BPCaledXspec = (tempSpec / (BPList[spw_index][]
-
-[:,polYindex]* BPList[spw_index][np.array(indexList(np.array(SAant1), np.array(UseAnt))).tolist()][:,polXindex].conjugate())).transpose(2,3,1,0) #  BPCaledXspe[pol, ch, bl, time]
-
+        BPCaledXspec = (tempSpec / (BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate())).transpose(2,3,1,0) #  BPCaledXspe[pol, ch, bl, time]
         chAvgVis = (np.mean(BPCaledXspec[:, chRange], axis=1)[pPol].transpose(0,2,1)/SSOmodelVis[sso_index,spw_index,SAblMap]).transpose(0,2,1)
         GainX, GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[0]), np.apply_along_axis( gainComplex, 0, chAvgVis[1])
         Ta = SSOflux[sso_index, spw_index]* AeNominal[SAantMap] / (2.0* kb)
-        AeX[SAantMap, spw_index, sso_index] = 2.0* kb* np.percentile(abs(GainX), 75, axis=1)**2 * (Ta + TsysSSOScan[SAantMap, spw_index, 0]) / SSOflux[sso_index, spw_index]
-        AeY[SAantMap, spw_index, sso_index] = 2.0* kb* np.percentile(abs(GainY), 75, axis=1)**2 * (Ta + TsysSSOScan[SAantMap, spw_index, 1]) / SSOflux[sso_index, spw_index]
+        AeX[SAinAntMap, spw_index, sso_index] = 2.0* kb* np.percentile(abs(GainX), 75, axis=1)**2 * (Ta + TsysSSOScan[SAinAntMap, spw_index, 0]) / SSOflux[sso_index, spw_index]
+        AeY[SAinAntMap, spw_index, sso_index] = 2.0* kb* np.percentile(abs(GainY), 75, axis=1)**2 * (Ta + TsysSSOScan[SAinAntMap, spw_index, 1]) / SSOflux[sso_index, spw_index]
         #
     #
 #
-"""
 #-------- SSO Flagging
 for sso_index in range(SSONum):
     for spw_index in range(spwNum):
@@ -278,11 +276,7 @@ for sso_index in range(SSONum):
 #
 SSOUseList = np.where(SSO_flag == 1.0)[0].tolist()
 if len(SSOUseList) == 0: sys.exit('No available Solar System Objects!! Try a-priori calibration.')
-"""
 
-
-
-"""
 EQflux = np.ones([2*spwNum])
 #-------- Flux density of the equalizer
 for spw_index in range(spwNum):
@@ -336,7 +330,7 @@ TsysShape = []
 for spw_index in range(spwNum):
     atmCorrect = np.exp(Tau0spec[spw_index] / np.mean(np.sin(ElScan)))
     exp_Tau = 1.0 / atmCorrect
-    TsysSPW =  (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tcmb* exp_Tau + tempAtm * (1.0 - exp_Tau))[:,antMap]
+    TsysSPW =  (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tcmb* exp_Tau + tempAtm * (1.0 - exp_Tau))[:,useAntMap]
     TsysShape = TsysShape + [(TsysSPW.transpose(2,0,1) / np.mean(TsysSPW, axis=2)).transpose(1,2,0)]    # Normalized Tsys spectrum
     TsysBL  = np.sqrt( TsysSPW[polYindex][:,ant0]* TsysSPW[polXindex][:,ant1] ).transpose(1,0,2)
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], BPScan); timeNum = len(timeStamp)
@@ -405,23 +399,31 @@ for scan_index in range(scanNum):
     #    #SAantMap, SAblMap, SAblInv = np.array(antMap)[SAantennas].tolist(), np.array(blMap)[SAbl].tolist(), np.array(blInv)[SAbl].tolist()
     #    #SAuseAntMapRev = indexList(np.array(SAantMap), np.array(UseAnt))
     #else:
-    SAantMap, SAblMap, SAblInv, SAant0, SAant1 = antMap, blMap, blInv, ant0, ant1
+    SAantMap, SAblMap, SAblInv, SAant0, SAant1 = useAntMap, blMap, blInv, ant0, ant1
+    SAinAntMap = indexList(np.array(SAantMap), np.array(useAntMap))
     for spw_index in range(spwNum):
         if SSO_flag:
-            SAantMap = subArrayIndex(uvFlag[sso_index, spw_index], UseAnt[refantID]) # in Canonical ordering
+            SAantMap, SAblMap, SAblInv = subArrayIndex(uvFlag[SSO_ID, spw_index], UseAnt[refantID]) # in Canonical ordering
+            #SAantMap = subArrayIndex(uvFlag[sso_index, spw_index], UseAnt[refantID]) # in Canonical ordering
             SAantNum = len(SAantMap); SAblNum = SAantNum* (SAantNum - 1)/2
-            #if SAantNum < 4: continue #  Too few antennas
-            SAblMap, SAblInv = range(SAblNum), range(SAblNum)
-            for bl_index in range(SAblNum): SAblMap[bl_index], SAblInv[bl_index]  = Ant2BlD(SAantMap[ant0[bl_index]], SAantMap[ant1[bl_index]])
-            SAant0, SAant1 = np.array(ANT0)[SAblMap].tolist(), np.array(ANT1)[SAblMap].tolist()
+            if SAantNum < 4: continue #  Too few antennas
+            SAblIndex = indexList(np.array(SAblMap), np.array(blMap))
+            SAant0, SAant1 = np.array(ant0)[SAblIndex].tolist(), np.array(ant1)[SAblIndex].tolist()
+            SAinAntMap = indexList(np.array(SAantMap), np.array(antMap))
+            #SAblMap, SAblInv = range(SAblNum), range(SAblNum)
+            #for bl_index in range(SAblNum): SAblMap[bl_index], SAblInv[bl_index]  = Ant2BlD(SAantMap[ant0[bl_index]], SAantMap[ant1[bl_index]])
+            #SAant0, SAant1 = np.array(ANT0)[SAblMap].tolist(), np.array(ANT1)[SAblMap].tolist()
         #
         atmCorrect = np.exp(Tau0spec[spw_index] / np.mean(np.sin(ElScan)))
         #atmCorrect = np.exp(Tau0spec[spw_index] / np.sin(OnEL[scan_index]))
         exp_Tau = 1.0 / atmCorrect
         #TsysSPW = Trxspec[spw_index::spwNum][SAuseAntMapRev].transpose(1,0,2) + Tskyspec[spw_index::spwNum][SAuseAntMapRev,:,scan_index]
         #TsysSPW =  (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tcmb* exp_Tau + tempAtm * (1.0 - exp_Tau))[:,useAntMapRev]
-        TsysSPW = (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tcmb* exp_Tau + tempAtm * (1.0 - exp_Tau))
+        #TsysSPW = (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tcmb* exp_Tau + tempAtm * (1.0 - exp_Tau))
+        TsysSPW =  (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tcmb* exp_Tau + tempAtm * (1.0 - exp_Tau))
         TsysSPW = (TsysSPW / TsysShape[spw_index])[:,SAantMap]
+        TsysShape = TsysShape + [(TsysSPW.transpose(2,0,1) / np.mean(TsysSPW, axis=2)).transpose(1,2,0)]    # Normalized Tsys spectrum
+        TsysBL  = np.sqrt( TsysSPW[polYindex][:,ant0]* TsysSPW[polXindex][:,ant1] ).transpose(1,0,2)
         if SSO_flag:
             TA = Ae[SAantMap,:,spw_index]* SSOflux0[SSO_ID, spw_index]* np.mean(atmCorrect)  / (2.0* kb)
             TsysSPW = (TsysSPW.transpose(2,1,0) + TA).transpose(2,1,0)
@@ -529,7 +531,7 @@ for scan_index in range(scanNum):
             logfile.write('\n'); print ''
         #
     #
-    uvMin, uvMax, IMax = min(uvDist[SAbl]), max(uvDist[SAbl]), max(ScanFlux[scan_index,:,0])
+    uvMin, uvMax, IMax = min(uvDist[blMap]), max(uvDist[blMap]), max(ScanFlux[scan_index,:,0])
     for spw_index in range(spwNum):
         StokesI_PL = figScan.add_subplot( 2, spwNum, spw_index + 1 )
         StokesP_PL = figScan.add_subplot( 2, spwNum, spwNum + spw_index + 1 )
@@ -580,4 +582,3 @@ np.save(prefix + '-' + UniqBands[band_index] + '.XYD.npy', np.array(XYD).reshape
 msmd.close()
 msmd.done()
 del AntID, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, Trxspec, Tskyspec, azelTime, azelTime_index, chAvgVis, W
-"""

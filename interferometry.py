@@ -73,8 +73,7 @@ def subArrayIndex(Flag, refant):          #-------- SubArray Indexing
     SAantNum = len(SAantennas); SAblNum = SAantNum* (SAantNum - 1)/2
     SAblMap, SAblInv = range(SAblNum), range(SAblNum)
     for bl_index in range(SAblNum): SAblMap[bl_index], SAblInv[bl_index] = Ant2BlD(SAantMap[ant0[bl_index]], SAantMap[ant1[bl_index]])
-    SAant0, SAant1 = ant0[SAblMap].tolist(), ant1[SAblMap].tolist()
-    return SAantMap, SAblMap, SAblInv, SAant0, SAant1
+    return SAantMap, SAblMap, SAblInv
 #
 #-------- Muller Matrix
 def MullerMatrix(Dx0, Dy0, Dx1, Dy1):
