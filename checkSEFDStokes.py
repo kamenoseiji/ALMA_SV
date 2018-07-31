@@ -399,41 +399,37 @@ for scan_index in range(scanNum):
     #    #SAantMap, SAblMap, SAblInv = np.array(antMap)[SAantennas].tolist(), np.array(blMap)[SAbl].tolist(), np.array(blInv)[SAbl].tolist()
     #    #SAuseAntMapRev = indexList(np.array(SAantMap), np.array(UseAnt))
     #else:
-    SAantMap, SAblMap, SAblInv, SAant0, SAant1 = useAntMap, blMap, blInv, ant0, ant1
+    SAantMap, SAblMap, SAblInv, SAant0, SAant1 = antMap, blMap, blInv, ant0, ant1
     SAinAntMap = indexList(np.array(SAantMap), np.array(useAntMap))
     for spw_index in range(spwNum):
         if SSO_flag:
-            SAantMap, SAblMap, SAblInv = subArrayIndex(uvFlag[SSO_ID, spw_index], UseAnt[refantID]) # in Canonical ordering
+            SAantMap, SAblMap, SAblInv = subArrayIndex(uvFlag[SSO_ID, spw_index], UseAnt[refantID]) # antList[SAantMap] lists usable antennas
             #SAantMap = subArrayIndex(uvFlag[sso_index, spw_index], UseAnt[refantID]) # in Canonical ordering
-            SAantNum = len(SAantMap); SAblNum = SAantNum* (SAantNum - 1)/2
+            SAantNum, SAblNum = len(SAantMap), len(SAblMap)
             if SAantNum < 4: continue #  Too few antennas
             SAblIndex = indexList(np.array(SAblMap), np.array(blMap))
-            SAant0, SAant1 = np.array(ant0)[SAblIndex].tolist(), np.array(ant1)[SAblIndex].tolist()
+            # SAant0, SAant1 = np.array(ant0)[SAblIndex].tolist(), np.array(ant1)[SAblIndex].tolist()
+            SAant0, SAant1 = np.array(ant0)[range(SAblNum)], np.array(ant1)[range(SAblNum)]
             SAinAntMap = indexList(np.array(SAantMap), np.array(antMap))
             #SAblMap, SAblInv = range(SAblNum), range(SAblNum)
             #for bl_index in range(SAblNum): SAblMap[bl_index], SAblInv[bl_index]  = Ant2BlD(SAantMap[ant0[bl_index]], SAantMap[ant1[bl_index]])
             #SAant0, SAant1 = np.array(ANT0)[SAblMap].tolist(), np.array(ANT1)[SAblMap].tolist()
         #
+        SAinUseAnt = indexList(np.array(SAantMap), np.array(UseAnt))
         atmCorrect = np.exp(Tau0spec[spw_index] / np.mean(np.sin(ElScan)))
-        #atmCorrect = np.exp(Tau0spec[spw_index] / np.sin(OnEL[scan_index]))
         exp_Tau = 1.0 / atmCorrect
-        #TsysSPW = Trxspec[spw_index::spwNum][SAuseAntMapRev].transpose(1,0,2) + Tskyspec[spw_index::spwNum][SAuseAntMapRev,:,scan_index]
-        #TsysSPW =  (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tcmb* exp_Tau + tempAtm * (1.0 - exp_Tau))[:,useAntMapRev]
-        #TsysSPW = (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tcmb* exp_Tau + tempAtm * (1.0 - exp_Tau))
-        TsysSPW =  (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tcmb* exp_Tau + tempAtm * (1.0 - exp_Tau))
-        TsysSPW = (TsysSPW / TsysShape[spw_index])[:,SAantMap]
-        TsysShape = TsysShape + [(TsysSPW.transpose(2,0,1) / np.mean(TsysSPW, axis=2)).transpose(1,2,0)]    # Normalized Tsys spectrum
-        TsysBL  = np.sqrt( TsysSPW[polYindex][:,ant0]* TsysSPW[polXindex][:,ant1] ).transpose(1,0,2)
+        TsysSPW =  (Trxspec[spw_index::spwNum].transpose(1,0,2) + Tcmb* exp_Tau + tempAtm * (1.0 - exp_Tau))    # TsysSPW[pol, useAnt, ch]
+        TsysSPW = (TsysSPW / TsysShape[spw_index])
         if SSO_flag:
             TA = Ae[SAantMap,:,spw_index]* SSOflux0[SSO_ID, spw_index]* np.mean(atmCorrect)  / (2.0* kb)
             TsysSPW = (TsysSPW.transpose(2,1,0) + TA).transpose(2,1,0)
         #
         #---- Flagged by Tsys
-        tsysFlagAntIndex = unique(np.where(TsysSPW <0.0)[1]).tolist()
-        if len(tsysFlagAntIndex) > 0:
-            for ant_index in tsysFlagAntIndex: TsysSPW[:,ant_index] = Trxspec[spw_index::spwNum][ant_index] + tempAtm* (1.0 - np.exp(-Tau0spec[spw_index] / np.sin(OnEL[scan_index])))
+        #tsysFlagAntIndex = unique(np.where(TsysSPW <0.0)[1]).tolist()
+        #if len(tsysFlagAntIndex) > 0:
+        #    for ant_index in tsysFlagAntIndex: TsysSPW[:,ant_index] = Trxspec[spw_index::spwNum][ant_index] + tempAtm* (1.0 - np.exp(-Tau0spec[spw_index] / np.sin(OnEL[scan_index])))
         #
-        SEFD = 2.0* kb* (TsysSPW * atmCorrect).transpose(2,0,1) / Ae[SAantMap,:,spw_index].T   # SEFD[ch,pol,ant]
+        SEFD = 2.0* kb* (TsysSPW[:,useAntMap] * atmCorrect).transpose(2,0,1) / Ae[:,:,spw_index].T   # SEFD[ch,pol,antMap]
         SEFD = np.mean(SEFD[chRange], axis=0)
         SAantNum = len(SAantMap); SAblNum = len(SAblMap)
         if SAblNum < 6:
