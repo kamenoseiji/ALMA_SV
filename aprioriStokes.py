@@ -219,7 +219,7 @@ QCpUS = (QUsolution[0]* np.cos(2.0* PA) + QUsolution[1]* np.sin(2.0* PA)) / cata
 #
 exTauSP = []
 for spw_index in range(spwNum):
-    exTauSP = exTauSP + [UnivariateSpline(atmTimeRef, Tau0E[spw_index], np.ones(scanNum), s=0.0001*np.std(Tau0E[spw_index]))]
+    exTauSP = exTauSP + [UnivariateSpline(atmTimeRef, Tau0E[spw_index], np.ones(len(atmTimeRef)), s=0.0001*np.std(Tau0E[spw_index]))]
     exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP[spw_index](np.median(timeStamp))) / np.mean(np.sin(ElScan)))
     TsysEQScan = np.mean(Trxspec[spw_index,:,:,chRange].transpose(1,2,0) + Tcmb*exp_Tau[chRange] + tempAtm* (1.0 - exp_Tau[chRange]), axis=2)[useAntMap] # [antMap, pol]
     #-------- Baseline-based cross power spectra
