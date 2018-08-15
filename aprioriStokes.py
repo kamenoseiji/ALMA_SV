@@ -224,7 +224,7 @@ for spw_index in range(spwNum):
     else:
         tempTime = np.arange(np.min(atmTimeRef) - 3600.0,  np.max(atmTimeRef) + 3600.0, 300.0)
         tempTauE = np.repeat(np.median(Tau0E[spw_index]), len(tempTime))
-        exTauSP = exTauSP + [UnivariateSpline(tempTime, tempTauE, np.ones(len(atmTimeRef)), s=0.1)]
+        exTauSP = exTauSP + [UnivariateSpline(tempTime, tempTauE, np.ones(len(tempTime)), s=0.1)]
     #
     exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP[spw_index](np.median(timeStamp))) / np.mean(np.sin(ElScan)))
     TsysEQScan = np.mean(Trxspec[spw_index,:,:,chRange].transpose(1,2,0) + Tcmb*exp_Tau[chRange] + tempAtm* (1.0 - exp_Tau[chRange]), axis=2)[useAntMap] # [antMap, pol]
