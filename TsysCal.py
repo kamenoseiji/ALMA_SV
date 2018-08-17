@@ -275,7 +275,9 @@ for band_index in range(NumBands):
     for spw_index in range(spwNum): TrxList[spw_index] = (TrxList[spw_index].transpose(1,0,2) - TantN[spw_index]).transpose(1,0,2)
     LogTrx(antList[useAnt], atmspwLists[band_index], np.mean(np.array(TrxList), axis=3).transpose(1,0,2), 'Trec : ', tsysLog)
     LogTrx(antList[useAnt], atmspwLists[band_index], np.mean(np.array([TantN,TantN]), axis=3).transpose(2,1,0), 'TantN: ', tsysLog)
+    freqList = []
     for spw_index in range(spwNum):
+        chNum, chWid, freq = GetChNum(msfile, atmspwLists[band_index][spw_index]); freqList = freqList + [freq*1.0e-9]
         text_sd = 'SPW=%d : Tau(zenith) = %6.4f' % (atmspwLists[band_index][spw_index], np.median(Tau0[spw_index]))
         tsysLog.write(text_sd + '\n'); print text_sd
     #
@@ -286,9 +288,9 @@ for band_index in range(NumBands):
     np.save(prefix +  '-' + UniqBands[band_index] + '.TauE.npy', Tau0Excess)# [spw][scan]
 #
     #---- Plots
-    #if not 'PLOTFMT' in locals():   PLOTFMT = 'pdf'
-    #if PLOTTAU: plotTau(prefix + '_' + UniqBands[band_index], atmspwLists[band_index], freqList, Tau0spec) 
-    #if PLOTTSYS: plotTsys(prefix + '_' + UniqBands[band_index], antList[useAnt], atmspwLists[band_index], freqList, atmTimeRef, TrxList, TskyList)
+    if not 'PLOTFMT' in locals():   PLOTFMT = 'pdf'
+    if PLOTTAU: plotTau(prefix + '_' + UniqBands[band_index], atmspwLists[band_index], freqList, Tau0) 
+    if PLOTTSYS: plotTsys(prefix + '_' + UniqBands[band_index], antList[useAnt], atmspwLists[band_index], freqList, atmTimeRef, TrxList, TskyList)
 #
 #-------- Plot optical depth
 msmd.close()

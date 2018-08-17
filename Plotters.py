@@ -46,8 +46,8 @@ def plotTsys(prefix, antList, spwList, freqList, atmTime, TrxList, TskyList):
                 TsysPL = figAnt.add_subplot(scanNum, spwNum, spwNum* scan_index + spw_index + 1 )
                 timeLabel = qa.time('%fs' % (atmTime[scan_index]), form='fits')[0]
                 for pol_index in range(2):
-                    plotTrx  = TrxList[AntSpwIndex][pol_index][chRange]
-                    plotTsys = TskyList[AntSpwIndex][chRange, scan_index] + plotTrx
+                    plotTrx  = TrxList[spw_index][ant_index, pol_index, chRange]
+                    plotTsys = TskyList[spw_index][chRange, ant_index, scan_index] + plotTrx
                     TsysPL.plot( freqList[spw_index][chRange], plotTsys, ls='steps-mid', label = 'Tsys Pol '+ PolList[pol_index])
                     TsysPL.plot( freqList[spw_index][chRange], plotTrx,  ls=':', label = 'Trec Pol ' + PolList[pol_index])
                 #
