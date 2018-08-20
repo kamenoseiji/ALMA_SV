@@ -72,4 +72,4 @@ for(sourceName in srcList){
 	UatRef <- append(UatRef, PatFreqRef * sin(2.0* EVPAatFreqRef))
 }
 DF <- data.frame(Src=srcList, I=IatRef, Q=QatRef, U=UatRef)
-write.table(DF, file="CalQU.data", append=F, quote=F, col.names=F, row.name=F)
+write.table(na.omit(DF), file="CalQU.data", append=F, quote=F, col.names=F, row.name=F)
