@@ -39,7 +39,7 @@ if 'BPprefix' in locals():
 #-------- Loop for Scan
 GainAP0, GainAP1, timeList, SNRList, flagList = [], [], [], [], []
 for scan in scanList:
-    print 'Processing Scan ' + `scan`
+    print 'Loading Visibilities: Scan ' + `scan`
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)
     timeNum, polNum, chNum = Xspec.shape[3], Xspec.shape[0], Xspec.shape[1]
@@ -47,8 +47,11 @@ for scan in scanList:
     if polNum == 2: polIndex = [0, 1]
     if polNum == 1: polIndex = [0]
     polNum = len(polIndex)
+    if 'chRange' not in locals(): chRange = range(int(0.05*chNum), int(0.95*chNum))
+    print 'Baseline and polarization mapping... '
     tempSpec = ParaPolBL(Xspec[polIndex][:,:,blMap], blInv).transpose(3,2,0,1)  # Parallel Polarization Baseline Mapping : tempSpec[time, blMap, pol, ch]
     if 'BP_ant' in locals():
+        print 'Applying bandpass calibration...'
         BPCaledXspec = (tempSpec / (BP_ant[ant0]* BP_ant[ant1].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
     else:
         BPCaledXspec = tempSpec.transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
