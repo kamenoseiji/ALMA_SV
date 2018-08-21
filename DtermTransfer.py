@@ -28,10 +28,22 @@ BandName = re.findall(spwPattern, spwName[0])[0]
 BandPA = (BANDPA[int(BandName[3:5])] + 90.0)*pi/180.0
 msmd.close()
 msmd.done()
+#----------------------------------------- Pol-Cal query
+interval, timeStamp = GetTimerecord(msfile, 0, 0, spw, scan)
+os.system('rm -rf CalQU.data')
+text_sd = R_DIR + 'Rscript %spolQuery.R -D%s -F%f' % (SCR_DIR, qa.time('%fs' % (timeStamp[0]), form='ymd')[0], BANDFQ[int(BandName[3:5])])
+text_sd = text_sd + ' ' + PolCal
+os.system(text_sd)
+fp = open('CalQU.data')
+lines = fp.readlines()
+fp.close()
+IQU = range(3)
+for index in range(3): IQU[index] = float( lines[0].split()[index + 1] )
+QUsol = np.array([IQU[1]/IQU[0], IQU[2]/IQU[0]])
 #----------------------------------------- Find BP table
 BPpath = BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'
 XYpath = BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy'
-QUpath = QUprefix + '-SPW' + `spw` + '-' + refantName +'.QUXY.npy'
+#QUpath = QUprefix + '-SPW' + `spw` + '-' + refantName +'.QUXY.npy'
 if not os.path.exists(BPpath): sys.exit('No BP table [%s]' % (BPpath))
 if not os.path.exists(XYpath): sys.exit('No XY table [%s]' % (XYpath))
 refAntID = np.where(antList == refantName)[0][0]
@@ -64,7 +76,7 @@ if (DantNum * noDantnum) !=  0:
     print ''
 else: sys.exit('Numbers of [Dant] and [noDant] = %d and %d' % (DantNum, noDantnum))
 #----------------------------------------- QU table
-if os.path.exists(QUpath): QUsol = np.load(QUpath)     # [Q, U]
+#if os.path.exists(QUpath): QUsol = np.load(QUpath)     # [Q, U]
 #----------------------------------------- BP table
 blMap, blInv= range(UseBlNum), [False]* UseBlNum
 for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
