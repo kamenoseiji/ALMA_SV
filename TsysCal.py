@@ -21,11 +21,19 @@ def scanAtmSpec(msfile, useAnt, scanList, spwList, timeOFF=0, timeON=0, timeAMB=
     timeList, offSpecList, ambSpecList, hotSpecList = [], [], [], []
     antNum, scanNum, spwNum = len(useAnt), len(scanList), len(spwList)
     scanTimeList = []
-    for scanID in scanList:
+    scanFlag = range(scanNum)
+    for scan_index in range(scanNum):
+        scanID = scanList[scan_index]
         interval, scanTimeRec = GetTimerecord(msfile, 0, 0, spwList[0], scanID)
-        scanTimeList = scanTimeList + [scanTimeRec]
+        offTime, ambTime, hotTime = sort(list(set(scanTimeRec) & set(timeOFF))), sort(list(set(scanTimeRec) & set(timeAMB))), sort(list(set(scanTimeRec) & set(timeHOT)))
+        if (len(offTime)* len(ambTime)* len(hotTime) == 0):
+            scanFlag.remove(scan_index)
+        else:
+            scanTimeList = scanTimeList + [scanTimeRec]
+        #
     #
-    #index = 0
+    scanList = np.array(scanList)[scanFlag].tolist()
+    scanNum = len(scanTimeList)
     for ant_index in range(antNum):
         progress = (1.0* ant_index + 1.0) / antNum
         sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
@@ -38,11 +46,6 @@ def scanAtmSpec(msfile, useAnt, scanList, spwList, timeOFF=0, timeON=0, timeAMB=
                 scanID = scanList[scan_index]
                 scanTimeRec = scanTimeList[scan_index]
                 offTime, ambTime, hotTime = sort(list(set(scanTimeRec) & set(timeOFF))), sort(list(set(scanTimeRec) & set(timeAMB))), sort(list(set(scanTimeRec) & set(timeHOT)))
-                if (len(offTime)* len(ambTime)* len(hotTime) == 0):
-                    # print 'Skip SPW=%d Scan=%d' % (spwID, scanID)
-                    scanList.remove(scanID); scanNum = len(scanList)
-                    continue
-                #
                 offTimeIndex, ambTimeIndex, hotTimeIndex = indexList(offTime, timeXY)[-1],  indexList(ambTime, timeXY)[-1],  indexList(hotTime, timeXY)[-1]
                 if ((ant_index == 0) & (spwID == spwList[0]) & (len(ambTime) > 0)): timeList = timeList + [offTime[-1]] # Record off-position time
                 #
@@ -69,7 +72,7 @@ def scanAtmSpec(msfile, useAnt, scanList, spwList, timeOFF=0, timeON=0, timeAMB=
         #
     #            
     sys.stderr.write('\n'); sys.stderr.flush()
-    return np.array(timeList), offSpecList, ambSpecList, hotSpecList
+    return np.array(timeList), offSpecList, ambSpecList, hotSpecList, scanList
 #
 #-------- Log Trx
 def LogTrx(antList, spwList, Trx, text_sd, logFile):
@@ -255,7 +258,8 @@ for ant_index in range(useAntNum):
 for band_index in range(NumBands):
     tsysLog = open(prefix + '-' + UniqBands[band_index] + '-Tsys.log', 'w')
     #-------- Trx
-    atmTimeRef, offSpec, ambSpec, hotSpec = scanAtmSpec(msfile, useAnt, atmscanLists[band_index], atmspwLists[band_index], timeOFF, timeON, timeAMB, timeHOT)
+    atmTimeRef, offSpec, ambSpec, hotSpec, scanList = scanAtmSpec(msfile, useAnt, atmscanLists[band_index], atmspwLists[band_index], timeOFF, timeON, timeAMB, timeHOT)
+    atmscanLists[band_index] = scanList
     atmscanNum, scanNum, spwNum = len(atmscanLists[band_index]), len(bpscanLists[band_index]), len(atmspwLists[band_index])
     TrxList, TskyList, outLierFlag = TrxTskySpec(useAnt, tempAmb, tempHot, atmspwLists[band_index], atmscanLists[band_index], ambSpec, hotSpec, offSpec)
     np.save(prefix +  '-' + UniqBands[band_index] + '.Trx.npy', TrxList)    # TxList[spw][ant,pol,ch]
