@@ -559,4 +559,4 @@ np.save(prefix + '-' + UniqBands[band_index] + '.XYC.npy', np.array(XYC).reshape
 np.save(prefix + '-' + UniqBands[band_index] + '.XYD.npy', np.array(XYD).reshape([len(XYC)/spwNum/2, spwNum, 2]))
 msmd.close()
 msmd.done()
-#del AntID, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, Trxspec, TsysSPW, TsysBL, azelTime, azelTime_index, chAvgVis, W
+del AntID, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, Trxspec, TsysSPW, TsysBL, azelTime, azelTime_index, chAvgVis, W
