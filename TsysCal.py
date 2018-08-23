@@ -276,7 +276,7 @@ for band_index in range(NumBands):
     OnsecZ, atmsecZ  = 1.0 / np.sin( np.median(OnEL, axis=0) ), 1.0 / np.sin( np.median(AtmEL, axis=0) )
     #-------- Tsky and TantN
     Tau0, Tau0Excess, TantN = tau0SpecFit(tempAtm - 5.0, atmsecZ, useAnt, atmspwLists[band_index], TskyList)
-    for spw_index in range(spwNum): TrxList[spw_index] = (TrxList[spw_index].transpose(1,0,2) - TantN[spw_index]).transpose(1,0,2)
+    for spw_index in range(spwNum): TrxList[spw_index] = (TrxList[spw_index].transpose(1,0,2) + TantN[spw_index]).transpose(1,0,2)
     LogTrx(antList[useAnt], atmspwLists[band_index], np.mean(np.array(TrxList), axis=3).transpose(1,0,2), 'Trec : ', tsysLog)
     LogTrx(antList[useAnt], atmspwLists[band_index], np.mean(np.array([TantN,TantN]), axis=3).transpose(2,1,0), 'TantN: ', tsysLog)
     freqList = []
