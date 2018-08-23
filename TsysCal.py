@@ -290,6 +290,7 @@ for band_index in range(NumBands):
     np.save(prefix +  '-' + UniqBands[band_index] + '.Trx.npy', TrxList)    # [spw][ant, pol, ch]
     np.save(prefix +  '-' + UniqBands[band_index] + '.Tau0.npy', Tau0)      # [spw][ch]
     np.save(prefix +  '-' + UniqBands[band_index] + '.TauE.npy', Tau0Excess)# [spw][scan]
+    np.save(prefix +  '-' + UniqBands[band_index] + '.atmTime.npy', atmTimeRef)# [scan]
 #
     #---- Plots
     if not 'PLOTFMT' in locals():   PLOTFMT = 'pdf'
