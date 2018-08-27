@@ -1,8 +1,5 @@
 import sys
 import analysisUtils as au
-#from scipy import stats
-#import matplotlib.pyplot as plt
-#import matplotlib.ticker as ptick
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Grid.py')
 msfile = wd + prefix + '.ms'
