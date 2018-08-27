@@ -40,7 +40,7 @@ for spw_index in range(spwNum):
             blAmp[bl_index] = blA
         #
         antAmp =  clamp_solve(blAmp) / antDia
-        flagAnt[np.where(antAmp < 0.5* np.median(antAmp))[0].tolist()] = 0.0
+        flagAnt[np.where(antAmp < 0.25* np.median(antAmp))[0].tolist()] = 0.0
     #
 #
 msmd.close()

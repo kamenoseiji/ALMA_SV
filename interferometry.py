@@ -16,6 +16,7 @@ import datetime
 BANDPA = [0.0, 45.0, -45.0, 80.0, -80.0, 45.0, -45.0, 36.45, 90.0, -90.0, 0.0]   # X-pol orientation for Band-1, 2, 3, 4, 5, 6, 7, 8, 9, and 10
 BANDFQ = [0.0, 43.2, 75.0, 97.5, 132.0, 183.0, 233.0, 343.5, 460.0, 650.0, 870.0]   # Standard frequency [GHz]
 Tcmb = 2.725    # CMB temperature
+kb        = 1.38064852e3 # Boltzman constant (* 1e26 for Jy scaling)
 #======== Baseline and Antenna Indexing
 KERNEL_BL = arange(64)*arange(1,65)/2
 def indexList( refArray, motherArray ):     # Compare two arrays and return matched index
@@ -1593,15 +1594,16 @@ def diskVisBeam(diskShape, u, v, primaryBeam):
     return beamF(diskRadius/primaryBeam)* np.exp(-0.5* uvDisp)
 #
 #-------- ArrayCenterAntenna
-def bestRefant(uvDist):
+def bestRefant(uvDist, useantList=[]):
     blNum = len(uvDist)
     antNum, ant0, ant1 = Bl2Ant(blNum)[0], ANT0[0:blNum], ANT1[0:blNum]
-    blCounter = np.zeros([antNum])
+    if len(useantList) == 0: useantList = range(antNum)
+    blCounter = np.zeros([antNum]); blCounter[useantList] += blNum
     distOrder = np.argsort(uvDist)
     for bl_index in distOrder:
         blCounter[ant0[bl_index]] += (blNum - bl_index)
         blCounter[ant1[bl_index]] += (blNum - bl_index)
-        if np.max(blCounter) > 2* blNum: break
+        if np.max(blCounter) > 4* blNum: break
     #
     return np.argmax(blCounter)
 #

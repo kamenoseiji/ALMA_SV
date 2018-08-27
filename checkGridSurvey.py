@@ -155,7 +155,7 @@ for band_index in range(NumBands):
             execfile(SCR_DIR + 'aprioriFlux.py')
     #
 #
-del msfile, UniqBands
+del msfile, UniqBands, UseAnt
 if 'flagAnt' in locals(): del flagAnt
 if 'BPScans' in locals(): del BPScans
 if 'EQScans' in locals(): del EQScans
