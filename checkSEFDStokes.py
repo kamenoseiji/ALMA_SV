@@ -419,13 +419,17 @@ for scan_index in range(scanNum):
     text_sd = ' --------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
     BPCaledXspec = []
     #-------- Sub-array formation
-    SAantMap, SAblMap, SAblInv, SAant0, SAant1 = antMap, blMap, blInv, ant0, ant1
-    SAinAntMap = indexList(np.array(SAantMap), np.array(useAntMap))
+    bpAntMap, Trx2antMap, SAantMap, SAblMap, SAblInv, SAant0, SAant1 = antMap, indexList(antList[antMap], antList[TrxMap]), antMap, blMap, blInv, ant0, ant1
+    # SAinAntMap = indexList(np.array(SAantMap), np.array(useAntMap))
     if SSO_flag:
-        SAantMap, SAblMap, SAblInv = subArrayIndex(uvFlag[SSO_ID], UseAnt[refantID]) # antList[SAantMap] lists usable antennas
-        SAantNum, SAblNum = len(SAantMap), len(SAblMap)
+        SAantMap, SAblMap, SAblInv = subArrayIndex(uvFlag[SSO_ID], refantID) # antList[SAantMap] lists usable antennas
         SAblIndex = indexList(np.array(SAblMap), np.array(blMap))
-        SAant0, SAant1 = np.array(ant0)[range(SAblNum)], np.array(ant1)[range(SAblNum)]
+        SAant0, SAant1 = np.array(ant0)[SAblIndex].tolist(), np.array(ant1)[SAblIndex].tolist()
+        bpAntMap = indexList(antList[SAantMap],antList[antMap])
+        Trx2antMap = indexList( antList[SAantMap], antList[TrxMap] )
+        #SAantNum, SAblNum = len(SAantMap), len(SAblMap)
+        #SAblIndex = indexList(np.array(SAblMap), np.array(blMap))
+        #SAant0, SAant1 = np.array(ant0)[range(SAblNum)], np.array(ant1)[range(SAblNum)]
     #
     SAantNum = len(SAantMap); SAblNum = len(SAblMap)
     if SAblNum < 6:
@@ -441,10 +445,9 @@ for scan_index in range(scanNum):
         BPCaledXspec = BPCaledXspec + [(tempSpec / (BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate())).transpose(2,3,1,0)] # Bandpass Cal
     #
     #-------- Antenna-based Gain
-    if SAblNum < 6: continue
     BPCaledXspec = np.array(BPCaledXspec)   # BPCaledXspec[spw, pol, ch, bl, time]
     chAvgVis = np.mean(BPCaledXspec[:, :, chRange], axis=(0,2))
-    if(SSO_flag): chAvgVis =(np.mean(BPCaledXspec[:,:, chRange], axis=(0,2)).transpose(0,2,1) / SSOmodelVis[SSO_ID, spw_index][SAblMap]).transpose(0,2,1)
+    if(SSO_flag): chAvgVis =(np.mean(BPCaledXspec[:,:, chRange], axis=(0,2)).transpose(0,2,1) / SSOmodelVis[SSO_ID, spw_index, SAblMap]).transpose(0,2,1)
     GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
     pCalVis = (BPCaledXspec.transpose(0,2,1,3,4) / (GainP[polYindex][:,SAant0]* GainP[polXindex][:,SAant1].conjugate()))[:,chRange]
     #-------- XY phase spectra
@@ -462,22 +465,23 @@ for scan_index in range(scanNum):
     #    SAblIndex = indexList(np.array(SAblMap), np.array(blMap))
     #    SAant0, SAant1 = np.array(ant0)[range(SAblNum)], np.array(ant1)[range(SAblNum)]
     #
-    SAinAntMap = indexList(np.array(SAantMap), np.array(antMap))
-    SAinUseAnt = indexList(np.array(SAantMap), np.array(UseAnt))
+    #SAinAntMap = indexList(np.array(SAantMap), np.array(antMap))
+    #SAinUseAnt = indexList(np.array(SAantMap), np.array(UseAnt))
     for spw_index in range(spwNum):
         exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP[spw_index](np.median(timeStamp))) / np.mean(np.sin(ElScan)))
         atmCorrect = 1.0 / exp_Tau
         TsysSPW = (Trxspec[spw_index] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))    # [ant, pol, ch]
         if SSO_flag:
-            TA = Ae[SAinAntMap,:,spw_index]* SSOflux0[SSO_ID, spw_index]* np.mean(atmCorrect)  / (2.0* kb)
-            TsysSPW[SAinUseAnt] = (TsysSPW[SAinUseAnt].transpose(2,0,1) + TA).transpose(1,2,0)
+            Ta = SSOflux[sso_index, spw_index]* Ae[SAantMap, :, spw_index]* np.mean(atmCorrect) / (2.0* kb)
+            #TA = Ae[SAinAntMap,:,spw_index]* SSOflux0[SSO_ID, spw_index]* np.mean(atmCorrect)  / (2.0* kb)
+            TsysSPW = (TsysSPW[Trx2antMap].transpose(2,0,1) + Ta).transpose(1,2,0)
         #
         #---- Flagged by Tsys
         #tsysFlagAntIndex = unique(np.where(TsysSPW <0.0)[1]).tolist()
         #if len(tsysFlagAntIndex) > 0:
         #    for ant_index in tsysFlagAntIndex: TsysSPW[:,ant_index] = Trxspec[spw_index::spwNum][ant_index] + tempAtm* (1.0 - np.exp(-Tau0spec[spw_index] / np.sin(OnEL[scan_index])))
         #
-        SEFD = 2.0* kb* (TsysSPW[SAinUseAnt] * atmCorrect).transpose(2,1,0) / Ae[SAinAntMap][:,:,spw_index].T   # SEFD[ch,pol,antMap]
+        SEFD = 2.0* kb* (TsysSPW * atmCorrect).transpose(2,1,0) / Ae[SAantMap][:,:,spw_index].T   # SEFD[ch,pol,antMap]
         SAantNum = len(SAantMap); SAblNum = len(SAblMap)
         #-------- Additional equalizaiton
         if not SSO_flag:        # Additional equalization for point sources
