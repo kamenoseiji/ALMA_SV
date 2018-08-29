@@ -17,17 +17,16 @@ print '  -- usable antenna checking for EQ scan : '
 spwList = scnspw
 gainFlag, blAmp = np.ones([antNum]), np.zeros([blNum])
 for spw_index in range(spwNum):
-    #-------- Baseline-based cross power spectra
+    #-------- Checking usable baselines and antennas
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], EQScan)
-    timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange, timeRange = range(int(0.05*chNum), int(0.95*chNum)), range(int(0.5*timeNum), int(timeNum))
-    Xspec = np.mean(Xspec[pPol][:,chRange][:,:,:,timeRange], axis=3)
-    for pol_index in range(2):
-        for bl_index in range(blNum):
-            blD, blA = delay_search( Xspec[pol_index,:,bl_index] )
-            blAmp[bl_index] = blA
-        #
-        antAmp =  clamp_solve(blAmp) / antDia
-        gainFlag[np.where(antAmp < 0.5* np.median(antAmp))[0].tolist()] *= 0.0
+    timeNum, chNum, blNum = Xspec.shape[3], Xspec.shape[1], Xspec.shape[2]; chRange, timeRange = range(int(0.05*chNum), int(0.95*chNum)), range(int(0.1*timeNum), int(timeNum))
+    for polID in pPol:
+        blD, blA = np.apply_along_axis(delay_search, 0, np.mean(Xspec[polID][chRange][:,:,timeRange], axis=2))
+        blA = blA / np.sqrt(antDia[ANT0[0:blNum]]* antDia[ANT1[0:blNum]])
+        errD, errA = np.where(abs(blD - np.median(blD)) > 4.0)[0].tolist(), np.where(abs(blA - np.median(blA)) > 0.5* np.median(blA))[0].tolist()
+        errCount = np.zeros(antNum)
+        for bl in set(errD) or set(errA): errCount[ list(Bl2Ant(bl)) ] += 1
+        gainFlag[np.where(errCount > 1.5 )[0].tolist()] *= 0.0
     #
 #
 #-------- Check D-term files
@@ -58,6 +57,9 @@ Tau0E    = np.load(prefix +  '-' + UniqBands[band_index] + '.TauE.npy') # Tau0E[
 atmTimeRef = np.load(prefix +  '-' + UniqBands[band_index] + '.atmTime.npy') # atmTimeRef[atmScan]
 TrxMap = indexList(TrxAnts, antList); TrxFlag = np.zeros([antNum]); TrxFlag[TrxMap] = 1.0
 Tau0E = np.nanmedian(Tau0E, axis=0); Tau0E[np.isnan(Tau0E)] = np.nanmedian(Tau0E); Tau0E[np.isnan(Tau0E)] = 0.0
+TrxMed = np.median(Trxspec, axis=3)
+for spw_index in range(spwNum):
+    for pol_index in range(2): TrxFlag[np.where(abs(TrxMed[spw_index][:,pol_index] - np.median(TrxMed[spw_index][:,pol_index])) > 0.7* np.median(TrxMed[spw_index][:,pol_index]))[0].tolist()] *= 0.0
 #
 print 'Ant:',
 for ant_index in range(antNum): print antList[ant_index],
@@ -70,6 +72,9 @@ for ant_index in range(antNum): print '   %.0f' % (gainFlag[ant_index]),
 print; print 'Dtrm',
 for ant_index in range(antNum): print '   %.0f' % (Dflag[ant_index]),
 print
+flagAnt = flagAnt* TrxFlag* gainFlag* Dflag
+UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
+if len(UseAnt) < 5: sys.exit('Too few usable antennas. Reduction failed.')
 #-------- Check Scans for atmCal
 ingestFile = open(prefix + '-' + UniqBands[band_index] + '-Ingest.log', 'w')
 text_sd = '#source,   RA,eRA,dec,edec,frequency,  flux,eflux,degree,edeg,EVPA,eEVPA,uvmin,uvmax,date\n'; ingestFile.write(text_sd)
@@ -79,8 +84,6 @@ scanList = onsourceScans
 msmd.close()
 msmd.done()
 #-------- Array Configuration
-flagAnt = flagAnt* TrxFlag* gainFlag* Dflag
-UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
 print '---Determining refant'
 msmd.open(msfile)
 timeStamp, UVW = GetUVW(msfile, spwList[0], msmd.scansforspw(spwList[0])[0])
@@ -109,83 +112,6 @@ chNum = np.array(DxList).shape[1]
 DxSpec, DySpec = np.array(DxList).reshape([antNum, spwNum, chNum]), np.array(DyList).reshape([antNum, spwNum, chNum])
 Dloaded = True
 
-
-
-
-
-"""
-
-if 'antFlag' in locals(): flagAnt[indexList(antFlag, antList)] = 0.0; del(antFlag)
-#-------- Review scans
-atmScanNumInThisBand = len(atmscanLists[band_index])
-atmScanOffset = 0
-for index in range(band_index): atmScanOffset += len(atmscanLists[index])
-#-------- Open log files
-logfile = open(prefix + '-' + UniqBands[band_index] + '-Flux.log', 'w')
-logfile.write(BPcalText + '\n')
-logfile.write(EQcalText + '\n')
-text_sd = '#source,   RA,eRA,dec,edec,frequency,  flux,eflux,degree,edeg,EVPA,eEVPA,uvmin,uvmax,date\n'; ingestFile.write(text_sd)
-print '  -- usable antenna checking for EQ scan'
-blAmp = np.zeros([blNum])
-spwList = scnspw
-for spw_index in range(spwNum):
-    #-------- Baseline-based cross power spectra
-    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], EQScan)
-    timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange, timeRange = range(int(0.05*chNum), int(0.95*chNum)), range(int(0.5*timeNum), int(timeNum))
-    Xspec = np.mean(Xspec[pPol][:,chRange][:,:,:,timeRange], axis=3)
-    for pol_index in range(2):
-        for bl_index in range(blNum):
-            blD, blA = delay_search( Xspec[pol_index,:,bl_index] )
-            blAmp[bl_index] = blA
-        #
-        antAmp =  clamp_solve(blAmp) / antDia
-        flagAnt[np.where(antAmp < 0.25* np.median(antAmp))[0].tolist()] = 0.0
-    #
-#
-msmd.close()
-msmd.done()
-#-------- Load Tsys table
-Tau0spec = np.load(prefix +  '-' + UniqBands[band_index] + '.Tau0.npy') # Tau0spec[spw][ch]
-Trxspec  = np.load(prefix +  '-' + UniqBands[band_index] + '.Trx.npy')  # Trxspec[spw, ant, pol, ch]
-Tau0E    = np.load(prefix +  '-' + UniqBands[band_index] + '.TauE.npy') # Tau0E[spw, atmScan]
-atmTimeRef = np.load(prefix +  '-' + UniqBands[band_index] + '.atmTime.npy') # atmTimeRef[atmScan]
-########
-msmd.open(msfile)
-#-------- Array Configuration
-UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt)
-print '---Checking array configuration'
-#flagList = np.where(np.median(chAvgTrx.reshape(UseAntNum, 2* spwNum), axis=1) > 2.0* np.percentile(chAvgTrx, 75))[0].tolist()  # Avoid too-high Trx
-#flagList = unique(flagList + np.where(np.min(chAvgTrx.reshape(UseAntNum, 2* spwNum), axis=1) < 1.0 )[0].tolist()).tolist()     # Avoid too-low Trx
-#if len(flagList) >0 : 
-#    for index in flagList: del UseAnt[index]
-#
-UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
-text_sd = '  Usable antennas: '
-for ants in antList[UseAnt].tolist(): text_sd = text_sd + ants + ' '
-logfile.write(text_sd + '\n'); print text_sd
-#text_sd = '  Flagged by Trx:  '
-#for ants in antList[flagList].tolist(): text_sd = text_sd + ants + ' '
-logfile.write(text_sd + '\n'); print text_sd
-blMap, blInv= range(UseBlNum), [False]* UseBlNum
-ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
-for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
-timeStamp, UVW = GetUVW(msfile, spwList[0], msmd.scansforspw(spwList[0])[0])
-uvw = np.mean(UVW[:,blMap], axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
-try:
-    refantID = np.where(antList[UseAnt] == refant )[0][0]
-except:
-    refantID = bestRefant(uvDist)
-#
-refantName = antList[UseAnt[refantID]]
-print '  Use ' + refantName + ' as the refant.'
-antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
-useAntMap = indexList(antList[antMap], antList[UseAnt])
-
-
-
-for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
-print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
-"""
 if 'gainRef' in locals(): flagRef = np.zeros([UseAntNum]); refIndex = indexList(gainRef, antList[antMap]); flagRef[refIndex] = 1.0; del(gainRef)
 if 'refIndex' not in locals(): refIndex = range(UseAntNum)
 if len(refIndex) == 0: refIndex = range(UseAntNum)
@@ -208,41 +134,6 @@ for ant_index in antMap:
 #
 Ae = np.array([AeX, AeY])
 #AeX, AeY = np.array(AeX), np.array(AeY) # in antMap order 
-"""
-#-------- Check D-term files
-if not 'DPATH' in locals(): DPATH = SCR_DIR
-print '---Checking D-term files in ' + DPATH
-DantList, noDlist = [], []
-Dpath = DPATH + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
-for ant_index in UseAnt:
-    Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW0-' + antList[ant_index] + '.DSpec.npy'
-    if os.path.exists(Dfile): DantList += [ant_index]
-    else: noDlist += [ant_index]
-#   
-DantNum, noDantNum = len(DantList), len(noDlist)
-print 'Antennas with D-term file (%d):' % (DantNum),
-for ant_index in DantList: print '%s ' % antList[ant_index],
-print ''
-if noDantNum > 0:
-    print 'Antennas without D-term file (%d) : ' % (noDantNum),
-    for ant_index in noDlist: print '%s ' % antList[ant_index],
-    sys.exit(' Run DtermTransfer first!!')
-#   
-#-------- Load D-term file
-DxList, DyList = [], []
-print '---Loading D-term table'
-for ant_index in range(UseAntNum):
-    Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
-    for spw_index in range(spwNum):
-        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[antMap[ant_index]] + '.DSpec.npy'
-        Dterm = np.load(Dfile)
-        DxList = DxList + [Dterm[1] + (0.0 + 1.0j)* Dterm[2]]
-        DyList = DyList + [Dterm[3] + (0.0 + 1.0j)* Dterm[4]]
-    #
-#
-chNum = np.array(DxList).shape[1]
-DxSpec, DySpec = np.array(DxList).reshape([UseAntNum, spwNum, chNum]), np.array(DyList).reshape([UseAntNum, spwNum, chNum])
-"""
 #
 #-------- Flag table
 if 'FGprefix' in locals():
@@ -324,16 +215,7 @@ else:
     exTauSP = UnivariateSpline(tempTime, tempTauE, np.ones(len(tempTime)), s=0.1)
 #
 for spw_index in range(spwNum):
-    #if len(atmTimeRef) > 5:
-    #    exTauSP = exTauSP + [UnivariateSpline(atmTimeRef, Tau0E[spw_index], np.ones(len(atmTimeRef)), s=0.1*np.std(Tau0E[spw_index]))]
-    #else:
-    #    tempTime = np.arange(np.min(atmTimeRef) - 3600.0,  np.max(atmTimeRef) + 3600.0, 300.0)
-    #    tempTauE = np.repeat(np.median(Tau0E[spw_index]), len(tempTime))
-    #    exTauSP = exTauSP + [UnivariateSpline(tempTime, tempTauE, np.ones(len(tempTime)), s=0.1)]
-    #
-    #exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP[spw_index](np.median(timeStamp))) / np.mean(np.sin(ElScan)))
     exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
-    #TsysEQScan = np.mean(Trxspec[spw_index,:,:,chRange].transpose(1,2,0) + Tcmb*exp_Tau[chRange] + tempAtm* (1.0 - exp_Tau[chRange]), axis=2)[useAntMap] # [antMap, pol]
     TsysEQScan = np.mean(Trxspec[spw_index,:,:,chRange].transpose(1,2,0) + Tcmb*exp_Tau[chRange] + tempAtm* (1.0 - exp_Tau[chRange]), axis=2)[Trx2antMap] # [antMap, pol]
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], EQScan)
@@ -444,17 +326,6 @@ for scan_index in range(scanNum):
     BPCaledXspec = []
     #-------- Subarray formation
     SAantMap, SAblMap, SAblInv, SAant0, SAant1 = antMap, blMap, blInv, ant0, ant1
-    #SAinAntMap = indexList(np.array(SAantMap), np.array(useAntMap))
-    #if SSO_flag:
-    #    SAantMap, SAblMap, SAblInv = subArrayIndex(uvFlag[SSO_ID], refantID)
-    #    SAblIndex = indexList(np.array(SAblMap), np.array(blMap))
-    #    SAant0, SAant1 = np.array(ant0)[SAblIndex].tolist(), np.array(ant1)[SAblIndex].tolist()
-    #
-    #SAantNum = len(SAantMap); SAblNum = len(SAblMap)
-    #if SAblNum < 6:
-    #    text_sd = ' Only %d baselines for short enough sub-array. Skip!' % (SAblNum) ; logfile.write(text_sd + '\n'); print text_sd
-    #    continue
-    #
     bpAntMap = indexList(antList[SAantMap],antList[antMap])
     Trx2antMap = indexList( antList[SAantMap], antList[TrxMap] )
     text_sd = ' %02d %010s EL=%4.1f deg %s' % (scanList[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* OnEL[scan_index]/pi, timeText); logfile.write(text_sd + '\n'); print text_sd
@@ -600,4 +471,4 @@ np.save(prefix + '-' + UniqBands[band_index] + '.XYC.npy', np.array(XYC).reshape
 np.save(prefix + '-' + UniqBands[band_index] + '.XYD.npy', np.array(XYD).reshape([len(XYC)/spwNum/2, spwNum, 2]))
 msmd.close()
 msmd.done()
-del flagAnt, AntID, Xspec, tempSpec, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, Trxspec, TsysSPW, azelTime, azelTime_index, chAvgVis, W, refIndex
+del flagAnt, TrxFlag, gainFlag, Dflag, AntID, Xspec, tempSpec, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, Trxspec, TsysSPW, azelTime, azelTime_index, chAvgVis, W, refIndex

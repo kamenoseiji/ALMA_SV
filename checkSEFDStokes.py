@@ -22,15 +22,14 @@ gainFlag, blAmp = np.ones([antNum]), np.zeros([blNum])
 for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], EQScan)
-    timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange, timeRange = range(int(0.05*chNum), int(0.95*chNum)), range(int(0.5*timeNum), int(timeNum))
-    Xspec = np.mean(Xspec[pPol][:,chRange][:,:,:,timeRange], axis=3)
-    for pol_index in range(2):
-        for bl_index in range(blNum):
-            blD, blA = delay_search( Xspec[pol_index,:,bl_index] )
-            blAmp[bl_index] = blA
-        #
-        antAmp =  clamp_solve(blAmp) / antDia
-        gainFlag[np.where(antAmp < 0.5* np.median(antAmp))[0].tolist()] *= 0.0
+    timeNum, chNum, blNum = Xspec.shape[3], Xspec.shape[1], Xspec.shape[2]; chRange, timeRange = range(int(0.05*chNum), int(0.95*chNum)), range(int(0.1*timeNum), int(timeNum))
+    for polID in pPol:
+        blD, blA = np.apply_along_axis(delay_search, 0, np.mean(Xspec[polID][chRange][:,:,timeRange], axis=2))
+        blA = blA / np.sqrt(antDia[ANT0[0:blNum]]* antDia[ANT1[0:blNum]])
+        errD, errA = np.where(abs(blD - np.median(blD)) > 4.0)[0].tolist(), np.where(abs(blA - np.median(blA)) > 0.5* np.median(blA))[0].tolist()
+        errCount = np.zeros(antNum)
+        for bl in set(errD) or set(errA): errCount[ list(Bl2Ant(bl)) ] += 1
+        gainFlag[np.where(errCount > 1.5 )[0].tolist()] *= 0.0
     #
 #
 #-------- Check D-term files
@@ -61,6 +60,9 @@ Tau0E    = np.load(prefix +  '-' + UniqBands[band_index] + '.TauE.npy') # Tau0E[
 atmTimeRef = np.load(prefix +  '-' + UniqBands[band_index] + '.atmTime.npy') # atmTimeRef[atmScan]
 TrxMap = indexList(TrxAnts, antList); TrxFlag = np.zeros([antNum]); TrxFlag[TrxMap] = 1.0
 Tau0E = np.nanmedian(Tau0E, axis=0); Tau0E[np.isnan(Tau0E)] = np.nanmedian(Tau0E); Tau0E[np.isnan(Tau0E)] = 0.0
+TrxMed = np.median(Trxspec, axis=3)
+for spw_index in range(spwNum):
+    for pol_index in range(2): TrxFlag[np.where(abs(TrxMed[spw_index][:,pol_index] - np.median(TrxMed[spw_index][:,pol_index])) > 0.7* np.median(TrxMed[spw_index][:,pol_index]))[0].tolist()] *= 0.0
 #
 print 'Ant:',
 for ant_index in range(antNum): print antList[ant_index],
@@ -73,6 +75,9 @@ for ant_index in range(antNum): print '   %.0f' % (gainFlag[ant_index]),
 print; print 'Dtrm',
 for ant_index in range(antNum): print '   %.0f' % (Dflag[ant_index]),
 print
+flagAnt = flagAnt* TrxFlag* gainFlag* Dflag
+UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
+if len(UseAnt) < 5: sys.exit('Too few usable antennas. Reduction failed.')
 #-------- Check Scans for atmCal
 ingestFile = open(prefix + '-' + UniqBands[band_index] + '-Ingest.log', 'w') 
 text_sd = '#source,   RA,eRA,dec,edec,frequency,  flux,eflux,degree,edeg,EVPA,eEVPA,uvmin,uvmax,date\n'; ingestFile.write(text_sd)
@@ -83,8 +88,6 @@ scanList = onsourceScans
 msmd.close()
 msmd.done()
 #-------- Array Configuration
-flagAnt = flagAnt* TrxFlag* gainFlag* Dflag
-UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
 print '---Determining refant'
 #flagList = np.where(np.median(chAvgTrx.reshape(UseAntNum, 2* spwNum), axis=1) > 2.0* np.percentile(chAvgTrx, 75))[0].tolist()  # Avoid too-high Trx
 #flagList = unique(flagList + np.where(np.min(chAvgTrx.reshape(UseAntNum, 2* spwNum), axis=1) < 1.0 )[0].tolist()).tolist()     # Avoid too-low Trx
