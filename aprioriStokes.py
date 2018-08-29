@@ -15,18 +15,18 @@ for ant_index in range(antNum): antDia[ant_index] = msmd.antennadiameter(antList
 flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
 print '  -- usable antenna checking for EQ scan : '
 spwList = scnspw
-gainFlag, blAmp = np.ones([antNum]), np.zeros([blNum])
+gainFlag = np.ones([antNum])
 for spw_index in range(spwNum):
     #-------- Checking usable baselines and antennas
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], EQScan)
-    timeNum, chNum, blNum = Xspec.shape[3], Xspec.shape[1], Xspec.shape[2]; chRange, timeRange = range(int(0.05*chNum), int(0.95*chNum)), range(int(0.1*timeNum), int(timeNum))
+    timeNum, chNum, blNum = Xspec.shape[3], Xspec.shape[1], Xspec.shape[2]; chRange, timeRange = range(int(0.05*chNum), int(0.95*chNum)), range(timeNum-4, timeNum-1)
     for polID in pPol:
         blD, blA = np.apply_along_axis(delay_search, 0, np.mean(Xspec[polID][chRange][:,:,timeRange], axis=2))
         blA = blA / np.sqrt(antDia[ANT0[0:blNum]]* antDia[ANT1[0:blNum]])
-        errD, errA = np.where(abs(blD - np.median(blD)) > 4.0)[0].tolist(), np.where(abs(blA - np.median(blA)) > 0.5* np.median(blA))[0].tolist()
+        errD, errA = np.where(abs(blD - np.median(blD)) > 4.0)[0].tolist(), np.where(abs(blA - np.median(blA)) > 0.4* np.median(blA))[0].tolist()
         errCount = np.zeros(antNum)
         for bl in set(errD) or set(errA): errCount[ list(Bl2Ant(bl)) ] += 1
-        gainFlag[np.where(errCount > 1.5 )[0].tolist()] *= 0.0
+        gainFlag[np.where(errCount > 2.5 )[0].tolist()] *= 0.0
     #
 #
 #-------- Check D-term files

@@ -16,20 +16,20 @@ print '---Checking array configulation'
 antDia = np.ones(antNum)
 for ant_index in range(antNum): antDia[ant_index] = msmd.antennadiameter(antList[ant_index])['value']
 flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
-print '  -- usable antenna checking for EQ scan : '
+print '  -- usable antenna checking for BP scan : '
 spwList = scnspw
-gainFlag, blAmp = np.ones([antNum]), np.zeros([blNum])
+gainFlag = np.ones([antNum])
 for spw_index in range(spwNum):
     #-------- Baseline-based cross power spectra
-    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], EQScan)
-    timeNum, chNum, blNum = Xspec.shape[3], Xspec.shape[1], Xspec.shape[2]; chRange, timeRange = range(int(0.05*chNum), int(0.95*chNum)), range(int(0.1*timeNum), int(timeNum))
+    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], BPScan)
+    timeNum, chNum, blNum = Xspec.shape[3], Xspec.shape[1], Xspec.shape[2]; chRange, timeRange = range(int(0.05*chNum), int(0.95*chNum)), range(timeNum-4, timeNum-1)
     for polID in pPol:
         blD, blA = np.apply_along_axis(delay_search, 0, np.mean(Xspec[polID][chRange][:,:,timeRange], axis=2))
-        blA = blA / np.sqrt(antDia[ANT0[0:blNum]]* antDia[ANT1[0:blNum]])
-        errD, errA = np.where(abs(blD - np.median(blD)) > 4.0)[0].tolist(), np.where(abs(blA - np.median(blA)) > 0.5* np.median(blA))[0].tolist()
+        blA = blA / (antDia[ANT0[0:blNum]]* antDia[ANT1[0:blNum]])
+        errD, errA = np.where(abs(blD - np.median(blD)) > 4.0)[0].tolist(), np.where(abs(blA - np.median(blA)) > 0.4* np.median(blA))[0].tolist()
         errCount = np.zeros(antNum)
         for bl in set(errD) or set(errA): errCount[ list(Bl2Ant(bl)) ] += 1
-        gainFlag[np.where(errCount > 1.5 )[0].tolist()] *= 0.0
+        gainFlag[np.where(errCount > 2.5 )[0].tolist()] *= 0.0
     #
 #
 #-------- Check D-term files
@@ -62,7 +62,7 @@ TrxMap = indexList(TrxAnts, antList); TrxFlag = np.zeros([antNum]); TrxFlag[TrxM
 Tau0E = np.nanmedian(Tau0E, axis=0); Tau0E[np.isnan(Tau0E)] = np.nanmedian(Tau0E); Tau0E[np.isnan(Tau0E)] = 0.0
 TrxMed = np.median(Trxspec, axis=3)
 for spw_index in range(spwNum):
-    for pol_index in range(2): TrxFlag[np.where(abs(TrxMed[spw_index][:,pol_index] - np.median(TrxMed[spw_index][:,pol_index])) > 0.7* np.median(TrxMed[spw_index][:,pol_index]))[0].tolist()] *= 0.0
+    for pol_index in range(2): TrxFlag[np.where(abs(TrxMed[spw_index][:,pol_index] - np.median(TrxMed[spw_index][:,pol_index])) > 0.8* np.median(TrxMed[spw_index][:,pol_index]))[0].tolist()] *= 0.0
 #
 print 'Ant:',
 for ant_index in range(antNum): print antList[ant_index],
@@ -571,4 +571,4 @@ np.save(prefix + '-' + UniqBands[band_index] + '.XYC.npy', np.array(XYC).reshape
 np.save(prefix + '-' + UniqBands[band_index] + '.XYD.npy', np.array(XYD).reshape([len(XYC)/spwNum/2, spwNum, 2]))
 msmd.close()
 msmd.done()
-del AntID, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, Trxspec, TsysSPW, TsysBL, azelTime, azelTime_index, chAvgVis, W
+del flagAnt, TrxFlag, gainFlag, Dflag, AntID, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, Trxspec, TsysSPW, TsysBL, azelTime, azelTime_index, chAvgVis, W
