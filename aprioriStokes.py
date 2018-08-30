@@ -60,7 +60,7 @@ Tau0E = np.nanmedian(Tau0E, axis=0); Tau0E[np.isnan(Tau0E)] = np.nanmedian(Tau0E
 TrxMed = np.median(Trxspec, axis=3)
 for spw_index in range(spwNum):
     for pol_index in range(2): TrxFlag[np.where(abs(TrxMed[spw_index][:,pol_index] - np.median(TrxMed[spw_index][:,pol_index])) > 0.7* np.median(TrxMed[spw_index][:,pol_index]))[0].tolist()] *= 0.0
-if np.min(Tau0spec[:,chRange]) < 0.0: TrxFlag *= 0.0  # # Negative Tau(zenith)
+if np.min(np.median(Tau0spec[:,chRange], axis=1)) < 0.0: TrxFlag *= 0.0    # Negative Tau(zenith) 
 #
 print 'Ant:',
 for ant_index in range(antNum): print antList[ant_index],
