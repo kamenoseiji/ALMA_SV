@@ -191,6 +191,7 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList):
 #-------- Check MS file
 msfile = prefix + '.ms'
 tempAtm = GetTemp(msfile)
+if tempAtm != tempAtm: tempAtm = 270.0; print 'Cannot get ambient-load temperature ... employ 270.0 K, instead.'
 antList = GetAntName(msfile)
 antNum = len(antList)
 if 'flagAnt' not in locals(): flagAnt = np.ones(antNum)
@@ -273,7 +274,7 @@ for band_index in range(NumBands):
         for scan_index in range(atmscanNum): AtmEL[ant_index, scan_index] = EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - atmTimeRef[scan_index]))]]
         for scan_index in range(scanNum):     OnEL[ant_index, scan_index] = EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - scanTimeRef[scan_index]))]]
     #
-    OnsecZ, atmsecZ  = 1.0 / np.sin( np.median(OnEL, axis=0) ), 1.0 / np.sin( np.median(AtmEL, axis=0) )
+    atmsecZ  = 1.0 / np.sin( np.median(AtmEL, axis=0) )
     #-------- Tsky and TantN
     Tau0, Tau0Excess, TantN = tau0SpecFit(tempAtm - 5.0, atmsecZ, useAnt, atmspwLists[band_index], TskyList)
     for spw_index in range(spwNum): TrxList[spw_index] = (TrxList[spw_index].transpose(1,0,2) + TantN[spw_index]).transpose(1,0,2)
