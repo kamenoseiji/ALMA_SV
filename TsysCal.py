@@ -16,6 +16,30 @@
 #
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Plotters.py')
+#-------- Get atmCal SPWs
+def GetAtmSPWs(msfile):
+    msmd.open(msfile)
+    atmSPWs = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); atmSPWs.sort()
+    if len(atmSPWs) == 0:
+        atmSPWList = msmd.spwsforintent("CALIBRATE_ATMOSPHERE*").tolist()
+        tb.open(msfile + '/' + 'SPECTRAL_WINDOW')
+        for spwID in atmSPWList:
+            if tb.getcell("NUM_CHAN", spwID) > 60: atmSPWs = atmSPWs + [spwID]
+        #
+        tb.close()
+    #
+    msmd.close()
+    return atmSPWs
+#
+#-------- Get Bandpass SPWs
+def GetBPcalSPWs(msfile):
+    msmd.open(msfile)
+    bpSPWs  = msmd.spwsforintent("CALIBRATE_BANDPASS*").tolist(); bpSPWs.sort()
+    if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_FLUX*").tolist(); bpSPWs.sort()
+    if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_DELAY*").tolist(); bpSPWs.sort()
+    msmd.close()
+    return bpSPWs
+#
 #-------- Get atmCal scans
 def scanAtmSpec(msfile, useAnt, scanList, spwList, timeOFF=0, timeON=0, timeAMB=0, timeHOT=0):
     timeList, offSpecList, ambSpecList, hotSpecList = [], [], [], []
@@ -198,11 +222,22 @@ if 'flagAnt' not in locals(): flagAnt = np.ones(antNum)
 if 'antFlag' in locals(): flagAnt[indexList(antFlag, antList)] = 0.0
 useAnt = np.where(flagAnt == 1.0)[0].tolist(); useAntNum = len(useAnt)
 #-------- Check SPWs
-msmd.open(msfile)
 print '---Checking spectral windows and scans with atmCal for ' + prefix
-atmSPWs = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); atmSPWs.sort()
-bpSPWs  = msmd.spwsforintent("CALIBRATE_BANDPASS*").tolist(); bpSPWs.sort()
-if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_DELAY*").tolist(); bpSPWs.sort()
+#atmSPWs = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); atmSPWs.sort()
+#if len(atmSPWs) == 0:
+#    atmSPWList = msmd.spwsforintent("CALIBRATE_ATMOSPHERE*").tolist()
+#    tb.open(msfile + '/' + 'SPECTRAL_WINDOW')
+#    for spwID in atmSPWList:
+#        if tb.getcell("NUM_CHAN", spwID) > 60: atmSPWs = atmSPWs + [spwID]
+#    #
+#    tb.close()
+##
+#bpSPWs  = msmd.spwsforintent("CALIBRATE_BANDPASS*").tolist(); bpSPWs.sort()
+#if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_FLUX*").tolist(); bpSPWs.sort()
+#if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_DELAY*").tolist(); bpSPWs.sort()
+atmSPWs = GetAtmSPWs(msfile)
+bpSPWs  = GetBPcalSPWs(msfile)
+msmd.open(msfile)
 atmspwNames, bpspwNames = msmd.namesforspws(atmSPWs), msmd.namesforspws(bpSPWs)
 bpSPWs = np.array(bpSPWs)[indexList(np.array(atmspwNames), np.array(bpspwNames))].tolist(); bpspwNames = msmd.namesforspws(bpSPWs)
 atmBandNames, atmPattern = [], r'RB_..'
@@ -231,13 +266,18 @@ if len(timeAMB) == 0:
     timeXY, Pspec = GetPSpec(msfile, 0, atmSPWs[0])
     timeNum, chNum = Pspec.shape[2], Pspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
     chAvgPower = np.mean(Pspec[0][chRange], axis=0)
-    offTimeIndex = indexList(timeOFF, timeXY)
-    gapList = np.where(np.diff(chAvgPower) > 5.0* np.std(chAvgPower[offTimeIndex]))[0]
-    gapList = np.append(gapList, [max(gapList) + 6])
-    hotTimeIndex, ambTimeIndex = [], []
-    for gap_index in range(0, len(gapList)-1, 2):
-        ambTimeIndex = ambTimeIndex + range((gapList[gap_index] + 2), (gapList[gap_index + 1]-1))
-        hotTimeIndex = hotTimeIndex + range((gapList[gap_index+1] + 2), (gapList[gap_index + 2]-1))
+    # offTimeIndex = indexList(timeOFF, timeXY)
+    onTimeIndex  = indexList(timeON, timeXY)
+    onTime, onPower = timeXY[onTimeIndex], chAvgPower[onTimeIndex]
+    hot_index, amb_index = np.where(onPower >  np.median(onPower))[0].tolist(), np.where(onPower <  np.median(onPower))[0].tolist()
+    hotStart = [hot_index[0]] + np.array(hot_index)[np.where(np.diff(onTime[hot_index]) > 60.0)[0] + 1].tolist()
+    ambStart = [amb_index[0]] + np.array(amb_index)[np.where(np.diff(onTime[amb_index]) > 60.0)[0] + 1].tolist()
+    hotTimeIndex, ambTimeIndex = np.array(onTimeIndex)[list(set(hot_index) - set(hotStart))], np.array(onTimeIndex)[list(set(amb_index) - set(ambStart))]
+    #gapList = np.append(gapList, [max(gapList) + 6])
+    #hotTimeIndex, ambTimeIndex = [], []
+    #for gap_index in range(0, len(gapList)-1, 2):
+    #    ambTimeIndex = ambTimeIndex + range((gapList[gap_index] + 2), (gapList[gap_index + 1]-1))
+    #    hotTimeIndex = hotTimeIndex + range((gapList[gap_index+1] + 2), (gapList[gap_index + 2]-1))
     #
     timeAMB, timeHOT = timeXY[ambTimeIndex], timeXY[hotTimeIndex]
 #

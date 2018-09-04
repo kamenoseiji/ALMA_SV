@@ -26,7 +26,7 @@ for spw_index in range(spwNum):
     for polID in pPol:
         blD, blA = np.apply_along_axis(delay_search, 0, np.mean(Xspec[polID][chRange][:,:,timeRange], axis=2))
         blA = blA / (antDia[ANT0[0:blNum]]* antDia[ANT1[0:blNum]])
-        errD, errA = np.where(abs(blD - np.median(blD)) > 4.0)[0].tolist(), np.where(abs(blA - np.median(blA)) > 0.4* np.median(blA))[0].tolist()
+        errD, errA = np.where(abs(blD - np.median(blD)) > 4.0)[0].tolist(), np.where(abs(blA - np.median(blA)) > 0.5* np.median(blA))[0].tolist()
         errCount = np.zeros(antNum)
         for bl in set(errD) or set(errA): errCount[ list(Bl2Ant(bl)) ] += 1
         gainFlag[np.where(errCount > 2.5 )[0].tolist()] *= 0.0
