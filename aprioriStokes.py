@@ -59,7 +59,7 @@ TrxMap = indexList(TrxAnts, antList); TrxFlag = np.zeros([antNum]); TrxFlag[TrxM
 Tau0E = np.nanmedian(Tau0E, axis=0); Tau0E[np.isnan(Tau0E)] = np.nanmedian(Tau0E); Tau0E[np.isnan(Tau0E)] = 0.0
 TrxMed = np.median(Trxspec, axis=3)
 for spw_index in range(spwNum):
-    for pol_index in range(2): TrxFlag[np.where(abs(TrxMed[spw_index][:,pol_index] - np.median(TrxMed[spw_index][:,pol_index])) > 0.7* np.median(TrxMed[spw_index][:,pol_index]))[0].tolist()] *= 0.0
+    for pol_index in range(2): TrxFlag[np.where(abs(TrxMed[spw_index][:,pol_index] - np.median(TrxMed[spw_index][:,pol_index])) > 0.75* np.median(TrxMed[spw_index][:,pol_index]))[0].tolist()] *= 0.0
 if np.min(np.median(Tau0spec[:,chRange], axis=1)) < 0.0: TrxFlag *= 0.0    # Negative Tau(zenith) 
 #
 print 'Ant:',
@@ -212,7 +212,7 @@ if len(atmTimeRef) > 5:
     exTauSP  = UnivariateSpline(atmTimeRef, Tau0E, np.ones(len(atmTimeRef)), s=0.1*np.std(Tau0E))
 else:
     tempTime = np.arange(np.min(atmTimeRef) - 3600.0,  np.max(atmTimeRef) + 3600.0, 300.0)
-    tempTauE = np.repeat(np.median(Tau0E[spw_index]), len(tempTime))
+    tempTauE = np.repeat(np.median(Tau0E), len(tempTime))
     exTauSP = UnivariateSpline(tempTime, tempTauE, np.ones(len(tempTime)), s=0.1)
 #
 for spw_index in range(spwNum):
@@ -315,6 +315,10 @@ for scan_index in range(scanNum):
     #-------- UV distance
     timeStamp, UVW = GetUVW(msfile, spwList[0], scanList[scan_index]);  timeNum = len(timeStamp)
     uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
+    #-------- Flagging
+    if 'FG' in locals(): flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
+    else: flagIndex = range(timeNum)
+    #-------- Parallactic Angle
     AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
     PA = (AzEl2PA(AzScan, ElScan) + BandPA[band_index])[flagIndex]; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
     #-------- Plot Frame
@@ -333,9 +337,6 @@ for scan_index in range(scanNum):
     figScan.text(0.05, 0.95, text_sd) 
     text_sd = ' SPW  Frequency    I                 Q                 U                 V                 %Pol     EVPA '; logfile.write(text_sd + '\n'); print text_sd
     text_sd = ' --------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
-    #-------- Flagging
-    #if 'FG' in locals(): flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
-    #else: flagIndex = range(timeNum)
     #-------- Baseline-based cross power spectra
     for spw_index in range(spwNum):
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], scanList[scan_index])
