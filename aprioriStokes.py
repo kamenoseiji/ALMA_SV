@@ -238,7 +238,8 @@ for spw_index in range(spwNum):
 print '---Equalized aperture efficiencies (Pol-X, Pol-Y) in %'
 antRelGain = np.median(relGain, axis=0)
 for ant_index in range(UseAntNum):
-    print '%s  %.2f  %.2f' % (antList[antMap[ant_index]], etaX[ant_index]* antRelGain[0,ant_index]**2, etaY[ant_index]* antRelGain[1,ant_index]**2)
+    text_sd = '%s  %.2f  %.2f' % (antList[antMap[ant_index]], etaX[ant_index]* antRelGain[0,ant_index]**2, etaY[ant_index]* antRelGain[1,ant_index]**2)
+    logfile.write(text_sd + '\n'); print text_sd
 #
 ##-------- Iteration for Equalization using EQ scan
 print '---XY phase determination in bandpass scan'
