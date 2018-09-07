@@ -213,7 +213,7 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList):
     return Tau0List, Tau0Excess, TantNList
 #
 #-------- Check MS file
-msfile = prefix + '.ms'
+msfile = wd + prefix + '.ms'
 tempAtm = GetTemp(msfile)
 if tempAtm != tempAtm: tempAtm = 270.0; print 'Cannot get ambient-load temperature ... employ 270.0 K, instead.'
 antList = GetAntName(msfile)
