@@ -63,12 +63,12 @@ TrxMed = np.median(Trxspec, axis=3)
 #-------- Tsys channel interpolation
 chNum, chWid, Freq = GetChNum(msfile, spwList[0])
 if TrxFreq.shape[1] != chNum: 
-    Tau0spec, Trxspec = np.zeros([spwNum, chNum]), np.zeros([spwNum, antNum, 2, chNum])
+    tmpTAU0, tmpTRX = np.zeros([spwNum, chNum]), np.zeros([spwNum, antNum, 2, chNum])
     for spw_index in range(spwNum):
         chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index]); Freq *= 1.0e-9
         TAU0 = interpolate.interp1d(TrxFreq[spw_index], Tau0spec[spw_index])
         tmpTAU0[spw_index] = TAU0(Freq)
-        for ant_index in range(antNum):
+        for ant_index in range(len(TrxAnts)):
             for pol_index in range(2):
                 TRX = interpolate.interp1d(TrxFreq[spw_index], Trxspec[spw_index, ant_index, pol_index])
                 tmpTRX[spw_index, ant_index, pol_index] = TRX(Freq)

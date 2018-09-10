@@ -20,6 +20,7 @@ print prefix
 print '---Checking spectral windows'
 atmSPWs = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); atmSPWs.sort()
 bpSPWs  = list(set( msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_DELAY*"))); bpSPWs.sort()
+if len(bpSPWs) == 0: bpSPWs = list(set( msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_PHASE*"))); bpSPWs.sort()
 atmspwNames, bpspwNames = msmd.namesforspws(atmSPWs), msmd.namesforspws(bpSPWs)
 atmBandNames, atmPattern = [], r'RB_..'
 for spwName in atmspwNames : atmBandNames = atmBandNames + re.findall(atmPattern, spwName)
@@ -41,7 +42,7 @@ for source in sourceList: print source,
 print ''
 #-------- Check Scans of BandPass, EQualization, and FluxScaling
 polNum = msmd.ncorrforpol(msmd.polidfordatadesc(bpspwLists[0][0]))
-ONScans = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
+ONScans = np.hstack([msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE"), msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("CALIBRATE_POLARIZATION#ON_SOURCE")])
 print '---SPWs and Scans for each receiver band'
 msmd.done()
 for band_index in range(NumBands):

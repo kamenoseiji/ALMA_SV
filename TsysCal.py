@@ -31,15 +31,6 @@ def GetAtmSPWs(msfile):
     msmd.close()
     return atmSPWs
 #
-#-------- Get Bandpass SPWs
-def GetBPcalSPWs(msfile):
-    msmd.open(msfile)
-    bpSPWs  = msmd.spwsforintent("CALIBRATE_BANDPASS*").tolist(); bpSPWs.sort()
-    if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_FLUX*").tolist(); bpSPWs.sort()
-    if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_DELAY*").tolist(); bpSPWs.sort()
-    msmd.close()
-    return bpSPWs
-#
 #-------- Get atmCal scans
 def scanAtmSpec(msfile, useAnt, scanList, spwList, timeOFF=0, timeON=0, timeAMB=0, timeHOT=0):
     timeList, offSpecList, ambSpecList, hotSpecList = [], [], [], []
@@ -223,36 +214,19 @@ if 'antFlag' in locals(): flagAnt[indexList(antFlag, antList)] = 0.0
 useAnt = np.where(flagAnt == 1.0)[0].tolist(); useAntNum = len(useAnt)
 #-------- Check SPWs
 print '---Checking spectral windows and scans with atmCal for ' + prefix
-#atmSPWs = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); atmSPWs.sort()
-#if len(atmSPWs) == 0:
-#    atmSPWList = msmd.spwsforintent("CALIBRATE_ATMOSPHERE*").tolist()
-#    tb.open(msfile + '/' + 'SPECTRAL_WINDOW')
-#    for spwID in atmSPWList:
-#        if tb.getcell("NUM_CHAN", spwID) > 60: atmSPWs = atmSPWs + [spwID]
-#    #
-#    tb.close()
-##
-#bpSPWs  = msmd.spwsforintent("CALIBRATE_BANDPASS*").tolist(); bpSPWs.sort()
-#if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_FLUX*").tolist(); bpSPWs.sort()
-#if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_DELAY*").tolist(); bpSPWs.sort()
 atmSPWs = GetAtmSPWs(msfile)
-bpSPWs  = GetBPcalSPWs(msfile)
 msmd.open(msfile)
-atmspwNames, bpspwNames = msmd.namesforspws(atmSPWs), msmd.namesforspws(bpSPWs)
-bpSPWs = np.array(bpSPWs)[indexList(np.array(atmspwNames), np.array(bpspwNames))].tolist(); bpspwNames = msmd.namesforspws(bpSPWs)
+atmspwNames = msmd.namesforspws(atmSPWs)
 atmBandNames, atmPattern = [], r'RB_..'
 for spwName in atmspwNames : atmBandNames = atmBandNames + re.findall(atmPattern, spwName)
 UniqBands = unique(atmBandNames).tolist(); NumBands = len(UniqBands)
-atmspwLists, bpspwLists, atmscanLists, bpscanLists = [], [], [], []
+atmspwLists, atmscanLists = [], []
 for band_index in range(NumBands):
     bandAtmSPWs = np.array(atmSPWs)[indexList(np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()
-    bandBpSPWs  = np.array(bpSPWs)[indexList( np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()
     atmspwLists = atmspwLists + [bandAtmSPWs]
-    bpspwLists  = bpspwLists  + [bandBpSPWs]
     atmscanList = list(set(msmd.scansforspw(atmspwLists[band_index][0]))& set(msmd.scansforintent("CALIBRATE_ATMOSPHERE*"))); atmscanList.sort(); atmscanLists = atmscanLists + [atmscanList]
-    bpscanList  = list(set(msmd.scansforspw(bpspwLists[band_index][0])) & set(msmd.scansforintent("*#ON_SOURCE"))); bpscanList.sort(); bpscanLists = bpscanLists + [bpscanList]
     print ' ',
-    print UniqBands[band_index] + ': atmSPW=' + `atmspwLists[band_index]` + ' bpSPW=' + `bpspwLists[band_index]`
+    print UniqBands[band_index] + ': atmSPW=' + `atmspwLists[band_index]`
     #
 #
 # atmSPWs[band] : SPWs used in atmCal scans
@@ -266,19 +240,12 @@ if len(timeAMB) == 0:
     timeXY, Pspec = GetPSpec(msfile, 0, atmSPWs[0])
     timeNum, chNum = Pspec.shape[2], Pspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
     chAvgPower = np.mean(Pspec[0][chRange], axis=0)
-    # offTimeIndex = indexList(timeOFF, timeXY)
     onTimeIndex  = indexList(timeON, timeXY)
     onTime, onPower = timeXY[onTimeIndex], chAvgPower[onTimeIndex]
     hot_index, amb_index = np.where(onPower >  np.median(onPower))[0].tolist(), np.where(onPower <  np.median(onPower))[0].tolist()
     hotStart = [hot_index[0]] + np.array(hot_index)[np.where(np.diff(onTime[hot_index]) > 60.0)[0] + 1].tolist()
     ambStart = [amb_index[0]] + np.array(amb_index)[np.where(np.diff(onTime[amb_index]) > 60.0)[0] + 1].tolist()
     hotTimeIndex, ambTimeIndex = np.array(onTimeIndex)[list(set(hot_index) - set(hotStart))], np.array(onTimeIndex)[list(set(amb_index) - set(ambStart))]
-    #gapList = np.append(gapList, [max(gapList) + 6])
-    #hotTimeIndex, ambTimeIndex = [], []
-    #for gap_index in range(0, len(gapList)-1, 2):
-    #    ambTimeIndex = ambTimeIndex + range((gapList[gap_index] + 2), (gapList[gap_index + 1]-1))
-    #    hotTimeIndex = hotTimeIndex + range((gapList[gap_index+1] + 2), (gapList[gap_index + 2]-1))
-    #
     timeAMB, timeHOT = timeXY[ambTimeIndex], timeXY[hotTimeIndex]
 #
 azelTime, AntID, AZ, EL = GetAzEl(msfile)
@@ -301,18 +268,15 @@ for band_index in range(NumBands):
     #-------- Trx
     atmTimeRef, offSpec, ambSpec, hotSpec, scanList = scanAtmSpec(msfile, useAnt, atmscanLists[band_index], atmspwLists[band_index], timeOFF, timeON, timeAMB, timeHOT)
     atmscanLists[band_index] = scanList
-    atmscanNum, scanNum, spwNum = len(atmscanLists[band_index]), len(bpscanLists[band_index]), len(atmspwLists[band_index])
+    atmscanNum, spwNum = len(atmscanLists[band_index]), len(atmspwLists[band_index])
     TrxList, TskyList, outLierFlag = TrxTskySpec(useAnt, tempAmb, tempHot, atmspwLists[band_index], atmscanLists[band_index], ambSpec, hotSpec, offSpec)
     np.save(prefix +  '-' + UniqBands[band_index] + '.Trx.npy', TrxList)    # TxList[spw][ant,pol,ch]
     #-------- Az and El position at atmCal and onsource scans
-    AtmEL, OnEL = np.ones([useAntNum, atmscanNum]), np.ones([useAntNum, scanNum])
-    scanTimeRef = np.zeros(scanNum)
-    for scan_index in range(scanNum): scanTimeRef[scan_index] = np.median(msmd.timesforscan(bpscanLists[band_index][scan_index]))
+    AtmEL = np.ones([useAntNum, atmscanNum])
     for ant_index in range(useAntNum):
         azelTime_index = np.where( AntID == useAnt[ant_index] )[0].tolist()
         if len(azelTime_index) == 0: azelTime_index = np.where( AntID == 0 )[0].tolist()
         for scan_index in range(atmscanNum): AtmEL[ant_index, scan_index] = EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - atmTimeRef[scan_index]))]]
-        for scan_index in range(scanNum):     OnEL[ant_index, scan_index] = EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - scanTimeRef[scan_index]))]]
     #
     atmsecZ  = 1.0 / np.sin( np.median(AtmEL, axis=0) )
     #-------- Tsky and TantN
