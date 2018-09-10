@@ -1,5 +1,6 @@
 import sys
 from scipy import stats
+from scipy import interpolate
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ptick
 import analysisUtils as au
@@ -50,6 +51,7 @@ if noDantNum > 0:
     sys.exit(' Run DtermTransfer first!!')
 #
 #-------- Load Tsys table
+TrxFreq  = np.load(prefix +  '-' + UniqBands[band_index] + '.TrxFreq.npy') # TrxFreq[spw][ch]
 TrxAnts  = np.load(prefix +  '-' + UniqBands[band_index] + '.TrxAnt.npy') # TrxAnts[ant]
 Tau0spec = np.load(prefix +  '-' + UniqBands[band_index] + '.Tau0.npy') # Tau0spec[spw][ch]
 Trxspec  = np.load(prefix +  '-' + UniqBands[band_index] + '.Trx.npy')  # Trxspec[spw, ant, pol, ch]
@@ -58,6 +60,23 @@ atmTimeRef = np.load(prefix +  '-' + UniqBands[band_index] + '.atmTime.npy') # a
 TrxMap = indexList(TrxAnts, antList); TrxFlag = np.zeros([antNum]); TrxFlag[TrxMap] = 1.0
 Tau0E = np.nanmedian(Tau0E, axis=0); Tau0E[np.isnan(Tau0E)] = np.nanmedian(Tau0E); Tau0E[np.isnan(Tau0E)] = 0.0
 TrxMed = np.median(Trxspec, axis=3)
+#-------- Tsys channel interpolation
+chNum, chWid, Freq = GetChNum(msfile, spwList[0])
+if TrxFreq.shape[1] != chNum: 
+    Tau0spec, Trxspec = np.zeros([spwNum, chNum]), np.zeros([spwNum, antNum, 2, chNum])
+    for spw_index in range(spwNum):
+        chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index]); Freq *= 1.0e-9
+        TAU0 = interpolate.interp1d(TrxFreq[spw_index], Tau0spec[spw_index])
+        tmpTAU0[spw_index] = TAU0(Freq)
+        for ant_index in range(antNum):
+            for pol_index in range(2):
+                TRX = interpolate.interp1d(TrxFreq[spw_index], Trxspec[spw_index, ant_index, pol_index])
+                tmpTRX[spw_index, ant_index, pol_index] = TRX(Freq)
+        #
+    #
+    Tau0spec = tmpTAU0
+    Trxspec  = tmpTRX
+#
 for spw_index in range(spwNum):
     for pol_index in range(2): TrxFlag[np.where(abs(TrxMed[spw_index][:,pol_index] - np.median(TrxMed[spw_index][:,pol_index])) > 0.8* np.median(TrxMed[spw_index][:,pol_index]))[0].tolist()] *= 0.0
 if np.min(np.median(Tau0spec[:,chRange], axis=1)) < 0.0: TrxFlag *= 0.0    # Negative Tau(zenith) 
@@ -214,6 +233,7 @@ else:
     tempTime = np.arange(np.min(atmTimeRef) - 3600.0,  np.max(atmTimeRef) + 3600.0, 300.0)
     tempTauE = np.repeat(np.median(Tau0E), len(tempTime))
     exTauSP = UnivariateSpline(tempTime, tempTauE, np.ones(len(tempTime)), s=0.1)
+#
 #
 for spw_index in range(spwNum):
     exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))

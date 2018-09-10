@@ -329,6 +329,7 @@ for band_index in range(NumBands):
     tsysLog.close()
     #-------- Save to npy files
     np.save(prefix +  '-' + UniqBands[band_index] + '.TrxAnt.npy', antList[useAnt])    # antList[ant]
+    np.save(prefix +  '-' + UniqBands[band_index] + '.TrxFreq.npy', freqList)    # freqList[spw]
     np.save(prefix +  '-' + UniqBands[band_index] + '.Trx.npy', TrxList)    # [spw][ant, pol, ch]
     np.save(prefix +  '-' + UniqBands[band_index] + '.Tau0.npy', Tau0)      # [spw][ch]
     np.save(prefix +  '-' + UniqBands[band_index] + '.TauE.npy', Tau0Excess)# [spw][scan]
