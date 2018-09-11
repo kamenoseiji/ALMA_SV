@@ -7,7 +7,15 @@ execfile(SCR_DIR + 'TsysCal.py')
 class END(Exception):
     pass
 #
-#-------- Procedures
+#-------- Get Bandpass SPWs
+def GetBPcalSPWs(msfile):
+    msmd.open(msfile)
+    bpSPWs  = msmd.spwsforintent("CALIBRATE_BANDPASS*").tolist(); bpSPWs.sort()
+    if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_FLUX*").tolist(); bpSPWs.sort()
+    if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_DELAY*").tolist(); bpSPWs.sort()
+    msmd.close()
+    return bpSPWs
+#
 #-------- Check Antenna List
 antList = GetAntName(msfile)
 antNum = len(antList)
