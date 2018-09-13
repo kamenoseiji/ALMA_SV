@@ -459,7 +459,10 @@ for scan_index in range(scanNum):
         XYspec = np.mean(pCalVis[spw_index, :, 1:3, :], axis=(2,3)).T
         XYdelay, XYamp = delay_search(XYspec[:,0]); YXdelay, YXamp = delay_search(XYspec[:,1])
         XYD = XYD + [XYdelay* delayFact, YXdelay* delayFact]
-        XYC = XYC + [np.mean(delay_cal(XYspec[:,0], XYdelay)), np.mean(delay_cal(XYspec[:,1], YXdelay))]
+        xyc, yxc = np.mean(delay_cal(XYspec[:,0], XYdelay)), np.mean(delay_cal(XYspec[:,1], YXdelay))
+        XYC = XYC + [xyc, yxc]
+        text_sd = ' spw%d : Delay (samples) XY= %.3f YX=%.3f  phase (deg) XY= %.2f YX=%.2f' % (spwList[spw_index], XYdelay* delayFact, YXdelay* delayFact, 90.0* np.angle(np.exp((0.0 + 2.0j)* np.angle(xyc))) / pi, 90.0* np.angle(np.exp((0.0 + 2.0j)* np.angle(yxc))) / pi)
+        print text_sd
     #
     for spw_index in range(spwNum):
         exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
