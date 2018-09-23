@@ -42,7 +42,8 @@ for source in sourceList: print source,
 print ''
 #-------- Check Scans of BandPass, EQualization, and FluxScaling
 polNum = msmd.ncorrforpol(msmd.polidfordatadesc(bpspwLists[0][0]))
-ONScans = np.hstack([msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE"), msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("CALIBRATE_POLARIZATION#ON_SOURCE")])
+ONScans = msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE")
+# ONScans = np.hstack([msmd.scansforintent("CALIBRATE_PHASE#ON_SOURCE"), msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("CALIBRATE_POLARIZATION#ON_SOURCE")])
 print '---SPWs and Scans for each receiver band'
 msmd.done()
 for band_index in range(NumBands):
