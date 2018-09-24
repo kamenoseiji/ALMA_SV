@@ -9,8 +9,13 @@ from matplotlib.backends.backend_pdf import PdfPages
 RADperHzMeterArcsec = 2.0* pi / 299792458 / (180*3600/pi)
 #-------- Configure Array
 msfile = prefix + '.ms'; msmd.open(msfile)
+#-------- Check Antenna List
+antList = GetAntName(msfile)
+antNum = len(antList)
+blNum = antNum* (antNum - 1) / 2
 print '---Checking array configulation'
 antDia = np.ones(antNum)
+msmd.open(msfile)
 for ant_index in range(antNum): antDia[ant_index] = msmd.antennadiameter(antList[ant_index])['value']
 flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
 print '  -- usable antenna checking for BP scan : '
@@ -300,8 +305,10 @@ spwPhase = np.array(spwPhase).reshape([UseAntNum, 2, spwNum]); spwTwiddle = exp(
 #QUsolution = np.array([catalogStokesQ.get(BPcal), catalogStokesU.get(BPcal)])
 QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
 if 'QUMODEL' in locals():
-if QUMODEL: QUsolution = np.array([catalogStokesQ.get(BPcal), catalogStokesU.get(BPcal)])
+    if QUMODEL: QUsolution = np.array([catalogStokesQ.get(BPcal), catalogStokesU.get(BPcal)])
+    else: QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
 else: QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
+#
 #-------- XY phase cal in Bandpass table
 XYsign = np.ones(spwNum)
 for spw_index in range(spwNum):
@@ -596,7 +603,6 @@ for spw_index in range(spwNum):
     FreqList = FreqList + [Freq]
 #
 print '---Flux densities of sources ---'
-
 XYD, XYC = [], []      # XY delay and correlation
 for scan in scanList:
     timeStamp, UVW = GetUVW(msfile, spwList[0], scan);  timeNum = len(timeStamp)
@@ -612,12 +618,68 @@ for scan in scanList:
     SAantMap, SAblMap, SAblInv, SAant0, SAant1 = antMap, blMap, blInv, ant0, ant1
     bpAntMap = indexList(antList[SAantMap],antList[antMap])
     Trx2antMap = indexList( antList[SAantMap], antList[TrxMap] )
-
-
-
-
-
-
+    #-------- Baseline-based cross power spectra
+    for spw_index in range(spwNum):
+        timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], scan)
+        timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum)); UseChNum = len(chRange)
+        if np.max(abs(Xspec)) < 1.0e-9: continue
+        #-------- Position offset phase correction
+        if 'offAxis' in locals():
+            lm = np.array(offAxis[scan])
+            Twiddle =  np.exp((0.0 + 1.0j)* np.outer(FreqList[spw_index], uvw[0:2].transpose(1,2,0).dot(lm)).reshape([chNum, UseBlNum, timeNum])* RADperHzMeterArcsec)
+            tempSpec = CrossPolBL(Xspec[:,:,SAblMap]*Twiddle, SAblInv).transpose(3,2,0,1)[flagIndex]      # Cross Polarization Baseline Mapping
+        else:
+            tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)[flagIndex]      # Cross Polarization Baseline Mapping
+        #-------- Bandpass Calibration
+        BPCaledXspec = BPCaledXspec + [(tempSpec / (BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate())).transpose(2,3,1,0)]
+    #
+    #-------- Antenna-based Phase Solution
+    BPCaledXspec = np.array(BPCaledXspec)   # BPCaledXspec[spw, pol, ch, bl, time]
+    chAvgVis = np.mean(np.array(BPCaledXspec)[:,:,chRange], axis=(0,2)) # chAvgVis[pol, bl, time]
+    if 'timeBunch' in locals():
+        useTimeNum = timeNum / timeBunch * timeBunch
+        leapNum = timeNum - useTimeNum
+        timeAvgVis = np.mean(chAvgVis[:,:,range(useTimeNum)].reshape(polNum, UseBlNum, timeNum / timeBunch, timeBunch), axis=3)
+        GainP = np.array([np.apply_along_axis(clphase_solve, 0, timeAvgVis[0]), np.apply_along_axis(clphase_solve, 0, timeAvgVis[3])]).repeat(timeBunch, axis=2)
+        if leapNum > 0: GainP = np.append(GainP,  GainP[:,:,(useTimeNum-1):(useTimeNum)].repeat(leapNum, axis=2), axis=2)
+    else:
+        GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
+    #
+    pCalVis = (BPCaledXspec.transpose(0,2,1,3,4) / (GainP[polYindex][:,SAant0]* GainP[polXindex][:,SAant1].conjugate()))[:,chRange]
+    #-------- XY phase spectra
+    for spw_index in range(spwNum):
+        delayFact = (chNum + 0.0)/len(chRange)
+        XYspec = np.mean(pCalVis[spw_index, :, 1:3, :], axis=(2,3)).T
+        XYdelay, XYamp = delay_search(XYspec[:,0]); YXdelay, YXamp = delay_search(XYspec[:,1])
+        XYD = XYD + [XYdelay* delayFact, YXdelay* delayFact]
+        XYC = XYC + [np.mean(delay_cal(XYspec[:,0], XYdelay)), np.mean(delay_cal(XYspec[:,1], YXdelay))]
+    #-------- Full-Stokes parameters
+    for spw_index in range(spwNum):
+        exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
+        atmCorrect = 1.0 / exp_Tau
+        TsysSPW = (Trxspec[spw_index] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap]    # [ant, pol, ch]
+        SEFD = 2.0* kb* (TsysSPW * atmCorrect).transpose(2,1,0) / Ae[:,bpAntMap]                # SEFD[ch,pol,antMap]
+        AmpCalVis = np.mean(np.mean(pCalVis[spw_index], axis=3)[:,[0,3]] * np.sqrt(SEFD[:,ant0[0:SAblNum]]* SEFD[:,ant1[0:SAblNum]]), axis=0)
+        indivRelGain = abs(gainComplexVec(AmpCalVis.T)); indivRelGain /= np.percentile(indivRelGain, 75, axis=0)
+        SEFD /= (indivRelGain**2).T
+        SAantNum = len(SAantMap); SAblNum = len(SAblMap)
+        AmpCalVis = (pCalVis[spw_index].transpose(3,0,1,2)* np.sqrt(SEFD[polYindex][:,ant0[0:SAblNum]]* SEFD[polXindex][:,ant1[0:SAblNum]])).transpose(3,2,1,0)
+        Stokes = np.zeros([4,blNum, UseChNum], dtype=complex)  # Stokes[stokes, bl, ch]
+        for bl_index in range(SAblNum):
+            Minv = InvMullerVector(DxSpec[SAant1[bl_index], spw_index][chRange], DySpec[SAant1[bl_index], spw_index][chRange], DxSpec[SAant0[bl_index], spw_index][chRange], DySpec[SAant0[bl_index], spw_index][chRange], np.ones(UseChNum))
+            for time_index in range(timeNum):
+                for ch_index in range(UseChNum):
+                    Stokes[:,bl_index,ch_index] += PS[:,:,time_index].dot(Minv[:,:,ch_index].dot(AmpCalVis[bl_index, :, ch_index, time_index]))
+                #
+        #
+        Stokes = np.mean(Stokes, axis=1) / timeNum
+        StokesSpec, StokesErr = Stokes.real, Stokes.imag
+        np.save(prefix + '-' + BandName + '-SPW' + `spwList[spw_index]` + '-Scan' + `scan` + '.StokesSpec.npy', StokesSpec)
+        np.save(prefix + '-' + BandName + '-SPW' + `spwList[spw_index]` + '-Scan' + `scan` + '.StokesErr.npy', StokesErr)
+    #
+#
+logfile.close()
+"""
     SAantennas, SAbl, SAblFlag, SAant0, SAant1 =  range(UseAntNum), range(UseBlNum), np.ones([blNum]), ant0, ant1
     SAantMap, SAblMap, SAblInv = antMap, blMap, blInv
     SAantNum = len(SAantennas); SAblNum = len(SAblMap)
@@ -696,7 +758,7 @@ for scan in scanList:
         np.save(prefix + '-' + BandName + '-SPW' + `spwList[spw_index]` + '-Scan' + `scan` + '.StokesErr.npy', StokesErr)
     #
 #
-logfile.close()
+"""
 msmd.done()
 msmd.close()
 chRange = range(int(0.05*chNum), int(0.95*chNum))
