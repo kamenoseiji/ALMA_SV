@@ -85,7 +85,7 @@ for spw_index in range(spwNum):
         for scan in scanList[file_index]:
             #-------- Load Visibilities
             print '-- Loading visibility data %s SPW=%d SCAN=%d...' % (prefix, spw, scan)
-            timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)  # Xspec[POL, CH, BL, TIME]
+            timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan, -1, False)  # Xspec[POL, CH, BL, TIME]
             if 'FG' in locals():
                 flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
             else:

@@ -343,34 +343,47 @@ def GetVisCross(msfile, spwID, scanID):
 	Xspec = dataXY.reshape(polNum, chNum, corrNum, timeNum)[:,:,xcorr_index,:]
 	return timeStamp, Xspec
 #
-def GetVisAllBL(msfile, spwID, scanID, fieldID=-1):
+def GetVisAllBL(msfile, spwID, scanID, fieldID=-1, AC=True):
     antNum = len(GetAntName(msfile))
     corrNum= antNum* (antNum + 1)/2		# Number of correlations (with autocorr)
     blNum  = corrNum - antNum
     Out = 'DATA_DESC_ID == ' + `spwID` + ' && SCAN_NUMBER == ' + `scanID`
-    if fieldID >= 0:
-        Out = Out + ' && FIELD_ID == ' + `fieldID`
-    #
+    if fieldID >= 0: Out = Out + ' && FIELD_ID == ' + `fieldID`
     tb.open(msfile)
     antXantYspw = tb.query(Out, sortlist='noduplicates ANTENNA1, ANTENNA2, TIME')
     timeXY = antXantYspw.getcol('TIME')
-    timeNum = len(timeXY) / corrNum
+    if AC:
+        timeNum = len(timeXY) / corrNum
+    else:
+        timeNum = len(timeXY) / blNum
     try:
         dataXY = antXantYspw.getcol('DATA')		# dataXY in array[pol, ch, baselinextime]
     except:
         dataXY = antXantYspw.getcol('FLOAT_DATA')		# dataXY in array[pol, ch, baselinextime]
     tb.close()
     polNum, chNum = dataXY.shape[0], dataXY.shape[1]
-    timeStamp = timeXY.reshape(corrNum, timeNum)[0]
-    acorr_index = range(antNum)
-    xcorr_index = range(blNum)
-    for ant_index in range(antNum):
-        acorr_index[ant_index] = Ant2Bla_RevLex(ant_index, ant_index, antNum)
-    for bl_index in range(blNum):
-        ant1, ant0 = Bl2Ant(bl_index)
-        xcorr_index[bl_index] = Ant2Bla_RevLex(ant0, ant1, antNum)
-    Pspec = dataXY.reshape(polNum, chNum, corrNum, timeNum)[:,:,acorr_index,:]
-    Xspec = dataXY.reshape(polNum, chNum, corrNum, timeNum)[:,:,xcorr_index,:]
+    if AC:
+        timeStamp = timeXY.reshape(corrNum, timeNum)[0]
+        acorr_index = range(antNum)
+        xcorr_index = range(blNum)
+        for ant_index in range(antNum):
+            acorr_index[ant_index] = Ant2Bla_RevLex(ant_index, ant_index, antNum)
+        for bl_index in range(blNum):
+            ant1, ant0 = Bl2Ant(bl_index)
+            xcorr_index[bl_index] = Ant2Bla_RevLex(ant0, ant1, antNum)
+        #
+        Pspec = dataXY.reshape(polNum, chNum, corrNum, timeNum)[:,:,acorr_index,:]
+        Xspec = dataXY.reshape(polNum, chNum, corrNum, timeNum)[:,:,xcorr_index,:]
+    else: 
+        timeStamp = timeXY.reshape(blNum, timeNum)[0]
+        xcorr_index = range(blNum)
+        for bl_index in range(blNum):
+            ant1, ant0 = Bl2Ant(bl_index)
+            xcorr_index[bl_index] = Ant2Bl_RevLex(ant0, ant1, antNum)
+        #
+        Xspec = dataXY.reshape(polNum, chNum, blNum, timeNum)[:,:,xcorr_index,:]
+        Pspec = np.ones([polNum, chNum, antNum, timeNum])
+    #
     return timeStamp, Pspec, Xspec
 #
 def GetUVW(msfile, spwID, scanID):
@@ -941,7 +954,7 @@ def delayCalSpec2( Xspec, chRange, sigma ):  # chRange = [startCH:stopCH] specif
 def BPtable(msfile, spw, BPScan, blMap, blInv, FG=np.array([]), TS=np.array([])): 
     blNum = len(blMap); antNum = Bl2Ant(blNum)[0]
     #print '  -- Loading visibility data from MS...'
-    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan)    # Xspec[pol, ch, bl, time]
+    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan, -1, False)    # Xspec[pol, ch, bl, time]
     if len(FG) > 0: flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
     else: flagIndex = range(len(timeStamp))
     #
