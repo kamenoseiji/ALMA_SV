@@ -1,5 +1,7 @@
 import sys
 from scipy import stats
+from scipy import interpolate
+from scipy.interpolate import InterpolatedUnivariateSpline
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ptick
 import analysisUtils as au
@@ -203,22 +205,13 @@ QCpUS = (QUsolution[0]* np.cos(2.0* PA) + QUsolution[1]* np.sin(2.0* PA)) / cata
 Trx2antMap = indexList( antList[antMap], antList[TrxMap] )
 #
 if len(atmTimeRef) > 5:
-    exTauSP  = UnivariateSpline(atmTimeRef, Tau0E, np.ones(len(atmTimeRef)), s=0.1*np.std(Tau0E))
+    exTauSP  = UnivariateSpline(atmTimeRef, Tau0E, np.ones(len(atmTimeRef)), s=0.1*np.std(Tau0E), ext=3)
 else:
     tempTime = np.arange(np.min(atmTimeRef) - 3600.0,  np.max(atmTimeRef) + 3600.0, 300.0)
     tempTauE = np.repeat(np.median(Tau0E[spw_index]), len(tempTime))
-    exTauSP = UnivariateSpline(tempTime, tempTauE, np.ones(len(tempTime)), s=0.1)
+    exTauSP = UnivariateSpline(tempTime, tempTauE, np.ones(len(tempTime)), s=0.1, ext=3)
 #
 for spw_index in range(spwNum):
-    #if len(atmTimeRef) > 5:
-    #    #exTauSP = exTauSP + [UnivariateSpline(atmTimeRef, Tau0E[spw_index], np.ones(len(atmTimeRef)), s=0.1*np.std(Tau0E[spw_index]))]
-    #    exTauSP = exTauSP + [UnivariateSpline(atmTimeRef, Tau0E, np.ones(len(atmTimeRef)), s=0.1*np.std(Tau0E))]
-    #else:
-    #    tempTime = np.arange(np.min(atmTimeRef) - 3600.0,  np.max(atmTimeRef) + 3600.0, 300.0)
-    #    tempTauE = np.repeat(np.median(Tau0E[spw_index]), len(tempTime))
-    #    exTauSP = exTauSP + [UnivariateSpline(tempTime, tempTauE, np.ones(len(tempTime)), s=0.1)]
-    #
-    #exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP[spw_index](npmedian(timeStamp))) / np.mean(np.sin(ElScan)))
     exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
     TsysEQScan = np.mean(Trxspec[spw_index,:,:,chRange].transpose(1,2,0) + Tcmb*exp_Tau[chRange] + tempAtm* (1.0 - exp_Tau[chRange]), axis=2)[Trx2antMap] # [antMap, pol]
     #-------- Baseline-based cross power spectra
@@ -399,11 +392,11 @@ print '---Flux densities of sources ---'
 pp = PdfPages('FL_' + prefix + '_' + UniqBands[band_index] + '.pdf')
 polLabel = ['I', 'Q', 'U', 'V']
 Pcolor   = ['black', 'blue', 'red', 'green']
-XYD, XYC = [], []      # XY delay and correlation
+XYD, XYC, scanTime = [], [], []      # XY delay and correlation
 for scan_index in range(scanNum):
     #-------- UV distance
     timeStamp, UVW = GetUVW(msfile, spwList[spw_index], onsourceScans[scan_index])
-    timeText = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
+    scanTime = scanTime + [np.median(timeStamp)], timeText = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
     uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
     if min(ElScan) < 20.0 / 180.0* pi: continue
@@ -461,8 +454,8 @@ for scan_index in range(scanNum):
         XYD = XYD + [XYdelay* delayFact, YXdelay* delayFact]
         xyc, yxc = np.mean(delay_cal(XYspec[:,0], XYdelay)), np.mean(delay_cal(XYspec[:,1], YXdelay))
         XYC = XYC + [xyc, yxc]
-        text_sd = ' spw%d : Delay (samples) XY= %.3f YX=%.3f  phase (deg) XY= %.2f YX=%.2f' % (spwList[spw_index], XYdelay* delayFact, YXdelay* delayFact, 90.0* np.angle(np.exp((0.0 + 2.0j)* np.angle(xyc))) / pi, 90.0* np.angle(np.exp((0.0 + 2.0j)* np.angle(yxc))) / pi)
-        print text_sd
+        #text_sd = ' spw%d : Delay (samples) XY= %.3f YX=%.3f  phase (deg) XY= %.2f YX=%.2f' % (spwList[spw_index], XYdelay* delayFact, YXdelay* delayFact, 90.0* np.angle(np.exp((0.0 + 2.0j)* np.angle(xyc))) / pi, 90.0* np.angle(np.exp((0.0 + 2.0j)* np.angle(yxc))) / pi)
+        #print text_sd
     #
     for spw_index in range(spwNum):
         exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
@@ -571,7 +564,7 @@ pp.close()
 np.save(prefix + '-' + UniqBands[band_index] + '.Flux.npy', ScanFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Ferr.npy', ErrFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceList)[sourceIDscan])
-np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', np.array(OnEL))
+np.save(prefix + '-' + UniqBands[band_index] + '.AZEL.npy', np.array([scanTime, OnAZ, OnEL, OnPA]))
 np.save(prefix + '-' + UniqBands[band_index] + '.XYC.npy', np.array(XYC).reshape([len(XYC)/spwNum/2, spwNum, 2]))
 np.save(prefix + '-' + UniqBands[band_index] + '.XYD.npy', np.array(XYD).reshape([len(XYC)/spwNum/2, spwNum, 2]))
 msmd.close()

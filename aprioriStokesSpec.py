@@ -595,6 +595,7 @@ for spw_index in range(spwNum):
     print 'SPW[%d] : XYphase = %6.1f [deg] sign = %3.0f' % (spwList[spw_index], 180.0*XYphase/pi, XYsign[spw_index])
 #
 """
+"""
 #-------- Flux Density
 ScanFlux, ScanSlope, ErrFlux, centerFreqList, FreqList = np.zeros([scanNum, spwNum, 4]), np.zeros([scanNum, spwNum, 4]), np.zeros([scanNum, spwNum, 4]), [], []
 for spw_index in range(spwNum):
@@ -680,6 +681,7 @@ for scan in scanList:
 #
 logfile.close()
 """
+"""
     SAantennas, SAbl, SAblFlag, SAant0, SAant1 =  range(UseAntNum), range(UseBlNum), np.ones([blNum]), ant0, ant1
     SAantMap, SAblMap, SAblInv = antMap, blMap, blInv
     SAantNum = len(SAantennas); SAblNum = len(SAblMap)
@@ -759,6 +761,7 @@ logfile.close()
     #
 #
 """
+"""
 msmd.done()
 msmd.close()
 chRange = range(int(0.05*chNum), int(0.95*chNum))
@@ -780,12 +783,10 @@ for scan in scanList:
         StokesI_PL = figScan.add_subplot( 2, spwNum, spw_index+1)
         StokesP_PL = figScan.add_subplot( 2, spwNum, spw_index+spwNum+1)
         StokesI_PL.plot( Freq[chRange], StokesSpec[0], ls='steps-mid', label=polLabel[0], color=Pcolor[0])
-        """
-        StokesP_PL.plot( np.array([min(Freq[chRange]), max(Freq[chRange])]), np.array([0.0,0.0]), '-', color='gray')
-        StokesP_PL.plot( Freq[chRange], StokesSpec[1], ls='steps-mid', label=polLabel[1], color=Pcolor[1])
-        StokesP_PL.plot( Freq[chRange], StokesSpec[2], ls='steps-mid', label=polLabel[2], color=Pcolor[2])
-        StokesP_PL.plot( Freq[chRange], StokesSpec[3], ls='steps-mid', label=polLabel[3], color=Pcolor[3])
-        """
+        #StokesP_PL.plot( np.array([min(Freq[chRange]), max(Freq[chRange])]), np.array([0.0,0.0]), '-', color='gray')
+        #StokesP_PL.plot( Freq[chRange], StokesSpec[1], ls='steps-mid', label=polLabel[1], color=Pcolor[1])
+        #StokesP_PL.plot( Freq[chRange], StokesSpec[2], ls='steps-mid', label=polLabel[2], color=Pcolor[2])
+        #StokesP_PL.plot( Freq[chRange], StokesSpec[3], ls='steps-mid', label=polLabel[3], color=Pcolor[3])
         plotMax = max(StokesSpec[0])
         StokesI_PL.axis([min(Freq[chRange]), max(Freq[chRange]), 0.0, 1.2* plotMax])
         #StokesP_PL.axis([min(Freq[chRange]), max(Freq[chRange]), -0.15*plotMax, 0.15*plotMax ])
@@ -803,3 +804,4 @@ for scan in scanList:
 #
 plt.close('all')
 pp.close()
+"""

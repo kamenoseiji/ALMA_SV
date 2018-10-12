@@ -954,7 +954,8 @@ def delayCalSpec2( Xspec, chRange, sigma ):  # chRange = [startCH:stopCH] specif
 def BPtable(msfile, spw, BPScan, blMap, blInv, FG=np.array([]), TS=np.array([])): 
     blNum = len(blMap); antNum = Bl2Ant(blNum)[0]
     #print '  -- Loading visibility data from MS...'
-    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan, -1, False)    # Xspec[pol, ch, bl, time]
+    #timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan, -1, False)    # Xspec[pol, ch, bl, time]
+    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan, -1, True)    # Xspec[pol, ch, bl, time]
     if len(FG) > 0: flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
     else: flagIndex = range(len(timeStamp))
     #
