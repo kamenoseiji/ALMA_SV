@@ -15,8 +15,10 @@ def plotTau(prefix, spwList, freqList, Tau0spec):
         chNum = len(freqList[spw_index]); chRange = range(int(0.05*chNum), int(0.95*chNum))
         TauPL = figTau.add_subplot(1, spwNum, spw_index + 1 )
         TauPL.axis([np.min(freqList[spw_index]), np.max(freqList[spw_index]), 0.0, plotMax])
+        TauPL.tick_params(axis='both', labelsize=6)
         TauPL.plot(freqList[spw_index][chRange], Tau0spec[spw_index][chRange], ls='steps-mid')
-        text_sd = 'SPW = %d' % (spwList[spw_index]); TauPL.text(np.min(freqList[spw_index]), 1.01* plotMax, text_sd, fontsize='8')
+        text_sd = 'SPW = %d' % (spwList[spw_index])
+        TauPL.text(np.min(freqList[spw_index]), 1.01* plotMax, text_sd, fontsize='8')
     #
     figTau.savefig('TAU_' + prefix + '.pdf')
     plt.close('all')
@@ -30,39 +32,48 @@ def plotTsys(prefix, antList, spwList, freqList, atmTime, TrxList, TskyList):
     plotMax = np.max(TrxList) + np.max(TskyList)
     PolList = ['X', 'Y']
     #-------- Prepare Plots
-    for ant_index in range(antNum):
-        figAnt = plt.figure(ant_index, figsize = (8, 11))
-        figAnt.suptitle(prefix + ' ' + antList[ant_index])
-        figAnt.text(0.45, 0.05, 'Frequency [GHz]')
-        figAnt.text(0.03, 0.45, 'Tsys (solid) and Trec (dotted) [K]', rotation=90)
-    #
+    figAnt = plt.figure(figsize = (8, 11))
+    figAnt.suptitle(prefix)
+    figAnt.text(0.45, 0.05, 'Frequency [GHz]')
+    figAnt.text(0.03, 0.45, 'Tsys (solid) and Trec (dotted) [K]', rotation=90)
     #-------- Plot BP
     for ant_index in range(antNum):
-        figAnt = plt.figure(ant_index)
+        if ant_index > 0:
+            for PL in TsysPL: figAnt.delaxes(PL)
+        #
+        TsysPL = []
         for spw_index in range(spwNum):
             AntSpwIndex = ant_index* spwNum + spw_index
             chNum = len(freqList[spw_index]); chRange = range(int(0.05*chNum), int(0.95*chNum))
             for scan_index in range(scanNum):
-                TsysPL = figAnt.add_subplot(scanNum, spwNum, spwNum* scan_index + spw_index + 1 )
+                currentPL = figAnt.add_subplot(scanNum, spwNum, spwNum* scan_index + spw_index + 1 )
+                TsysPL = TsysPL + [currentPL]
                 timeLabel = qa.time('%fs' % (atmTime[scan_index]), form='fits')[0]
                 for pol_index in range(2):
                     plotTrx  = TrxList[spw_index][ant_index, pol_index, chRange]
                     plotTsys = TskyList[spw_index][chRange, ant_index, scan_index] + plotTrx
-                    TsysPL.plot( freqList[spw_index][chRange], plotTsys, ls='steps-mid', label = 'Tsys Pol '+ PolList[pol_index])
-                    TsysPL.plot( freqList[spw_index][chRange], plotTrx,  ls=':', label = 'Trec Pol ' + PolList[pol_index])
+                    currentPL.plot( freqList[spw_index][chRange], plotTsys, ls='steps-mid', label = 'Tsys Pol '+ PolList[pol_index])
+                    currentPL.plot( freqList[spw_index][chRange], plotTrx,  ls=':', label = 'Trec Pol ' + PolList[pol_index])
                 #
-                TsysPL.axis([np.min(freqList[spw_index]), np.max(freqList[spw_index]), 0.0, plotMax])
-                if scan_index == 0: TsysPL.set_title('SPW ' + `spwList[spw_index]`)
-                if scan_index < scanNum - 1: TsysPL.set_xticklabels([])
-                if spw_index == 0: TsysPL.text(np.min(freqList[spw_index]), 0.8* plotMax, timeLabel, fontsize='8')
-                else: TsysPL.set_yticklabels([])
+                currentPL.axis([np.min(freqList[spw_index]), np.max(freqList[spw_index]), 0.0, plotMax])
+                currentPL.tick_params(axis='both', labelsize=6)
+                if scan_index == 0: currentPL.set_title('SPW ' + `spwList[spw_index]`)
+                if scan_index == 0 and spw_index == 0: currentPL.text(np.min(freqList[spw_index]), 1.8*plotMax, antList[ant_index], fontsize='16')
+                if scan_index < scanNum - 1: currentPL.set_xticklabels([])
+                if spw_index == 0: currentPL.text(np.min(freqList[spw_index]), 0.8* plotMax, timeLabel, fontsize='8')
+                else: currentPL.set_yticklabels([])
                 #
             #
         #
+        plt.show()
         figAnt.savefig(pp, format='pdf')
         #
+        #
     #
+    for PL in TsysPL: figAnt.delaxes(PL)
     plt.close('all')
     pp.close()
+    del(TsysPL)
+    del(figAnt)
     return
 #

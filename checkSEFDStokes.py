@@ -392,23 +392,27 @@ print '---Flux densities of sources ---'
 pp = PdfPages('FL_' + prefix + '_' + UniqBands[band_index] + '.pdf')
 polLabel = ['I', 'Q', 'U', 'V']
 Pcolor   = ['black', 'blue', 'red', 'green']
-XYD, XYC, scanTime = [], [], []      # XY delay and correlation
+XYD, XYC, scanTime = [], [],[]      # XY delay and correlation
+figFL = plt.figure(figsize = (11, 8))
+figFL.suptitle(prefix + ' ' + UniqBands[band_index])
+figFL.text(0.45, 0.05, 'Projected baseline [m]')
+figFL.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90)
 for scan_index in range(scanNum):
+    if scan_index > 0:
+        for PL in IList: figFL.delaxes(PL)
+        for PL in PList: figFL.delaxes(PL)
+    #
     #-------- UV distance
     timeStamp, UVW = GetUVW(msfile, spwList[spw_index], onsourceScans[scan_index])
-    scanTime = scanTime + [np.median(timeStamp)], timeText = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
+    scanTime = scanTime + [np.median(timeStamp)]
     uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
     if min(ElScan) < 20.0 / 180.0* pi: continue
     PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
     #-------- Prepare plots
-    figScan = plt.figure(scan_index, figsize = (11, 8))
-    figScan.suptitle(prefix + ' ' + UniqBands[band_index])
-    figScan.text(0.75, 0.95, qa.time('%fs' % timeStamp[0], form='ymd')[0])
-    figScan.text(0.45, 0.05, 'Projected baseline [m]')
-    figScan.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90)
-    text_sd = ' %02d %010s EL=%4.1f deg %s' % (scanList[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* OnEL[scan_index]/pi, timeText); logfile.write(text_sd + '\n'); print text_sd
-    figScan.text(0.05, 0.95, text_sd)
+    IList, PList = [], []      # XY delay and correlation
+    text_time = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
+    text_src  = ' %02d %010s EL=%4.1f deg' % (scanList[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* OnEL[scan_index]/pi); logfile.write(text_sd + ' ' + text_time + '\n'); print text_src + ' ' + text_time
     if(onsourceScans[scan_index] in SSOscanID):
         SSO_flag = True
         SSO_ID = SSOscanID.index(onsourceScans[scan_index])
@@ -458,6 +462,10 @@ for scan_index in range(scanNum):
         #print text_sd
     #
     for spw_index in range(spwNum):
+        StokesI_PL = figFL.add_subplot( 2, spwNum, spw_index + 1 )
+        StokesP_PL = figFL.add_subplot( 2, spwNum, spwNum + spw_index + 1 )
+        IList = IList + [StokesI_PL]
+        PList = PList + [StokesP_PL]
         exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
         atmCorrect = 1.0 / exp_Tau
         TsysSPW = (Trxspec[spw_index] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap]    # [ant, pol, ch]
@@ -474,8 +482,6 @@ for scan_index in range(scanNum):
             SEFD /= (indivRelGain**2).T
         #
         AmpCalVis = (pCalVis[spw_index].transpose(3,0,1,2)* np.sqrt(SEFD[chRange][:,polYindex][:,:,ant0[0:SAblNum]]* SEFD[chRange][:,polXindex][:,:,ant1[0:SAblNum]])).transpose(3,2,1,0)
-        StokesI_PL = figScan.add_subplot( 2, spwNum, spw_index + 1 )
-        StokesP_PL = figScan.add_subplot( 2, spwNum, spwNum + spw_index + 1 )
         text_sd = ' SPW%02d %5.1f GHz ' % (spwList[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
         Stokes = np.zeros([4,SAblNum], dtype=complex)
         for bl_index in range(SAblNum):
@@ -518,11 +524,14 @@ for scan_index in range(scanNum):
             text_sd = '%6.3f   %6.1f ' % (100.0* np.sqrt(ScanFlux[scan_index, spw_index, 1]**2 + ScanFlux[scan_index, spw_index, 2]**2)/ScanFlux[scan_index, spw_index, 0], np.arctan2(ScanFlux[scan_index, spw_index, 2],ScanFlux[scan_index, spw_index, 1])*90.0/pi); logfile.write(text_sd); print text_sd,
             logfile.write('\n'); print ''
         #
+        #
     #
     uvMin, uvMax, IMax = min(uvDist[blMap]), max(uvDist[blMap]), max(ScanFlux[scan_index,:,0])
     for spw_index in range(spwNum):
-        StokesI_PL = figScan.add_subplot( 2, spwNum, spw_index + 1 )
-        StokesP_PL = figScan.add_subplot( 2, spwNum, spwNum + spw_index + 1 )
+        StokesI_PL, StokesP_PL = IList[spw_index], PList[spw_index]
+        if spw_index == 0: StokesI_PL.text(0.0, IMax*1.35, text_src)
+        if spw_index == spwNum - 1: StokesI_PL.text(0.0, IMax*1.35, text_time)
+        #for spw_index in range(spwNum):
         StokesI_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 0], ScanFlux[scan_index, spw_index, 0]+ uvMax* ScanSlope[scan_index, spw_index, 0]]), '-', color=Pcolor[0])
         StokesP_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 1], ScanFlux[scan_index, spw_index, 1]+ uvMax* ScanSlope[scan_index, spw_index, 1]]), '-', color=Pcolor[1])
         StokesP_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 2], ScanFlux[scan_index, spw_index, 2]+ uvMax* ScanSlope[scan_index, spw_index, 2]]), '-', color=Pcolor[2])
@@ -532,7 +541,8 @@ for scan_index in range(scanNum):
     #
     StokesI_PL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
     StokesP_PL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
-    figScan.savefig(pp, format='pdf')
+    plt.show()
+    figFL.savefig(pp, format='pdf')
     #
     freqArray = np.array(centerFreqList)[range(spwNum)]; meanFreq = np.mean(freqArray); relFreq = freqArray - meanFreq
     text_sd = ' --------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
@@ -556,6 +566,9 @@ for scan_index in range(scanNum):
         au.searchFlux(sourcename='%s' % (sourceList[sourceIDscan[scan_index]]), band=int(UniqBands[band_index][3:5]), date=timeLabel[0:10], maxrows=3)
         print '\n'
     #
+#
+for PL in IList: figFL.delaxes(PL)
+for PL in PList: figFL.delaxes(PL)
 #
 ingestFile.close()
 logfile.close()

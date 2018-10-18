@@ -220,13 +220,22 @@ atmspwNames = msmd.namesforspws(atmSPWs)
 atmBandNames, atmPattern = [], r'RB_..'
 for spwName in atmspwNames : atmBandNames = atmBandNames + re.findall(atmPattern, spwName)
 UniqBands = unique(atmBandNames).tolist(); NumBands = len(UniqBands)
-atmspwLists, atmscanLists = [], []
-for band_index in range(NumBands):
-    bandAtmSPWs = np.array(atmSPWs)[indexList(np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()
-    atmspwLists = atmspwLists + [bandAtmSPWs]
-    atmscanList = list(set(msmd.scansforspw(atmspwLists[band_index][0]))& set(msmd.scansforintent("CALIBRATE_ATMOSPHERE*"))); atmscanList.sort(); atmscanLists = atmscanLists + [atmscanList]
-    print ' ',
-    print UniqBands[band_index] + ': atmSPW=' + `atmspwLists[band_index]`
+if 'atmspwLists' not in locals():
+    atmspwLists, atmscanLists = [], []
+    for band_index in range(NumBands):
+        bandAtmSPWs = np.array(atmSPWs)[indexList(np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()
+        atmspwLists = atmspwLists + [bandAtmSPWs]
+        atmscanList = list(set(msmd.scansforspw(atmspwLists[band_index][0]))& set(msmd.scansforintent("CALIBRATE_ATMOSPHERE*"))); atmscanList.sort(); atmscanLists = atmscanLists + [atmscanList]
+        print ' ',
+        print UniqBands[band_index] + ': atmSPW=' + `atmspwLists[band_index]`
+    #
+else:
+    atmscanLists = []
+    for band_index in range(NumBands):
+        atmscanList = list(set(msmd.scansforspw(atmspwLists[band_index][0]))& set(msmd.scansforintent("CALIBRATE_ATMOSPHERE*"))); atmscanList.sort()
+        atmscanLists = atmscanLists + [atmscanList]
+        print ' ',
+        print UniqBands[band_index] + ': atmSPW=' + `atmspwLists[band_index]`
     #
 #
 # atmSPWs[band] : SPWs used in atmCal scans
