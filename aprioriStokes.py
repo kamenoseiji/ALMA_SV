@@ -352,7 +352,7 @@ for scan_index in range(scanNum):
     #-------- Plot Frame
     IList, PList = [], []      # XY delay and correlation
     text_time = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
-    text_src  = ' %02d %010s EL=%4.1f deg' % (scanList[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* OnEL[scan_index]/pi); logfile.write(text_sd + ' ' + text_time + '\n'); print text_src + ' ' + text_time
+    text_src  = ' %02d %010s EL=%4.1f deg' % (scanList[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* OnEL[scan_index]/pi); logfile.write(text_src + ' ' + text_time + '\n'); print text_src + ' ' + text_time
     BPCaledXspec = []
     #-------- Subarray formation
     SAantMap, SAblMap, SAblInv, SAant0, SAant1 = antMap, blMap, blInv, ant0, ant1
