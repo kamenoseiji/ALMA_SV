@@ -43,7 +43,7 @@ def plotTsys(prefix, antList, spwList, freqList, atmTime, TrxList, TskyList):
         #
         TsysPL = []
         for spw_index in range(spwNum):
-            AntSpwIndex = ant_index* spwNum + spw_index
+            #AntSpwIndex = ant_index* spwNum + spw_index
             chNum = len(freqList[spw_index]); chRange = range(int(0.05*chNum), int(0.95*chNum))
             for scan_index in range(scanNum):
                 currentPL = figAnt.add_subplot(scanNum, spwNum, spwNum* scan_index + spw_index + 1 )
@@ -74,6 +74,55 @@ def plotTsys(prefix, antList, spwList, freqList, atmTime, TrxList, TskyList):
     plt.close('all')
     pp.close()
     del(TsysPL)
+    del(figAnt)
+    return
+#
+#-------- Plot Bandpass :w
+def plotBP(pp, prefix, antList, spwList, BPscan, BPList):
+    plotMax = 1.5
+    msfile = prefix + '.ms'
+    antNum, spwNum = len(antList), len(spwList)
+    figAnt = plt.figure(figsize = (11, 8))
+    figAnt.suptitle(prefix + ' Scan ' + `BPscan`)
+    figAnt.text(0.45, 0.05, 'Frequency [GHz]')
+    figAnt.text(0.03, 0.45, 'Bandpass Amplitude and Phase', rotation=90)
+    #-------- Plot BP
+    for ant_index in range(antNum):
+        if ant_index > 0:
+            for PL in AmpList: figAnt.delaxes(PL)
+            for PL in PhsList: figAnt.delaxes(PL)
+        #
+        AmpList, PhsList = [], []
+        for spw_index in range(spwNum):
+            chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index]); Freq = 1.0e-9* Freq  # GHz
+            AmpPL = figAnt.add_subplot(2, spwNum, spw_index + 1 )
+            PhsPL = figAnt.add_subplot(2, spwNum, spwNum + spw_index + 1 )
+            AmpList = AmpList + [AmpPL]
+            PhsList = PhsList + [PhsPL]
+            for pol_index in range(ppolNum):
+                plotBP = BPList[spw_index][ant_index,pol_index]
+                AmpPL.plot(Freq, abs(plotBP), ls='steps-mid', label = 'Pol=' + PolList[pol_index])
+                PhsPL.plot( Freq, np.angle(plotBP), '.', label = 'Pol=' + PolList[pol_index])
+            #
+            if spw_index == 0: AmpPL.set_title(antList[ant_index])
+            AmpPL.axis([np.min(Freq), np.max(Freq), 0.0, 1.25*plotMax])
+            AmpPL.tick_params(axis='both', labelsize=6)
+            AmpPL.legend(loc = 'lower left', prop={'size' :7}, numpoints = 1)
+            AmpPL.text( np.min(Freq), 1.1* plotMax, 'SPW=' + `spwList[spw_index]` + ' Amp')
+            PhsPL.axis([np.min(Freq), np.max(Freq), -math.pi, math.pi])
+            PhsPL.tick_params(axis='both', labelsize=6)
+            PhsPL.legend(loc = 'lower left', prop={'size' :7}, numpoints = 1)
+            PhsPL.text( np.min(Freq), 2.5, 'SPW=' + `spwList[spw_index]` + ' Phase')
+        #
+        plt.show()
+        figAnt.savefig(pp, format='pdf')
+    #
+    plt.close('all')
+    pp.close()
+    del(AmpList)
+    del(PhsList)
+    del(AmpPL)
+    del(PhsPL)
     del(figAnt)
     return
 #
