@@ -2,7 +2,7 @@ execfile(SCR_DIR + 'interferometry.py')
 ALMA_lat = -0.4019318734    # Latitude = -23.029 deg
 RADDEG   = 180.0 / math.pi
 #
-def antRefScan( msfile ):
+def antRefScanM( msfile ):
     antList = GetAntName(msfile)
     antNum = len(antList)
     scanRange = np.zeros(antNum)
@@ -31,7 +31,7 @@ for file_index in range(msNum):
     antNum = len(antList)
     #
     #-------- Reference and Scan Antennas
-    refAnt, scanAnt = antRefScan(msfile)
+    refAnt, scanAnt = antRefScanM(msfile)
     print '---- ' + prefix[file_index] + ': Reference Antennas (' + `len(refAnt)` + ')----'
     for ant_index in refAnt:
         sd_text = ' %02d %s' % (ant_index, antList[ant_index]); print sd_text
