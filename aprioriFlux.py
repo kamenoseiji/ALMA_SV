@@ -25,7 +25,7 @@ for spw_index in range(spwNum):
     for polID in pPol:
         blD, blA = np.apply_along_axis(delay_search, 0, np.mean(Xspec[polID][chRange][:,:,timeRange], axis=2))
         blA = blA / np.sqrt(antDia[ANT0[0:blNum]]* antDia[ANT1[0:blNum]])
-        errD, errA = np.where(abs(blD - np.median(blD)) > 4.0)[0].tolist(), np.where(abs(blA - np.median(blA)) > 0.5* np.median(blA))[0].tolist()
+        errD, errA = np.where(abs(blD - np.median(blD)) > 4.0)[0].tolist(), np.where(abs(blA - np.median(blA)) > 0.75* np.median(blA))[0].tolist()
         errCount = np.zeros(antNum)
         for bl in set(errD) or set(errA): errCount[ list(Bl2Ant(bl)) ] += 1
         gainFlag[np.where(errCount > 2.5 )[0].tolist()] *= 0.0
@@ -192,7 +192,7 @@ for ant_index in range(1,UseAntNum):
 spwPhase = np.array(spwPhase).reshape([UseAntNum, 2, spwNum]); spwTwiddle = exp(1.0j *spwPhase)
 for spw_index in range(spwNum): BPList[spw_index] = (BPList[spw_index].transpose(2,0,1)* spwTwiddle[:,:,spw_index]).transpose(1,2,0)
 #-------- Flux Density
-ScanFlux, ScanSlope, ErrFlux, centerFreqList = np.zeros([scanNum, scnspwNum]), np.zeros([scanNum, scnspwNum]), np.zeros([scanNum, scnspwNum]), []
+ScanFlux, ScanSlope, ErrFlux, centerFreqList, scanTime = np.zeros([scanNum, scnspwNum]), np.zeros([scanNum, scnspwNum]), np.zeros([scanNum, scnspwNum]), [], []
 for spw_index in range(scnspwNum):
     chNum, chWid, Freq = GetChNum(msfile, scnspw[spw_index])
     centerFreqList.append( np.median(Freq)*1.0e-9 )
@@ -200,25 +200,39 @@ for spw_index in range(scnspwNum):
 centerFreqList = np.array(centerFreqList)
 print '---Flux densities of sources ---'
 pp = PdfPages('FL_' + prefix + '_' + UniqBands[band_index] + '.pdf')
+figFL = plt.figure(figsize = (11, 8))
+figFL.suptitle(prefix + ' ' + UniqBands[band_index])
+figFL.text(0.45, 0.05, 'Projected baseline [m]')
+figFL.text(0.03, 0.45, 'Visibility amplitude [Jy]', rotation=90)
 text_sd = ' Scan     Source     EL(deg) '
 for spw_index in range(scnspwNum): text_sd = text_sd + ' SPW%02d %5.1f GHz   ' % (scnspw[spw_index], centerFreqList[spw_index])
 text_sd = text_sd + '|  mean  %5.1f GHz' % (np.mean(centerFreqList)); logfile.write(text_sd + '\n'); print text_sd
 text_sd = ' ------------------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
 for scan_index in range(scanNum):
-    figScan = plt.figure(scan_index, figsize = (11, 8))
-    figScan.suptitle(prefix + ' ' + UniqBands[band_index])
-    figScan.text(0.75, 0.95, qa.time('%fs' % timeStamp[0], form='ymd')[0]) 
-    figScan.text(0.45, 0.05, 'Projected baseline [m]') 
-    figScan.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90) 
+    if scan_index > 0: 
+        for PL in IList: figFL.delaxes(PL)
+    #
+    #figScan = plt.figure(scan_index, figsize = (11, 8))
+    #figScan.suptitle(prefix + ' ' + UniqBands[band_index])
+    #figScan.text(0.75, 0.95, qa.time('%fs' % timeStamp[0], form='ymd')[0]) 
+    #figScan.text(0.45, 0.05, 'Projected baseline [m]') 
+    #figScan.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90) 
     #-------- UV distance
     timeStamp, UVW = GetUVW(msfile, spwList[0], scanList[scan_index]);  timeNum = len(timeStamp)
     uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     #-------- Flagging
     if 'FG' in locals(): flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
     else: flagIndex = range(timeNum)
+    #-------- Prepare plots
+    IList = []
     AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
-    text_sd = ' %02d %016s   %4.1f' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* OnEL[scan_index]/pi )
-    figScan.text(0.05, 0.95, text_sd) 
+    OnAZ[scan_index], OnEL[scan_index] = np.median(AzScan), np.median(ElScan)
+    OnPA[scan_index] = AzEl2PA(OnAZ[scan_index], OnEL[scan_index])
+    scanTime = scanTime + [np.median(timeStamp)]
+    text_time = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
+    text_src  = ' %02d %010s EL=%4.1f deg' % (scanList[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* OnEL[scan_index]/pi) # ; logfile.write(text_src + ' ' + text_time + '\n') ; print text_src + ' ' + text_time
+    #text_sd = ' %02d %016s   %4.1f' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* OnEL[scan_index]/pi )
+    #figScan.text(0.05, 0.95, text_sd) 
     #-------- Subarray formation
     SAantMap, SAblMap, SAblInv, SAant0, SAant1 = antMap, blMap, blInv, ant0, ant1
     bpAntMap = indexList(antList[SAantMap],antList[antMap])
@@ -269,10 +283,11 @@ for scan_index in range(scanNum):
         slopeSNR = abs(solution[1]) / abs(solerr[1]) # ; print 'Slope SNR = ' + `slopeSNR`
         if slopeSNR < 3.0: solution[0], solution[1] = np.percentile(StokesI[spw_index][visFlag], 75),  0.0
         ScanFlux[scan_index, spw_index], ScanSlope[scan_index, spw_index], ErrFlux[scan_index, spw_index] = solution[0], solution[1], solerr[0]
-        text_sd = text_sd + '  %7.4f (%.4f) ' % (ScanFlux[scan_index, spw_index], ErrFlux[scan_index, spw_index])
+        text_src = text_src + '  %7.4f (%.4f) ' % (ScanFlux[scan_index, spw_index], ErrFlux[scan_index, spw_index])
         #
-        StokesI_PL = figScan.add_subplot( 2, scnspwNum/2, spw_index + 1 )
-        StokesI_PL.plot( uvDist, StokesI[spw_index], 'k.')
+        StokesI_PL = figFL.add_subplot( 2, scnspwNum/2, spw_index + 1 )
+        IList = IList + [StokesI_PL]
+        StokesI_PL.plot( uvDist, StokesI[spw_index], '.')
         uvMax, IMax = max(uvDist), max(ScanFlux[scan_index])
         StokesI_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index], ScanFlux[scan_index, spw_index]+ uvMax* ScanSlope[scan_index, spw_index]]), '-')
         StokesI_PL.axis([0.0, uvMax, 0.0, 1.25*IMax])
@@ -281,15 +296,16 @@ for scan_index in range(scanNum):
     #-------- Statistics for all SPWs
     relFreq = centerFreqList - np.mean(centerFreqList)
     sol, solerr = linearRegression(relFreq, ScanFlux[scan_index], ErrFlux[scan_index] )
-    text_sd = text_sd + '  | %7.4f (%.4f) ' % (sol[0], solerr[0])
-    logfile.write(text_sd + '\n'); print text_sd
-    figScan.savefig(pp, format='pdf')
+    text_src = text_src + '  | %7.4f (%.4f) ' % (sol[0], solerr[0])
+    logfile.write(text_src + '\n'); print text_src
+    figFL.savefig(pp, format='pdf')
 #
 text_sd = ' ------------------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
 plt.close('all')
 pp.close()
+for PL in IList: figFL.delaxes(PL)
 logfile.close()
 np.save(prefix + '-' + UniqBands[band_index] + '.Flux.npy', ScanFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Ferr.npy', ErrFlux)
 np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceList)[sourceIDscan])
-np.save(prefix + '-' + UniqBands[band_index] + '.EL.npy', np.array(OnEL))
+np.save(prefix + '-' + UniqBands[band_index] + '.AZEL.npy', np.array([scanTime, OnAZ, OnEL, OnPA]))

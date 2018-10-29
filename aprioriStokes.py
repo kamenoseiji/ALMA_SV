@@ -309,6 +309,7 @@ for scan_index in range(scanNum):
         for PL in PList: figFL.delaxes(PL)
     #-------- UV distance
     timeStamp, UVW = GetUVW(msfile, spwList[0], scanList[scan_index]);  timeNum = len(timeStamp)
+    scanTime = scanTime + [np.median(timeStamp)]
     uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     #-------- Flagging
     if 'FG' in locals(): flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
