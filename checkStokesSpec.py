@@ -33,14 +33,6 @@ print '---Checking source list'
 sourceList, posList = GetSourceList(msfile); sourceList = sourceRename(sourceList); numSource = len(sourceList)
 SSOList   = indexList( np.array(SSOCatalog), np.array(sourceList))
 #-------- Scan Intents
-#try:
-#    FCScans = np.append(msmd.scansforintent("CALIBRATE_FLUX#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
-#except:
-#    FCScans = np.append(msmd.scansforintent("CALIBRATE_AMPLI#ON_SOURCE"), msmd.scansforintent("OBSERVE_CHECK_SOURCE*"))
-#try:
-#    ONScans = msmd.scansforintent("*#ON_SOURCE")
-#except:
-#    ONScans = FCScans
 ONScans = msmd.scansforintent("*#ON_SOURCE")
 PolList = ['X', 'Y']
 msmd.close()
@@ -123,12 +115,11 @@ for band_index in range(NumBands):
     if polNum == 4:
         pPol, cPol = [0,3], [1,2]   # Full polarizations
         ppolNum, cpolNum = len(pPol), len(cPol)
-        #execfile(SCR_DIR + 'aprioriStokes.py')
         execfile(SCR_DIR + 'aprioriStokesSpec.py')
     else:
         pPol, cPol = [0,1], []              # Only parallel polarizations
         ppolNum, cpolNum = len(pPol), len(cPol)
-        execfile(SCR_DIR + 'aprioriFlux.py')
+        execfile(SCR_DIR + 'aprioriSpec.py')
     #
     msmd.close()
     msmd.done()
