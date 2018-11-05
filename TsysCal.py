@@ -210,7 +210,9 @@ if tempAtm != tempAtm: tempAtm = 270.0; print 'Cannot get ambient-load temperatu
 antList = GetAntName(msfile)
 antNum = len(antList)
 if 'flagAnt' not in locals(): flagAnt = np.ones(antNum)
-if 'antFlag' in locals(): flagAnt[indexList(antFlag, antList)] = 0.0
+if 'antFlag' in locals():
+    index =  indexList(np.array(antFlag), antList)
+    if len(index) > 0: flagAnt[index] = 0.0
 useAnt = np.where(flagAnt == 1.0)[0].tolist(); useAntNum = len(useAnt)
 #-------- Check SPWs
 print '---Checking spectral windows and scans with atmCal for ' + prefix

@@ -58,7 +58,7 @@ def plotTsys(prefix, antList, spwList, freqList, atmTime, TrxList, TskyList):
                 currentPL.axis([np.min(freqList[spw_index]), np.max(freqList[spw_index]), 0.0, plotMax])
                 currentPL.tick_params(axis='both', labelsize=6)
                 if scan_index == 0: currentPL.set_title('SPW ' + `spwList[spw_index]`)
-                if scan_index == 0 and spw_index == 0: currentPL.text(np.min(freqList[spw_index]), 1.8*plotMax, antList[ant_index], fontsize='16')
+                if scan_index == 0 and spw_index == 0: currentPL.text(1.2* np.min(freqList[0]) - 0.2* np.max(freqList[0]), (0.9 + 0.075*scanNum)*plotMax, antList[ant_index], fontsize='16')
                 if scan_index < scanNum - 1: currentPL.set_xticklabels([])
                 if spw_index == 0: currentPL.text(np.min(freqList[spw_index]), 0.8* plotMax, timeLabel, fontsize='8')
                 else: currentPL.set_yticklabels([])

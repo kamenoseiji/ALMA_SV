@@ -150,6 +150,7 @@ for ant_index in antMap:
     #
 #
 Ae = np.array([AeX, AeY])
+Trx2antMap = indexList( antList[antMap], antList[TrxMap] )
 #AeX, AeY = np.array(AeX), np.array(AeY) # in antMap order 
 #-------- Flag table
 if 'FGprefix' in locals():
@@ -169,7 +170,11 @@ print '---Generating antenna-based bandpass table'
 for spw_index in spwList:
     BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPScan, blMap, blInv)
     BP_ant[:,1] *= XY_BP
-    BPList = BPList + [BP_ant]
+    exp_Tau = np.exp(-Tau0spec[spw_index] / np.sin(BPEL))
+    atmCorrect = 1.0 / exp_Tau
+    TsysBPScan = atmCorrect* (Trxspec[spw_index][Trx2antMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau)) # [antMap, pol, ch]
+    TsysBPShape = (TsysBPScan.transpose(2,0,1) / np.median(TsysBPScan, axis=2)).transpose(1,2,0)
+    BPList = BPList + [BP_ant* np.sqrt(TsysBPShape)]
 #
 if PLOTBP:
     pp = PdfPages('BP_' + prefix + '_REF' + antList[UseAnt[refantID]] + '_Scan' + `BPScan` + '.pdf')
@@ -188,7 +193,6 @@ if catalogStokesQ.get(EQcal) > 0.0 :
     QUsolution = np.array([catalogStokesQ.get(EQcal), catalogStokesU.get(EQcal)])
     QCpUS = (QUsolution[0]* np.cos(2.0* PA) + QUsolution[1]* np.sin(2.0* PA)) / catalogStokesI.get(EQcal)
 #
-Trx2antMap = indexList( antList[antMap], antList[TrxMap] )
 if len(atmTimeRef) > 5:
     exTauSP  = UnivariateSpline(atmTimeRef, Tau0E, np.ones(len(atmTimeRef)), s=0.1*np.std(Tau0E))
 else:

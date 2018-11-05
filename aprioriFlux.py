@@ -269,7 +269,7 @@ for scan_index in range(scanNum):
         SAantNum = len(SAantMap); SAblNum = len(SAblMap)
         AmpCalVis = np.mean(np.mean(pCalVis[spw_index], axis=3) * np.sqrt(SEFD[chRange][:,:,ant0[0:SAblNum]]* SEFD[chRange][:,:,ant1[0:SAblNum]]), axis=0)
         indivRelGain = abs(gainComplexVec(AmpCalVis.T)); indivRelGain /= np.percentile(indivRelGain, 75, axis=0)
-        SEFD /= (indivRelGain**2).T
+        # SEFD /= (indivRelGain**2).T
         AmpCalVis = np.mean((pCalVis[spw_index].transpose(3,0,1,2)* np.sqrt(SEFD[chRange][:,:,SAant0]* SEFD[chRange][:,:,SAant1])).transpose(3,2,1,0), axis=(2,3)).T
         StokesI = StokesI + [np.mean(AmpCalVis, axis=0).real]
         StokesE = StokesE + [np.mean(AmpCalVis, axis=0).imag]
@@ -287,8 +287,8 @@ for scan_index in range(scanNum):
         #
         StokesI_PL = figFL.add_subplot( 2, scnspwNum/2, spw_index + 1 )
         IList = IList + [StokesI_PL]
-        StokesI_PL.plot( uvDist, StokesI[spw_index], '.')
-        uvMax, IMax = max(uvDist), max(ScanFlux[scan_index])
+        StokesI_PL.plot( uvDist[SAblMap], StokesI[spw_index], '.')
+        uvMax, IMax = max(uvDist[SAblMap]), max(ScanFlux[scan_index])
         StokesI_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index], ScanFlux[scan_index, spw_index]+ uvMax* ScanSlope[scan_index, spw_index]]), '-')
         StokesI_PL.axis([0.0, uvMax, 0.0, 1.25*IMax])
         StokesI_PL.text(0.0, 1.26*IMax, 'SPW%2d %5.1f GHz' % (scnspw[spw_index], centerFreqList[spw_index]))

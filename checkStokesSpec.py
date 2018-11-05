@@ -95,6 +95,7 @@ for band_index in range(NumBands):
         #
     #
     BPScan = onsourceScans[BPscanIndex]; BPcal = sourceList[sourceIDscan[BPscanIndex]]; timeLabelBP = qa.time('%fs' % (refTime[BPscanIndex]), form='ymd')[0]
+    BPEL = OnEL[onsourceScans.index(BPScan)]
     #-------- Select Equalization Calibrator
     if 'EQScan' not in locals():
         EQscanIndex = np.argmax(EQquality)
@@ -106,7 +107,7 @@ for band_index in range(NumBands):
         #
     #
     EQScan = onsourceScans[EQscanIndex]; EQcal = sourceList[sourceIDscan[EQscanIndex]]; timeLabelEQ = qa.time('%fs' % (refTime[EQscanIndex]), form='ymd')[0]
-    BPcalText = 'Use %s [Scan%d EL=%4.1f deg] %s as Bandpass Calibrator' % (BPcal, BPScan, 180.0* OnEL[onsourceScans.index(BPScan)]/np.pi, timeLabelBP); print BPcalText
+    BPcalText = 'Use %s [Scan%d EL=%4.1f deg] %s as Bandpass Calibrator' % (BPcal, BPScan, 180.0* BPEL/np.pi, timeLabelBP); print BPcalText
     EQcalText = 'Use %s [Scan%d EL=%4.1f deg] %s as Gain Equalizer' % (EQcal, EQScan, 180.0* OnEL[onsourceScans.index(EQScan)]/np.pi, timeLabelEQ); print EQcalText
     #-------- Polarization setup 
     atmspw = atmspwLists[band_index]; spwNum = len(atmspw)
