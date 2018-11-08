@@ -300,7 +300,7 @@ for scan_index in range(scanNum):
         relFreq = centerFreqList - np.mean(centerFreqList)
         sol, solerr = linearRegression(relFreq, ScanFlux[scan_index], ErrFlux[scan_index] )
     else:
-        sol, solerr = ScanFlux[scan_index][0], ErrFlux[scan_index][0]
+        sol, solerr = [ScanFlux[scan_index][0]], [ErrFlux[scan_index][0]]
     #
     text_src = text_src + '  | %7.4f (%.4f) ' % (sol[0], solerr[0])
     logfile.write(text_src + '\n'); print text_src
