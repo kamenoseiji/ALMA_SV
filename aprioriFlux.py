@@ -290,8 +290,8 @@ for scan_index in range(scanNum):
         StokesI_PL.plot( uvDist[SAblMap], StokesI[spw_index], '.')
         uvMax, IMax = max(uvDist[SAblMap]), max(ScanFlux[scan_index])
         StokesI_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index], ScanFlux[scan_index, spw_index]+ uvMax* ScanSlope[scan_index, spw_index]]), '-')
-        if spw_index == 0: StokesI_PL.text(0.0, IMax*1.35, text_src)
-        if spw_index == spwNum - 1: StokesI_PL.text(0.0, IMax*1.35, text_time)
+        if spw_index == 0: StokesI_PL.text(0.0, IMax*1.3, text_src)
+        if spw_index == spwNum - 1: StokesI_PL.text(0.0, IMax*1.3, text_time)
         StokesI_PL.axis([0.0, uvMax, 0.0, 1.25*IMax])
         StokesI_PL.text(0.0, 1.26*IMax, 'SPW%2d %5.1f GHz' % (scnspw[spw_index], centerFreqList[spw_index]))
     #
