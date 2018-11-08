@@ -83,7 +83,7 @@ msmd.done()
 #-------- Array Configuration
 print '---Determining refant'
 msmd.open(msfile)
-timeStamp, UVW = GetUVW(msfile, spwList[0], msmd.scansforspw(spwList[0])[0])
+timeStamp, UVW = GetUVW(msfile, spwList[0], scanList[0])
 uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
 refantID = bestRefant(uvDist, UseAnt)
 print '  Use ' + antList[refantID] + ' as the refant.'
