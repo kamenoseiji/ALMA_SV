@@ -285,7 +285,7 @@ for scan_index in range(scanNum):
         ScanFlux[scan_index, spw_index], ScanSlope[scan_index, spw_index], ErrFlux[scan_index, spw_index] = solution[0], solution[1], solerr[0]
         text_src = text_src + '  %7.4f (%.4f) ' % (ScanFlux[scan_index, spw_index], ErrFlux[scan_index, spw_index])
         #
-        StokesI_PL = figFL.add_subplot( 2, scnspwNum/2, spw_index + 1 )
+        StokesI_PL = figFL.add_subplot( spwNum, 1, spw_index + 1 )
         IList = IList + [StokesI_PL]
         StokesI_PL.plot( uvDist[SAblMap], StokesI[spw_index], '.')
         uvMax, IMax = max(uvDist[SAblMap]), max(ScanFlux[scan_index])
