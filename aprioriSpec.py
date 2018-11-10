@@ -183,6 +183,25 @@ for ant_index in range(UseAntNum):
     logfile.write(text_sd + '\n'); print text_sd
 #
 #-------- SPW-specific phase using BP scan
+GainP = []
+scan_index = scanList.index(BPScan)
+for spw_index in range(spwNum):
+    exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
+    atmCorrect = 1.0 / exp_Tau
+    TsysSPW = (Trxspec[spw_index] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap] # [antMap, pol, ch]
+    TsysBL  = np.sqrt( TsysSPW[ant0]* TsysSPW[ant1])
+    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], BPScan); timeNum = len(timeStamp)
+    if 'FG' in locals(): flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
+    else : flagIndex = range(timeNum)
+    chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
+    tempSpec = ParaPolBL(Xspec[:,:,blMap], blInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
+    BPCaledXspec = (tempSpec * TsysBL/ (BPList[spw_index][ant0]* BPList[spw_index][ant1].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
+    chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
+    GainP = GainP + [np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[1])])]
+    SEFD = 2.0* kb / (np.array([AeX, AeY]) * (relGain[spw_index]**2))
+    caledVis.append(np.mean((chAvgVis / (GainP[spw_index][:,ant0]* GainP[spw_index][:,ant1].conjugate())).transpose(2, 0, 1)* np.sqrt(SEFD[:,ant0]* SEFD[:,ant1]), axis=2).T)
+#
+caledVis = np.array(caledVis)
 GainP = np.array(GainP) # GainP[spw, pol, ant, time]
 spwPhase = [0.0]* 2* spwNum
 for ant_index in range(1,UseAntNum):
