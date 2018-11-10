@@ -68,7 +68,7 @@ for ant_index in range(antNum): print '   %.0f' % (TrxFlag[ant_index]),
 print; print 'gain',
 for ant_index in range(antNum): print '   %.0f' % (gainFlag[ant_index]),
 print
-flagAnt = flagAnt* TrxFlag* gainFlag* Dflag
+flagAnt = flagAnt* TrxFlag* gainFlag
 UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
 if len(UseAnt) < 5: sys.exit('Too few usable antennas. Reduction failed.')
 #-------- Check Scans for atmCal
