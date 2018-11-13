@@ -150,7 +150,24 @@ for spw_index in range(spwNum):
     Gain = np.array([Gain[0]* GainX, Gain[1]* GainY])
     caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
     Vis    = np.mean(caledVis, axis=1)
-    VisSpec  = VisSpec.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
+    #-------- XY phase correction
+    XYphaseVec = XY2PhaseVec(mjdSec - np.median(mjdSec), PA, QUsol[0], QUsol[1], Vis[[1,2]])
+    twiddle = np.exp((-1.0j)* XYphaseVec)
+    caledVis[1] *= twiddle
+    caledVis[2] /= twiddle
+    #-------- Fine estimation of Q and U using XY and YX
+    Vis    = np.mean(caledVis, axis=1)
+    QUsol[0], QUsol[1] = XY2Stokes(PA, Vis[[1,2]])
+    text_sd = '[XY,YX]  Q/I= %6.3f  U/I= %6.3f  EVPA = %6.2f deg' % (QUsol[0], QUsol[1], np.arctan2(QUsol[1],QUsol[0])*90.0/pi); print text_sd
+    GainX, GainY = polariGain(caledVis[0], caledVis[3], PA, QUsol[0], QUsol[1])
+    Gain = np.array([Gain[0]* GainX, Gain[1]* GainY])
+    caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
+    caledVis[1] *= twiddle
+    caledVis[2] /= twiddle
+    Vis    = np.mean(caledVis, axis=1)
+    VisSpec[:,1] *= twiddle
+    VisSpec[:,2] /= twiddle
+    VisSpec = VisSpec.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
     #
     #-------- Antenna-based on-axis D-term (chAvg)
     Dx, Dy = VisPA_solveD(caledVis, PA, np.array([1.0, QUsol[0], QUsol[1], 0.0]))
@@ -181,12 +198,12 @@ for spw_index in range(spwNum):
     UCmQS, QCpUS = QUsol[1]*CSrange - QUsol[0]* SNrange, QUsol[0]*CSrange + QUsol[1]* SNrange
     #plt.plot(PArange,  QCpUS + np.mean(Dx).real * UCmQS, '-', color='green')              # XX* - 1.0
     plt.plot(PArange,  QCpUS, '-', color='green')              # XX* - 1.0
-    plt.plot(PArange,  UCmQS + np.mean(Dx).real * (1.0 - QCpUS) + np.mean(Dy).real* (1.0 + QCpUS), '-', color='cyan')   # ReXY
-    plt.plot(PArange,  np.mean(Dx).imag* (1.0 - QCpUS) - np.mean(Dy).imag* (1.0 + QCpUS), '-', color='darkblue')       # ImXY
-    plt.plot(PArange,  UCmQS + np.mean(Dx).real* (1.0 - QCpUS) + np.mean(Dy).real* (1.0 + QCpUS), '-', color='magenta')# ReYX
-    plt.plot(PArange, -np.mean(Dx).imag* (1.0 - QCpUS) + np.mean(Dy).imag* (1.0 + QCpUS), '-', color='darkred')        # ImYX
-    #plt.plot(PArange,  -QCpUS - np.mean(Dy).real * UCmQS, '-', color='orange')            # YY* - 1.0
     plt.plot(PArange,  -QCpUS, '-', color='orange')            # YY* - 1.0
+    plt.plot(PArange,  UCmQS + np.mean(Dx).real * (1.0 - QCpUS) + np.mean(Dy).real* (1.0 + QCpUS), '-', color='cyan')   # ReXY
+    plt.plot(PArange,  UCmQS + np.mean(Dx).real* (1.0 - QCpUS) + np.mean(Dy).real* (1.0 + QCpUS), '-', color='magenta')# ReYX
+    plt.hlines(0.0, min(PArange), max(PArange), color='grey')
+    #plt.plot(PArange,  np.mean(Dx).imag* (1.0 - QCpUS) - np.mean(Dy).imag* (1.0 + QCpUS), '-', color='darkblue')       # ImXY
+    #plt.plot(PArange, -np.mean(Dx).imag* (1.0 - QCpUS) + np.mean(Dy).imag* (1.0 + QCpUS), '-', color='darkred')        # ImYX
     plt.plot(PA, Vis[0].real - 1.0, '.', label = 'XX* - 1.0',   color='green')
     plt.plot(PA, Vis[1].real, '.', label = 'ReXY*', color='cyan')
     plt.plot(PA, Vis[1].imag, '.', label = 'ImXY*', color='darkblue')
@@ -202,6 +219,8 @@ for spw_index in range(spwNum):
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.Ant.npy', antList[antMap])
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.Azel.npy', np.array([mjdSec, Az, El, PA]))
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.QUXY.npy', QUsol )
+    np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.TS.npy', mjdSec )
+    np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.XYPH.npy', XYphaseVec )
     for ant_index in range(antNum):
         DtermFile = np.array([FreqList[spw_index], DxSpec[ant_index].real, DxSpec[ant_index].imag, DySpec[ant_index].real, DySpec[ant_index].imag])
         np.save(prefixList[0] + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DSpec.npy', DtermFile)
