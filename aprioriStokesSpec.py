@@ -35,9 +35,11 @@ print '---Checking D-term files in ' + DPATH
 DantList, noDlist, Dflag = [], [], np.ones([antNum])
 Dpath = DPATH + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
 for ant_index in range(antNum):
-    Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW0-' + antList[ant_index] + '.DSpec.npy'
-    if os.path.exists(Dfile): DantList += [ant_index]
-    else: noDlist += [ant_index]; Dflag[ant_index] *= 0.0
+    if flagAnt[ant_index] == 1:
+        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW0-' + antList[ant_index] + '.DSpec.npy'
+        if os.path.exists(Dfile): DantList += [ant_index]
+        else: noDlist += [ant_index]; Dflag[ant_index] *= 0.0
+    #
 #
 DantNum, noDantNum = len(DantList), len(noDlist)
 print 'Antennas with D-term file (%d):' % (DantNum),
@@ -279,10 +281,10 @@ else: QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
 #-------- XY phase cal in Bandpass table
 XYsign = np.ones(spwNum)
 SP_XYPH = []
-TS = np.load( prefix + `spwList[0]` + '-SPW' + '.' + antList[UseAnt[refantID]] + '.TS.npy')
+TS = np.load( prefix + '-SPW' + `spwList[0]` + '-' + antList[UseAnt[refantID]] + '.TS.npy')
 for spw_index in range(spwNum):
     #---- XY phase
-    XYPH = np.load( prefix + `spwList[spw_index]` + '-SPW' + '.' + antList[UseAnt[refantID]] + '.XYPH.npy')
+    XYPH = np.load( prefix + '-SPW' + `spwList[spw_index]` + '-' + antList[UseAnt[refantID]] + '.XYPH.npy')
     SP_XYPH = SP_XYPH + [UnivariateSpline(TS, XYPH, s=0.1)]
     #
     XYphase = XY2Phase(PA, QUsolution[0], QUsolution[1], caledVis[spw_index][[1,2]])
@@ -336,12 +338,15 @@ for scan_index in range(scanNum):
         if 'offAxis' in locals():
             lm = np.array(offAxis[scan])
             Twiddle =  np.exp((0.0 + 1.0j)* np.outer(FreqList[spw_index]*1.0e9, uvw[0:2].transpose(1,2,0).dot(lm)).reshape([chNum, UseBlNum, timeNum])* RADperHzMeterArcsec)
-            tempSpec = CrossPolBL(Xspec[:,:,SAblMap]*Twiddle, SAblInv).transpose(3,2,0,1)[flagIndex]      # Cross Polarization Baseline Mapping
+            tempSpec = CrossPolBL(Xspec[:,:,SAblMap]*Twiddle, SAblInv)
+            tempSpec[1] /= XYtwiddle
+            tempSpec[2] *= XYtwiddle
+            tempSpec = tempSpec.transpose(3,2,0,1)[flagIndex]      # Cross Polarization Baseline Mapping
         else:
-            tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)[flagIndex]      # Cross Polarization Baseline Mapping
-        #-------- XY phase correction
-        tempSpec[1] /= XYtwiddle
-        tempSpec[2] *= XYtwiddle
+            tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv)
+            tempSpec[1] /= XYtwiddle 
+            tempSpec[2] *= XYtwiddle 
+            tempSpec = tempSpec.transpose(3,2,0,1)[flagIndex]
         #-------- Bandpass Calibration
         BPCaledXspec = BPCaledXspec + [(tempSpec / (BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate())).transpose(2,3,1,0)]
     #
