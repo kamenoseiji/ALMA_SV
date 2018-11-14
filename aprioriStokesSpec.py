@@ -48,6 +48,8 @@ if noDantNum > 0:
     for ant_index in noDlist: print '%s ' % antList[ant_index],
     sys.exit(' Run DtermTransfer first!!')
 #
+#-------- Load XY phase
+
 #-------- Load Tsys table
 TrxFreq  = np.load(prefix +  '-' + UniqBands[band_index] + '.TrxFreq.npy') # TrxFreq[spw][ch]
 TrxAnts  = np.load(prefix +  '-' + UniqBands[band_index] + '.TrxAnt.npy') # TrxAnts[ant]
@@ -276,7 +278,13 @@ else: QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
 #
 #-------- XY phase cal in Bandpass table
 XYsign = np.ones(spwNum)
+SP_XYPH = []
+TS = np.load( prefix + `spwList[0]` + '-SPW' + '.' + antList[UseAnt[refantID]] + '.TS.npy')
 for spw_index in range(spwNum):
+    #---- XY phase
+    XYPH = np.load( prefix + `spwList[spw_index]` + '-SPW' + '.' + antList[UseAnt[refantID]] + '.XYPH.npy')
+    SP_XYPH = SP_XYPH + [UnivariateSpline(TS, XYPH, s=0.1)]
+    #
     XYphase = XY2Phase(PA, QUsolution[0], QUsolution[1], caledVis[spw_index][[1,2]])
     XYsign[spw_index] = np.sign(np.cos(XYphase))
     BPList[spw_index] = (BPList[spw_index].transpose(2,0,1)* spwTwiddle[:,:,spw_index]).transpose(1,2,0)
@@ -323,6 +331,7 @@ for scan_index in range(scanNum):
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], scan)
         timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum)); UseChNum = len(chRange)
         if np.max(abs(Xspec)) < 1.0e-9: continue
+        XYtwiddle = np.exp((1.0j)* SP_XYPH[spw_index](timeStamp)
         #-------- Position offset phase correction
         if 'offAxis' in locals():
             lm = np.array(offAxis[scan])
@@ -330,6 +339,9 @@ for scan_index in range(scanNum):
             tempSpec = CrossPolBL(Xspec[:,:,SAblMap]*Twiddle, SAblInv).transpose(3,2,0,1)[flagIndex]      # Cross Polarization Baseline Mapping
         else:
             tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)[flagIndex]      # Cross Polarization Baseline Mapping
+        #-------- XY phase correction
+        tempSpec[1] /= XYtwiddle
+        tempSpec[2] *= XYtwiddle
         #-------- Bandpass Calibration
         BPCaledXspec = BPCaledXspec + [(tempSpec / (BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate())).transpose(2,3,1,0)]
     #
