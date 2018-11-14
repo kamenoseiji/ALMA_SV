@@ -35,17 +35,11 @@ print '---Checking D-term files in ' + DPATH
 DantList, noDlist, Dflag = [], [], np.ones([antNum])
 Dpath = DPATH + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
 for ant_index in range(antNum):
-<<<<<<< HEAD
     if flagAnt[ant_index] == 1:
-        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW0-' + antList[ant_index] + '.DSpec.npy'
+        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spwList[0]` + '-' + antList[ant_index] + '.DSpec.npy'
         if os.path.exists(Dfile): DantList += [ant_index]
         else: noDlist += [ant_index]; Dflag[ant_index] *= 0.0
     #
-=======
-    Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spwList[0]` + '-' + antList[ant_index] + '.DSpec.npy'
-    if os.path.exists(Dfile): DantList += [ant_index]
-    else: noDlist += [ant_index]; Dflag[ant_index] *= 0.0
->>>>>>> 8133cabee36b4737c6798640080950fc4ecf6344
 #
 DantNum, noDantNum = len(DantList), len(noDlist)
 print 'Antennas with D-term file (%d):' % (DantNum),
