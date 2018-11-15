@@ -34,43 +34,50 @@ IatRef <- QatRef <- UatRef <- numeric(0)
 for(sourceName in srcList){
 	srcDF <- FLDF[((FLDF$Src == sourceName) & (abs(FLDF$timeDiff) < timeWindow)),]
 	if(nrow(srcDF) < 4){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
-	if(min(abs(srcDF$timeDiff)) > 15){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
+	if(min(abs(srcDF$timeDiff)) > 30){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
 	freqList <- as.numeric(unique(srcDF$Freq))
 	freqNum <- length(freqList)
 	if(freqNum < 3){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
 	freqList <- freqList[order(freqList)]
 	estI <- errI <- estQ <- errQ <- estU <- errU <- numeric(freqNum)
 	#-------- For each frequency
-	for(freq_index in 1:freqNum){
-		srcFreqDF <- srcDF[srcDF$Freq == freqList[freq_index],]
-		if(nrow(srcFreqDF) < 3){
-			estI[freq_index] <- median(srcFreqDF$I); errI[freq_index] <- median(srcFreqDF$eI) * 10.0
-			estQ[freq_index] <- median(srcFreqDF$Q); errQ[freq_index] <- median(srcFreqDF$eQ) * 10.0
-			estU[freq_index] <- median(srcFreqDF$U); errU[freq_index] <- median(srcFreqDF$eU) * 10.0
-		} else {
-			fit <- lm(data=srcFreqDF, formula=I ~ timeDiff, weights=1.0 / eI^2 / abs(timeDiff + 1))
-			estI[freq_index] <- summary(fit)$coefficients[1,'Estimate'];  errI[freq_index] <- summary(fit)$coefficients[1,'Std. Error']
-			fit <- lm(data=srcFreqDF, formula=Q ~ timeDiff, weights=1.0 / eQ^2 / abs(timeDiff + 1))
-			estQ[freq_index] <- summary(fit)$coefficients[1,'Estimate'];  errQ[freq_index] <- summary(fit)$coefficients[1,'Std. Error']
-			fit <- lm(data=srcFreqDF, formula=U ~ timeDiff, weights=1.0 / eU^2 / abs(timeDiff + 1))
-			estU[freq_index] <- summary(fit)$coefficients[1,'Estimate'];  errU[freq_index] <- summary(fit)$coefficients[1,'Std. Error']
-		}
-	}
-	lambdaSQ <- (0.299792458 / freqList)^2; lambdasqSpan <- diff(range(lambdaSQ))
-	estP <- sqrt(estQ^2 + estU^2); errP <- sqrt(errQ^2 + errU^2); estEVPA <- 0.5*atan2(estU, estQ)
-	fit <- lm(log(estI) ~ log(freqList/100.0), weights=1.0/errI^2); I100 <- exp(as.numeric(coef(fit)[1])); spixI <- as.numeric(coef(fit)[2])
-	fit <- lm(log(estP) ~ log(freqList/100.0), weights=1.0/errP^2); P100 <- exp(as.numeric(coef(fit)[1])); spixP <- as.numeric(coef(fit)[2])
-	estEVPAend <- estEVPA[freqNum]
-	if(estEVPAend - estEVPA[1] >  pi/2){ estEVPAend <- estEVPAend - pi }
-	if(estEVPAend - estEVPA[1] < -pi/2){ estEVPAend <- estEVPAend + pi }
-	RMinit <- (estEVPAend - estEVPA[1]) / (lambdaSQ[freqNum] - lambdaSQ[1])
-	fit <- optim(par=c(RMinit, estEVPA[freqNum]), fn=residEVPA(lambdaSQ, estEVPA, 1.0/errP^2), method='Nelder-Mead')
-	RM <- fit$par[1]; EVPAintercept <- fit$par[2]
-	PatFreqRef <- P100*(refFreq/100)^spixP
-	EVPAatFreqRef <- RM* (0.299792458 / refFreq)^2 + EVPAintercept
-	IatRef <- append(IatRef, I100*(refFreq/100)^spixI)
-	QatRef <- append(QatRef, PatFreqRef * cos(2.0* EVPAatFreqRef))
-	UatRef <- append(UatRef, PatFreqRef * sin(2.0* EVPAatFreqRef))
+    if(freqNum > 1){
+	    for(freq_index in 1:freqNum){
+	    	srcFreqDF <- srcDF[srcDF$Freq == freqList[freq_index],]
+	    	if(nrow(srcFreqDF) < 3){
+			    estI[freq_index] <- median(srcFreqDF$I); errI[freq_index] <- median(srcFreqDF$eI) * 10.0
+			    estQ[freq_index] <- median(srcFreqDF$Q); errQ[freq_index] <- median(srcFreqDF$eQ) * 10.0
+			    estU[freq_index] <- median(srcFreqDF$U); errU[freq_index] <- median(srcFreqDF$eU) * 10.0
+		    } else {
+			    fit <- lm(data=srcFreqDF, formula=I ~ timeDiff, weights=1.0 / eI^2 / abs(timeDiff + 1))
+			    estI[freq_index] <- summary(fit)$coefficients[1,'Estimate'];  errI[freq_index] <- summary(fit)$coefficients[1,'Std. Error']
+			    fit <- lm(data=srcFreqDF, formula=Q ~ timeDiff, weights=1.0 / eQ^2 / abs(timeDiff + 1))
+			    estQ[freq_index] <- summary(fit)$coefficients[1,'Estimate'];  errQ[freq_index] <- summary(fit)$coefficients[1,'Std. Error']
+			    fit <- lm(data=srcFreqDF, formula=U ~ timeDiff, weights=1.0 / eU^2 / abs(timeDiff + 1))
+			    estU[freq_index] <- summary(fit)$coefficients[1,'Estimate'];  errU[freq_index] <- summary(fit)$coefficients[1,'Std. Error']
+		    }
+	    }
+	    lambdaSQ <- (0.299792458 / freqList)^2; lambdasqSpan <- diff(range(lambdaSQ))
+	    estP <- sqrt(estQ^2 + estU^2); errP <- sqrt(errQ^2 + errU^2); estEVPA <- 0.5*atan2(estU, estQ)
+	    fit <- lm(log(estI) ~ log(freqList/100.0), weights=1.0/errI^2); I100 <- exp(as.numeric(coef(fit)[1])); spixI <- as.numeric(coef(fit)[2])
+	    fit <- lm(log(estP) ~ log(freqList/100.0), weights=1.0/errP^2); P100 <- exp(as.numeric(coef(fit)[1])); spixP <- as.numeric(coef(fit)[2])
+	    estEVPAend <- estEVPA[freqNum]
+	    if(estEVPAend - estEVPA[1] >  pi/2){ estEVPAend <- estEVPAend - pi }
+	    if(estEVPAend - estEVPA[1] < -pi/2){ estEVPAend <- estEVPAend + pi }
+	    RMinit <- (estEVPAend - estEVPA[1]) / (lambdaSQ[freqNum] - lambdaSQ[1])
+	    fit <- optim(par=c(RMinit, estEVPA[freqNum]), fn=residEVPA(lambdaSQ, estEVPA, 1.0/errP^2), method='Nelder-Mead')
+	    RM <- fit$par[1]; EVPAintercept <- fit$par[2]
+	    PatFreqRef <- P100*(refFreq/100)^spixP
+	    EVPAatFreqRef <- RM* (0.299792458 / refFreq)^2 + EVPAintercept
+	    IatRef <- append(IatRef, I100*(refFreq/100)^spixI)
+	    QatRef <- append(QatRef, PatFreqRef * cos(2.0* EVPAatFreqRef))
+	    UatRef <- append(UatRef, PatFreqRef * sin(2.0* EVPAatFreqRef))
+    } else {
+        spix <- -0.7
+        IatRef <- append(IatRef, sum(srcDF$I/srcDF$eI^2)/sum(1.0/srcDF$eI^2)* (refFreq/median(srcDF$Freq))^spix)
+        QatRef <- append(QatRef, sum(srcDF$Q/srcDF$eQ^2)/sum(1.0/srcDF$eQ^2)* (refFreq/median(srcDF$Freq))^spix)
+        UatRef <- append(UatRef, sum(srcDF$U/srcDF$eU^2)/sum(1.0/srcDF$eU^2)* (refFreq/median(srcDF$Freq))^spix)
+    }
 }
 DF <- data.frame(Src=srcList, I=IatRef, Q=QatRef, U=UatRef)
 write.table(na.omit(DF), file="CalQU.data", append=F, quote=F, col.names=F, row.name=F)

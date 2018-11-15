@@ -1,5 +1,6 @@
 import sys
 from scipy import stats
+from scipy import interpolate
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ptick
 import analysisUtils as au
@@ -35,9 +36,11 @@ print '---Checking D-term files in ' + DPATH
 DantList, noDlist, Dflag = [], [], np.ones([antNum])
 Dpath = DPATH + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
 for ant_index in range(antNum):
-    Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW0-' + antList[ant_index] + '.DSpec.npy'
-    if os.path.exists(Dfile): DantList += [ant_index]
-    else: noDlist += [ant_index]; Dflag[ant_index] *= 0.0
+    if flagAnt[ant_index] == 1:
+        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spwList[0]` + '-' + antList[ant_index] + '.DSpec.npy'
+        if os.path.exists(Dfile): DantList += [ant_index]
+        else: noDlist += [ant_index]; Dflag[ant_index] *= 0.0
+    #
 #
 DantNum, noDantNum = len(DantList), len(noDlist)
 print 'Antennas with D-term file (%d):' % (DantNum),
@@ -48,6 +51,8 @@ if noDantNum > 0:
     for ant_index in noDlist: print '%s ' % antList[ant_index],
     sys.exit(' Run DtermTransfer first!!')
 #
+#-------- Load XY phase
+
 #-------- Load Tsys table
 TrxFreq  = np.load(prefix +  '-' + UniqBands[band_index] + '.TrxFreq.npy') # TrxFreq[spw][ch]
 TrxAnts  = np.load(prefix +  '-' + UniqBands[band_index] + '.TrxAnt.npy') # TrxAnts[ant]
@@ -117,7 +122,7 @@ print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 #-------- Load D-term file
 DxList, DyList = [], []
 for ant_index in range(antNum):
-    Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
+    #Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
     for spw_index in range(spwNum):
         Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[ant_index] + '.DSpec.npy'
         # print 'Loading %s' % (Dfile)
@@ -276,7 +281,13 @@ else: QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
 #
 #-------- XY phase cal in Bandpass table
 XYsign = np.ones(spwNum)
+SP_XYPH = []
+TS = np.load( prefix + '-SPW' + `spwList[0]` + '-' + antList[UseAnt[refantID]] + '.TS.npy')
 for spw_index in range(spwNum):
+    #---- XY phase
+    XYPH = np.load( prefix + '-SPW' + `spwList[spw_index]` + '-' + antList[UseAnt[refantID]] + '.XYPH.npy')
+    SP_XYPH = SP_XYPH + [UnivariateSpline(TS, XYPH, s=0.1)]
+    #
     XYphase = XY2Phase(PA, QUsolution[0], QUsolution[1], caledVis[spw_index][[1,2]])
     XYsign[spw_index] = np.sign(np.cos(XYphase))
     BPList[spw_index] = (BPList[spw_index].transpose(2,0,1)* spwTwiddle[:,:,spw_index]).transpose(1,2,0)
@@ -323,13 +334,20 @@ for scan_index in range(scanNum):
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], scan)
         timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum)); UseChNum = len(chRange)
         if np.max(abs(Xspec)) < 1.0e-9: continue
+        XYtwiddle = np.exp((1.0j)* SP_XYPH[spw_index](timeStamp))
         #-------- Position offset phase correction
         if 'offAxis' in locals():
             lm = np.array(offAxis[scan])
             Twiddle =  np.exp((0.0 + 1.0j)* np.outer(FreqList[spw_index]*1.0e9, uvw[0:2].transpose(1,2,0).dot(lm)).reshape([chNum, UseBlNum, timeNum])* RADperHzMeterArcsec)
-            tempSpec = CrossPolBL(Xspec[:,:,SAblMap]*Twiddle, SAblInv).transpose(3,2,0,1)[flagIndex]      # Cross Polarization Baseline Mapping
+            tempSpec = CrossPolBL(Xspec[:,:,SAblMap]*Twiddle, SAblInv)
+            tempSpec[1] /= XYtwiddle
+            tempSpec[2] *= XYtwiddle
+            tempSpec = tempSpec.transpose(3,2,0,1)[flagIndex]      # Cross Polarization Baseline Mapping
         else:
-            tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)[flagIndex]      # Cross Polarization Baseline Mapping
+            tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv)
+            tempSpec[1] /= XYtwiddle 
+            tempSpec[2] *= XYtwiddle 
+            tempSpec = tempSpec.transpose(3,2,0,1)[flagIndex]
         #-------- Bandpass Calibration
         BPCaledXspec = BPCaledXspec + [(tempSpec / (BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate())).transpose(2,3,1,0)]
     #
@@ -400,7 +418,7 @@ for scan_index in range(scanNum):
         StokesP_SP.axis([min(FreqList[spw_index]), max(FreqList[spw_index]), -0.25*IMax, 0.25*IMax])
     #
     IList[0].text(min(FreqList[0]), IMax*1.35, text_src)
-    IList[-1].text(min(FreqList[-1]), IMax*1.35, text_time)
+    IList[-1].text(max(FreqList[-1]), IMax*1.35, text_time, ha='right')
     StokesI_SP.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
     StokesP_SP.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
     plt.show()
