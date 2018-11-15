@@ -418,7 +418,7 @@ for scan_index in range(scanNum):
         StokesP_SP.axis([min(FreqList[spw_index]), max(FreqList[spw_index]), -0.25*IMax, 0.25*IMax])
     #
     IList[0].text(min(FreqList[0]), IMax*1.35, text_src)
-    IList[-1].text(max(FreqList[-1]), IMax*1.35, ha='right', text_time)
+    IList[-1].text(max(FreqList[-1]), IMax*1.35, text_time, ha='right')
     StokesI_SP.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
     StokesP_SP.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
     plt.show()
