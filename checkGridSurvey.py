@@ -113,6 +113,7 @@ for band_index in range(NumBands):
         #
     #
     BPScan = onsourceScans[BPscanIndex]; BPcal = sourceList[sourceIDscan[BPscanIndex]]; timeLabelBP = qa.time('%fs' % (refTime[BPscanIndex]), form='ymd')[0]
+    BPEL = OnEL[onsourceScans.index(BPScan)]
     #-------- Select Equalization Calibrator
     if 'EQScans' not in locals():
         EQscanIndex = np.argmax(EQquality)

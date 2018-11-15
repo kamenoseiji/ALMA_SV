@@ -169,6 +169,7 @@ else :
     flagIndex = range(timeNum)
 #
 #-------- Bandpass Table
+Trx2antMap = indexList( antList[antMap], antList[TrxMap] )
 BPList = []
 print '---Generating antenna-based bandpass table'
 for spw_index in range(spwNum):
@@ -197,7 +198,6 @@ if catalogStokesQ.get(EQcal) > 0.0 :
     QUsolution = np.array([catalogStokesQ.get(EQcal), catalogStokesU.get(EQcal)])
 QCpUS = (QUsolution[0]* np.cos(2.0* PA) + QUsolution[1]* np.sin(2.0* PA)) / catalogStokesI.get(EQcal)
 #
-Trx2antMap = indexList( antList[antMap], antList[TrxMap] )
 if len(atmTimeRef) > 5:
     exTauSP  = UnivariateSpline(atmTimeRef, Tau0E, np.ones(len(atmTimeRef)), s=0.1*np.std(Tau0E))
 else:
