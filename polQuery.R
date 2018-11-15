@@ -37,6 +37,7 @@ for(sourceName in srcList){
 	if(min(abs(srcDF$timeDiff)) > 15){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
 	freqList <- as.numeric(unique(srcDF$Freq))
 	freqNum <- length(freqList)
+	if(freqNum < 3){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
 	freqList <- freqList[order(freqList)]
 	estI <- errI <- estQ <- errQ <- estU <- errU <- numeric(freqNum)
 	#-------- For each frequency
