@@ -40,7 +40,7 @@ msmd.done()
 #-------- Loop for Bands
 for band_index in range(NumBands):
     msmd.open(msfile)
-    bandName = UniqBands[band_index]; bandID = int(bandName[3:5])-1
+    bandName = UniqBands[band_index]; bandID = int(bandName[3:5])
     ONScan = np.array(bpscanLists[band_index])[indexList( ONScans, np.array(bpscanLists[band_index]))]
     ATMScan= np.array(atmscanLists[band_index])[indexList( ONScans, np.array(atmscanLists[band_index]))]
     onsourceScans, atmScans = ONScan.tolist(), ATMScan.tolist()

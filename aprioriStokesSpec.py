@@ -1,5 +1,6 @@
 import sys
 from scipy import stats
+from scipy import interpolate
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ptick
 import analysisUtils as au
@@ -121,7 +122,7 @@ print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 #-------- Load D-term file
 DxList, DyList = [], []
 for ant_index in range(antNum):
-    Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
+    #Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
     for spw_index in range(spwNum):
         Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[ant_index] + '.DSpec.npy'
         # print 'Loading %s' % (Dfile)
