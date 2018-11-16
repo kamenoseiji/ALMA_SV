@@ -107,13 +107,16 @@ scanList = onsourceScans
 msmd.close()
 msmd.done()
 #-------- Array Configuration
-print '---Determining refant'
-msmd.open(msfile)
-timeStamp, UVW = GetUVW(msfile, spwList[0], msmd.scansforspw(spwList[0])[0])
-uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
-refantID = bestRefant(uvDist, UseAnt)
+if 'refant' in locals():
+    refantID = np.where(antList == refant)[0][0]
+else:
+    print '---Determining refant'
+    timeStamp, UVW = GetUVW(msfile, spwList[0], msmd.scansforspw(spwList[0])[0])
+    uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
+    refantID = bestRefant(uvDist, UseAnt)
 print '  Use ' + antList[refantID] + ' as the refant.'
 #
+msmd.open(msfile)
 antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
 blMap, blInv= range(UseBlNum), [False]* UseBlNum
 ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
