@@ -124,8 +124,7 @@ for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(ant
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 #-------- Load D-term file
 DxList, DyList = [], []
-for ant_index in range(useAntNum):
-    #Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
+for ant_index in range(UseAntNum):
     for spw_index in range(spwNum):
         Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spwList[spw_index]` + '-' + antList[UseAnt[ant_index]] + '.DSpec.npy'
         # print 'Loading %s' % (Dfile)
@@ -135,7 +134,7 @@ for ant_index in range(useAntNum):
     #
 #
 chNum = np.array(DxList).shape[1]
-DxSpec, DySpec = np.array(DxList).reshape([useAntNum, spwNum, chNum]), np.array(DyList).reshape([useAntNum, spwNum, chNum])
+DxSpec, DySpec = np.array(DxList).reshape([UseAntNum, spwNum, chNum]), np.array(DyList).reshape([UseAntNum, spwNum, chNum])
 Dloaded = True
 if 'gainRef' in locals(): flagRef = np.zeros([UseAntNum]); refIndex = indexList(gainRef, antList[antMap]); flagRef[refIndex] = 1.0; del(gainRef)
 if 'refIndex' not in locals(): refIndex = range(UseAntNum)
