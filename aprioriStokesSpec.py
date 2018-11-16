@@ -127,7 +127,7 @@ DxList, DyList = [], []
 for ant_index in range(useAntNum):
     #Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
     for spw_index in range(spwNum):
-        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[UseAnt[ant_index]] + '.DSpec.npy'
+        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spwList[spw_index]` + '-' + antList[UseAnt[ant_index]] + '.DSpec.npy'
         # print 'Loading %s' % (Dfile)
         Dterm = np.load(Dfile)
         DxList = DxList + [Dterm[1] + (0.0 + 1.0j)* Dterm[2]]
