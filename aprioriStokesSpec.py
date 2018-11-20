@@ -345,13 +345,13 @@ for scan_index in range(scanNum):
             lm = np.array(offAxis[scan])
             Twiddle =  np.exp((0.0 + 1.0j)* np.outer(FreqList[spw_index]*1.0e9, uvw[0:2].transpose(1,2,0).dot(lm)).reshape([chNum, UseBlNum, timeNum])* RADperHzMeterArcsec)
             tempSpec = CrossPolBL(Xspec[:,:,SAblMap]*Twiddle, SAblInv)
-            tempSpec[1] /= XYtwiddle
-            tempSpec[2] *= XYtwiddle
+            tempSpec[1] *= XYtwiddle
+            tempSpec[2] /= XYtwiddle
             tempSpec = tempSpec.transpose(3,2,0,1)[flagIndex]      # Cross Polarization Baseline Mapping
         else:
             tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv)
-            tempSpec[1] /= XYtwiddle 
-            tempSpec[2] *= XYtwiddle 
+            tempSpec[1] *= XYtwiddle 
+            tempSpec[2] /= XYtwiddle 
             tempSpec = tempSpec.transpose(3,2,0,1)[flagIndex]
         #-------- Bandpass Calibration
         BPCaledXspec = BPCaledXspec + [(tempSpec / (BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate())).transpose(2,3,1,0)]
