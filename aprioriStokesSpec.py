@@ -333,7 +333,10 @@ for scan_index in range(scanNum):
     Trx2antMap = indexList( antList[SAantMap], antList[TrxMap] )
     #-------- Baseline-based cross power spectra
     for spw_index in range(spwNum):
-        timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], scan)
+        if Field in locals():
+            timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], scan, Field)
+        else:
+            timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], scan)
         timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum)); UseChNum = len(chRange)
         if np.max(abs(Xspec)) < 1.0e-9: continue
         XYtwiddle = np.exp((1.0j)* SP_XYPH[spw_index](timeStamp))
