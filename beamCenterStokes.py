@@ -132,8 +132,9 @@ for spw_index in range(spwNum):
     PAnum = len(PA)
     print '  -- Solution for Q and U'
     #-------- Coarse estimation of Q and U using XX and YY
-    QUsol   = XXYY2QU(PA, Vis[[0,3]])             # XX*, YY* to estimate Q, U
-    text_sd = '[XX,YY]  Q/I= %6.3f  U/I= %6.3f  EVPA = %6.2f deg' % (QUsol[0], QUsol[1], np.arctan2(QUsol[1],QUsol[0])*90.0/pi); print text_sd
+    if 'QUsol' not in locals():
+        QUsol   = XXYY2QU(PA, Vis[[0,3]])             # XX*, YY* to estimate Q, U
+        text_sd = '[XX,YY]  Q/I= %6.3f  U/I= %6.3f  EVPA = %6.2f deg' % (QUsol[0], QUsol[1], np.arctan2(QUsol[1],QUsol[0])*90.0/pi); print text_sd
     #-------- XY phase determination
     XYphase = XY2Phase(PA, QUsol[0], QUsol[1], Vis[[1,2]])    # XY*, YX* to estimate X-Y phase
     XYsign = np.sign(np.cos(XYphase))
