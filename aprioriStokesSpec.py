@@ -81,7 +81,8 @@ if TrxFreq.shape[1] != chNum:
     Trxspec  = tmpTRX
 #
 for spw_index in range(spwNum):
-    for pol_index in range(2): TrxFlag[np.where(abs(TrxMed[spw_index][:,pol_index] - np.median(TrxMed[spw_index][:,pol_index])) > 0.8* np.median(TrxMed[spw_index][:,pol_index]))[0].tolist()] *= 0.0
+    for pol_index in range(2): TrxFlag[np.where(TrxMed[spw_index][:,pol_index] - np.median(TrxMed[spw_index][:,pol_index]) > 1.5* np.median(TrxMed[spw_index][:,pol_index]))[0].tolist()] *= 0.0
+    for pol_index in range(2): TrxFlag[np.where(TrxMed[spw_index][:,pol_index] < 0.3* np.median(TrxMed[spw_index][:,pol_index]))[0].tolist()] *= 0.0
 if np.min(np.median(Tau0spec[:,chRange], axis=1)) < 0.0: TrxFlag *= 0.0    # Negative Tau(zenith) 
 #
 print 'Ant:',
@@ -333,7 +334,7 @@ for scan_index in range(scanNum):
     Trx2antMap = indexList( antList[SAantMap], antList[TrxMap] )
     #-------- Baseline-based cross power spectra
     for spw_index in range(spwNum):
-        if Field in locals():
+        if 'Field' in locals():
             timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], scan, Field)
         else:
             timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], scan)

@@ -53,10 +53,10 @@ for band_index in range(NumBands):
     OnAZ, OnEL, OnPA, BPquality, EQquality, PQquality, sourceIDscan, FLscore, refTime = [], [], [], [], [], [], [], np.zeros(scanNum), []
     #if QUMODEL and polNum == 4: # A priori QU model from Rdata
     #--------
-    os.system('rm -rf CalQU.data')
-    text_sd = R_DIR + 'Rscript %spolQuery.R -D%s -F%f' % (SCR_DIR, qa.time('%fs' % (azelTime[0]), form='ymd')[0], BANDFQ[bandID])
-    for source in sourceList: text_sd = text_sd + ' ' + source
-    os.system(text_sd)
+    #os.system('rm -rf CalQU.data')
+    #text_sd = R_DIR + 'Rscript %spolQuery.R -D%s -F%f' % (SCR_DIR, qa.time('%fs' % (azelTime[0]), form='ymd')[0], BANDFQ[bandID])
+    #for source in sourceList: text_sd = text_sd + ' ' + source
+    #os.system(text_sd)
     fp = open('CalQU.data')
     lines = fp.readlines()
     fp.close()
