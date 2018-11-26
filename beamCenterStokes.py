@@ -152,7 +152,7 @@ for spw_index in range(spwNum):
     caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
     Vis    = np.mean(caledVis, axis=1)
     #-------- XY phase correction
-    XYphaseVec = XY2PhaseVec(mjdSec - np.median(mjdSec), PA, QUsol[0], QUsol[1], Vis[[1,2]])
+    XYproduct, XYphaseVec = XY2PhaseVec(mjdSec - np.median(mjdSec), PA, QUsol[0], QUsol[1], Vis[[1,2]])
     twiddle = np.exp((-1.0j)* XYphaseVec)
     caledVis[1] *= twiddle
     caledVis[2] /= twiddle
@@ -222,6 +222,7 @@ for spw_index in range(spwNum):
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.QUXY.npy', QUsol )
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.TS.npy', mjdSec )
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.XYPH.npy', XYphaseVec )
+    np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.XYPR.npy', XYproduct )
     for ant_index in range(antNum):
         DtermFile = np.array([FreqList[spw_index], DxSpec[ant_index].real, DxSpec[ant_index].imag, DySpec[ant_index].real, DySpec[ant_index].imag])
         np.save(prefixList[0] + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DSpec.npy', DtermFile)

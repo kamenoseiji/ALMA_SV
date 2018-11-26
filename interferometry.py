@@ -1557,7 +1557,7 @@ def XY2PhaseVec(TS, PA, Q, U, Vis):    # XY*, YX* to measuere XYphase variation
     UC_QS = U* np.cos(2.0* PA) - Q* np.sin(2.0* PA)
     product = (Vis[0] + Vis[1].conjugate())* UC_QS
     SP_phas = UnivariateSpline(TS, np.angle(product), w=abs(product)**2, s=0.1)
-    return SP_phas(TS)
+    return SP_phas(TS), product
 #SP_imag = UnivariateSpline(PA, product.imag, w=product.real, s=0.1)
 #return np.angle(product.real + SP_imag(PA)* (1.0j))
 #
