@@ -30,7 +30,6 @@ print '  Use ' + antList[UseAnt[refantID]] + ' as the refant.'
 antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
 for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
-msmd.done(); msmd.close()
 #-------- Bandpass Table
 if 'BPprefix' in locals():
     BPfileName = BPprefix + '-REF' + antList[UseAnt[refantID]] +'-SPW' + `spw` + '-BPant.npy'
@@ -38,9 +37,10 @@ if 'BPprefix' in locals():
     BP_ant = np.load(BPfileName)
 #
 #-------- Loop for Scan
-GainAP0, GainAP1, timeList, SNRList, flagList = [], [], [], [], []
+GainAP0, GainAP1, timeList, SNRList, flagList, fieldList = [], [], [], [], [], []
 for scan in scanList:
-    print 'Loading Visibilities: Scan ' + `scan`
+    field_names = msmd.fieldsforscan(scan, True); fieldList = fieldList + [field_names[0]]
+    print 'Loading Visibilities: Scan ' + `scan` + ' : ' + field_names[0]
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)
     timeNum, polNum, chNum = Xspec.shape[3], Xspec.shape[0], Xspec.shape[1]
@@ -74,11 +74,13 @@ for scan in scanList:
     #
     timeList.extend(timeStamp.tolist())
 #
+msmd.done(); msmd.close()
 timeNum = len(timeList)
 antFG  = np.array(flagList).T                          # [ant, time]
 antSNR = np.array(SNRList).reshape(timeNum, 2, UseAntNum).transpose(2,1,0)  # [ant, pol, time]
 Gain = np.array([GainAP0, GainAP1]).transpose(2,0,1)    # [ant, pol, time]
 np.save(prefix + '.Ant.npy', antList[antMap]) 
+np.save(prefix + '.Field.npy', np.array(fieldList))
 np.save(prefix + '-SPW' + `spw` + '.TS.npy', np.array(timeList)) 
 np.save(prefix + '-SPW' + `spw` + '.GA.npy', Gain) 
 np.save(prefix + '-SPW' + `spw` + '.FG.npy', antFG) 
