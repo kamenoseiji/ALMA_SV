@@ -130,6 +130,15 @@ def PAMatrix(PA):
         [0.0, -sn,  cs, -1.0j],
         [1.0, -cs, -sn,  0.0]])
 #
+def PAVector(PA, Unity):
+    cs, sn = np.cos(2.0* PA), np.sin(2.0* PA)
+    Zeroty = 0.0* Unity
+    return np.array([
+        [Unity, cs, sn, Zeroty],
+        [Zeroty, -sn, cs,  1.0j*Unity],
+        [Zeroty, -sn, cs, -1.0j*Unity],
+        [Unity, -cs, -sn, Zeroty]])
+#
 def InvPAMatrix(PA):
     cs = math.cos(2.0* PA)
     sn = math.sin(2.0* PA)
