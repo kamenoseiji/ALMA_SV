@@ -44,7 +44,7 @@ for band_index in range(NumBands):
 print '---Checking source list'
 sourceList, posList = GetSourceList(msfile); sourceList = sourceRename(sourceList); numSource = len(sourceList)
 SSOList   = indexList( np.array(SSOCatalog), np.array(sourceList))
-ONScans = msmd.scansforintent("*#ON_SOURCE")
+ONScans = np.array(set(msmd.scansforintent("*#ON_SOURCE")) - set(msmd.scansforintent("*ATMOSPHERE*")))
 msmd.close()
 msmd.done()
 #-------- Loop for Bands
