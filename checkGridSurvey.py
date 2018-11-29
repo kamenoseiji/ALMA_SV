@@ -44,9 +44,12 @@ for band_index in range(NumBands):
 print '---Checking source list'
 sourceList, posList = GetSourceList(msfile); sourceList = sourceRename(sourceList); numSource = len(sourceList)
 SSOList   = indexList( np.array(SSOCatalog), np.array(sourceList))
-try: ONScans = msmd.scansforintent("CALIBRATE_BANDPASS")
-try: ONScans = np.array(set(ONScans) + set(msmd.scansforintent("CALIBRATE_FLUX")))
-try: ONScans = np.array(set(ONScans) + set(msmd.scansforintent("CALIBRATE_PHASE")))
+try:
+    ONScans = msmd.scansforintent("CALIBRATE_BANDPASS")
+try:
+    ONScans = np.array(set(ONScans) + set(msmd.scansforintent("CALIBRATE_FLUX")))
+try:
+    ONScans = np.array(set(ONScans) + set(msmd.scansforintent("CALIBRATE_PHASE")))
 msmd.close()
 msmd.done()
 #-------- Loop for Bands
