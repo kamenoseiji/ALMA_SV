@@ -195,7 +195,7 @@ for spw_index in range(spwNum):
     #
     #-------- D-term-corrected visibilities ( invD dot Vis = PS)
     DcorrectedVis = np.zeros([4, chNum, blNum, PAnum], dtype=complex)      # DcorrectedVis[pol, ch, bl, time]
-    PS = (PAVector(PA, np.ones(360)).transpose(2,0,1).dot(StokesVis.real))
+    PS = (PAVector(PA, np.ones(PAnum)).transpose(2,0,1).dot(StokesVis.real))
     M  = MullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum])).transpose(3,2,0,1)
     for pa_index in range(PAnum):
         DcorrectedVis[:,:,:,pa_index] = VisSpec[:,:,:,pa_index] / M.dot(PS[pa_index]).transpose(2,0,1)
