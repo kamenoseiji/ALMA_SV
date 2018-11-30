@@ -174,15 +174,26 @@ else :
     flagIndex = range(timeNum)
 #
 BPList = []
-print '---Generating antenna-based bandpass table'
-for spw_index in range(spwNum):
-    BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spwList[spw_index], BPScan, blMap, blInv)
-    BP_ant[:,1] *= XY_BP
-    exp_Tau = np.exp(-Tau0spec[spw_index] / np.sin(BPEL))
-    atmCorrect = 1.0 / exp_Tau
-    TsysBPScan = atmCorrect* (Trxspec[spw_index][Trx2antMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau)) # [antMap, pol, ch]
-    TsysBPShape = (TsysBPScan.transpose(2,0,1) / np.median(TsysBPScan, axis=2)).transpose(1,2,0)
-    BPList = BPList + [BP_ant* np.sqrt(TsysBPShape)]
+if 'BPprefix' in locals():
+    for spw_index in range(spwNum):
+	BP_ant = np.load(BPprefix + '-REF' + refant + '-SPW' + `spwList[spw_index]` + '-BPant.npy')
+        exp_Tau = np.exp(-Tau0spec[spw_index] / np.sin(BPEL))
+        atmCorrect = 1.0 / exp_Tau
+        TsysBPScan = atmCorrect* (Trxspec[spw_index][Trx2antMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau)) # [antMap, pol, ch]
+        TsysBPShape = (TsysBPScan.transpose(2,0,1) / np.median(TsysBPScan, axis=2)).transpose(1,2,0)
+	BPList = BPList + [BP_ant* np.sqrt(TsysBPShape)]
+    #
+else:
+    print '---Generating antenna-based bandpass table'
+    for spw_index in range(spwNum):
+        BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spwList[spw_index], BPScan, blMap, blInv)
+        BP_ant[:,1] *= XY_BP
+        exp_Tau = np.exp(-Tau0spec[spw_index] / np.sin(BPEL))
+        atmCorrect = 1.0 / exp_Tau
+        TsysBPScan = atmCorrect* (Trxspec[spw_index][Trx2antMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau)) # [antMap, pol, ch]
+        TsysBPShape = (TsysBPScan.transpose(2,0,1) / np.median(TsysBPScan, axis=2)).transpose(1,2,0)
+	BPList = BPList + [BP_ant* np.sqrt(TsysBPShape)]
+    #
 #
 if PLOTBP:
     pp = PdfPages('BP_' + prefix + '_REF' + antList[UseAnt[refantID]] + '_Scan' + `BPScan` + '.pdf')
@@ -235,8 +246,6 @@ for ant_index in range(UseAntNum):
     logfile.write(text_sd + '\n'); print text_sd
 #
 ##-------- Iteration for Equalization using EQ scan
-print '---XY phase determination in bandpass scan'
-#-------- XY phase using BP scan
 interval, timeStamp = GetTimerecord(msfile, 0, 0, spwList[0], BPScan); timeNum = len(timeStamp)
 if 'FG' in locals(): flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
 else: flagIndex = range(timeNum)
@@ -276,13 +285,13 @@ for ant_index in range(1,UseAntNum):
 spwPhase = np.array(spwPhase).reshape([UseAntNum, 2, spwNum]); spwTwiddle = exp(1.0j *spwPhase)
 #QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
 #QUsolution = np.array([catalogStokesQ.get(BPcal), catalogStokesU.get(BPcal)])
-QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
-if 'QUMODEL' in locals():
-    if QUMODEL: QUsolution = np.array([catalogStokesQ.get(BPcal), catalogStokesU.get(BPcal)])
-    else: QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
+#QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
+if 'QUprefix' in locals():
+    QUsolution = np.load(QUprefix + '-SPW' + `spwList[0]` + '-' + refantName + '.QUXY.npy')
 else: QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
 #
 #-------- XY phase cal in Bandpass table
+"""
 XYsign = np.ones(spwNum)
 SP_XYPH = []
 TS = np.load( prefix + '-SPW' + `spwList[0]` + '-' + antList[UseAnt[refantID]] + '.TS.npy')
@@ -297,6 +306,7 @@ for spw_index in range(spwNum):
     BPList[spw_index][:,1] *= XYsign[spw_index]
     print 'SPW[%d] : XYphase = %6.1f [deg] sign = %3.0f' % (spwList[spw_index], 180.0*XYphase/pi, XYsign[spw_index])
 #
+"""
 ScanFlux, ScanSlope, ErrFlux, centerFreqList, FreqList = np.zeros([scanNum, spwNum, 4]), np.zeros([scanNum, spwNum, 4]), np.zeros([scanNum, spwNum, 4]), [], []
 #-------- Flux Density
 for spw_index in range(spwNum):
@@ -340,19 +350,19 @@ for scan_index in range(scanNum):
             timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], scan)
         timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum)); UseChNum = len(chRange)
         if np.max(abs(Xspec)) < 1.0e-9: continue
-        XYtwiddle = np.exp((-1.0j)* SP_XYPH[spw_index](timeStamp))
+        # XYtwiddle = np.exp((-1.0j)* SP_XYPH[spw_index](timeStamp))
         #-------- Position offset phase correction
         if 'offAxis' in locals():
             lm = np.array(offAxis[scan])
             Twiddle =  np.exp((0.0 + 1.0j)* np.outer(FreqList[spw_index]*1.0e9, uvw[0:2].transpose(1,2,0).dot(lm)).reshape([chNum, UseBlNum, timeNum])* RADperHzMeterArcsec)
             tempSpec = CrossPolBL(Xspec[:,:,SAblMap]*Twiddle, SAblInv)
-            tempSpec[1] *= XYtwiddle
-            tempSpec[2] /= XYtwiddle
+            # tempSpec[1] *= XYtwiddle
+            # tempSpec[2] /= XYtwiddle
             tempSpec = tempSpec.transpose(3,2,0,1)[flagIndex]      # Cross Polarization Baseline Mapping
         else:
             tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv)
-            tempSpec[1] *= XYtwiddle 
-            tempSpec[2] /= XYtwiddle 
+            # tempSpec[1] *= XYtwiddle 
+            # tempSpec[2] /= XYtwiddle 
             tempSpec = tempSpec.transpose(3,2,0,1)[flagIndex]
         #-------- Bandpass Calibration
         BPCaledXspec = BPCaledXspec + [(tempSpec / (BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate())).transpose(2,3,1,0)]
