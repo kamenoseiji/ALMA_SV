@@ -54,15 +54,16 @@ if noDantNum > 0:
 #-------- Load XY phase
 
 #-------- Load Tsys table
-TrxFreq  = np.load(prefix +  '-' + UniqBands[band_index] + '.TrxFreq.npy') # TrxFreq[spw][ch]
-TrxAnts  = np.load(prefix +  '-' + UniqBands[band_index] + '.TrxAnt.npy') # TrxAnts[ant]
-Tau0spec = np.load(prefix +  '-' + UniqBands[band_index] + '.Tau0.npy') # Tau0spec[spw][ch]
-Trxspec  = np.load(prefix +  '-' + UniqBands[band_index] + '.Trx.npy')  # Trxspec[spw, ant, pol, ch]
-Tau0E    = np.load(prefix +  '-' + UniqBands[band_index] + '.TauE.npy') # Tau0E[spw, atmScan]
-atmTimeRef = np.load(prefix +  '-' + UniqBands[band_index] + '.atmTime.npy') # atmTimeRef[atmScan]
+TrxFreq  = np.load(Tsysprefix +  '-' + UniqBands[band_index] + '.TrxFreq.npy') # TrxFreq[spw][ch]
+TrxAnts  = np.load(Tsysprefix +  '-' + UniqBands[band_index] + '.TrxAnt.npy') # TrxAnts[ant]
+Tau0spec = np.load(Tsysprefix +  '-' + UniqBands[band_index] + '.Tau0.npy') # Tau0spec[spw][ch]
+Trxspec  = np.load(Tsysprefix +  '-' + UniqBands[band_index] + '.Trx.npy')  # Trxspec[spw, ant, pol, ch]
+Tau0E    = np.load(Tsysprefix +  '-' + UniqBands[band_index] + '.TauE.npy') # Tau0E[spw, atmScan]
+atmTimeRef = np.load(Tsysprefix +  '-' + UniqBands[band_index] + '.atmTime.npy') # atmTimeRef[atmScan]
 TrxMap = indexList(TrxAnts, antList); TrxFlag = np.zeros([antNum]); TrxFlag[TrxMap] = 1.0
 Tau0E = np.nanmedian(Tau0E, axis=0); Tau0E[np.isnan(Tau0E)] = np.nanmedian(Tau0E); Tau0E[np.isnan(Tau0E)] = 0.0
 TrxMed = np.median(Trxspec, axis=3)
+tempAtm = GetTemp(msfile)
 #-------- Tsys channel interpolation
 chNum, chWid, Freq = GetChNum(msfile, spwList[0])
 if TrxFreq.shape[1] != chNum:
@@ -105,11 +106,9 @@ text_sd = '#source,   RA,eRA,dec,edec,frequency,  flux,eflux,degree,edeg,EVPA,eE
 logfile = open(prefix + '-' + UniqBands[band_index] + '-Flux.log', 'w')
 logfile.write(BPcalText + '\n'); logfile.write(EQcalText + '\n')
 scanList = onsourceScans
-msmd.close()
-msmd.done()
 #-------- Array Configuration
-if 'refant' in locals():
-    refantID = np.where(antList == refant)[0][0]
+if 'refantName' in locals():
+    refantID = np.where(antList == refantName)[0][0]
 else:
     print '---Determining refant'
     timeStamp, UVW = GetUVW(msfile, spwList[0], msmd.scansforspw(spwList[0])[0])
@@ -117,7 +116,6 @@ else:
     refantID = bestRefant(uvDist, UseAnt)
 print '  Use ' + antList[refantID] + ' as the refant.'
 #
-msmd.open(msfile)
 antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
 blMap, blInv= range(UseBlNum), [False]* UseBlNum
 ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
@@ -176,12 +174,12 @@ else :
 BPList = []
 if 'BPprefix' in locals():
     for spw_index in range(spwNum):
-	BP_ant = np.load(BPprefix + '-REF' + refant + '-SPW' + `spwList[spw_index]` + '-BPant.npy')
+        BP_ant = np.load(BPprefix + '-REF' + refantName + '-SPW' + `spwList[spw_index]` + '-BPant.npy')
         exp_Tau = np.exp(-Tau0spec[spw_index] / np.sin(BPEL))
         atmCorrect = 1.0 / exp_Tau
         TsysBPScan = atmCorrect* (Trxspec[spw_index][Trx2antMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau)) # [antMap, pol, ch]
         TsysBPShape = (TsysBPScan.transpose(2,0,1) / np.median(TsysBPScan, axis=2)).transpose(1,2,0)
-	BPList = BPList + [BP_ant* np.sqrt(TsysBPShape)]
+        BPList = BPList + [BP_ant* np.sqrt(TsysBPShape)]
     #
 else:
     print '---Generating antenna-based bandpass table'
@@ -192,7 +190,7 @@ else:
         atmCorrect = 1.0 / exp_Tau
         TsysBPScan = atmCorrect* (Trxspec[spw_index][Trx2antMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau)) # [antMap, pol, ch]
         TsysBPShape = (TsysBPScan.transpose(2,0,1) / np.median(TsysBPScan, axis=2)).transpose(1,2,0)
-	BPList = BPList + [BP_ant* np.sqrt(TsysBPShape)]
+        BPList = BPList + [BP_ant* np.sqrt(TsysBPShape)]
     #
 #
 if PLOTBP:
@@ -291,22 +289,26 @@ if 'QUprefix' in locals():
 else: QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
 #
 #-------- XY phase cal in Bandpass table
-"""
-XYsign = np.ones(spwNum)
 SP_XYPH = []
-TS = np.load( prefix + '-SPW' + `spwList[0]` + '-' + antList[UseAnt[refantID]] + '.TS.npy')
+if 'XYprefix' in locals():
+    TS = np.load( prefix + '-SPW' + `spwList[0]` + '-' + antList[UseAnt[refantID]] + '.TS.npy')
+    for spw_index in range(spwNum):
+        XYPH = np.load( prefix + '-SPW' + `spwList[spw_index]` + '-' + antList[UseAnt[refantID]] + '.XYPH.npy')
+        SP_XYPH = SP_XYPH + [UnivariateSpline(TS, XYPH, s=0.1)]
+    #
+#
+#XYsign = np.ones(spwNum)
 for spw_index in range(spwNum):
     #---- XY phase
-    XYPH = np.load( prefix + '-SPW' + `spwList[spw_index]` + '-' + antList[UseAnt[refantID]] + '.XYPH.npy')
-    SP_XYPH = SP_XYPH + [UnivariateSpline(TS, XYPH, s=0.1)]
+    #XYPH = np.load( prefix + '-SPW' + `spwList[spw_index]` + '-' + antList[UseAnt[refantID]] + '.XYPH.npy')
+    #SP_XYPH = SP_XYPH + [UnivariateSpline(TS, XYPH, s=0.1)]
     #
-    XYphase = XY2Phase(PA, QUsolution[0], QUsolution[1], caledVis[spw_index][[1,2]])
-    XYsign[spw_index] = np.sign(np.cos(XYphase))
+    #XYphase = XY2Phase(PA, QUsolution[0], QUsolution[1], caledVis[spw_index][[1,2]])
+    #XYsign[spw_index] = np.sign(np.cos(XYphase))
     BPList[spw_index] = (BPList[spw_index].transpose(2,0,1)* spwTwiddle[:,:,spw_index]).transpose(1,2,0)
-    BPList[spw_index][:,1] *= XYsign[spw_index]
-    print 'SPW[%d] : XYphase = %6.1f [deg] sign = %3.0f' % (spwList[spw_index], 180.0*XYphase/pi, XYsign[spw_index])
+    #BPList[spw_index][:,1] *= XYsign[spw_index]
+    #print 'SPW[%d] : XYphase = %6.1f [deg] sign = %3.0f' % (spwList[spw_index], 180.0*XYphase/pi, XYsign[spw_index])
 #
-"""
 ScanFlux, ScanSlope, ErrFlux, centerFreqList, FreqList = np.zeros([scanNum, spwNum, 4]), np.zeros([scanNum, spwNum, 4]), np.zeros([scanNum, spwNum, 4]), [], []
 #-------- Flux Density
 for spw_index in range(spwNum):
@@ -350,19 +352,19 @@ for scan_index in range(scanNum):
             timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], scan)
         timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum)); UseChNum = len(chRange)
         if np.max(abs(Xspec)) < 1.0e-9: continue
-        # XYtwiddle = np.exp((-1.0j)* SP_XYPH[spw_index](timeStamp))
+        XYtwiddle = np.exp((-1.0j)* SP_XYPH[spw_index](timeStamp))
         #-------- Position offset phase correction
         if 'offAxis' in locals():
             lm = np.array(offAxis[scan])
             Twiddle =  np.exp((0.0 + 1.0j)* np.outer(FreqList[spw_index]*1.0e9, uvw[0:2].transpose(1,2,0).dot(lm)).reshape([chNum, UseBlNum, timeNum])* RADperHzMeterArcsec)
             tempSpec = CrossPolBL(Xspec[:,:,SAblMap]*Twiddle, SAblInv)
-            # tempSpec[1] *= XYtwiddle
-            # tempSpec[2] /= XYtwiddle
+            tempSpec[1] *= XYtwiddle
+            tempSpec[2] *= XYtwiddle
             tempSpec = tempSpec.transpose(3,2,0,1)[flagIndex]      # Cross Polarization Baseline Mapping
         else:
             tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv)
-            # tempSpec[1] *= XYtwiddle 
-            # tempSpec[2] /= XYtwiddle 
+            tempSpec[1] *= XYtwiddle 
+            tempSpec[2] *= XYtwiddle 
             tempSpec = tempSpec.transpose(3,2,0,1)[flagIndex]
         #-------- Bandpass Calibration
         BPCaledXspec = BPCaledXspec + [(tempSpec / (BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate())).transpose(2,3,1,0)]
@@ -400,8 +402,9 @@ for scan_index in range(scanNum):
         SEFD = 2.0* kb* (TsysSPW * atmCorrect).transpose(2,1,0) / Ae[:,bpAntMap]                # SEFD[ch,pol,antMap]
         SAantNum = len(SAantMap); SAblNum = len(SAblMap)
         AmpCalVis = np.mean(np.mean(pCalVis[spw_index], axis=3)[:,[0,3]] * np.sqrt(SEFD[chRange][:,:,ant0[0:SAblNum]]* SEFD[chRange][:,:,ant1[0:SAblNum]]), axis=0)
-        indivRelGain = abs(gainComplexVec(AmpCalVis.T)); indivRelGain /= np.percentile(indivRelGain, 75, axis=0)
-        SEFD /= (indivRelGain**2).T
+        #indivRelGain = abs(gainComplexVec(AmpCalVis.T)); indivRelGain /= np.percentile(indivRelGain, 75, axis=0)
+        #indivRelGain = abs(gainComplexVec(AmpCalVis.T)); indivRelGain /= np.median(indivRelGain, axis=0)
+        #SEFD /= (indivRelGain**2).T
         AmpCalVis = (pCalVis[spw_index].transpose(3,0,1,2)* np.sqrt(SEFD[chRange][:,polYindex][:,:,SAant0]* SEFD[chRange][:,polXindex][:,:,SAant1])).transpose(3,2,1,0)
         Stokes = np.zeros([4,blNum, UseChNum], dtype=complex)  # Stokes[stokes, bl, ch]
         for bl_index in range(SAblNum):
