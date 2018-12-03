@@ -352,18 +352,18 @@ for scan_index in range(scanNum):
             timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], scan)
         timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum)); UseChNum = len(chRange)
         if np.max(abs(Xspec)) < 1.0e-9: continue
-        XYtwiddle = np.exp((-1.0j)* SP_XYPH[spw_index](timeStamp))
+        XYtwiddle = np.exp((1.0j)* SP_XYPH[spw_index](timeStamp))
         #-------- Position offset phase correction
         if 'offAxis' in locals():
             lm = np.array(offAxis[scan])
             Twiddle =  np.exp((0.0 + 1.0j)* np.outer(FreqList[spw_index]*1.0e9, uvw[0:2].transpose(1,2,0).dot(lm)).reshape([chNum, UseBlNum, timeNum])* RADperHzMeterArcsec)
             tempSpec = CrossPolBL(Xspec[:,:,SAblMap]*Twiddle, SAblInv)
-            tempSpec[1] *= XYtwiddle
+            tempSpec[1] /= XYtwiddle
             tempSpec[2] *= XYtwiddle
             tempSpec = tempSpec.transpose(3,2,0,1)[flagIndex]      # Cross Polarization Baseline Mapping
         else:
             tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv)
-            tempSpec[1] *= XYtwiddle 
+            tempSpec[1] /= XYtwiddle 
             tempSpec[2] *= XYtwiddle 
             tempSpec = tempSpec.transpose(3,2,0,1)[flagIndex]
         #-------- Bandpass Calibration
@@ -403,8 +403,8 @@ for scan_index in range(scanNum):
         SAantNum = len(SAantMap); SAblNum = len(SAblMap)
         AmpCalVis = np.mean(np.mean(pCalVis[spw_index], axis=3)[:,[0,3]] * np.sqrt(SEFD[chRange][:,:,ant0[0:SAblNum]]* SEFD[chRange][:,:,ant1[0:SAblNum]]), axis=0)
         #indivRelGain = abs(gainComplexVec(AmpCalVis.T)); indivRelGain /= np.percentile(indivRelGain, 75, axis=0)
-        #indivRelGain = abs(gainComplexVec(AmpCalVis.T)); indivRelGain /= np.median(indivRelGain, axis=0)
-        #SEFD /= (indivRelGain**2).T
+        indivRelGain = abs(gainComplexVec(AmpCalVis.T)); indivRelGain /= np.median(indivRelGain, axis=0)
+        SEFD /= (indivRelGain**2).T
         AmpCalVis = (pCalVis[spw_index].transpose(3,0,1,2)* np.sqrt(SEFD[chRange][:,polYindex][:,:,SAant0]* SEFD[chRange][:,polXindex][:,:,SAant1])).transpose(3,2,1,0)
         Stokes = np.zeros([4,blNum, UseChNum], dtype=complex)  # Stokes[stokes, bl, ch]
         for bl_index in range(SAblNum):
