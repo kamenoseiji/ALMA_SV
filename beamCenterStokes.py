@@ -212,9 +212,10 @@ for spw_index in range(spwNum):
     BP_ant[:,0] *= gainComplexVec(XX.T); BP_ant[:,1] *= gainComplexVec(YY.T)
     XYtwiddleSpec = XY.dot(abs(PS[:,1]));  XYtwiddleSpec = np.exp((0.0 + 1.0j)* np.angle(XYtwiddleSpec))
     XYspec *= XYtwiddleSpec
+    BP_ant[:,1] *= XYtwiddleSpec
     XYphase = np.angle((XY.T).dot(XYtwiddleSpec.conjugate()))
     np.save(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy', BP_ant); print 'Updateing BP table : ' + BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'
-    np.save(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy', BP_ant); print 'Updateing XY phase : ' + BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy'
+    #np.save(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy', XYspec); print 'Updateing XY phase : ' + BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy'
     #-------- Plot
     if np.mean(np.cos(PA)) < 0.0: PA = np.arctan2(-np.sin(PA), -np.cos(PA)) +  np.pi
     PArange = np.arange(min(PA), max(PA), 0.01); CSrange, SNrange = np.cos(2.0*PArange), np.sin(2.0*PArange)

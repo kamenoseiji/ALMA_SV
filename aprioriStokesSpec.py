@@ -171,15 +171,18 @@ else :
     interval, timeStamp = GetTimerecord(msfile, 0, 0, spwList[0], EQScan); timeNum = len(timeStamp)
     flagIndex = range(timeNum)
 #
-BPList = []
+BPList, XYList = [], []
 if 'BPprefix' in locals():
     for spw_index in range(spwNum):
         BP_ant = np.load(BPprefix + '-REF' + refantName + '-SPW' + `spwList[spw_index]` + '-BPant.npy')
+        #XYspec = np.load(BPprefix + '-REF' + refantName + '-SPW' + `spwList[spw_index]` + '-XYspec.npy')
+        #BP_ant[:,1] *= XYspec
         exp_Tau = np.exp(-Tau0spec[spw_index] / np.sin(BPEL))
         atmCorrect = 1.0 / exp_Tau
         TsysBPScan = atmCorrect* (Trxspec[spw_index][Trx2antMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau)) # [antMap, pol, ch]
         TsysBPShape = (TsysBPScan.transpose(2,0,1) / np.median(TsysBPScan, axis=2)).transpose(1,2,0)
         BPList = BPList + [BP_ant* np.sqrt(TsysBPShape)]
+        #XYList = XYList + [XYspec]
     #
 else:
     print '---Generating antenna-based bandpass table'
@@ -298,14 +301,14 @@ if 'XYprefix' in locals():
     #
 #
 #XYsign = np.ones(spwNum)
-for spw_index in range(spwNum):
+#for spw_index in range(spwNum):
     #---- XY phase
     #XYPH = np.load( prefix + '-SPW' + `spwList[spw_index]` + '-' + antList[UseAnt[refantID]] + '.XYPH.npy')
     #SP_XYPH = SP_XYPH + [UnivariateSpline(TS, XYPH, s=0.1)]
     #
     #XYphase = XY2Phase(PA, QUsolution[0], QUsolution[1], caledVis[spw_index][[1,2]])
     #XYsign[spw_index] = np.sign(np.cos(XYphase))
-    BPList[spw_index] = (BPList[spw_index].transpose(2,0,1)* spwTwiddle[:,:,spw_index]).transpose(1,2,0)
+    #BPList[spw_index] = (BPList[spw_index].transpose(2,0,1)* spwTwiddle[:,:,spw_index]).transpose(1,2,0)
     #BPList[spw_index][:,1] *= XYsign[spw_index]
     #print 'SPW[%d] : XYphase = %6.1f [deg] sign = %3.0f' % (spwList[spw_index], 180.0*XYphase/pi, XYsign[spw_index])
 #
@@ -345,6 +348,7 @@ for scan_index in range(scanNum):
     bpAntMap = indexList(antList[SAantMap],antList[antMap])
     Trx2antMap = indexList( antList[SAantMap], antList[TrxMap] )
     #-------- Baseline-based cross power spectra
+    IMax = 0.0
     for spw_index in range(spwNum):
         if 'Field' in locals():
             timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], scan, Field)
@@ -367,31 +371,11 @@ for scan_index in range(scanNum):
             tempSpec[2] *= XYtwiddle 
             tempSpec = tempSpec.transpose(3,2,0,1)[flagIndex]
         #-------- Bandpass Calibration
-        BPCaledXspec = BPCaledXspec + [(tempSpec / (BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate())).transpose(2,3,1,0)]
-    #
-    #-------- Antenna-based Phase Solution
-    BPCaledXspec = np.array(BPCaledXspec)   # BPCaledXspec[spw, pol, ch, bl, time]
-    chAvgVis = np.mean(np.array(BPCaledXspec)[:,:,chRange], axis=(0,2)) # chAvgVis[pol, bl, time]
-    if 'timeBunch' in locals():
-        useTimeNum = timeNum / timeBunch * timeBunch
-        leapNum = timeNum - useTimeNum
-        timeAvgVis = np.mean(chAvgVis[:,:,range(useTimeNum)].reshape(polNum, UseBlNum, timeNum / timeBunch, timeBunch), axis=3)
-        GainP = np.array([np.apply_along_axis(clphase_solve, 0, timeAvgVis[0]), np.apply_along_axis(clphase_solve, 0, timeAvgVis[3])]).repeat(timeBunch, axis=2)
-        if leapNum > 0: GainP = np.append(GainP,  GainP[:,:,(useTimeNum-1):(useTimeNum)].repeat(leapNum, axis=2), axis=2)
-    else:
-        GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
-    #
-    pCalVis = (BPCaledXspec.transpose(0,2,1,3,4) / (GainP[polYindex][:,SAant0]* GainP[polXindex][:,SAant1].conjugate()))[:,chRange]
-    #-------- XY phase spectra
-    for spw_index in range(spwNum):
-        delayFact = (chNum + 0.0)/len(chRange)
-        XYspec = np.mean(pCalVis[spw_index, :, 1:3, :], axis=(2,3)).T
-        XYdelay, XYamp = delay_search(XYspec[:,0]); YXdelay, YXamp = delay_search(XYspec[:,1])
-        XYD = XYD + [XYdelay* delayFact, YXdelay* delayFact]
-        XYC = XYC + [np.mean(delay_cal(XYspec[:,0], XYdelay)), np.mean(delay_cal(XYspec[:,1], YXdelay))]
-    #-------- Full-Stokes parameters
-    IMax = 0.0
-    for spw_index in range(spwNum):
+        BPCaledXspec = (tempSpec / (BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate())).transpose(2,3,1,0)
+        chAvgVis = np.mean(BPCaledXspec[[0,3]][:,chRange], axis=1) # chAvgVis[pol, bl, time]
+        GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[1])])
+        pCalVis = (BPCaledXspec.transpose(1,0,2,3) / (GainP[polYindex][:,SAant0]* GainP[polXindex][:,SAant1].conjugate()))[chRange]
+        #-------- SEFD amplitude calibration
         StokesI_SP = figSP.add_subplot( 2, spwNum, spw_index + 1 )
         StokesP_SP = figSP.add_subplot( 2, spwNum, spwNum + spw_index + 1 )
         IList = IList + [StokesI_SP]
@@ -401,11 +385,12 @@ for scan_index in range(scanNum):
         TsysSPW = (Trxspec[spw_index] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap]    # [ant, pol, ch]
         SEFD = 2.0* kb* (TsysSPW * atmCorrect).transpose(2,1,0) / Ae[:,bpAntMap]                # SEFD[ch,pol,antMap]
         SAantNum = len(SAantMap); SAblNum = len(SAblMap)
-        AmpCalVis = np.mean(np.mean(pCalVis[spw_index], axis=3)[:,[0,3]] * np.sqrt(SEFD[chRange][:,:,ant0[0:SAblNum]]* SEFD[chRange][:,:,ant1[0:SAblNum]]), axis=0)
+        AmpCalVis = np.mean(np.mean(pCalVis, axis=3)[:,[0,3]] * np.sqrt(SEFD[chRange][:,:,ant0[0:SAblNum]]* SEFD[chRange][:,:,ant1[0:SAblNum]]), axis=0)
         #indivRelGain = abs(gainComplexVec(AmpCalVis.T)); indivRelGain /= np.percentile(indivRelGain, 75, axis=0)
         indivRelGain = abs(gainComplexVec(AmpCalVis.T)); indivRelGain /= np.median(indivRelGain, axis=0)
         SEFD /= (indivRelGain**2).T
-        AmpCalVis = (pCalVis[spw_index].transpose(3,0,1,2)* np.sqrt(SEFD[chRange][:,polYindex][:,:,SAant0]* SEFD[chRange][:,polXindex][:,:,SAant1])).transpose(3,2,1,0)
+        AmpCalVis = (pCalVis.transpose(3,0,1,2)* np.sqrt(SEFD[chRange][:,polYindex][:,:,SAant0]* SEFD[chRange][:,polXindex][:,:,SAant1])).transpose(3,2,1,0)
+        #-------- Stokes Spectra
         Stokes = np.zeros([4,blNum, UseChNum], dtype=complex)  # Stokes[stokes, bl, ch]
         for bl_index in range(SAblNum):
             Minv = InvMullerVector(DxSpec[SAant1[bl_index], spw_index][chRange], DySpec[SAant1[bl_index], spw_index][chRange], DxSpec[SAant0[bl_index], spw_index][chRange], DySpec[SAant0[bl_index], spw_index][chRange], np.ones(UseChNum))
