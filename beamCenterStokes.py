@@ -67,12 +67,14 @@ for spw_index in range(spwNum):
         TS = np.load(FGprefix + '-SPW' + `spw` + '.TS.npy')
     #
     if 'BPprefix' in locals():  # Bandpass file
-        BPantList, BP_ant, XYspec = np.load(BPprefix + '-REF' + refantName + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy')
+        BPantList, BP_ant = np.load(BPprefix + '-REF' + refantName + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy')
         BP_ant = BP_ant[indexList(antList[antMap], BPantList)]      # BP antenna mapping
-        if 'XYspec' in locals():
-            if XYspec: print 'Apply XY phase into Y-pol Bandpass.'; BP_ant[:,1] *= XYspec  # XY phase cal
-        BP_ant = np.apply_along_axis(bunchVecCH, 2, BP_ant)
-        BP_bl = BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate()    # Baseline-based bandpass table
+    if 'XYprefix' in locals():
+        XYspec = np.load(XYprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy')
+        print 'Apply XY phase into Y-pol Bandpass.'; BP_ant[:,1] *= XYspec  # XY phase cal
+    #
+    BP_ant = np.apply_along_axis(bunchVecCH, 2, BP_ant)
+    BP_bl = BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate()    # Baseline-based bandpass table
     #
     chAvgVis = np.zeros([4, blNum, timeNum], dtype=complex)
     VisSpec  = np.zeros([4, chNum/bunchNum, blNum, timeNum], dtype=complex)
@@ -96,18 +98,13 @@ for spw_index in range(spwNum):
             if chNum == 1:
                 print '  -- Channel-averaged data: no BP and delay cal'
                 # chAvgVis= np.c_[chAvgVis, CrossPolBL(Xspec[:,:,blMap], blInv)[:,0]]
-                chAvgVis[:, :, timeIndex:timeIndex + len(timeStamp)] =  CrossPolBL(Xspec[:,:,blMap], blInv)[:,0]]
+                chAvgVis[:, :, timeIndex:timeIndex + len(timeStamp)] =  CrossPolBL(Xspec[:,:,blMap], blInv)[:,0]
             else:
                 print '  -- Apply bandpass cal'
                 tempSpec = CrossPolBL(np.apply_along_axis(bunchVecCH, 1, Xspec[:,:,blMap]), blInv).transpose(3, 2, 0, 1)[flagIndex]
-                BPCaledXspec = (tempSpec / BP_bl).transpose(2,3,1,0) 
-                #-------- Antenna-based Gain
-                print '  -- Channel-averaging'
-                #chAvgVis = np.c_[chAvgVis, np.mean(BPCaledXspec[:,chRange], axis=1)]
-                #VisSpec  = np.c_[VisSpec, BPCaledXspec]
-                chAvgVis[:, :, timeIndex:timeIndex + len(timeStamp)] =  CrossPolBL(Xspec[:,:,blMap], blInv)[:,0]]
-                VisSpec[:,:,:,timeIndex:timeIndex + len(timeStamp)]  = BPCaledXspec
+                VisSpec[:,:,:,timeIndex:timeIndex + len(timeStamp)] = (tempSpec / BP_bl).transpose(2,3,1,0) 
             #
+            timeIndex += len(timeStamp)
             #-------- Time index at on axis
             scanAz, scanEl = AzElMatch(timeStamp[flagIndex], azelTime, AntID, refAntID, AZ, EL)
             mjdSec = mjdSec + timeStamp[flagIndex].tolist()
@@ -115,16 +112,12 @@ for spw_index in range(spwNum):
             El = El + scanEl.tolist()
         #
     #
-    mjdSec = np.array(mjdSec)
-    Az = np.array(Az)
-    El = np.array(El)
+    if chNum > 1: chAvgVis = np.mean(VisSpec[:,chRange], axis=1)
+    mjdSec, Az, El = np.array(mjdSec), np.array(Az), np.array(El)
     print '---- Antenna-based gain solution using tracking antennas'
-    Gain  = np.ones([2, antNum, len(mjdSec)], dtype=complex)
-    Gain[0, 0:antNum] = gainComplexVec(chAvgVis[0])
-    Gain[1, 0:antNum] = gainComplexVec(chAvgVis[3])
+    Gain = np.array([ gainComplexVec(chAvgVis[0]), gainComplexVec(chAvgVis[3]) ])   # Parallel-pol gain
     Gamp = np.sqrt(np.mean(abs(Gain)**2, axis=0))
-    Gain[0, 0:antNum] = Gain[0, 0:antNum] * Gamp / abs(Gain[0, 0:antNum])
-    Gain[1, 0:antNum] = Gain[1, 0:antNum] * Gamp / abs(Gain[1, 0:antNum])
+    Gain *= (Gamp / abs(Gain))
     #-------- Gain-calibrated visibilities
     print '  -- Apply gain calibration'
     caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
@@ -197,27 +190,22 @@ for spw_index in range(spwNum):
     #
     #-------- D-term-corrected visibilities ( invD dot Vis = PS)
     print 'Update Bandpass with D-term-corrected visibilities'
-    DcorrectedVis = np.zeros([4, chNum, blNum, PAnum], dtype=complex)      # DcorrectedVis[pol, ch, bl, time]
     PS = (PAVector(PA, np.ones(PAnum)).transpose(2,0,1).dot(StokesVis.real))
-    M  = MullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum])).transpose(3,2,0,1)
-    for pa_index in range(PAnum):
-        progress = (pa_index + 1.0) / PAnum
-        sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
-        DcorrectedVis[:,:,:,pa_index] = VisSpec[:,:,:,pa_index] / M.dot(PS[pa_index]).transpose(2,0,1)
-    #
-    sys.stderr.write('\n'); sys.stderr.flush()
+    M  = MullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum])).transpose(0,3,2,1)
+    DcorrectedVis = VisSpec / M.dot(PS.T)
     chAvgVis = np.mean(DcorrectedVis[:,chRange], axis=1)
     Gain = np.array([gainComplexVec(chAvgVis[0]), gainComplexVec(chAvgVis[3])])   # Gain[pol, ant, time]
     caledVis = DcorrectedVis.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
+    #-------- Updating bandpass
     XX, YY = np.mean(caledVis[:,0], axis=2), np.mean(caledVis[:,3], axis=2)
-    XY  = np.mean(caledVis[:,1:3], axis=(1,2))  # XY[ch, time]
     BP_ant[:,0] *= gainComplexVec(XX.T); BP_ant[:,1] *= gainComplexVec(YY.T)
+    #-------- Updating bandpass XY phase
+    XY  = np.mean(caledVis[:,1:3], axis=(1,2))  # XY[ch, time]
     XYtwiddleSpec = XY.dot(abs(PS[:,1]));  XYtwiddleSpec = np.exp((0.0 + 1.0j)* np.angle(XYtwiddleSpec))
-    XYspec *= XYtwiddleSpec
     BP_ant[:,1] *= XYtwiddleSpec
+    #-------- Time-series XY phase
     XYphase = np.angle((XY.T).dot(XYtwiddleSpec.conjugate()))
-    np.save(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy', BP_ant); print 'Updateing BP table : ' + BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'
-    #np.save(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy', XYspec); print 'Updateing XY phase : ' + BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy'
+    np.save(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy', BP_ant); print 'Updating BP table : ' + BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'
     #-------- Plot
     if np.mean(np.cos(PA)) < 0.0: PA = np.arctan2(-np.sin(PA), -np.cos(PA)) +  np.pi
     PArange = np.arange(min(PA), max(PA), 0.01); CSrange, SNrange = np.cos(2.0*PArange), np.sin(2.0*PArange)
@@ -246,8 +234,8 @@ for spw_index in range(spwNum):
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.Azel.npy', np.array([mjdSec, Az, El, PA]))
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.QUXY.npy', QUsol )
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.TS.npy', mjdSec )
+    np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.GA.npy', Gain )
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.XYPH.npy', XYphase )
-    #np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.XYPR.npy', XYproduct )
     for ant_index in range(antNum):
         DtermFile = np.array([FreqList[spw_index], DxSpec[ant_index].real, DxSpec[ant_index].imag, DySpec[ant_index].real, DySpec[ant_index].imag])
         np.save(prefixList[0] + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DSpec.npy', DtermFile)

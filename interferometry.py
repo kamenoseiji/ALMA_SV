@@ -76,6 +76,14 @@ def subArrayIndex(Flag, refant):          #-------- SubArray Indexing
     for bl_index in range(SAblNum): SAblMap[bl_index], SAblInv[bl_index] = Ant2BlD(SAantMap[ant0[bl_index]], SAantMap[ant1[bl_index]])
     return SAantMap, SAblMap, SAblInv
 #
+def linearRegression( x, y, err):
+    weight = 1.0 / err**2
+    Sw, Swxx, Swx, Swy, Swxy = np.sum(weight), np.sum( weight* x**2), weight.dot(x), weight.dot(y), np.sum(weight* x* y)
+    det    = Sw* Swxx - Swx**2
+    sol    = np.array([Swxx* Swy - Swx* Swxy, Sw* Swxy - Swx* Swy]) / det
+    solerr = np.sqrt(np.array([Swxx, Sw]) / det)
+    return sol, solerr
+#
 #-------- Muller Matrix
 def MullerMatrix(Dx0, Dy0, Dx1, Dy1):
     return np.array([
@@ -97,14 +105,6 @@ def MullerVector(Dx0, Dy0, Dx1, Dy1, Unity):
                   [Dy0,                 Dx1.conjugate()* Dy0, Unity,                Dx1.conjugate()     ],
                   [Dy0*Dy1.conjugate(), Dy0,                  Dy1.conjugate(),      Unity               ]]) #.transpose(2,0,1)
     return P
-#
-def linearRegression( x, y, err):
-    weight = 1.0 / err**2
-    Sw, Swxx, Swx, Swy, Swxy = np.sum(weight), np.sum( weight* x**2), weight.dot(x), weight.dot(y), np.sum(weight* x* y)
-    det    = Sw* Swxx - Swx**2
-    sol    = np.array([Swxx* Swy - Swx* Swxy, Sw* Swxy - Swx* Swy]) / det
-    solerr = np.sqrt(np.array([Swxx, Sw]) / det)
-    return sol, solerr
 #
 def InvMullerVector(Dx0, Dy0, Dx1, Dy1, Unity):
     return np.array([
