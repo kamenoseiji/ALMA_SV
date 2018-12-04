@@ -8,6 +8,7 @@ polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
 trkAntSet = set(range(64))
 scansFile = []
 pattern = r'RB_..'
+timeNum = 0
 for file_index in range(fileNum):
     prefix = prefixList[file_index]
     msfile = wd + prefix + '.ms'
@@ -30,6 +31,7 @@ for file_index in range(fileNum):
     spwName = msmd.namesforspws(spwList[0])[0]; BandName = re.findall(pattern, spwName)[0]; BandPA = (BANDPA[int(BandName[3:5])] + 90.0)*pi/180.0
     for scan in scanLS:
         timeStamp = msmd.timesforscans(scan).tolist()
+        timeNum += len(timeStamp)
         trkAnt, scanAnt, Time, Offset = antRefScan( msfile, [timeStamp[0], timeStamp[-1]], antFlag )
         trkAnt = list(set(trkAnt) - set(flagAntID))
         if refAntID in trkAnt:
@@ -52,6 +54,7 @@ for bl_index in range(blNum):
 #
 if not 'bunchNum' in locals(): bunchNum = 1
 def bunchVecCH(spec): return bunchVec(spec, bunchNum)
+print 'Total %d integration periods.' % (timeNum)
 #-------- Loop for SPW
 DxList, DyList, FreqList = [], [], []
 for spw_index in range(spwNum):
@@ -66,14 +69,15 @@ for spw_index in range(spwNum):
     if 'BPprefix' in locals():  # Bandpass file
         BPantList, BP_ant, XYspec = np.load(BPprefix + '-REF' + refantName + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy')
         BP_ant = BP_ant[indexList(antList[antMap], BPantList)]      # BP antenna mapping
-        BP_ant[:,1] *= XYspec                                       # XY phase cal
+        if 'XYspec' in locals():
+            if XYspec: print 'Apply XY phase into Y-pol Bandpass.'; BP_ant[:,1] *= XYspec  # XY phase cal
         BP_ant = np.apply_along_axis(bunchVecCH, 2, BP_ant)
         BP_bl = BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate()    # Baseline-based bandpass table
     #
-    #
-    chAvgVis = np.zeros([4, blNum, 0], dtype=complex)
-    VisSpec  = np.zeros([4, chNum/bunchNum, blNum, 0], dtype=complex)
+    chAvgVis = np.zeros([4, blNum, timeNum], dtype=complex)
+    VisSpec  = np.zeros([4, chNum/bunchNum, blNum, timeNum], dtype=complex)
     mjdSec, Az, El = [], [], []
+    timeIndex = 0
     for file_index in range(fileNum):
         prefix = prefixList[file_index]
         msfile = wd + prefix + '.ms'
@@ -81,7 +85,6 @@ for spw_index in range(spwNum):
         azelTime, AntID, AZ, EL = GetAzEl(msfile)
         azelTime_index = np.where( AntID == refAntID )[0].tolist()
         timeThresh = np.median( np.diff( azelTime[azelTime_index]))
-        #for scan in scansFile[file_index]:
         for scan in scanList[file_index]:
             #-------- Load Visibilities
             print '-- Loading visibility data %s SPW=%d SCAN=%d...' % (prefix, spw, scan)
@@ -92,25 +95,24 @@ for spw_index in range(spwNum):
                 flagIndex = range(len(timeStamp))
             if chNum == 1:
                 print '  -- Channel-averaged data: no BP and delay cal'
-                chAvgVis= np.c_[chAvgVis, CrossPolBL(Xspec[:,:,blMap], blInv)[:,0]]
+                # chAvgVis= np.c_[chAvgVis, CrossPolBL(Xspec[:,:,blMap], blInv)[:,0]]
+                chAvgVis[:, :, timeIndex:timeIndex + len(timeStamp)] =  CrossPolBL(Xspec[:,:,blMap], blInv)[:,0]]
             else:
                 print '  -- Apply bandpass cal'
                 tempSpec = CrossPolBL(np.apply_along_axis(bunchVecCH, 1, Xspec[:,:,blMap]), blInv).transpose(3, 2, 0, 1)[flagIndex]
                 BPCaledXspec = (tempSpec / BP_bl).transpose(2,3,1,0) 
                 #-------- Antenna-based Gain
                 print '  -- Channel-averaging'
-                chAvgVis = np.c_[chAvgVis, np.mean(BPCaledXspec[:,chRange], axis=1)]
-                VisSpec  = np.c_[VisSpec, BPCaledXspec]
+                #chAvgVis = np.c_[chAvgVis, np.mean(BPCaledXspec[:,chRange], axis=1)]
+                #VisSpec  = np.c_[VisSpec, BPCaledXspec]
+                chAvgVis[:, :, timeIndex:timeIndex + len(timeStamp)] =  CrossPolBL(Xspec[:,:,blMap], blInv)[:,0]]
+                VisSpec[:,:,:,timeIndex:timeIndex + len(timeStamp)]  = BPCaledXspec
             #
             #-------- Time index at on axis
             scanAz, scanEl = AzElMatch(timeStamp[flagIndex], azelTime, AntID, refAntID, AZ, EL)
             mjdSec = mjdSec + timeStamp[flagIndex].tolist()
             Az = Az + scanAz.tolist()
             El = El + scanEl.tolist()
-            #for time_index in range(timeNum):
-            #    scanAz, scanEl = AzElMatch(timeStamp[time_index], azelTime, AntID, refAntID, AZ, EL)
-            #    Az, El = np.append(Az, scanAz), np.append(El, scanEl)
-            #
         #
     #
     mjdSec = np.array(mjdSec)
