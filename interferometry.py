@@ -1554,8 +1554,8 @@ def XXYY2QU(PA, Vis):       # <XX*>, <YY*> to determine Q and U
     timeNum, sinPA2, cosPA2 = len(PA),np.sin(2.0*PA), np.cos(2.0*PA)
     W = np.ones(timeNum) / (np.var(Vis[0].imag) + np.var(Vis[1].imag))   # weight
     XX_YY = (Vis[0].real - Vis[1].real) / (Vis[0].real + Vis[1].real)
-    P = np.array(np.c_[cosPA2, sinPA2]).T
-    return 0.5* scipy.linalg.solve(np.dot(P, np.dot(np.diag(W), P.T)), np.dot(P, W* XX_YY))
+    P = np.array(np.c_[np.ones(timeNum), cosPA2, sinPA2]).T
+    return 0.5* scipy.linalg.solve(np.dot(P, np.dot(np.diag(W), P.T)), np.dot(P, W* XX_YY))[[1,2]]
 #
 def XY2Phase(PA, Q, U, Vis):       # XY*, YX* to determine XYphase
     UC_QS = U* np.cos(2.0* PA) - Q* np.sin(2.0* PA)

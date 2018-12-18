@@ -117,7 +117,7 @@ for spw_index in range(spwNum):
     print '---- Antenna-based gain solution using tracking antennas'
     Gain = np.array([ gainComplexVec(chAvgVis[0]), gainComplexVec(chAvgVis[3]) ])   # Parallel-pol gain
     Gamp = np.sqrt(np.mean(abs(Gain)**2, axis=0))
-    Gain *= (Gamp / abs(Gain))
+    Gain = Gamp* Gain/abs(Gain)
     #-------- Gain-calibrated visibilities
     print '  -- Apply gain calibration'
     caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
@@ -129,7 +129,7 @@ for spw_index in range(spwNum):
     #-------- Coarse estimation of Q and U using XX and YY
     if 'QUsol' not in locals():
         QUsol   = XXYY2QU(PA, Vis[[0,3]])             # XX*, YY* to estimate Q, U
-        text_sd = '[XX,YY]  Q/I= %6.3f  U/I= %6.3f  EVPA = %6.2f deg' % (QUsol[0], QUsol[1], np.arctan2(QUsol[1],QUsol[0])*90.0/pi); print text_sd
+        text_sd = '[XX,YY]  Q/I= %6.3f  U/I= %6.3f p=%.2f%% EVPA = %6.2f deg' % (QUsol[0], QUsol[1], 100.0* np.sqrt(QUsol[0]**2 + QUsol[1]**2), np.arctan2(QUsol[1],QUsol[0])*90.0/pi); print text_sd
     #-------- XY phase determination
     XYphase = XY2Phase(PA, QUsol[0], QUsol[1], Vis[[1,2]])    # XY*, YX* to estimate X-Y phase
     XYsign = np.sign(np.cos(XYphase))
@@ -141,30 +141,25 @@ for spw_index in range(spwNum):
     Vis    = np.mean(caledVis, axis=1)
     #-------- Fine estimation of Q and U using XY and YX
     QUsol[0], QUsol[1] = XY2Stokes(PA, Vis[[1,2]])
-    text_sd = '[XY,YX]  Q/I= %6.3f  U/I= %6.3f  EVPA = %6.2f deg' % (QUsol[0], QUsol[1], np.arctan2(QUsol[1],QUsol[0])*90.0/pi); print text_sd
+    text_sd = '[XY,YX]  Q/I= %6.3f  U/I= %6.3f p=%.2f%% EVPA = %6.2f deg' % (QUsol[0], QUsol[1], 100.0* np.sqrt(QUsol[0]**2 + QUsol[1]**2), np.arctan2(QUsol[1],QUsol[0])*90.0/pi); print text_sd
     GainX, GainY = polariGain(caledVis[0], caledVis[3], PA, QUsol[0], QUsol[1])
     Gain = np.array([Gain[0]* GainX, Gain[1]* GainY])
     caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
     Vis    = np.mean(caledVis, axis=1)
     #-------- XY phase correction
-    #XYproduct, XYphaseVec = XY2PhaseVec(mjdSec - np.median(mjdSec), PA, QUsol[0], QUsol[1], Vis[[1,2]])
-    #twiddle = np.exp((-1.0j)* XYphaseVec)
-    #caledVis[1] *= twiddle
-    #caledVis[2] /= twiddle
+    XYproduct, XYphaseVec = XY2PhaseVec(mjdSec - np.median(mjdSec), PA, QUsol[0], QUsol[1], Vis[[1,2]])
+    twiddle = np.exp((1.0j)* XYphaseVec)
+    caledVis[1] /= twiddle
+    caledVis[2] *= twiddle
     #-------- Fine estimation of Q and U using XY and YX
     Vis    = np.mean(caledVis, axis=1)
     QUsol[0], QUsol[1] = XY2Stokes(PA, Vis[[1,2]])
-    text_sd = '[XY,YX]  Q/I= %6.3f  U/I= %6.3f  EVPA = %6.2f deg' % (QUsol[0], QUsol[1], np.arctan2(QUsol[1],QUsol[0])*90.0/pi); print text_sd
+    text_sd = '[XY,YX]  Q/I= %6.3f  U/I= %6.3f p=%.2f%% EVPA = %6.2f deg' % (QUsol[0], QUsol[1], 100.0* np.sqrt(QUsol[0]**2 + QUsol[1]**2), np.arctan2(QUsol[1],QUsol[0])*90.0/pi); print text_sd
     GainX, GainY = polariGain(caledVis[0], caledVis[3], PA, QUsol[0], QUsol[1])
     Gain = np.array([Gain[0]* GainX, Gain[1]* GainY])
     caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
-    #caledVis[1] *= twiddle
-    #caledVis[2] /= twiddle
     Vis    = np.mean(caledVis, axis=1)
-    #VisSpec[:,1] *= twiddle
-    #VisSpec[:,2] /= twiddle
     GainCaledVisSpec = VisSpec.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
-    #
     #-------- Antenna-based on-axis D-term (chAvg)
     Dx, Dy = VisPA_solveD(caledVis, PA, np.array([1.0, QUsol[0], QUsol[1], 0.0]))
     #-------- D-term-corrected Stokes parameters
@@ -201,11 +196,14 @@ for spw_index in range(spwNum):
     BP_ant[:,0] *= gainComplexVec(XX.T); BP_ant[:,1] *= gainComplexVec(YY.T)
     #-------- Updating bandpass XY phase
     XY  = np.mean(caledVis[:,1:3], axis=(1,2))  # XY[ch, time]
-    XYtwiddleSpec = XY.dot(abs(PS[:,1]));  XYtwiddleSpec = np.exp((0.0 + 1.0j)* np.angle(XYtwiddleSpec))
-    BP_ant[:,1] *= XYtwiddleSpec
-    #-------- Time-series XY phase
-    XYphase = np.angle((XY.T).dot(XYtwiddleSpec.conjugate()))
+    XYresponse = XY.dot(abs(PS[:,1]))
+    XYtwiddle  = XYresponse / abs(XYresponse)
+    BP_ant[:,1] *= XYtwiddle
+    XYspec = np.ones(chNum, dtype=complex)
     np.save(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy', BP_ant); print 'Updating BP table : ' + BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'
+    np.save(XYprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy', XYspec); print 'Resetting XY phase : ' + XYprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy'
+    #-------- Time-series XY phase
+    XYphase = np.angle((XY.T).dot(XYresponse.conjugate()))
     #-------- Plot
     if np.mean(np.cos(PA)) < 0.0: PA = np.arctan2(-np.sin(PA), -np.cos(PA)) +  np.pi
     PArange = np.arange(min(PA), max(PA), 0.01); CSrange, SNrange = np.cos(2.0*PArange), np.sin(2.0*PArange)
