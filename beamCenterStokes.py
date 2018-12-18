@@ -225,7 +225,7 @@ for spw_index in range(spwNum):
     plt.xlabel('X-Feed Position Angle [rad]'); plt.ylabel('Normalized cross correlations')
     polMax = np.sqrt(QUsol[0]**2 + QUsol[1]**2); plt.ylim([-1.5* polMax, 1.5* polMax])
     plt.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
-    text_sd = '(Q, U)/I = (%6.3f+-%6.3f, %6.3f+-%6.3f) XY-phase=%6.2f deg (Ref:%s)' % (QUsol[0], QUerr[0], QUsol[1], QUerr[1], np.angle(np.mean(np.mean(XYtwiddleSpec[chRange])* np.exp((0.0 + 1.0j)* XYphase)))*180/pi,  antList[refAntID]); plt.text(min(PA), polMax*1.2, text_sd, size='x-small')
+    text_sd = '(Q, U)/I = (%7.4f+-%6.4f, %7.4f+-%6.4f) XY-phase=%6.2f deg (Ref:%s)' % (QUsol[0], QUerr[0], QUsol[1], QUerr[1], np.angle(np.mean(XYtwiddle[chRange])*np.mean(np.exp((0.0 + 1.0j)* XYphase)))* 180.0/pi,  antList[refAntID]); plt.text(min(PA), polMax*1.2, text_sd, size='x-small')
     plt.savefig(prefixList[0] + '-SPW' + `spw` + '-' + refantName + 'QUXY.pdf', form='pdf')
     #-------- Save Results
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.Ant.npy', antList[antMap])
