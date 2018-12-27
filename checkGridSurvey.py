@@ -139,13 +139,12 @@ for band_index in range(NumBands):
     if polNum == 4:
         pPol, cPol = [0,3], [1,2];  ppolNum, cpolNum = len(pPol), len(cPol)
         if not Apriori:
-            execfile(SCR_DIR + 'checkSEFDStokes.py')
-            #try:
-            #    execfile(SCR_DIR + 'checkSEFDStokes.py')
-            #except:
-            #    print '  --SSO-based flux calibration falied. Switch to a priori (SEFD) calibration.'
-            #    execfile(SCR_DIR + 'aprioriStokes.py')
-            ##
+            try:
+                execfile(SCR_DIR + 'checkSEFDStokes.py')
+            except:
+                print '  --SSO-based flux calibration falied. Switch to a priori (SEFD) calibration.'
+                execfile(SCR_DIR + 'aprioriStokes.py')
+            #
         else:
             execfile(SCR_DIR + 'aprioriStokes.py')
         #
