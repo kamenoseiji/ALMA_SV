@@ -279,7 +279,10 @@ for sso_index in range(SSONum):
     #
 #
 SSOUseList = np.where(SSO_flag == 1.0)[0].tolist()
-if len(SSOUseList) == 0: print 'No available Solar System Objects!! Try a-priori calibration.'; return np.log(-1.0)
+if len(SSOUseList) == 0:
+    print 'No available Solar System Objects!! Try a-priori calibration.'
+    sys.exit()
+#
 EQflux = np.ones([2*spwNum])
 #-------- Flux density of the equalizer
 for spw_index in range(spwNum):
