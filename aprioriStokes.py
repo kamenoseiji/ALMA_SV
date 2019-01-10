@@ -306,7 +306,6 @@ figFL = plt.figure(figsize = (11, 8))
 figFL.suptitle(prefix + ' ' + UniqBands[band_index])
 figFL.text(0.45, 0.05, 'Projected baseline [m]')
 figFL.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90)
-#for scan_index in range(1):
 for scan_index in range(scanNum):
     if scan_index > 0:
         for PL in IList: figFL.delaxes(PL)
