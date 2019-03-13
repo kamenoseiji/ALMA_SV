@@ -26,8 +26,15 @@ antNum = len(antList)
 #-------- Check SPWs of atmCal
 msmd.open(msfile)
 print '---Checking spectral windows'
-TDMspw_atmCal = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*")))
-spwNum = len(TDMspw_atmCal)
+if 'spwList' in locals():
+    TDMspw_atmCal = spwList
+else:
+    TDMspw_atmCal = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*")))
+    spwNum = len(TDMspw_atmCal)
+if spwNum == 0:
+    TDMspw_atmCal = list(set(msmd.fdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*")))
+    spwNum = len(TDMspw_atmCal)
+#
 #-------- Check source list
 print '---Checking source list'
 sourceList = msmd.fieldnames()
