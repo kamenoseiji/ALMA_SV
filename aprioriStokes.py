@@ -51,34 +51,36 @@ if noDantNum > 0:
     sys.exit(' Run DtermTransfer first!!')
 #
 #-------- Load Tsys table
+TrxList = []
+for spw in spwList: TrxList = TrxList + [np.median(np.load(prefix +  '-' + UniqBands[band_index] + '-SPW' + `spw` + '.Trx.npy'), axis=3)]  # TrxList[spw][pol, ch, ant]
 TrxFreq  = np.load(prefix +  '-' + UniqBands[band_index] + '.TrxFreq.npy') # TrxFreq[spw][ch]
 TrxAnts  = np.load(prefix +  '-' + UniqBands[band_index] + '.TrxAnt.npy') # TrxAnts[ant]
 Tau0spec = np.load(prefix +  '-' + UniqBands[band_index] + '.Tau0.npy') # Tau0spec[spw][ch]
-Trxspec  = np.load(prefix +  '-' + UniqBands[band_index] + '.Trx.npy')  # Trxspec[spw, ant, pol, ch]
 Tau0E    = np.load(prefix +  '-' + UniqBands[band_index] + '.TauE.npy') # Tau0E[spw, atmScan]
 atmTimeRef = np.load(prefix +  '-' + UniqBands[band_index] + '.atmTime.npy') # atmTimeRef[atmScan]
 TrxMap = indexList(TrxAnts, antList); TrxFlag = np.zeros([antNum]); TrxFlag[TrxMap] = 1.0
 Tau0E = np.nanmedian(Tau0E, axis=0); Tau0E[np.isnan(Tau0E)] = np.nanmedian(Tau0E); Tau0E[np.isnan(Tau0E)] = 0.0
-TrxMed = np.median(Trxspec, axis=3)
 #-------- Tsys channel interpolation
 chNum, chWid, Freq = GetChNum(msfile, spwList[0])
 if TrxFreq.shape[1] != chNum: 
-    tmpTAU0, tmpTRX = np.zeros([spwNum, chNum]), np.zeros([spwNum, antNum, 2, chNum])
+    tmpTAU0 = np.zeros([spwNum, chNum])
     for spw_index in range(spwNum):
+        tmpTRX = np.zeros([antNum, 2, chNum])
         chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index]); Freq *= 1.0e-9
         TAU0 = interpolate.interp1d(TrxFreq[spw_index], Tau0spec[spw_index])
         tmpTAU0[spw_index] = TAU0(Freq)
         for ant_index in range(len(TrxAnts)):
             for pol_index in range(2):
-                TRX = interpolate.interp1d(TrxFreq[spw_index], Trxspec[spw_index, ant_index, pol_index])
-                tmpTRX[spw_index, ant_index, pol_index] = TRX(Freq)
+                TRX = interpolate.interp1d(TrxFreq[spw_index], TrxList[spw_index][pol_index, :, ant_index])
+                tmpTRX[ant_index, pol_index] = TRX(Freq)
         #
+        TrxList[spw_index]  = tmpTRX.transpose(1,2,0)
     #
     Tau0spec = tmpTAU0
-    Trxspec  = tmpTRX
 #
 for spw_index in range(spwNum):
-    for pol_index in range(2): TrxFlag[np.where(abs(TrxMed[spw_index][:,pol_index] - np.median(TrxMed[spw_index][:,pol_index])) > 0.8* np.median(TrxMed[spw_index][:,pol_index]))[0].tolist()] *= 0.0
+    TrxMed = np.median(TrxList[spw_index], axis=1)  # TrxMed[pol, ant]
+    for pol_index in range(2): TrxFlag[np.where(abs(TrxMed[pol_index] - np.median(TrxMed[pol_index])) > 0.8* np.median(TrxMed[pol_index]))[0].tolist()] *= 0.0
 if np.min(np.median(Tau0spec[:,chRange], axis=1)) < 0.0: TrxFlag *= 0.0    # Negative Tau(zenith) 
 #
 print 'Ant:',
@@ -177,7 +179,7 @@ for spw_index in range(spwNum):
     BP_ant[:,1] *= XY_BP
     exp_Tau = np.exp(-Tau0spec[spw_index] / np.sin(BPEL))
     atmCorrect = 1.0 / exp_Tau
-    TsysBPScan = atmCorrect* (Trxspec[spw_index][Trx2antMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau)) # [antMap, pol, ch]
+    TsysBPScan = atmCorrect* (TrxList[spw_index].transpose(2,0,1)[Trx2antMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau)) # [antMap, pol, ch]
     TsysBPShape = (TsysBPScan.transpose(2,0,1) / np.median(TsysBPScan, axis=2)).transpose(1,2,0)
     BPList = BPList + [BP_ant* np.sqrt(TsysBPShape)]
 #
@@ -208,7 +210,7 @@ else:
 #
 for spw_index in range(spwNum):
     exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
-    TsysEQScan = np.mean(Trxspec[spw_index,:,:,chRange].transpose(1,2,0) + Tcmb*exp_Tau[chRange] + tempAtm* (1.0 - exp_Tau[chRange]), axis=2)[Trx2antMap] # [antMap, pol]
+    TsysEQScan = np.mean(TrxList[spw_index].transpose(2,0,1)[:,:,chRange] + Tcmb*exp_Tau[chRange] + tempAtm* (1.0 - exp_Tau[chRange]), axis=2)[Trx2antMap] # [antMap, pol]
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], EQScan)
     chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
@@ -247,7 +249,7 @@ scan_index = scanList.index(BPScan)
 for spw_index in range(spwNum):
     exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
     atmCorrect = 1.0 / exp_Tau
-    TsysSPW = (Trxspec[spw_index] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap] # [antMap, pol, ch]
+    TsysSPW = (TrxList[spw_index].transpose(2,0,1) + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap] # [antMap, pol, ch]
     TsysBL  = np.sqrt( TsysSPW[ant0][:,polYindex]* TsysSPW[ant1][:,polXindex])
     #
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], BPScan); timeNum = len(timeStamp)
@@ -374,7 +376,7 @@ for scan_index in range(scanNum):
         PList = PList + [StokesP_PL]
         exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
         atmCorrect = 1.0 / exp_Tau
-        TsysSPW = (Trxspec[spw_index] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap]    # [ant, pol, ch]
+        TsysSPW = (TrxList[spw_index].transpose(2,0,1) + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap]    # [ant, pol, ch]
         #if SSO_flag:
         #    TA = Ae[SAinAntMap,:,spw_index]* SSOflux0[SSO_ID, spw_index]* np.mean(atmCorrect)  / (2.0* kb)
         #    TsysSPW[:,SAinUseAnt] = (TsysSPW[:,SAinUseAnt].transpose(2,1,0) + TA).transpose(2,1,0)
@@ -471,4 +473,4 @@ np.save(prefix + '-' + UniqBands[band_index] + '.XYC.npy', np.array(XYC).reshape
 np.save(prefix + '-' + UniqBands[band_index] + '.XYD.npy', np.array(XYD).reshape([len(XYC)/spwNum/2, spwNum, 2]))
 msmd.close()
 msmd.done()
-del flagAnt, TrxFlag, gainFlag, Dflag, AntID, Xspec, tempSpec, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, Trxspec, TsysSPW, azelTime, azelTime_index, chAvgVis, W, refIndex
+del flagAnt, TrxFlag, gainFlag, Dflag, AntID, Xspec, tempSpec, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, TrxList, TsysSPW, azelTime, azelTime_index, chAvgVis, W, refIndex
