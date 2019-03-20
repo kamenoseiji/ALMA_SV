@@ -29,8 +29,6 @@ def plotTsys(prefix, antList, spwList, freqList, atmTime, TrxList, TskyList):
     pp = PdfPages('TSYS_' + prefix + '.pdf')
     #-------- Plots for Tsys spectra
     antNum, spwNum, scanNum  = len(antList), len(spwList), len(atmTime)
-    #plotMax = np.max(TrxList) + np.max(TskyList)
-    plotMax = 1.5* np.median(TrxList) + 1.5* np.median(TskyList)
     PolList = ['X', 'Y']
     #-------- Prepare Plots
     figAnt = plt.figure(figsize = (8, 11))
@@ -43,6 +41,7 @@ def plotTsys(prefix, antList, spwList, freqList, atmTime, TrxList, TskyList):
             for PL in TsysPL: figAnt.delaxes(PL)
         #
         TsysPL = []
+        plotMax = 1.7* np.median(TrxList, axis=(0,1,2,4))[ant_index] + 1.5* np.median(TskyList)
         for spw_index in range(spwNum):
             #AntSpwIndex = ant_index* spwNum + spw_index
             chNum = len(freqList[spw_index]); chRange = range(int(0.05*chNum), int(0.95*chNum))
