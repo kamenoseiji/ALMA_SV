@@ -41,7 +41,7 @@ def plotTsys(prefix, antList, spwList, freqList, atmTime, TrxList, TskyList):
             for PL in TsysPL: figAnt.delaxes(PL)
         #
         TsysPL = []
-        plotMax = 1.7* np.median(TrxList, axis=(0,1,2,4))[ant_index] + 1.5* np.median(TskyList)
+        plotMax = 1.7* np.percentile(TrxList, 75, axis=(0,1,2,4))[ant_index] + 1.5* np.median(TskyList)
         for spw_index in range(spwNum):
             #AntSpwIndex = ant_index* spwNum + spw_index
             chNum = len(freqList[spw_index]); chRange = range(int(0.05*chNum), int(0.95*chNum))
