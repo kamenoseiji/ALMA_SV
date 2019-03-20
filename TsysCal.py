@@ -90,20 +90,23 @@ def scanAtmSpec(msfile, useAnt, scanList, spwList, timeOFF=0, timeON=0, timeAMB=
     return np.array(timeList), offSpecList, ambSpecList, hotSpecList, scanList
 #
 #-------- Log Trx
-def LogTrx(antList, spwList, Trx, text_sd, logFile):
-    antNum, spwNum = len(antList), len(spwList)
-    for spw_index in range(spwNum): text_sd = text_sd + '  SPW%02d X        Y |' % (spwList[spw_index])
-    logFile.write(text_sd + '\n'); print text_sd
-    text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; logFile.write(text_sd + '\n'); print text_sd
-    for ant_index in range(antNum):
-        text_sd =  antList[ant_index] + ' : '; logFile.write(text_sd); print text_sd,
-        for spw_index in range(spwNum):
-            for pol_index in range(2):
-                text_sd = '%6.1f K' % (Trx[ant_index, spw_index, pol_index])
-                logFile.write(text_sd); print text_sd,
-            text_sd = '|'; logFile.write(text_sd); print text_sd,
-        logFile.write('\n'); print ' '
-    print ' '
+def LogTrx(antList, spwList, scanList, timeRef, Trx, logFile):
+    antNum, spwNum, scanNum = len(antList), len(spwList), Trx[0].shape[3]
+    for scan_index in range(scanNum):
+        text_sd =  'Scan %d : %s' % (scanList[scan_index], qa.time('%fs' % (timeRef[scan_index]), form='fits')[0]); logFile.write(text_sd + '\n'); print text_sd
+        text_sd = 'Trx  : '
+        for spw_index in range(spwNum): text_sd = text_sd + '  SPW%02d X        Y |' % (spwList[spw_index])
+        logFile.write(text_sd + '\n'); print text_sd
+        text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; logFile.write(text_sd + '\n'); print text_sd
+        for ant_index in range(antNum):
+            text_sd =  antList[ant_index] + ' : '; logFile.write(text_sd); print text_sd,
+            for spw_index in range(spwNum):
+                for pol_index in range(2):
+                    text_sd = '%6.1f K' % (np.median(Trx[spw_index], axis=1)[pol_index, ant_index, scan_index])
+                    logFile.write(text_sd); print text_sd,
+                text_sd = '|'; logFile.write(text_sd); print text_sd,
+            logFile.write('\n'); print ' '
+        print ' '
     return
 #
 #-------- Trx and Tsky
@@ -113,7 +116,7 @@ def TrxTskySpec(useAnt, tempAmb, tempHot, spwList, scanList, ambSpec, hotSpec, o
     outLierFlag = np.zeros([spwNum, 2, useAntNum]) 
     for spw_index in range(len(spwList)):
         chNum = ambSpec[spw_index* scanNum].shape[1]
-        chRange = range(int(0.05*chNum), int(0.95*chNum)); chOut = sort(list(set(range(chNum)) - set(chRange))).tolist()
+        chRange = range(int(0.02*chNum), int(0.99*chNum)); chOut = sort(list(set(range(chNum)) - set(chRange))).tolist()
         TrxSpec = np.zeros([2, chNum, useAntNum, scanNum])
         TskySpec = np.zeros([2, chNum, useAntNum, scanNum])
         for pol_index in range(2):
@@ -123,20 +126,20 @@ def TrxTskySpec(useAnt, tempAmb, tempHot, spwList, scanList, ambSpec, hotSpec, o
                     Psamb, Pshot, Psoff = ambSpec[index][pol_index], hotSpec[index][pol_index], offSpec[index][pol_index]
                     TrxSpec[pol_index, :, ant_index, scan_index] = (tempHot[ant_index]* Psamb - Pshot* tempAmb[ant_index]) / (Pshot - Psamb)
                     TskySpec[pol_index, :, ant_index, scan_index] = (Psoff* (tempHot[ant_index] - tempAmb[ant_index]) + tempAmb[ant_index]* Pshot - tempHot[ant_index]* Psamb) / (Pshot - Psamb)
-                    TrxSpec[pol_index, chOut, ant_index, scan_index] = np.median(TrxSpec[pol_index, chRange, ant_index, scan_index])
-                    TskySpec[pol_index, chOut, ant_index, scan_index] = np.median(TskySpec[pol_index, chRange, ant_index, scan_index])
+                    TrxSpec[pol_index, chOut, ant_index, scan_index] = np.median(TrxSpec[pol_index, chRange, ant_index, scan_index])       # extraporate band-edge
+                    TskySpec[pol_index, chOut, ant_index, scan_index] = np.median(TskySpec[pol_index, chRange, ant_index, scan_index])     # extraporate band-edge
                 #
             #
         #
-        TrxSpec = np.median(TrxSpec, axis=3).transpose(2,0,1)   # Trx[ant, pol, ch] : Trx is time independent
-        chAvgTrx = np.median(TrxSpec[:,:,chRange], axis=2)        # chAvgTrx[ant, pol]
+        # TrxSpec = np.median(TrxSpec, axis=3).transpose(2,0,1)   # Trx[ant, pol, ch] : Trx is time independent
+        chAvgTrx = np.median(TrxSpec[:, chRange], axis=(1, 3)).T    # chAvgTrx[ant, pol]
         #-------- Trx transfer to outlier antennas
         for pol_index in range(2):
             medTrx = np.median(chAvgTrx[:,pol_index])
             flagIndex = np.where(abs(chAvgTrx[:,pol_index] - medTrx) > 0.8* medTrx )[0].tolist()
             if len(flagIndex) > 0:
                 outLierFlag[spw_index, pol_index, flagIndex] = 1.0
-                TrxSpec[flagIndex, pol_index] = np.median(TrxSpec[:,pol_index], axis=0)
+                #TrxSpec[flagIndex, pol_index] = np.median(TrxSpec[:,pol_index], axis=0)
                 for scan_index in range(scanNum):
                     TskySpec[pol_index, :, flagIndex, scan_index] = np.median(TskySpec[pol_index, :, :, scan_index], axis=1)
                 #
@@ -281,7 +284,8 @@ for band_index in range(NumBands):
     atmscanLists[band_index] = scanList
     atmscanNum, spwNum = len(atmscanLists[band_index]), len(atmspwLists[band_index])
     TrxList, TskyList, outLierFlag = TrxTskySpec(useAnt, tempAmb, tempHot, atmspwLists[band_index], atmscanLists[band_index], ambSpec, hotSpec, offSpec)
-    np.save(prefix +  '-' + UniqBands[band_index] + '.Trx.npy', TrxList)    # TxList[spw][ant,pol,ch]
+    for spw_index in range(spwNum):
+        np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.Trx.npy', TrxList[spw_index])    # TxList[spw][pol,ch,ant,scan]
     #-------- Az and El position at atmCal and onsource scans
     AtmEL = np.ones([useAntNum, atmscanNum])
     for ant_index in range(useAntNum):
@@ -292,9 +296,8 @@ for band_index in range(NumBands):
     atmsecZ  = 1.0 / np.sin( np.median(AtmEL, axis=0) )
     #-------- Tsky and TantN
     Tau0, Tau0Excess, TantN = tau0SpecFit(tempAtm - 5.0, atmsecZ, useAnt, atmspwLists[band_index], TskyList)
-    for spw_index in range(spwNum): TrxList[spw_index] = (TrxList[spw_index].transpose(1,0,2) + TantN[spw_index]).transpose(1,0,2)
-    LogTrx(antList[useAnt], atmspwLists[band_index], np.mean(np.array(TrxList), axis=3).transpose(1,0,2), 'Trec : ', tsysLog)
-    LogTrx(antList[useAnt], atmspwLists[band_index], np.mean(np.array([TantN,TantN]), axis=3).transpose(2,1,0), 'TantN: ', tsysLog)
+    for spw_index in range(spwNum): TrxList[spw_index] = (TrxList[spw_index].transpose(0,3,2,1) + TantN[spw_index]).transpose(0,3,2,1)
+    LogTrx(antList[useAnt], atmspwLists[band_index], scanList, atmTimeRef, TrxList, tsysLog)
     freqList = []
     for spw_index in range(spwNum):
         chNum, chWid, freq = GetChNum(msfile, atmspwLists[band_index][spw_index]); freqList = freqList + [freq*1.0e-9]
