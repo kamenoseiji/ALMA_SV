@@ -137,7 +137,7 @@ for band_index in range(NumBands):
     PolList = ['X', 'Y']
     msmd.done()
 #
-del msfile, UniqBands, UseAntNum
+del msfile, UniqBands
 if 'flagAnt' in locals(): del flagAnt
 if 'BPScans' in locals(): del BPScans
 if 'EQScans' in locals(): del EQScans

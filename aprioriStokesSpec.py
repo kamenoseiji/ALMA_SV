@@ -51,19 +51,22 @@ if noDantNum > 0:
     for ant_index in noDlist: print '%s ' % antList[ant_index],
     sys.exit(' Run DtermTransfer first!!')
 #
-#-------- Load XY phase
-
 #-------- Load Tsys table
+TrxList = []
+for spw in spwList: TrxList = TrxList + [np.median(np.load(prefix +  '-' + UniqBands[band_index] + '-SPW' + `spw` + '.Trx.npy'), axis=3)]  # TrxList[spw][pol, ch, ant]
 TrxFreq  = np.load(Tsysprefix +  '-' + UniqBands[band_index] + '.TrxFreq.npy') # TrxFreq[spw][ch]
 TrxAnts  = np.load(Tsysprefix +  '-' + UniqBands[band_index] + '.TrxAnt.npy') # TrxAnts[ant]
 Tau0spec = np.load(Tsysprefix +  '-' + UniqBands[band_index] + '.Tau0.npy') # Tau0spec[spw][ch]
-Trxspec  = np.load(Tsysprefix +  '-' + UniqBands[band_index] + '.Trx.npy')  # Trxspec[spw, ant, pol, ch]
 Tau0E    = np.load(Tsysprefix +  '-' + UniqBands[band_index] + '.TauE.npy') # Tau0E[spw, atmScan]
 atmTimeRef = np.load(Tsysprefix +  '-' + UniqBands[band_index] + '.atmTime.npy') # atmTimeRef[atmScan]
 TrxMap = indexList(TrxAnts, antList); TrxFlag = np.zeros([antNum]); TrxFlag[TrxMap] = 1.0
 Tau0E = np.nanmedian(Tau0E, axis=0); Tau0E[np.isnan(Tau0E)] = np.nanmedian(Tau0E); Tau0E[np.isnan(Tau0E)] = 0.0
-TrxMed = np.median(Trxspec, axis=3)
+for spw_index in range(spwNum):
+    TrxMed = np.median(TrxList[spw_index], axis=1)  # TrxMed[pol, ant]
+    for pol_index in range(2): TrxFlag[np.where(abs(TrxMed[pol_index] - np.median(TrxMed[pol_index])) > 0.8* np.median(TrxMed[pol_index]))[0].tolist()] *= 0.0
+if np.min(np.median(Tau0spec[:,chRange], axis=1)) < 0.0: TrxFlag *= 0.0    # Negative Tau(zenith)
 tempAtm = GetTemp(msfile)
+'''
 #-------- Tsys channel interpolation
 chNum, chWid, Freq = GetChNum(msfile, spwList[0])
 if TrxFreq.shape[1] != chNum:
@@ -74,7 +77,7 @@ if TrxFreq.shape[1] != chNum:
         tmpTAU0[spw_index] = TAU0(Freq)
         for ant_index in range(len(TrxAnts)):
             for pol_index in range(2):
-                TRX = interpolate.interp1d(TrxFreq[spw_index], Trxspec[spw_index, ant_index, pol_index])
+                TRX = interpolate.interp1d(TrxFreq[spw_index],TrxList[spw_index][ant_index, pol_index])
                 tmpTRX[spw_index, ant_index, pol_index] = TRX(Freq)
         #
     #
@@ -85,6 +88,7 @@ for spw_index in range(spwNum):
     for pol_index in range(2): TrxFlag[np.where(TrxMed[spw_index][:,pol_index] - np.median(TrxMed[spw_index][:,pol_index]) > 1.5* np.median(TrxMed[spw_index][:,pol_index]))[0].tolist()] *= 0.0
     for pol_index in range(2): TrxFlag[np.where(TrxMed[spw_index][:,pol_index] < 0.3* np.median(TrxMed[spw_index][:,pol_index]))[0].tolist()] *= 0.0
 if np.min(np.median(Tau0spec[:,chRange], axis=1)) < 0.0: TrxFlag *= 0.0    # Negative Tau(zenith) 
+'''
 #
 #-------- Time-variable excess zenith opacity
 if len(atmTimeRef) > 5:
@@ -115,8 +119,8 @@ logfile = open(prefix + '-' + UniqBands[band_index] + '-Flux.log', 'w')
 logfile.write(BPcalText + '\n'); logfile.write(EQcalText + '\n')
 scanList = onsourceScans
 #-------- Array Configuration
-if 'refantName' in locals():
-    refantID = np.where(antList == refantName)[0][0]
+if 'refant' in locals():
+    refantID = np.where(antList == refant)[0][0]
 else:
     print '---Determining refant'
     timeStamp, UVW = GetUVW(msfile, spwList[0], msmd.scansforspw(spwList[0])[0])
@@ -182,10 +186,10 @@ else :
 BPList, XYList = [], []
 if 'BPprefix' in locals():
     for spw_index in range(spwNum):
-        BP_ant = np.load(BPprefix + '-REF' + refantName + '-SPW' + `spwList[spw_index]` + '-BPant.npy')
+        BP_ant = np.load(BPprefix + '-REF' + refant + '-SPW' + `spwList[spw_index]` + '-BPant.npy')
         exp_Tau = np.exp(-Tau0spec[spw_index] / np.sin(BPEL))
         atmCorrect = 1.0 / exp_Tau
-        TsysBPScan = atmCorrect* (Trxspec[spw_index][Trx2antMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau)) # [antMap, pol, ch]
+        TsysBPScan = atmCorrect* (TrxList[spw_index].transpose(2,0,1)[Trx2antMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau)) # [antMap, pol, ch]
         TsysBPShape = (TsysBPScan.transpose(2,0,1) / np.median(TsysBPScan, axis=2)).transpose(1,2,0)
         BPList = BPList + [BP_ant* np.sqrt(TsysBPShape)]
     #
@@ -196,7 +200,7 @@ else:
         BP_ant[:,1] *= XY_BP
         exp_Tau = np.exp(-Tau0spec[spw_index] / np.sin(BPEL))
         atmCorrect = 1.0 / exp_Tau
-        TsysBPScan = atmCorrect* (Trxspec[spw_index][Trx2antMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau)) # [antMap, pol, ch]
+        TsysBPScan = atmCorrect* (TrxList[spw_index].transpose(2,0,1)[Trx2antMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau)) # [antMap, pol, ch]
         TsysBPShape = (TsysBPScan.transpose(2,0,1) / np.median(TsysBPScan, axis=2)).transpose(1,2,0)
         BPList = BPList + [BP_ant* np.sqrt(TsysBPShape)]
     #
@@ -209,8 +213,8 @@ BPDone = True
 #
 ##-------- Gain solutions using polcal scans
 polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
-print 'Gain Correction using Polarization Calibrator ' + PolCal
 if 'PolCalScans' in locals():
+    print 'Gain Correction using Polarization Calibrator '
     #-------- Check scan time
     mjdSec, Az, El = [], [], []
     for scan in PolCalScans:
@@ -226,16 +230,16 @@ if 'PolCalScans' in locals():
     SP_GR, SP_XYPH = [], []
     #-------- Load QU solutions for each SPW
     for spw_index in range(spwNum):
-        StokesModel = np.array([1.0] + np.load(QUprefix + '-SPW' + `spwList[spw_index]` + '-' + refantName + '.QUXY.npy').tolist() + [0.0])
+        StokesModel = np.array([1.0] + np.load(QUprefix + '-SPW' + `spwList[spw_index]` + '-' + refant + '.QUXY.npy').tolist() + [0.0])
         BP_bl = BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate()  # BP_bl[BL, corr, ch]
         #-------- Load visibilities of polCal scans
-        VisSpec  = np.zeros([4, chNum, blNum, timeNum], dtype=complex)
+        VisSpec  = np.zeros([4, chNum, UseBlNum, timeNum], dtype=complex)
         for scan in PolCalScans:
             timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], scan, -1, True)  # Xspec[POL, CH, BL, TIME]
             tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)
             timeIndex = indexList(timeStamp, mjdSec)
             exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(El[timeIndex])))
-            TsysScan = (Trxspec[spw_index] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap] # [antMap, pol, ch]
+            TsysScan = (TrxList[spw_index].transpose(2,0,1) + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap] # [antMap, pol, ch]
             aprioriSEFD = 2.0* kb* ((TsysScan / exp_Tau).transpose(2,1,0) / Ae).transpose(2,1,0)
             VisSpec[:,:,:,timeIndex] = (tempSpec / BP_bl * np.sqrt(aprioriSEFD[ant0][:,polYindex]* aprioriSEFD[ant1][:,polXindex])).transpose(2, 3, 1, 0)
         #
@@ -243,15 +247,17 @@ if 'PolCalScans' in locals():
         print 'SPW ' + `spwList[spw_index]` + ' : Stokes Model [I, Q, U, V] = ' + `StokesModel.tolist()`
         #-------- D-term-corrected visibilities
         PS = PAVector(PA, np.ones(timeNum)).transpose(2,0,1).dot(StokesModel)
-        M  = MullerVector(DxSpec[ant0][:,spw_index], DySpec[ant0][:,spw_index], DxSpec[ant1][:,spw_index], DySpec[ant1][:,spw_index], np.ones([blNum,chNum])).transpose(0,3,2,1)
+        M  = MullerVector(DxSpec[ant0][:,spw_index], DySpec[ant0][:,spw_index], DxSpec[ant1][:,spw_index], DySpec[ant1][:,spw_index], np.ones([UseBlNum,chNum])).transpose(0,3,2,1)
         DcaledChAvg = np.mean((VisSpec / M.dot(PS.T))[:,chRange], axis=1)
         Gain = np.array([gainComplexVec(DcaledChAvg[0]), gainComplexVec(DcaledChAvg[3])])
         GainCaledVis = DcaledChAvg / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
         XYvis = np.mean(GainCaledVis[[1,2]], axis=1)
         XYphase = np.angle(XYvis[0] + XYvis[1].conjugate())
-        SP_XYPH = SP_XYPH + [UnivariateSpline(mjdSec, XYphase, s=0.1)]
+        #SP_XYPH = SP_XYPH + [UnivariateSpline(mjdSec, XYphase, s=0.1)]
+        SP_XYPH = SP_XYPH + [UnivariateSpline(mjdSec, XYphase)]
         for ant_index in range(UseAntNum):
-            SP_GR   = SP_GR   + [UnivariateSpline(mjdSec, abs(Gain[1,ant_index]/Gain[0,ant_index]), s=0.1)]
+            #SP_GR   = SP_GR   + [UnivariateSpline(mjdSec, abs(Gain[1,ant_index]/Gain[0,ant_index]), s=0.1)]
+            SP_GR   = SP_GR   + [UnivariateSpline(mjdSec, abs(Gain[1,ant_index]/Gain[0,ant_index]))]
         #
         timePlot = arange(mjdSec[0], mjdSec[-1], 1)
         plt.plot(timePlot, SP_XYPH[spw_index](timePlot), ls='steps-mid')
@@ -331,7 +337,7 @@ for scan_index in range(scanNum):
         PList = PList + [StokesP_SP]
         exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
         atmCorrect = 1.0 / exp_Tau
-        TsysSPW = (Trxspec[spw_index] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap]    # [ant, pol, ch]
+        TsysSPW = (TrxList[spw_index].transpose(2,0,1) + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap]    # [ant, pol, ch]
         SEFD = 2.0* kb* (TsysSPW * atmCorrect).transpose(2,1,0) / Ae[:,bpAntMap]                # SEFD[ch,pol,antMap]
         SAantNum = len(SAantMap); SAblNum = len(SAblMap)
         #AmpCalVis = np.mean(np.mean(pCalVis, axis=3)[:,[0,3]] * np.sqrt(SEFD[chRange][:,:,ant0[0:SAblNum]]* SEFD[chRange][:,:,ant1[0:SAblNum]]), axis=0)
