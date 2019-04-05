@@ -442,8 +442,8 @@ for scan_index in range(scanNum):
     plt.show()
     figFL.savefig(pp, format='pdf')
     text_sd = ' --------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
+    freqArray = np.array(centerFreqList)[range(spwNum)]; meanFreq = np.mean(freqArray); relFreq = freqArray - meanFreq
     if spwNum > 1:
-        freqArray = np.array(centerFreqList)[range(spwNum)]; meanFreq = np.mean(freqArray); relFreq = freqArray - meanFreq
         text_sd = ' mean  %5.1f GHz' % (meanFreq); logfile.write(text_sd); print text_sd,
         pflux, pfluxerr = np.zeros(4), np.zeros(4)
         for pol_index in range(4):
