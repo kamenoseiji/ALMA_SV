@@ -101,7 +101,8 @@ if len(UseAnt) < 5: sys.exit('Too few usable antennas. Reduction failed.')
 ingestFile = open(prefix + '-' + UniqBands[band_index] + '-Ingest.log', 'w')
 text_sd = '#source,   RA,eRA,dec,edec,frequency,  flux,eflux,degree,edeg,EVPA,eEVPA,uvmin,uvmax,date\n'; ingestFile.write(text_sd)
 logfile = open(prefix + '-' + UniqBands[band_index] + '-Flux.log', 'w')
-logfile.write(BPcalText + '\n'); logfile.write(EQcalText + '\n')
+if 'BPcalText' in locals(): logfile.write(BPcalText + '\n')
+if 'EQcalText' in locals(): logfile.write(EQcalText + '\n')
 scanList = onsourceScans
 msmd.close()
 msmd.done()
@@ -440,15 +441,17 @@ for scan_index in range(scanNum):
     StokesP_PL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
     plt.show()
     figFL.savefig(pp, format='pdf')
-    freqArray = np.array(centerFreqList)[range(spwNum)]; meanFreq = np.mean(freqArray); relFreq = freqArray - meanFreq
     text_sd = ' --------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
-    text_sd = ' mean  %5.1f GHz' % (meanFreq); logfile.write(text_sd); print text_sd,
-    pflux, pfluxerr = np.zeros(4), np.zeros(4)
-    for pol_index in range(4):
-        sol, solerr = linearRegression(relFreq, ScanFlux[scan_index, :, pol_index], ErrFlux[scan_index, :, pol_index] ); pflux[pol_index], pfluxerr[pol_index] = sol[0], solerr[0]
-        text_sd = '%7.4f (%.4f) ' % (pflux[pol_index], pfluxerr[pol_index]) ; logfile.write(text_sd); print text_sd,
+    if spwNum > 1:
+        freqArray = np.array(centerFreqList)[range(spwNum)]; meanFreq = np.mean(freqArray); relFreq = freqArray - meanFreq
+        text_sd = ' mean  %5.1f GHz' % (meanFreq); logfile.write(text_sd); print text_sd,
+        pflux, pfluxerr = np.zeros(4), np.zeros(4)
+        for pol_index in range(4):
+            sol, solerr = linearRegression(relFreq, ScanFlux[scan_index, :, pol_index], ErrFlux[scan_index, :, pol_index] ); pflux[pol_index], pfluxerr[pol_index] = sol[0], solerr[0]
+            text_sd = '%7.4f (%.4f) ' % (pflux[pol_index], pfluxerr[pol_index]) ; logfile.write(text_sd); print text_sd,
+        #
+        text_sd = '%6.3f   %6.1f \n' % (100.0* np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi); logfile.write(text_sd); print text_sd,
     #
-    text_sd = '%6.3f   %6.1f \n' % (100.0* np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi); logfile.write(text_sd); print text_sd,
     logfile.write('\n')
     #if not SSO_flag:
     waveLength = 299.792458/meanFreq    # wavelength in mm
