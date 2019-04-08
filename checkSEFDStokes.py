@@ -281,11 +281,11 @@ for sso_index in range(SSONum):
 #
 SSOUseList = np.where(SSO_flag == 1.0)[0].tolist()
 if len(SSOUseList) > 0:
-    execfile('SEFDStokes.py')
+    execfile(SCR_DIR + 'SEFDStokes.py')
 else:
     print 'No available Solar System Objects!! Try a-priori calibration.'
     msmd.close()
     msmd.done()
     #del flagAnt, TrxFlag, gainFlag, Dflag, AntID, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, TrxList, TsysSPW, TsysBL, azelTime, azelTime_index, chAvgVis, W
-    execfile('aprioriStokes.py')
+    execfile(SCR_DIR + 'aprioriStokes.py')
 #
