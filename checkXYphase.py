@@ -43,6 +43,14 @@ for band_index in range(NumBands):
     PolScan = np.array(bpscanLists[band_index])[indexList( PolScans, np.array(bpscanLists[band_index]))]
     onsourceScans = PolScan.tolist()
     scanNum = len(onsourceScans)
+    fp = open('CalQU.data')
+    lines = fp.readlines()
+    fp.close()
+    for eachLine in lines:
+        catalogStokesI[eachLine.split()[0]] = float(eachLine.split()[1])
+        catalogStokesQ[eachLine.split()[0]] = float(eachLine.split()[2])
+        catalogStokesU[eachLine.split()[0]] = float(eachLine.split()[3])
+    #
     #-------- Check AZEL
     azelTime, AntID, AZ, EL = GetAzEl(msfile)
     azelTime_index = np.where( AntID == 0 )[0].tolist()

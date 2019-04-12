@@ -1,5 +1,12 @@
 import sys
 import analysisUtils as au
+from optparse import OptionParser
+
+parser = OptionParser()
+parser.add_option("-b", "--BLC", dest="BLCorr", metavar="BLC", help="BL correlator")
+
+(options, args) = parser.parse_args()
+
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Grid.py')
 msfile = wd + prefix + '.ms'
