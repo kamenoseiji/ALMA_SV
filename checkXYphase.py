@@ -12,6 +12,7 @@ msmd.open(msfile)
 atmSPWs = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); atmSPWs.sort()
 bpSPWs  = list(set( msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_DELAY*"))); bpSPWs.sort()
 if len(bpSPWs) == 0: bpSPWs = list(set( msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_PHASE*"))); bpSPWs.sort()
+if len(bpSPWs) == 0: bpSPWs = list(set(msmd.spwsforintent("CALIBRATE_POLARIZATION*"))); bpSPWs.sort()
 atmspwNames, bpspwNames = msmd.namesforspws(atmSPWs), msmd.namesforspws(bpSPWs)
 atmBandNames, atmPattern = [], r'RB_..'
 for spwName in atmspwNames : atmBandNames = atmBandNames + re.findall(atmPattern, spwName)
