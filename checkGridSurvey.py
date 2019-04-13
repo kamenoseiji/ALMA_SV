@@ -47,6 +47,7 @@ for band_index in range(NumBands):
     print ' ',
     print UniqBands[band_index] + ': atmSPW=' + `atmspwLists[band_index]` + ' bpSPW=' + `bpspwLists[band_index]`
 #
+'''
 #-------- Check source list
 print '---Checking source list'
 sourceList, posList = GetSourceList(msfile); sourceList = sourceRename(sourceList); numSource = len(sourceList)
@@ -172,3 +173,4 @@ del msfile, UniqBands, UseAnt
 if 'flagAnt' in locals(): del flagAnt
 if 'BPScans' in locals(): del BPScans
 if 'EQScans' in locals(): del EQScans
+'''

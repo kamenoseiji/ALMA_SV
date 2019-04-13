@@ -474,7 +474,11 @@ def antRefScan( msfile, timeRange, antFlag=[] ):    # Check scanning and trackin
         else:
             time_index = time_index[np.where( (Time[time_index] - timeRange[0]) > -24e-3)[0]]
             time_index = time_index[np.where( (Time[time_index] - timeRange[1]) <  24e-3)[0]]
-            scanRange[ant_index] = max( Offset[0, time_index] ) - min( Offset[0, time_index] )
+            if len(time_index) == 0:
+                scanRange[ant_index] = 0.0
+            else:
+                scanRange[ant_index] = max( Offset[0, time_index] ) - min( Offset[0, time_index] )
+            #
         #
     #
     trkAntIndex  = np.where( scanRange == 0.0 )[0]
