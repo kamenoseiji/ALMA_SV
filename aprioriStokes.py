@@ -142,7 +142,7 @@ if len(refIndex) == 0: refIndex = range(UseAntNum)
 Afile = open(SCR_DIR + 'AeB' + `int(UniqBands[band_index][3:5])` + '.data')
 Alines = Afile.readlines()
 Afile.close()
-AeX, AeY = 0.25* np.pi* antDia**2, 0.25* np.pi* antDia**2       # antenna collecting area (100% efficiency)
+#AeX, AeY = 0.25* np.pi* antDia**2, 0.25* np.pi* antDia**2       # antenna collecting area (100% efficiency)
 AeX, AeY, etaX, etaY = [], [], [], []
 for ant_index in antMap:
     for Aline in Alines:
@@ -156,6 +156,7 @@ for ant_index in antMap:
     #
 #
 Ae = np.array([AeX, AeY])
+if BLCORR: Ae = 1.15* Ae         # BL Correlator correction factor
 #AeX, AeY = np.array(AeX), np.array(AeY) # in antMap order 
 #
 #-------- Flag table
