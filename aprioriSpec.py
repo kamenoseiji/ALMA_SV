@@ -14,7 +14,8 @@ antDia = np.ones(antNum)
 for ant_index in range(antNum): antDia[ant_index] = msmd.antennadiameter(antList[ant_index])['value']
 flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
 print '  -- usable antenna checking for BP scan : '
-spwList = scnspw
+if 'spwList' not in locals(): spwList = scnspw
+spwNum = len(spwList)
 gainFlag = np.ones([antNum])
 for spw_index in range(spwNum):
     #-------- Checking usable baselines and antennas
