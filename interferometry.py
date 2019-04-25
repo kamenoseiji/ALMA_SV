@@ -970,7 +970,6 @@ def delayCalSpec2( Xspec, chRange, sigma ):  # chRange = [startCH:stopCH] specif
 #
 def BPtable(msfile, spw, BPScan, blMap, blInv, FG=np.array([]), TS=np.array([])): 
     blNum = len(blMap); antNum = Bl2Ant(blNum)[0]
-    #print '  -- Loading visibility data from MS...'
     #timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan, -1, False)    # Xspec[pol, ch, bl, time]
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan, -1, True)    # Xspec[pol, ch, bl, time]
     if len(FG) > 0: flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
@@ -1431,35 +1430,35 @@ def PTdotR(CompSol, Cresid):
     #
     return PTR[range(antNum) + range(antNum+1, 2*antNum)]
 #
+def LocalGainSolve(visSol):
+    vis, sol = visSol[0:blNum], visSol[blNum:blNum+antNum]
+    PTP = PMatrix(sol)
+    L = np.linalg.cholesky(PTP)
+    Cresid = vis - sol[ant0]* sol[ant1].conjugate()
+    t = np.linalg.solve(L, PTdotR(sol, Cresid))
+    correction = np.linalg.solve(L.T, t)
+    return sol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
+#
 def gainComplexVec( bl_vis, niter=2 ):       # bl_vis[baseline, channel]
     ChavVis = np.median(bl_vis.real, axis=1) + (0.0+1.0j)*np.median(bl_vis.imag, axis=1)
     blNum, chNum  =  bl_vis.shape[0], bl_vis.shape[1]
     antNum =  Bl2Ant(blNum)[0]
     ant0, ant1, kernelBL = ANT0[0:blNum], ANT1[0:blNum], KERNEL_BL[range(antNum-1)].tolist()
-    Solution, CompSol = np.zeros([antNum, chNum], dtype=complex), np.zeros(antNum, dtype=complex)
     #---- Initial solution
-    CompSol[0] = sqrt(abs(ChavVis[0])) + 0j
-    CompSol[1:antNum] = ChavVis[kernelBL] / CompSol[0]
+    CompSol = np.append(sqrt(abs(ChavVis[0])) + 0j, ChavVis[kernelBL])
+    CompSol[1:antNum] /=  CompSol[0]
     #---- Global iteration
     PTP = PMatrix(CompSol)
     L = np.linalg.cholesky(PTP)
-    for ch_index in range(chNum):
-        Cresid = bl_vis[:,ch_index] - CompSol[ant0]* CompSol[ant1].conjugate()
+    def GlobalGainSolve(vis):
+        Cresid = vis - CompSol[ant0]* CompSol[ant1].conjugate()
         t = np.linalg.solve(L, PTdotR(CompSol, Cresid))
         correction = np.linalg.solve(L.T, t)
-        Solution[:,ch_index] = CompSol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
+        return CompSol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
     #
+    Solution = np.apply_along_axis(GlobalGainSolve, 0, bl_vis)
     #---- Local iteration
-    for iter_index in range(niter):
-        for ch_index in range(chNum):
-            PTP = PMatrix(Solution[:,ch_index])
-            Cresid = bl_vis[:,ch_index] - Solution[ant0, ch_index]* Solution[ant1, ch_index].conjugate()
-            L = np.linalg.cholesky(PTP)
-            t = np.linalg.solve(L, PTdotR(Solution[:,ch_index], Cresid))
-            correction = np.linalg.solve(L.T, t)
-            Solution[:,ch_index] = Solution[:,ch_index] + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
-        #
-    #
+    for iter_index in range(niter): Solution = np.apply_along_axis(LocalGainSolve, 0, np.concatenate([bl_vis, Solution]))
     return Solution
 #
 def gainComplex( bl_vis, niter=2 ):
