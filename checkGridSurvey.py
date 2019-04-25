@@ -11,8 +11,9 @@ class END(Exception):
 def GetBPcalSPWs(msfile):
     msmd.open(msfile)
     #bpSPWs  = msmd.spwsforintent("CALIBRATE_BANDPASS*").tolist(); bpSPWs.sort()
-    bpSPWs  = msmd.spwsforintent("CALIBRATE_FLUX*").tolist(); bpSPWs.sort()
-    #if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_FLUX*").tolist(); bpSPWs.sort()
+    #bpSPWs  = msmd.spwsforintent("CALIBRATE_FLUX*").tolist(); bpSPWs.sort()
+    bpSPWs  = msmd.spwsforintent("CALIBRATE_PHASE*").tolist(); bpSPWs.sort()
+    if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_FLUX*").tolist(); bpSPWs.sort()
     if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_BANDPASS*").tolist(); bpSPWs.sort()
     if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_DELAY*").tolist(); bpSPWs.sort()
     msmd.close()
@@ -140,15 +141,21 @@ for band_index in range(NumBands):
     msmd.done()
     if polNum == 4:
         pPol, cPol = [0,3], [1,2];  ppolNum, cpolNum = len(pPol), len(cPol)
-        if not Apriori:
+        if Apriori:
+            try:
+                execfile(SCR_DIR + 'aprioriStokes.py')
+            except:
+                print '  --A priori flux calibration falied.'
+        else:
             try:
                 execfile(SCR_DIR + 'checkSEFDStokes.py')
             except:
                 print '  --SSO-based flux calibration falied. Switch to a priori (SEFD) calibration.'
-                execfile(SCR_DIR + 'aprioriStokes.py')
+                try:
+                    execfile(SCR_DIR + 'aprioriStokes.py')
+                except:
+                    print '  --A priori flux calibration falied.'
             #
-        else:
-            execfile(SCR_DIR + 'aprioriStokes.py')
         #
     #
     if polNum == 2:
