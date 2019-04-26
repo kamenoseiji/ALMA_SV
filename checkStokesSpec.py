@@ -3,7 +3,9 @@ import analysisUtils as au
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Grid.py')
 msfile = wd + prefix + '.ms'
-if 'Tsysprefix' not in locals(): execfile(SCR_DIR + 'TsysCal.py')
+if 'Tsysprefix' not in locals():
+    execfile(SCR_DIR + 'TsysCal.py')
+    Tsysprefix = prefix
 #-------- Check Antenna List
 antList = GetAntName(msfile)
 antNum = len(antList)
