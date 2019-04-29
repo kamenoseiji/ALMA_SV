@@ -158,7 +158,6 @@ for spw_index in range(spwNum):
     TsysBPScan = atmCorrect* (TrxList[spw_index].transpose(2,0,1)[Trx2antMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau)) # [antMap, pol, ch]
     TsysBPShape = (TsysBPScan.transpose(2,0,1) / np.median(TsysBPScan, axis=2)).transpose(1,2,0)
     BPList = BPList + [BP_ant* np.sqrt(TsysBPShape)]
-    #BPList = BPList + [BP_ant]
 #
 if PLOTBP:
     pp = PdfPages('BP_' + prefix + '_REF' + antList[refantID] + '_Scan' + `BPScan` + '.pdf')

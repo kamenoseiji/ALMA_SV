@@ -1430,15 +1430,6 @@ def PTdotR(CompSol, Cresid):
     #
     return PTR[range(antNum) + range(antNum+1, 2*antNum)]
 #
-def LocalGainSolve(visSol):
-    vis, sol = visSol[0:blNum], visSol[blNum:blNum+antNum]
-    PTP = PMatrix(sol)
-    L = np.linalg.cholesky(PTP)
-    Cresid = vis - sol[ant0]* sol[ant1].conjugate()
-    t = np.linalg.solve(L, PTdotR(sol, Cresid))
-    correction = np.linalg.solve(L.T, t)
-    return sol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
-#
 def gainComplexVec( bl_vis, niter=2 ):       # bl_vis[baseline, channel]
     ChavVis = np.median(bl_vis.real, axis=1) + (0.0+1.0j)*np.median(bl_vis.imag, axis=1)
     blNum, chNum  =  bl_vis.shape[0], bl_vis.shape[1]
@@ -1458,6 +1449,15 @@ def gainComplexVec( bl_vis, niter=2 ):       # bl_vis[baseline, channel]
     #
     Solution = np.apply_along_axis(GlobalGainSolve, 0, bl_vis)
     #---- Local iteration
+    def LocalGainSolve(visSol):
+        vis, sol = visSol[0:blNum], visSol[blNum:blNum+antNum]
+        PTP = PMatrix(sol)
+        L = np.linalg.cholesky(PTP)
+        Cresid = vis - sol[ant0]* sol[ant1].conjugate()
+        t = np.linalg.solve(L, PTdotR(sol, Cresid))
+        correction = np.linalg.solve(L.T, t)
+        return sol + correction[range(antNum)] + 1.0j* np.append(0, correction[range(antNum, 2*antNum-1)])
+    #
     for iter_index in range(niter): Solution = np.apply_along_axis(LocalGainSolve, 0, np.concatenate([bl_vis, Solution]))
     return Solution
 #
