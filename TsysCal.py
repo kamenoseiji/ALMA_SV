@@ -16,21 +16,6 @@
 #
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Plotters.py')
-#-------- Get atmCal SPWs
-def GetAtmSPWs(msfile):
-    msmd.open(msfile)
-    atmSPWs = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); atmSPWs.sort()
-    if len(atmSPWs) == 0:
-        atmSPWList = msmd.spwsforintent("CALIBRATE_ATMOSPHERE*").tolist()
-        tb.open(msfile + '/' + 'SPECTRAL_WINDOW')
-        for spwID in atmSPWList:
-            if tb.getcell("NUM_CHAN", spwID) > 60: atmSPWs = atmSPWs + [spwID]
-        #
-        tb.close()
-    #
-    msmd.close()
-    return atmSPWs
-#
 #-------- Get atmCal scans
 def scanAtmSpec(msfile, useAnt, scanList, spwList, timeOFF=0, timeON=0, timeAMB=0, timeHOT=0):
     timeList, offSpecList, ambSpecList, hotSpecList = [], [], [], []
@@ -220,28 +205,19 @@ useAnt = np.where(flagAnt == 1.0)[0].tolist(); useAntNum = len(useAnt)
 #-------- Check SPWs
 print '---Checking spectral windows and scans with atmCal for ' + prefix
 atmSPWs = GetAtmSPWs(msfile)
+atmBandNames = GetBandNames(msfile); UniqBands = unique(atmBandNames).tolist(); NumBands = len(UniqBands)
 msmd.open(msfile)
-atmspwNames = msmd.namesforspws(atmSPWs)
-atmBandNames, atmPattern = [], r'RB_..'
-for spwName in atmspwNames : atmBandNames = atmBandNames + re.findall(atmPattern, spwName)
-UniqBands = unique(atmBandNames).tolist(); NumBands = len(UniqBands)
-if 'atmspwLists' not in locals():
-    atmspwLists, atmscanLists = [], []
-    for band_index in range(NumBands):
-        bandAtmSPWs = np.array(atmSPWs)[indexList(np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()
-        atmspwLists = atmspwLists + [bandAtmSPWs]
-        atmscanList = list(set(msmd.scansforspw(atmspwLists[band_index][0]))& set(msmd.scansforintent("CALIBRATE_ATMOSPHERE*"))); atmscanList.sort(); atmscanLists = atmscanLists + [atmscanList]
-        print ' ',
-        print UniqBands[band_index] + ': atmSPW=' + `atmspwLists[band_index]`
+atmspwLists, atmscanLists = [], []
+for band_index in range(NumBands):
+    bandAtmSPWs = np.array(atmSPWs)[indexList(np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()
+    atmspwLists = atmspwLists + [bandAtmSPWs]
+    if 'spwFlag' in locals():
+        flagIndex = indexList(np.array(spwFlag), np.array(atmspwLists[band_index]))
+        for index in flagIndex: del atmspwLists[band_index][index]
     #
-else:
-    atmscanLists = []
-    for band_index in range(NumBands):
-        atmscanList = list(set(msmd.scansforspw(atmspwLists[band_index][0]))& set(msmd.scansforintent("CALIBRATE_ATMOSPHERE*"))); atmscanList.sort()
-        atmscanLists = atmscanLists + [atmscanList]
-        print ' ',
-        print UniqBands[band_index] + ': atmSPW=' + `atmspwLists[band_index]`
-    #
+    atmscanList = list(set(msmd.scansforspw(atmspwLists[band_index][0]))& set(msmd.scansforintent("CALIBRATE_ATMOSPHERE*"))); atmscanList.sort(); atmscanLists = atmscanLists + [atmscanList]
+    print ' ',
+    print UniqBands[band_index] + ': atmSPW=' + `atmspwLists[band_index]`
 #
 # atmSPWs[band] : SPWs used in atmCal scans
 # bpSPWs[band]  : SPWs used in bandpass scan (i.e. SPWs for OBS_TARGET)

@@ -217,6 +217,40 @@ def AzElMatch( refTime, scanTime, AntID, targetAnt, Az, El ):
         az[time_index], el[time_index] = np.median(Az[antTimeIndex[time_ptr]]), np.median(El[antTimeIndex[time_ptr]])
     return az, el
 #
+#-------- Get atmCal SPWs
+def GetAtmSPWs(msfile):
+    msmd.open(msfile)
+    atmSPWs = list( (set(msmd.tdmspws()) | set(msmd.fdmspws())) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); atmSPWs.sort()
+    if len(atmSPWs) == 0:
+        atmSPWList = msmd.spwsforintent("CALIBRATE_ATMOSPHERE*").tolist()
+        tb.open(msfile + '/' + 'SPECTRAL_WINDOW')
+        for spwID in atmSPWList:
+            if tb.getcell("NUM_CHAN", spwID) > 60: atmSPWs = atmSPWs + [spwID]
+        #
+        tb.close()
+    #
+    msmd.close()
+    return atmSPWs
+#
+#-------- Get Bandpass SPWs
+def GetBPcalSPWs(msfile):
+    msmd.open(msfile)
+    bpSPWs  = msmd.spwsforintent("CALIBRATE_PHASE*").tolist(); bpSPWs.sort()
+    if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_FLUX*").tolist(); bpSPWs.sort()
+    if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_BANDPASS*").tolist(); bpSPWs.sort()
+    if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_DELAY*").tolist(); bpSPWs.sort()
+    msmd.close()
+    return bpSPWs
+#
+def GetBandNames(msfile, atmSPWs=[]):
+    if len(atmSPWs) < 1: atmSPWs = GetAtmSPWs(msfile)
+    msmd.open(msfile)
+    atmspwNames = msmd.namesforspws(atmSPWs)
+    atmBandNames, atmPattern = [], r'RB_..'
+    for spwName in atmspwNames : atmBandNames = atmBandNames + re.findall(atmPattern, spwName)
+    msmd.close(); msmd.done()
+    return atmBandNames
+#
 def GetAntD(antName):
     antD = 12.0
     if antName.find('C') > -1:

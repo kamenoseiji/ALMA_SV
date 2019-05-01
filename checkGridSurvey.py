@@ -7,41 +7,24 @@ msfile = wd + prefix + '.ms'
 execfile(SCR_DIR + 'TsysCal.py')
 class END(Exception):
     pass
-#-------- Get Bandpass SPWs
-def GetBPcalSPWs(msfile):
-    msmd.open(msfile)
-    #bpSPWs  = msmd.spwsforintent("CALIBRATE_BANDPASS*").tolist(); bpSPWs.sort()
-    #bpSPWs  = msmd.spwsforintent("CALIBRATE_FLUX*").tolist(); bpSPWs.sort()
-    bpSPWs  = msmd.spwsforintent("CALIBRATE_PHASE*").tolist(); bpSPWs.sort()
-    if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_FLUX*").tolist(); bpSPWs.sort()
-    if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_BANDPASS*").tolist(); bpSPWs.sort()
-    if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_DELAY*").tolist(); bpSPWs.sort()
-    msmd.close()
-    return bpSPWs
-#
 #-------- Check Antenna List
 antList = GetAntName(msfile)
 antNum = len(antList)
 blNum = antNum* (antNum - 1) / 2
 #-------- Check SPWs of atmCal
-print '---Checking spectral windows with atmCal for ' + prefix
-atmSPWs = GetAtmSPWs(msfile)
-bpSPWs  = GetBPcalSPWs(msfile)
+#print '---Checking spectral windows with atmCal for ' + prefix
+#atmSPWs = GetAtmSPWs(msfile)
+#bpSPWs  = GetBPcalSPWs(msfile)
+bpspwLists, bpscanLists, BandPA = [], [], []
 msmd.open(msfile)
-atmspwNames, bpspwNames = msmd.namesforspws(atmSPWs), msmd.namesforspws(bpSPWs)
-bpSPWs = np.array(bpSPWs)[indexList(np.array(atmspwNames), np.array(bpspwNames))].tolist(); bpspwNames = msmd.namesforspws(bpSPWs)
-atmBandNames, atmPattern = [], r'RB_..'
-for spwName in atmspwNames : atmBandNames = atmBandNames + re.findall(atmPattern, spwName)
-UniqBands = unique(atmBandNames).tolist(); NumBands = len(UniqBands)
-atmspwLists, bpspwLists, atmscanLists, bpscanLists, BandPA = [], [], [], [], []
 for band_index in range(NumBands):
-    BandPA = BandPA + [(BANDPA[int(UniqBands[band_index][3:5])] + 90.0)*pi/180.0]
-    atmspwLists = atmspwLists + [np.array(atmSPWs)[indexList(np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()]
-    bpspwLists  = bpspwLists  + [np.array(bpSPWs)[indexList( np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()]
-    atmscanLists= atmscanLists+ [msmd.scansforspw(atmspwLists[band_index][0]).tolist()]
+    bpspwLists  = bpspwLists  + [np.array(atmSPWs)[indexList( np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()]
+    if 'spwFlag' in locals():
+        flagIndex = indexList(np.array(spwFlag), np.array(bpspwLists[band_index]))
+        for index in flagIndex: del bpspwLists[band_index][index]
+    #
     bpscanLists = bpscanLists + [msmd.scansforspw(bpspwLists[band_index][0]).tolist()]
-    print ' ',
-    print UniqBands[band_index] + ': atmSPW=' + `atmspwLists[band_index]` + ' bpSPW=' + `bpspwLists[band_index]`
+    BandPA = BandPA + [(BANDPA[int(UniqBands[band_index][3:5])] + 90.0)*pi/180.0]
 #
 #-------- Check source list
 print '---Checking source list'
@@ -170,7 +153,8 @@ for band_index in range(NumBands):
             execfile(SCR_DIR + 'aprioriFlux.py')
     #
 #
-del msfile, UniqBands, UseAnt, atmspwLists
+del msfile, UniqBands, useAnt, atmspwLists
+if 'spwFlag' in locals(): del spwFlag
 if 'flagAnt' in locals(): del flagAnt
 if 'BPScans' in locals(): del BPScans
 if 'EQScans' in locals(): del EQScans
