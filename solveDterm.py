@@ -1,4 +1,5 @@
 execfile(SCR_DIR + 'interferometry.py')
+execfile(SCR_DIR + 'Grid.py')
 execfile(SCR_DIR + 'Plotters.py')
 from matplotlib.backends.backend_pdf import PdfPages
 ALMA_lat = -23.029/180.0*pi     # ALMA AOS Latitude
@@ -10,10 +11,22 @@ trkAntSet = set(range(64))
 scansFile = []
 pattern = r'RB_..'
 timeNum = 0
+sourceList = []
+for file_index in range(fileNum):
+    prefix = prefixList[file_index]
+    msfile = wd + prefix + '.ms'
+    sources, posList = GetSourceList(msfile); sourceList = sourceList + sourceRename(sources)
+#
+sourceList = unique(sourceList).tolist()
+sourceScan = []
+scanDic   = dict(zip(sourceList, [[]]*len(sourceList)))
+StokesDic = dict(zip(sourceList, [[]]*len(sourceList)))
+scanIndex = 0
 for file_index in range(fileNum):
     prefix = prefixList[file_index]
     msfile = wd + prefix + '.ms'
     print '-- Checking %s ' % (msfile)
+    sourceList, posList = GetSourceList(msfile); sourceList = sourceRename(sourceList)
     antList = GetAntName(msfile)
     refAntID  = indexList([refantName], antList)
     flagAntID = indexList(antFlag, antList)
@@ -29,7 +42,8 @@ for file_index in range(fileNum):
     else:
         scanLS = msmd.scannumbers().tolist()
     #
-    spwName = msmd.namesforspws(spwList[0])[0]; BandName = re.findall(pattern, spwName)[0]; BandPA = (BANDPA[int(BandName[3:5])] + 90.0)*pi/180.0
+    spwName = msmd.namesforspws(spwList[0])[0]; BandName = re.findall(pattern, spwName)[0]; bandID = int(BandName[3:5])
+    BandPA = (BANDPA[bandID] + 90.0)*pi/180.0
     for scan in scanLS:
         timeStamp = msmd.timesforscans(scan).tolist()
         timeNum += len(timeStamp)
@@ -40,11 +54,18 @@ for file_index in range(fileNum):
         else:
             scanLS = list( set(scanLS) - set([scan]) )
         #
-        print '---- Scan %d : %d tracking antennas' % (scan, len(trkAnt))
+        sourceName = sourceList[msmd.sourceidforfield(msmd.fieldsforscan(scan))]
+        sourceScan = sourceScan + [sourceName]
+        scanDic[sourceName] = scanDic[sourceName] + [scanIndex]
+        IQU = GetPolQuery(sourceName, timeStamp[0], BANDFQ[bandID], SCR_DIR)
+        StokesDic[sourceName] = [IQU[0][sourceName], IQU[1][sourceName], IQU[2][sourceName], 0.0]
+        print '---- Scan%3d : %d tracking antennas : %s' % (scan, len(trkAnt), sourceName)
+        scanIndex += 1
     #
     scansFile.append(scanLS)
 #
 if not 'scanList' in locals(): scanList = scansFile
+#-------- Check source list and Stokes Parameters
 msmd.done()
 antMap = [refAntID] + list(trkAntSet - set([refAntID]))
 antNum = len(antMap); blNum = antNum * (antNum - 1)/2
@@ -79,8 +100,9 @@ for spw_index in range(spwNum):
     #
     chAvgVis = np.zeros([4, blNum, timeNum], dtype=complex)
     VisSpec  = np.zeros([4, chNum/bunchNum, blNum, timeNum], dtype=complex)
-    mjdSec, Az, El = [], [], []
-    timeIndex = 0
+    mjdSec, scanST, scanET, Az, El, PA, QCpUS, UCmQS = [], [], [], [], [], [], [], []
+    timeIndex, scanIndex  = 0, 0
+    #-------- Store visibilities into memory
     for file_index in range(fileNum):
         prefix = prefixList[file_index]
         msfile = wd + prefix + '.ms'
@@ -105,79 +127,116 @@ for spw_index in range(spwNum):
                 tempSpec = CrossPolBL(np.apply_along_axis(bunchVecCH, 1, Xspec[:,:,blMap]), blInv).transpose(3, 2, 0, 1)[flagIndex]
                 VisSpec[:,:,:,timeIndex:timeIndex + len(timeStamp)] = (tempSpec / BP_bl).transpose(2,3,1,0) 
             #
+            scanST = scanST + [timeIndex]
             timeIndex += len(timeStamp)
-            #-------- Time index at on axis
+            scanET = scanET + [timeIndex]
+            #-------- Expected polarization responses
             scanAz, scanEl = AzElMatch(timeStamp[flagIndex], azelTime, AntID, refAntID, AZ, EL)
             mjdSec = mjdSec + timeStamp[flagIndex].tolist()
+            scanPA = AzEl2PA(scanAz, scanEl, ALMA_lat) + BandPA
+            CS, SN = np.cos(2.0* scanPA), np.sin(2.0* scanPA)
+            QCpUS = QCpUS + ((StokesDic[sourceScan[scanIndex]][1]*CS + StokesDic[sourceScan[scanIndex]][2]*SN)/StokesDic[sourceScan[scanIndex]][0]).tolist()
+            UCmQS = UCmQS + ((StokesDic[sourceScan[scanIndex]][2]*CS - StokesDic[sourceScan[scanIndex]][1]*SN)/StokesDic[sourceScan[scanIndex]][0]).tolist()
             Az = Az + scanAz.tolist()
             El = El + scanEl.tolist()
+            PA = PA + scanPA.tolist()
+            scanIndex += 1
         #
     #
+    scanNum = scanIndex
     if chNum > 1: chAvgVis = np.mean(VisSpec[:,chRange], axis=1)
-    mjdSec, Az, El = np.array(mjdSec), np.array(Az), np.array(El)
+    mjdSec, Az, El, QCpUS, UCmQS = np.array(mjdSec), np.array(Az), np.array(El), np.array(QCpUS), np.array(UCmQS)
     print '---- Antenna-based gain solution using tracking antennas'
     Gain = np.array([ gainComplexVec(chAvgVis[0]), gainComplexVec(chAvgVis[3]) ])   # Parallel-pol gain
     Gamp = np.sqrt(np.mean(abs(Gain)**2, axis=0))
     Gain = Gamp* Gain/abs(Gain)
     #-------- Gain-calibrated visibilities
-    print '  -- Apply gain calibration'
+    print '  -- Apply parallel-hand gain calibration'
     caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
-    PA = AzEl2PA(Az, El, ALMA_lat) + BandPA     # Apply feed orientation
-    PA = np.arctan2( np.sin(PA), np.cos(PA))    # to set in [-pi, pi]
     Vis    = np.mean(caledVis, axis=1)
-    PAnum = len(PA)
+    PAnum = len(PA); PA = np.array(PA)
+    """
     print '  -- Solution for Q and U'
     #-------- Coarse estimation of Q and U using XX and YY
     if 'QUsol' not in locals():
         QUsol   = XXYY2QU(PA, Vis[[0,3]])             # XX*, YY* to estimate Q, U
         text_sd = '[XX,YY]  Q/I= %6.3f  U/I= %6.3f p=%.2f%% EVPA = %6.2f deg' % (QUsol[0], QUsol[1], 100.0* np.sqrt(QUsol[0]**2 + QUsol[1]**2), np.arctan2(QUsol[1],QUsol[0])*90.0/pi); print text_sd
-    #-------- XY phase determination
-    XYphase = XY2Phase(PA, QUsol[0], QUsol[1], Vis[[1,2]])    # XY*, YX* to estimate X-Y phase
+    """
+    ##-------- XY phase determination
+    print '  -- XY phase determination'
+    XYphase = XY2Phase(UCmQS, Vis[[1,2]])    # XY*, YX* to estimate X-Y phase
     XYsign = np.sign(np.cos(XYphase))
     text_sd = '  XY Phase = %6.2f [deg]  sign = %3.0f' % (XYphase* 180.0 / pi, XYsign); print text_sd
     #-------- Gain adjustment
-    GainX, GainY = polariGain(caledVis[0], caledVis[3], PA, QUsol[0], QUsol[1])
+    print '  -- Polarized gain calibration'
+    GainX, GainY = polariGain(caledVis[0], caledVis[3], QCpUS)
     Gain = np.array([Gain[0]* GainX, Gain[1]* GainY* XYsign])
     caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
     Vis    = np.mean(caledVis, axis=1)
+    CS, SN = np.cos(2.0* PA), np.sin(2.0* PA)
     #-------- Fine estimation of Q and U using XY and YX
-    QUsol[0], QUsol[1] = XY2Stokes(PA, Vis[[1,2]])
-    text_sd = '[XY,YX]  Q/I= %6.3f  U/I= %6.3f p=%.2f%% EVPA = %6.2f deg' % (QUsol[0], QUsol[1], 100.0* np.sqrt(QUsol[0]**2 + QUsol[1]**2), np.arctan2(QUsol[1],QUsol[0])*90.0/pi); print text_sd
-    GainX, GainY = polariGain(caledVis[0], caledVis[3], PA, QUsol[0], QUsol[1])
+    for sourceName in sourceList:
+        scanList = scanDic[sourceName]
+        if len(scanList) < 1 : continue
+        timeIndex = []
+        for scanIndex in scanList: timeIndex = timeIndex + range(scanST[scanIndex], scanET[scanIndex])
+        Qsol, Usol = XY2Stokes(PA[timeIndex], Vis[[1,2]][:,timeIndex])
+        text_sd = '[XY,YX] %s:  Q/I= %6.3f  U/I= %6.3f p=%.2f%% EVPA = %6.2f deg' % (sourceName, Qsol, Usol, 100.0* np.sqrt(Qsol**2 + Usol**2), np.arctan2(Usol,Qsol)*90.0/pi); print text_sd
+        QCpUS[timeIndex] = Qsol* CS[timeIndex] + Usol* SN[timeIndex]
+        UCmQS[timeIndex] = Usol* CS[timeIndex] - Qsol* SN[timeIndex]
+    #
+    GainX, GainY = polariGain(caledVis[0], caledVis[3], QCpUS)
     Gain = np.array([Gain[0]* GainX, Gain[1]* GainY])
     caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
     Vis    = np.mean(caledVis, axis=1)
     #-------- XY phase correction
-    XYproduct, XYphaseVec = XY2PhaseVec(mjdSec - np.median(mjdSec), PA, QUsol[0], QUsol[1], Vis[[1,2]])
-    twiddle = np.exp((1.0j)* XYphaseVec)
+    XYphase, XYproduct = XY2PhaseVec(mjdSec - np.median(mjdSec), UCmQS, Vis[[1,2]])
+    twiddle = np.exp((1.0j)* XYphase)
     caledVis[1] /= twiddle
     caledVis[2] *= twiddle
     #-------- Fine estimation of Q and U using XY and YX
     Vis    = np.mean(caledVis, axis=1)
-    QUsol[0], QUsol[1] = XY2Stokes(PA, Vis[[1,2]])
-    text_sd = '[XY,YX]  Q/I= %6.3f  U/I= %6.3f p=%.2f%% EVPA = %6.2f deg' % (QUsol[0], QUsol[1], 100.0* np.sqrt(QUsol[0]**2 + QUsol[1]**2), np.arctan2(QUsol[1],QUsol[0])*90.0/pi); print text_sd
-    GainX, GainY = polariGain(caledVis[0], caledVis[3], PA, QUsol[0], QUsol[1])
+    for sourceName in sourceList:
+        scanList = scanDic[sourceName]
+        if len(scanList) < 1 : continue
+        timeIndex = []
+        for scanIndex in scanList: timeIndex = timeIndex + range(scanST[scanIndex], scanET[scanIndex])
+        Qsol, Usol = XY2Stokes(PA[timeIndex], Vis[[1,2]][:,timeIndex])
+        text_sd = '[XY,YX] %s:  Q/I= %6.3f  U/I= %6.3f p=%.2f%% EVPA = %6.2f deg' % (sourceName, Qsol, Usol, 100.0* np.sqrt(Qsol**2 + Usol**2), np.arctan2(Usol,Qsol)*90.0/pi); print text_sd
+        QCpUS[timeIndex] = Qsol* CS[timeIndex] + Usol* SN[timeIndex]
+        UCmQS[timeIndex] = Usol* CS[timeIndex] - Qsol* SN[timeIndex]
+    #
+    #QUsol[0], QUsol[1] = XY2Stokes(PA, Vis[[1,2]])
+    #text_sd = '[XY,YX]  Q/I= %6.3f  U/I= %6.3f p=%.2f%% EVPA = %6.2f deg' % (QUsol[0], QUsol[1], 100.0* np.sqrt(QUsol[0]**2 + QUsol[1]**2), np.arctan2(QUsol[1],QUsol[0])*90.0/pi); print text_sd
+    #GainX, GainY = polariGain(caledVis[0], caledVis[3], PA, QUsol[0], QUsol[1])
+    GainX, GainY = polariGain(caledVis[0], caledVis[3], QCpUS)
     Gain = np.array([Gain[0]* GainX, Gain[1]* GainY])
     caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
     Vis    = np.mean(caledVis, axis=1)
     GainCaledVisSpec = VisSpec.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
     #-------- Antenna-based on-axis D-term (chAvg)
     #Dx, Dy = VisPA_solveD(caledVis, PA, np.array([1.0, QUsol[0], QUsol[1], 0.0]))
-    CS, SN = np.cos(2.0* PA), np.sin(2.0*PA)
-    QCpUS = QUsol[0]*CS + QUsol[1]*SN
-    UCmQS = QUsol[1]*CS - QUsol[0]*SN
+    #CS, SN = np.cos(2.0* PA), np.sin(2.0*PA)
+    #QCpUS = QUsol[0]*CS + QUsol[1]*SN
+    #UCmQS = QUsol[1]*CS - QUsol[0]*SN
     Dx, Dy = VisMuiti_solveD(caledVis, QCpUS, UCmQS)
     #-------- D-term-corrected Stokes parameters
     Minv = InvMullerVector(Dx[ant1], Dy[ant1], Dx[ant0], Dy[ant0], np.ones(blNum, dtype=complex))
-    PS = InvPAVector(PA, np.ones(PAnum))
-    StokesVis = PS.reshape(4, 4*PAnum).dot(Minv.reshape(4, 4*blNum).dot(caledVis.reshape(4*blNum, PAnum)).reshape(4*PAnum)) / (PAnum* blNum)
-    QUsol[0], QUsol[1] = StokesVis[1].real, StokesVis[2].real; QUerr = np.array([abs(StokesVis[1].imag), abs(StokesVis[2].imag)])
-    text_sd = '  Q/I= %6.3f+-%6.4f  U/I= %6.3f+-%6.4f EVPA = %6.2f deg' % (QUsol[0], QUerr[0], QUsol[1], QUerr[1], np.arctan2(QUsol[1],QUsol[0])*90.0/pi); print text_sd
+    for sourceName in sourceList:
+        scanList = scanDic[sourceName]
+        if len(scanList) < 1 : continue
+        timeIndex = []
+        for scanIndex in scanList: timeIndex = timeIndex + range(scanST[scanIndex], scanET[scanIndex])
+        timeNum = len(timeIndex)
+        PS = InvPAVector(PA[timeIndex], np.ones(timeNum))
+        StokesVis = PS.reshape(4, 4*timeNum).dot(Minv.reshape(4, 4*blNum).dot(caledVis[:,:,timeIndex].reshape(4*blNum, timeNum)).reshape(4*timeNum)) / (timeNum* blNum)
+        Qsol, Usol = StokesVis[1].real, StokesVis[2].real; Qerr, Uerr = abs(StokesVis[1].imag), abs(StokesVis[2].imag)
+        text_sd = '%s:  Q/I= %6.3f+-%6.4f  U/I= %6.3f+-%6.4f EVPA = %6.2f deg' % (sourceName, Qsol, Qerr, Usol, Uerr, np.arctan2(Usol,Qsol)*90.0/pi); print text_sd
+        QCpUS[timeIndex] = Qsol* CS[timeIndex] + Usol* SN[timeIndex]
+        UCmQS[timeIndex] = Usol* CS[timeIndex] - Qsol* SN[timeIndex]
+    #
     #-------- get D-term spectra
-    QCpUS = QUsol[0]*CS + QUsol[1]*SN
-    UCmQS = QUsol[1]*CS - QUsol[0]*SN
     for ch_index in range(int(chNum/bunchNum)):
-        #DxSpec[:,ch_index], DySpec[:,ch_index] = VisPA_solveD(GainCaledVisSpec[ch_index], PA, np.array([1.0, QUsol[0], QUsol[1], 0.0]), Dx, Dy)
         DxSpec[:,ch_index], DySpec[:,ch_index] = VisMuiti_solveD(GainCaledVisSpec[ch_index], QCpUS, UCmQS, Dx, Dy)
         progress = (ch_index + 1.0) / (chNum / bunchNum)
         sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
@@ -191,7 +250,41 @@ for spw_index in range(spwNum):
             DySpec[ant_index] = DY_real(Freq) + (0.0 + 1.0j)* DY_imag(Freq)
         #
     #
-    #-------- D-term-corrected visibilities ( invD dot Vis = PS)
+    #-------- D-term-corrected visibilities (invD dot Vis = PS)
+    """
+    M  = InvMullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum]))
+    DcorrectedVis = np.zeros([4, chNum, blNum, PAnum], dtype=complex)
+    for bl_index in range(blNum):
+        for ch_index in range(chNum):
+            for pa_index in range(PAnum):
+                DcorrectedVis[:,ch_index,bl_index,pa_index] = M[:,:,bl_index, ch_index].dot(VisSpec[:,ch_index,bl_index,pa_index])
+            #
+        #
+    #
+    chAvgVis = np.mean(DcorrectedVis[:,chRange], axis=1)
+    Gain = np.array([gainComplexVec(chAvgVis[0]), gainComplexVec(chAvgVis[3])])   # Gain[pol, ant, time]
+    caledVis = DcorrectedVis.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
+    for sourceName in sourceList:
+        scanList = scanDic[sourceName]
+        if len(scanList) < 1 : continue
+        timeIndex = []
+        for scanIndex in scanList: timeIndex = timeIndex + range(scanST[scanIndex], scanET[scanIndex])
+        timeNum = len(timeIndex)
+        PS = InvPAVector(PA[timeIndex], np.ones(timeNum))
+        StokesVis = PS*  np.mean(caledVis[:,:,timeIndex], axis=1)
+
+.reshape(4*blNum, timeNum)).reshape(4*timeNum)) / (timeNum* blNum)
+
+        Qsol, Usol = StokesVis[1].real, StokesVis[2].real; Qerr, Uerr = abs(StokesVis[1].imag), abs(StokesVis[2].imag)
+        text_sd = '%s:  Q/I= %6.3f+-%6.4f  U/I= %6.3f+-%6.4f EVPA = %6.2f deg' % (sourceName, Qsol, Qerr, Usol, Uerr, np.arctan2(Usol,Qsol)*90.0/pi); print text_sd
+        QCpUS[timeIndex] = Qsol* CS[timeIndex] + Usol* SN[timeIndex]
+        UCmQS[timeIndex] = Usol* CS[timeIndex] - Qsol* SN[timeIndex]
+    #
+    #XX, YY = np.mean(GainCaledVisSpec[:,0], axis=2), np.mean(GainCaledVisSpec[:,3], axis=2)
+    #BP_ant[:,0] *= gainComplexVec(XX.T); BP_ant[:,1] *= gainComplexVec(YY.T)
+    #BP_bl = BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate()    # Baseline-based bandpass table
+
+    #-------- D-term-corrected visibilities (invD dot Vis = PS)
     print 'Update Bandpass with D-term-corrected visibilities'
     PS = (PAVector(PA, np.ones(PAnum)).transpose(2,0,1).dot(StokesVis.real))
     M  = MullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum])).transpose(0,3,2,1)
@@ -242,6 +335,7 @@ for spw_index in range(spwNum):
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.TS.npy', mjdSec )
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.GA.npy', Gain )
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.XYPH.npy', XYphase )
+    """
     for ant_index in range(antNum):
         DtermFile = np.array([FreqList[spw_index], DxSpec[ant_index].real, DxSpec[ant_index].imag, DySpec[ant_index].real, DySpec[ant_index].imag])
         np.save(prefixList[0] + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DSpec.npy', DtermFile)

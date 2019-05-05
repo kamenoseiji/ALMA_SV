@@ -297,6 +297,22 @@ def GetAzOffset(msfile):
 	tb.close()
 	return Time, AntID, Offset[:,0]*180*3600/pi
 #
+def GetPolQuery(sourceName, mjdSec, Freq, SCR_DIR, R_DIR = '' ):
+    # Freq (input) : frequency in [GHz]
+    os.system('rm -rf CalQU.data')
+    text_sd = R_DIR + 'Rscript %spolQuery.R -D%s -F%f %s' % (SCR_DIR, qa.time('%fs' % mjdSec, form='ymd')[0], Freq, sourceName)
+    os.system(text_sd)
+    fp = open('CalQU.data')
+    lines = fp.readlines()
+    fp.close()
+    catI, catQ, catU = {}, {}, {}
+    for eachLine in lines:
+        catI[eachLine.split()[0]] = float(eachLine.split()[1])
+        catQ[eachLine.split()[0]] = float(eachLine.split()[2])
+        catU[eachLine.split()[0]] = float(eachLine.split()[3])
+    #
+    return catI, catQ, catU
+#
 def TimeExtract(AntID, scanTime, keyTime):		# Find index in scanTime with the keyTime
 	time_index = range(len(keyTime))
 	for scan_index in time_index:
@@ -764,7 +780,11 @@ def dMdDVec(Dx1, Dy1, Unity):
 def KMvec(Dx, Dy, Unity):
     return np.array([[ Unity, Dx ], [Dy, Unity]] )
 #
+#-------- D-term determination using full-polarization visibilities to a calibrator whose Stokes parameters are known
 def VisPA_solveD(Vis, PA, Stokes, Dx=[], Dy=[]):
+    # Vis (input) : full-polarization visibilities [pol, bl, PA]
+    # PA  (input) : parallactic angle + BandPA
+    # Stokes (input): Stokes parameters of the source
     PAnum, blNum = len(PA), Vis.shape[1]; antNum = Bl2Ant(blNum)[0]; PABLnum = PAnum* blNum
     ant0, ant1 = np.array(ANT0[0:blNum]), np.array(ANT1[0:blNum])
     CS, SN = np.cos(2.0* PA), np.sin(2.0*PA)
@@ -823,6 +843,77 @@ def VisPA_solveD(Vis, PA, Stokes, Dx=[], Dy=[]):
         PTRX[ant_index] += (Stokes[0] - QCpUS).dot(np.sum(residYX[index1], axis=0).conjugate())
         PTRY[ant_index] += (Stokes[0] + QCpUS).dot(np.sum(residYX[index0], axis=0))
         PTRY[ant_index] += (Stokes[0] + QCpUS).dot(np.sum(residXY[index1], axis=0).conjugate())
+    #
+    resid = np.array([PTRX.real, PTRX.imag, PTRY.real, PTRY.imag]).reshape(4*antNum)
+    #-------- Solution
+    L = np.linalg.cholesky(PTP)
+    t = np.linalg.solve(L, resid)
+    Solution = np.linalg.solve(L.T, t)
+    #-------- Correction
+    Dx += Solution[0:antNum] + (1.0j)* Solution[antNum:2*antNum]
+    Dy += Solution[2*antNum:3*antNum] + (1.0j)* Solution[3*antNum:4*antNum]
+    return Dx, Dy
+#
+#-------- D-term determination using full-polarization visibilities to a calibrator whose Stokes parameters are known
+def VisMuiti_solveD(Vis, QCpUS, UCmQS, Dx=[], Dy=[]):
+    # Vis (input) : full-polarization visibilities [pol, bl, PA]
+    # QCpUS  (input) : Q cos(2PA) + U sin(2PA)
+    # UCmQS  (input) : U cos(2PA) - Q sin(2PA)
+    PAnum, blNum = len(QCpUS), Vis.shape[1]; antNum = Bl2Ant(blNum)[0]; PABLnum = PAnum* blNum
+    ant0, ant1 = np.array(ANT0[0:blNum]), np.array(ANT1[0:blNum])
+    ssqQCpUS = QCpUS.dot(QCpUS)     # sum( QCpUS^2 )
+    sumQCpUS = np.sum(QCpUS)        # sum( QCpUS )
+    if len(Dx) == 0 :                    # Start over the initial D-term value
+        #-------- <XX*> to determine Dx (initial value)
+        PTP_inv = np.zeros([2*antNum-1, 2*antNum-1])
+        PTP_inv[0:antNum][:,0:antNum] = ((2.0* antNum - 2.0)* np.diag(np.ones(antNum)) - 1.0) / (2.0* (antNum - 1.0)* (antNum - 2.0))
+        PTP_inv[antNum:(2*antNum-1)][:,antNum:(2*antNum-1)] = (np.diag(np.ones(antNum-1)) + 1.0) / antNum
+        PTP_inv /= ssqQCpUS
+        PTY = np.zeros([2*antNum-1])
+        resid = Vis[0] - (1.0 + QCpUS)
+        for ant_index in range(1,antNum):
+            index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
+            PTY[ant_index] = np.sum(resid[index0].real.dot(QCpUS)) + np.sum(resid[index1].real.dot(QCpUS))
+            PTY[antNum + ant_index - 1] = np.sum(resid[index0].imag.dot(QCpUS)) - np.sum(resid[index1].imag.dot(QCpUS))
+        #
+        index1 = np.where(ant1 == 0)[0].tolist(); PTY[0] = np.sum(resid[index1].real.dot(QCpUS))
+        Solution = PTP_inv.dot(PTY); Dx = Solution[0:antNum] + (1.0j)* np.append(0.0, Solution[antNum:2*antNum-1])
+        #
+        #-------- <YY*> to determine Dy (initial value)
+        resid = Vis[3] - (1.0 - QCpUS)
+        for ant_index in range(1,antNum):
+            index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
+            PTY[ant_index] = np.sum(resid[index0].real.dot(QCpUS)) + np.sum(resid[index1].real.dot(QCpUS))
+            PTY[antNum + ant_index - 1] = np.sum(resid[index0].imag.dot(QCpUS)) - np.sum(resid[index1].imag.dot(QCpUS))
+        #
+        index1 = np.where(ant1 == 0)[0].tolist(); PTY[0] = np.sum(resid[index1].real.dot(QCpUS))
+        Solution = PTP_inv.dot(PTY); Dy = Solution[0:antNum] + (1.0j)* np.append(0.0, Solution[antNum:2*antNum-1])
+    #
+    #-------- <XY*> and <YX*> to determine Dx and Dy
+    PTP = np.zeros([4*antNum, 4*antNum])            # (Dx.real, Dx.imag, Dy.real, Dy.imag)^2
+    PTP[0:2*antNum][:,0:2*antNum] = (ssqQCpUS - 2.0*sumQCpUS + PAnum)* (antNum - 1.0)* np.identity(2*antNum)
+    PTP[2*antNum:4*antNum][:,2*antNum:4*antNum] = (ssqQCpUS + 2.0*sumQCpUS + PAnum)* (antNum - 1.0)* np.identity(2*antNum)
+    PTP[2*antNum:3*antNum][:,0:antNum] = (PAnum - ssqQCpUS) * (1.0 - np.identity(antNum))
+    PTP[0:antNum][:,2*antNum:3*antNum] = PTP[2*antNum:3*antNum][:,0:antNum]
+    PTP[3*antNum:4*antNum][:,antNum:2*antNum] = -PTP[2*antNum:3*antNum][:,0:antNum]
+    PTP[antNum:2*antNum][:,3*antNum:4*antNum] = -PTP[2*antNum:3*antNum][:,0:antNum]
+    #-------- Residual Vector
+    residXY, residYX = Vis[1] - UCmQS, Vis[2] - UCmQS
+    PTRX, PTRY = np.zeros(antNum, dtype=complex), np.zeros(antNum, dtype=complex)
+    for ant_index in range(antNum):
+        index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
+        residXY[index0] -= Dx[ant_index]* (1.0 - QCpUS)
+        residXY[index1] -= Dy[ant_index].conjugate()* (1.0 + QCpUS)
+        residYX[index0] -= Dy[ant_index]* (1.0 + QCpUS)
+        residYX[index1] -= Dx[ant_index].conjugate()* (1.0 - QCpUS)
+    #
+    #-------- PTR vector
+    for ant_index in range(antNum):
+        index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
+        PTRX[ant_index] += (1.0 - QCpUS).dot(np.sum(residXY[index0], axis=0))
+        PTRX[ant_index] += (1.0 - QCpUS).dot(np.sum(residYX[index1], axis=0).conjugate())
+        PTRY[ant_index] += (1.0 + QCpUS).dot(np.sum(residYX[index0], axis=0))
+        PTRY[ant_index] += (1.0 + QCpUS).dot(np.sum(residXY[index1], axis=0).conjugate())
     #
     resid = np.array([PTRX.real, PTRX.imag, PTRY.real, PTRY.imag]).reshape(4*antNum)
     #-------- Solution
@@ -1582,15 +1673,23 @@ def QUscale(PA,  StokesQ, StokesU):
     Xscale = 1.0 / (1.0 + StokesQ* csPA + StokesU* snPA)
     Yscale = 1.0 / (1.0 - StokesQ* csPA - StokesU* snPA)
 #
-def polariGain( XX, YY, PA, StokesQ, StokesU):
+#def polariGain( XX, YY, PA, StokesQ, StokesU):
+#    blNum, timeNum = XX.shape[0], XX.shape[1]
+#    csPA, snPA = np.cos(2.0* PA), np.sin(2.0* PA)
+#    Xscale = 1.0 / (1.0 + StokesQ* csPA + StokesU* snPA)
+#    Yscale = 1.0 / (1.0 - StokesQ* csPA - StokesU* snPA)
+#    #
+#    ScaledXX, ScaledYY = XX * Xscale, YY* Yscale
+#    return gainComplexVec(ScaledXX), gainComplexVec(ScaledYY)
+#
+def polariGain( XX, YY, QCpUS):
     blNum, timeNum = XX.shape[0], XX.shape[1]
-    csPA, snPA = np.cos(2.0* PA), np.sin(2.0* PA)
-    Xscale = 1.0 / (1.0 + StokesQ* csPA + StokesU* snPA)
-    Yscale = 1.0 / (1.0 - StokesQ* csPA - StokesU* snPA)
+    #csPA, snPA = np.cos(2.0* PA), np.sin(2.0* PA)
+    Xscale = 1.0 / (1.0 + QCpUS)
+    Yscale = 1.0 / (1.0 - QCpUS)
     #
     ScaledXX, ScaledYY = XX * Xscale, YY* Yscale
     return gainComplexVec(ScaledXX), gainComplexVec(ScaledYY)
-#
 def XXYY2QU(PA, Vis):       # <XX*>, <YY*> to determine Q and U
     timeNum, sinPA2, cosPA2 = len(PA),np.sin(2.0*PA), np.cos(2.0*PA)
     W = np.ones(timeNum) / (np.var(Vis[0].imag) + np.var(Vis[1].imag))   # weight
@@ -1598,18 +1697,29 @@ def XXYY2QU(PA, Vis):       # <XX*>, <YY*> to determine Q and U
     P = np.array(np.c_[np.ones(timeNum), cosPA2, sinPA2]).T
     return 0.5* scipy.linalg.solve(np.dot(P, np.dot(np.diag(W), P.T)), np.dot(P, W* XX_YY))[[1,2]]
 #
-def XY2Phase(PA, Q, U, Vis):       # XY*, YX* to determine XYphase
-    UC_QS = U* np.cos(2.0* PA) - Q* np.sin(2.0* PA)
+#def XY2Phase(PA, Q, U, Vis):       # XY*, YX* to determine XYphase
+#    UC_QS = U* np.cos(2.0* PA) - Q* np.sin(2.0* PA)
+#    correlation = np.dot(Vis[0], UC_QS) + np.dot(Vis[1].conjugate(), UC_QS)
+#    return np.angle(correlation)
+##
+def XY2Phase(UC_QS, Vis):       # XY*, YX* to determine XYphase
+    #UC_QS = U* np.cos(2.0* PA) - Q* np.sin(2.0* PA)
     correlation = np.dot(Vis[0], UC_QS) + np.dot(Vis[1].conjugate(), UC_QS)
     return np.angle(correlation)
 #
-def XY2PhaseVec(TS, PA, Q, U, Vis):    # XY*, YX* to measuere XYphase variation
-    UC_QS = U* np.cos(2.0* PA) - Q* np.sin(2.0* PA)
+#def XY2PhaseVec(TS, PA, Q, U, Vis):    # XY*, YX* to measuere XYphase variation
+#    UC_QS = U* np.cos(2.0* PA) - Q* np.sin(2.0* PA)
+#    product = (Vis[0] + Vis[1].conjugate())* UC_QS
+#    SP_phas = UnivariateSpline(TS, np.angle(product), w=abs(product)**2, s=0.1)
+#    return SP_phas(TS), product
+##SP_imag = UnivariateSpline(PA, product.imag, w=product.real, s=0.1)
+##return np.angle(product.real + SP_imag(PA)* (1.0j))
+#
+def XY2PhaseVec(TS, UC_QS, Vis):    # XY*, YX* to measuere XYphase variation
+    #UC_QS = U* np.cos(2.0* PA) - Q* np.sin(2.0* PA)
     product = (Vis[0] + Vis[1].conjugate())* UC_QS
-    SP_phas = UnivariateSpline(TS, np.angle(product), w=abs(product)**2, s=0.1)
+    SP_phas = UnivariateSpline(TS, np.arctan(product.imag/product.real), w=abs(product)**2, s=0.01* np.median(abs(product)**2))
     return SP_phas(TS), product
-#SP_imag = UnivariateSpline(PA, product.imag, w=product.real, s=0.1)
-#return np.angle(product.real + SP_imag(PA)* (1.0j))
 #
 def XY2Stokes(PA, Vis):            # XY*, YX* to determine Q, U
     UCmQS = 0.5* (Vis[0] + Vis[1]).real

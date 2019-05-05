@@ -77,7 +77,7 @@ def plotTsys(prefix, antList, spwList, freqList, atmTime, TrxList, TskyList):
     del(figAnt)
     return
 #
-#-------- Plot Bandpass :w
+#-------- Plot Bandpass
 def plotBP(pp, prefix, antList, spwList, BPscan, BPList):
     plotMax = 1.5
     msfile = prefix + '.ms'
@@ -124,5 +124,46 @@ def plotBP(pp, prefix, antList, spwList, BPscan, BPList):
     del(AmpPL)
     del(PhsPL)
     del(figAnt)
+    return
+#
+#-------- Plot D-term spectra
+def plotDSpec(pp, prefix, antList, spwList, DxList, DyList):
+    plotMax = 0.12
+    antNum, spwNum = len(antList), len(spwList)
+    figAnt = plt.figure(figsize = (11, 8))
+    figAnt.suptitle(prefix + ' D-term spectra')
+    figAnt.text(0.45, 0.05, 'Frequency [GHz]')
+    figAnt.text(0.03, 0.45, 'D-term Spectra (Real and Imaginary)', rotation=90)
+    for ant_index in range(antNum):
+        if ant_index > 0:
+            for PL in DxPList: figAnt.delaxes(PL)
+            for PL in DyPList: figAnt.delaxes(PL)
+        #
+        DxPList, DyPList = [], []
+        for spw_index in range(spwNum):
+            DxPL = figAnt.add_subplot( 2, spwNum, spw_index + 1 )
+            DyPL = figAnt.add_subplot( 2, spwNum, spw_index + spwNum + 1 )
+            DxPList = DxPList + [DxPL]
+            DyPList = DyPList + [DyPL]
+            #
+            plotDx, plotDy = DxList[ant_index, spw_index], DyList[ant_index, spw_index]
+            DxPL.plot( FreqList[spw_index], plotDx.real, ls='steps-mid', label = 'reDx')
+            DxPL.plot( FreqList[spw_index], plotDx.imag, ls='steps-mid', label = 'imDx')
+            DxPL.axis([np.min(FreqList[spw_index]), np.max(FreqList[spw_index]), -plotMax, plotMax])
+            DyPL.plot( FreqList[spw_index], plotDy.real, ls='steps-mid', label = 'reDy')
+            DyPL.plot( FreqList[spw_index], plotDy.imag, ls='steps-mid', label = 'imDy')
+            DyPL.axis([np.min(FreqList[spw_index]), np.max(FreqList[spw_index]), -plotMax, plotMax])
+            #
+            if spw_index == 0: DxPL.set_title(antList[ant_index])
+            DxPL.tick_params(axis='both', labelsize=6)
+            DyPL.tick_params(axis='both', labelsize=6)
+        #
+        DxPL.legend(loc = 'upper right', prop={'size' :7}, numpoints = 1)
+        DyPL.legend(loc = 'upper right', prop={'size' :7}, numpoints = 1)
+        plt.show()
+        figAnt.savefig(pp, format='pdf')
+    #
+    plt.close('all'); pp.close()
+    del(DxPList); del(DyPList); del(DxPL); del(DyPL); del(figAnt)
     return
 #
