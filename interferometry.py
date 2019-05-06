@@ -17,6 +17,7 @@ BANDPA = [0.0, 45.0, -45.0, 80.0, -80.0, 45.0, -45.0, 36.45, 90.0, -90.0, 0.0]  
 BANDFQ = [0.0, 43.2, 75.0, 97.5, 132.0, 183.0, 233.0, 343.5, 460.0, 650.0, 870.0]   # Standard frequency [GHz]
 Tcmb = 2.725    # CMB temperature
 kb        = 1.38064852e3 # Boltzman constant (* 1e26 for Jy scaling)
+RADDEG = 180.0 / math.pi
 #======== Baseline and Antenna Indexing
 KERNEL_BL = arange(64)*arange(1,65)/2
 def indexList( refArray, motherArray ):     # Compare two arrays and return matched index
@@ -1695,7 +1696,7 @@ def XXYY2QU(PA, Vis):       # <XX*>, <YY*> to determine Q and U
     W = np.ones(timeNum) / (np.var(Vis[0].imag) + np.var(Vis[1].imag))   # weight
     XX_YY = (Vis[0].real - Vis[1].real) / (Vis[0].real + Vis[1].real)
     P = np.array(np.c_[np.ones(timeNum), cosPA2, sinPA2]).T
-    return 0.5* scipy.linalg.solve(np.dot(P, np.dot(np.diag(W), P.T)), np.dot(P, W* XX_YY))[[1,2]]
+    return scipy.linalg.solve(np.dot(P, np.dot(np.diag(W), P.T)), np.dot(P, W* XX_YY))[[1,2]]
 #
 #def XY2Phase(PA, Q, U, Vis):       # XY*, YX* to determine XYphase
 #    UC_QS = U* np.cos(2.0* PA) - Q* np.sin(2.0* PA)
