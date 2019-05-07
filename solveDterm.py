@@ -46,7 +46,7 @@ for file_index in range(fileNum):
     spwName = msmd.namesforspws(spwList[0])[0]; BandName = re.findall(pattern, spwName)[0]; bandID = int(BandName[3:5])
     BandPA = (BANDPA[bandID] + 90.0)*pi/180.0
     for scan in scanLS:
-        timeStamp = msmd.timesforscans(scan).tolist()
+        interval, timeStamp = GetTimerecord(msfile, 0, 1, spwList[0], scan)
         timeNum += len(timeStamp)
         trkAnt, scanAnt, Time, Offset = antRefScan( msfile, [timeStamp[0], timeStamp[-1]], antFlag )
         trkAnt = list(set(trkAnt) - set(flagAntID))
@@ -60,7 +60,7 @@ for file_index in range(fileNum):
         scanDic[sourceName] = scanDic[sourceName] + [scanIndex]
         IQU = GetPolQuery(sourceName, timeStamp[0], BANDFQ[bandID], SCR_DIR)
         StokesDic[sourceName] = [IQU[0][sourceName], IQU[1][sourceName], IQU[2][sourceName], 0.0]
-        print '---- Scan%3d : %d tracking antennas : %s' % (scan, len(trkAnt), sourceName)
+        print '---- Scan%3d : %d tracking antennas : %s, %d records, expected I = %.1f p=%.1f%%' % (scan, len(trkAnt), sourceName, len(timeStamp), StokesDic[sourceName][0], 100.0*sqrt(StokesDic[sourceName][1]**2 + StokesDic[sourceName][2]**2)/StokesDic[sourceName][0])
         scanIndex += 1
     #
     scansFile.append(scanLS)
@@ -160,8 +160,13 @@ for spw_index in range(spwNum):
         timeIndex = []
         for scanIndex in scanList: timeIndex = timeIndex + range(scanST[scanIndex], scanET[scanIndex])
         timeDic[sourceName] = timeIndex
-        QUsol   = XXYY2QU(PA[timeIndex], Vis[[0,3]][:,timeIndex])             # XX*, YY* to estimate Q, U
-        text_sd = '[XX,YY] %s: Q/I= %6.3f  U/I= %6.3f p=%.2f%% EVPA = %6.2f deg' % (sourceName, QUsol[0], QUsol[1], 100.0* np.sqrt(QUsol[0]**2 + QUsol[1]**2), np.arctan2(QUsol[1],QUsol[0])*90.0/pi); print text_sd
+        if (StokesDic[sourceName][1]**2 + StokesDic[sourceName][2]**2) > 0.01:
+            QUsol   = XXYY2QU(PA[timeIndex], Vis[[0,3]][:,timeIndex])             # XX*, YY* to estimate Q, U
+            text_sd = '[XX,YY] %s: Q/I= %6.3f  U/I= %6.3f p=%.2f%% EVPA = %6.2f deg' % (sourceName, QUsol[0], QUsol[1], 100.0* np.sqrt(QUsol[0]**2 + QUsol[1]**2), np.arctan2(QUsol[1],QUsol[0])*90.0/pi); print text_sd
+        else:
+            QUsol[0] = StokesDic[sourceName][1]/StokesDic[sourceName][0]
+            QUsol[1] = StokesDic[sourceName][2]/StokesDic[sourceName][0]
+        #
         QCpUS[timeIndex] = QUsol[0]* CS[timeIndex] + QUsol[1]* SN[timeIndex]
         UCmQS[timeIndex] = QUsol[1]* CS[timeIndex] - QUsol[0]* SN[timeIndex]
     #
@@ -236,11 +241,13 @@ for spw_index in range(spwNum):
     #
     sys.stderr.write('\n'); sys.stderr.flush()
     for ant_index in range(antNum):
-        if Dsmooth :
-            DX_real, DX_imag = UnivariateSpline(bunchVecCH(Freq), DxSpec[ant_index,range(int(chNum/bunchNum))].real), UnivariateSpline(bunchVecCH(Freq), DxSpec[ant_index,range(int(chNum/bunchNum))].imag)
-            DY_real, DY_imag = UnivariateSpline(bunchVecCH(Freq), DySpec[ant_index,range(int(chNum/bunchNum))].real), UnivariateSpline(bunchVecCH(Freq), DySpec[ant_index,range(int(chNum/bunchNum))].imag)
-            DxSpec[ant_index] = DX_real(Freq) + (0.0 + 1.0j)* DX_imag(Freq)
-            DySpec[ant_index] = DY_real(Freq) + (0.0 + 1.0j)* DY_imag(Freq)
+        if 'Dsmooth' in locals():
+            if Dsmooth :
+                DX_real, DX_imag = UnivariateSpline(bunchVecCH(Freq), DxSpec[ant_index,range(int(chNum/bunchNum))].real), UnivariateSpline(bunchVecCH(Freq), DxSpec[ant_index,range(int(chNum/bunchNum))].imag)
+                DY_real, DY_imag = UnivariateSpline(bunchVecCH(Freq), DySpec[ant_index,range(int(chNum/bunchNum))].real), UnivariateSpline(bunchVecCH(Freq), DySpec[ant_index,range(int(chNum/bunchNum))].imag)
+                DxSpec[ant_index] = DX_real(Freq) + (0.0 + 1.0j)* DX_imag(Freq)
+                DySpec[ant_index] = DY_real(Freq) + (0.0 + 1.0j)* DY_imag(Freq)
+            #
         #
     #
     #-------- D-term-corrected visibilities (invD dot Vis = PS)
