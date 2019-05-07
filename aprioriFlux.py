@@ -157,7 +157,7 @@ else:
 GainP = []
 for spw_index in range(spwNum):
     exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
-    TsysEQScan = np.mean(Trxspec[spw_index,:,:,chRange].transpose(1,2,0) + Tcmb*exp_Tau[chRange] + tempAtm* (1.0 - exp_Tau[chRange]), axis=2)[Trx2antMap] # [antMap, pol]
+    TsysEQScan = np.mean( np.median(Trxspec[spw_index][:,chRange], axis=3).transpose(2,0,1) + Tcmb*exp_Tau[chRange] + tempAtm* (1.0 - exp_Tau[chRange]), axis=2)[Trx2antMap] # [antMap, pol]
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], EQScan)
     chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
@@ -204,7 +204,7 @@ figFL = plt.figure(figsize = (11, 8))
 figFL.suptitle(prefix + ' ' + UniqBands[band_index])
 figFL.text(0.45, 0.05, 'Projected baseline [m]')
 figFL.text(0.03, 0.45, 'Visibility amplitude [Jy]', rotation=90)
-text_sd = ' Scan     Source     EL(deg) '
+text_sd = ' Scan    Source     EL(deg) '
 for spw_index in range(scnspwNum): text_sd = text_sd + ' SPW%02d %5.1f GHz   ' % (scnspw[spw_index], centerFreqList[spw_index])
 text_sd = text_sd + '|  mean  %5.1f GHz' % (np.mean(centerFreqList)); logfile.write(text_sd + '\n'); print text_sd
 text_sd = ' ------------------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
@@ -264,7 +264,7 @@ for scan_index in range(scanNum):
     for spw_index in range(spwNum):
         exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
         atmCorrect = 1.0 / exp_Tau
-        TsysSPW = (Trxspec[spw_index] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap]    # [ant, pol, ch]
+        TsysSPW = (np.median(Trxspec[spw_index], axis=3).transpose(2,0,1) + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap]    # [ant, pol, ch]
         SEFD = 2.0* kb* (TsysSPW * atmCorrect).transpose(2,1,0) / Ae[:,bpAntMap]   # SEFD[ch,pol,antMap]
         SAantNum = len(SAantMap); SAblNum = len(SAblMap)
         AmpCalVis = np.mean(np.mean(pCalVis[spw_index], axis=3) * np.sqrt(SEFD[chRange][:,:,ant0[0:SAblNum]]* SEFD[chRange][:,:,ant1[0:SAblNum]]), axis=0)
@@ -281,11 +281,12 @@ for scan_index in range(scanNum):
         PtWP_inv = scipy.linalg.inv(P.T.dot(W.dot(P)))
         solution, solerr = PtWP_inv.dot(P.T.dot(weight* StokesI[spw_index])),  np.sqrt(np.diag(PtWP_inv)) # solution[0]:intercept, solution[1]:slope
         slopeSNR = abs(solution[1]) / abs(solerr[1]) # ; print 'Slope SNR = ' + `slopeSNR`
-        if slopeSNR < 3.0: solution[0], solution[1] = np.percentile(StokesI[spw_index][visFlag], 75),  0.0
+        if slopeSNR < 5.0: solution[0], solution[1] = np.percentile(StokesI[spw_index][visFlag], 70),  0.0
         ScanFlux[scan_index, spw_index], ScanSlope[scan_index, spw_index], ErrFlux[scan_index, spw_index] = solution[0], solution[1], solerr[0]
         text_src = text_src + '  %7.4f (%.4f) ' % (ScanFlux[scan_index, spw_index], ErrFlux[scan_index, spw_index])
         #
-        StokesI_PL = figFL.add_subplot( spwNum, 1, spw_index + 1 )
+        #StokesI_PL = figFL.add_subplot( spwNum, 1, spw_index + 1 )
+        StokesI_PL = figFL.add_subplot( 2, (spwNum+1)/2, spw_index + 1 )
         IList = IList + [StokesI_PL]
         StokesI_PL.plot( uvDist[SAblMap], StokesI[spw_index], '.')
         uvMax, IMax = max(uvDist[SAblMap]), max(ScanFlux[scan_index])
