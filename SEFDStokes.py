@@ -69,7 +69,7 @@ if 'QUMODEL' in locals():
 else: QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
 #-------- XY phase cal in Bandpass table
 for spw_index in range(spwNum):
-    XYphase = XY2Phase(PA, QUsolution[0], QUsolution[1], caledVis[spw_index][[1,2]])
+    XYphase = XY2Phase(QUsolution[1]* np.cos(2.0* PA) - QUsolution[0]* np.sin(2.0* PA), caledVis[spw_index][[1,2]])
     XYsign = np.sign(np.cos(XYphase))
     BPList[spw_index][:,1] *= XYsign
     print 'SPW[%d] : XY phase = %6.1f [deg] sign = %3.0f' % (spwList[spw_index], 180.0*XYphase/pi, XYsign)

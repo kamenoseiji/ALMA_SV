@@ -160,12 +160,12 @@ for spw_index in range(spwNum):
         timeIndex = []
         for scanIndex in scanList: timeIndex = timeIndex + range(scanST[scanIndex], scanET[scanIndex])
         timeDic[sourceName] = timeIndex
-        if (StokesDic[sourceName][1]**2 + StokesDic[sourceName][2]**2) > 0.01:
+        #if (StokesDic[sourceName][1]**2 + StokesDic[sourceName][2]**2) > 0.01:
+        if (StokesDic[sourceName][1]**2 + StokesDic[sourceName][2]**2) > 1.0:
             QUsol   = XXYY2QU(PA[timeIndex], Vis[[0,3]][:,timeIndex])             # XX*, YY* to estimate Q, U
             text_sd = '[XX,YY] %s: Q/I= %6.3f  U/I= %6.3f p=%.2f%% EVPA = %6.2f deg' % (sourceName, QUsol[0], QUsol[1], 100.0* np.sqrt(QUsol[0]**2 + QUsol[1]**2), np.arctan2(QUsol[1],QUsol[0])*90.0/pi); print text_sd
         else:
-            QUsol[0] = StokesDic[sourceName][1]/StokesDic[sourceName][0]
-            QUsol[1] = StokesDic[sourceName][2]/StokesDic[sourceName][0]
+            QUsol = np.array(StokesDic[sourceName])[[1,2]]/StokesDic[sourceName][0]
         #
         QCpUS[timeIndex] = QUsol[0]* CS[timeIndex] + QUsol[1]* SN[timeIndex]
         UCmQS[timeIndex] = QUsol[1]* CS[timeIndex] - QUsol[0]* SN[timeIndex]

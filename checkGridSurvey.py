@@ -139,7 +139,7 @@ for band_index in range(NumBands):
                 except:
                     print '  --A priori flux calibration falied.'
             #
-        #
+        ##
     #
     if polNum == 2:
         cPol = [0,1], []; ppolNum, cpolNum = len(pPol), len(cPol)

@@ -277,8 +277,6 @@ for ant_index in range(1,UseAntNum):
     #
 #
 spwPhase = np.array(spwPhase).reshape([UseAntNum, 2, spwNum]); spwTwiddle = exp(1.0j *spwPhase)
-#QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
-#QUsolution = np.array([catalogStokesQ.get(BPcal), catalogStokesU.get(BPcal)])
 QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
 if 'QUMODEL' in locals():
     if QUMODEL: QUsolution = np.array([catalogStokesQ.get(BPcal), catalogStokesU.get(BPcal)])
@@ -286,7 +284,7 @@ else: QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
 #-------- XY phase cal in Bandpass table
 XYsign = np.ones(spwNum)
 for spw_index in range(spwNum):
-    XYphase = XY2Phase(PA, QUsolution[0], QUsolution[1], caledVis[spw_index][[1,2]])
+    XYphase = XY2Phase(QUsolution[1]* np.cos(2.0* PA) - QUsolution[0]* np.sin(2.0* PA), caledVis[spw_index][[1,2]])
     XYsign[spw_index] = np.sign(np.cos(XYphase))
     BPList[spw_index] = (BPList[spw_index].transpose(2,0,1)* spwTwiddle[:,:,spw_index]).transpose(1,2,0)
     BPList[spw_index][:,1] *= XYsign[spw_index]
