@@ -152,7 +152,7 @@ for spw_index in range(spwNum):
     QCpUS, UCmQS =  np.zeros(PAnum), np.zeros(PAnum)
     print '  -- Solution for Q and U'
     #-------- Coarse estimation of Q and U using XX and YY
-    #if 'QUsol' not in locals():
+    if 'QUmodel' not in locals(): QUmodel = False
     CS, SN = np.cos(2.0* PA), np.sin(2.0* PA)
     for sourceName in sourceList:
         scanList = scanDic[sourceName]
@@ -160,12 +160,11 @@ for spw_index in range(spwNum):
         timeIndex = []
         for scanIndex in scanList: timeIndex = timeIndex + range(scanST[scanIndex], scanET[scanIndex])
         timeDic[sourceName] = timeIndex
-        #if (StokesDic[sourceName][1]**2 + StokesDic[sourceName][2]**2) > 0.01:
-        if (StokesDic[sourceName][1]**2 + StokesDic[sourceName][2]**2) > 1.0:
+        if QUmodel:
+            QUsol = np.array(StokesDic[sourceName])[[1,2]]/StokesDic[sourceName][0]
+        else:
             QUsol   = XXYY2QU(PA[timeIndex], Vis[[0,3]][:,timeIndex])             # XX*, YY* to estimate Q, U
             text_sd = '[XX,YY] %s: Q/I= %6.3f  U/I= %6.3f p=%.2f%% EVPA = %6.2f deg' % (sourceName, QUsol[0], QUsol[1], 100.0* np.sqrt(QUsol[0]**2 + QUsol[1]**2), np.arctan2(QUsol[1],QUsol[0])*90.0/pi); print text_sd
-        else:
-            QUsol = np.array(StokesDic[sourceName])[[1,2]]/StokesDic[sourceName][0]
         #
         QCpUS[timeIndex] = QUsol[0]* CS[timeIndex] + QUsol[1]* SN[timeIndex]
         UCmQS[timeIndex] = QUsol[1]* CS[timeIndex] - QUsol[0]* SN[timeIndex]
@@ -250,6 +249,8 @@ for spw_index in range(spwNum):
             #
         #
     #
+
+
     #-------- D-term-corrected visibilities (invD dot Vis = PS)
     """
     M  = InvMullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum]))
@@ -341,14 +342,12 @@ for spw_index in range(spwNum):
     plt.legend(loc = 'best', prop={'size' :6}, numpoints = 1)
     plt.savefig(prefixList[0] + '-SPW' + `spw` + '-' + refantName + 'QUXY.pdf', form='pdf')
     #-------- Save Results
-    """
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.Ant.npy', antList[antMap])
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.Azel.npy', np.array([mjdSec, Az, El, PA]))
-    np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.QUXY.npy', QUsol )
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.TS.npy', mjdSec )
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.GA.npy', Gain )
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.XYPH.npy', XYphase )
-    """
+    np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.XYC.npy', chAvgVis[[1,2]])
     for ant_index in range(antNum):
         DtermFile = np.array([FreqList[spw_index], DxSpec[ant_index].real, DxSpec[ant_index].imag, DySpec[ant_index].real, DySpec[ant_index].imag])
         np.save(prefixList[0] + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DSpec.npy', DtermFile)
