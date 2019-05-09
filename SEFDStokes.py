@@ -47,12 +47,13 @@ PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), 
 XYphase, caledVis = [], []
 scan_index = onsourceScans.index(BPScan)
 Trx2antMap = indexList( antList[antMap], antList[TrxMap] )
+timeSum = 0
 for spw_index in range(spwNum):
     exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
     atmCorrect = 1.0 / exp_Tau
     TsysSPW = (TrxList[spw_index].transpose(2,0,1) + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap] # [antMap, pol, ch]
     TsysBL  = np.sqrt( TsysSPW[ant0][:,polYindex]* TsysSPW[ant1][:,polXindex])
-    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], BPScan); timeNum = len(timeStamp)
+    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], BPScan); timeNum = len(timeStamp); timeSum = timeSum + timeNum
     if 'FG' in locals(): flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
     else : flagIndex = range(timeNum)
     chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
@@ -83,11 +84,14 @@ pp = PdfPages('FL_' + prefix + '_' + UniqBands[band_index] + '.pdf')
 polLabel = ['I', 'Q', 'U', 'V']
 Pcolor   = ['black', 'blue', 'red', 'green']
 XYD, XYC, scanTime = [], [],[]      # XY delay and correlation
+StokesDic = dict(zip(sourceList, [[]]*len(sourceList))) # Stokes parameters for each source
 figFL = plt.figure(figsize = (11, 8))
 figFL.suptitle(prefix + ' ' + UniqBands[band_index])
 figFL.text(0.45, 0.05, 'Projected baseline [m]')
 figFL.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90)
+VisSpec = np.array([spwNum, chNum, UseBlNum, timeSum], dtype=complex) 
 for scan_index in range(scanNum):
+    sourceName = sourceList[sourceIDscan[scan_index]]
     if scan_index > 0:
         for PL in IList: figFL.delaxes(PL)
         for PL in PList: figFL.delaxes(PL)
@@ -102,7 +106,7 @@ for scan_index in range(scanNum):
     #-------- Prepare plots
     IList, PList = [], []      # XY delay and correlation
     text_time = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
-    text_src  = ' %02d %010s EL=%4.1f deg' % (scanList[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* OnEL[scan_index]/pi); logfile.write(text_src + ' ' + text_time + '\n'); print text_src + ' ' + text_time
+    text_src  = ' %02d %010s EL=%4.1f deg' % (scanList[scan_index], sourceName, 180.0* OnEL[scan_index]/pi); logfile.write(text_src + ' ' + text_time + '\n'); print text_src + ' ' + text_time
     if(onsourceScans[scan_index] in SSOscanID):
         SSO_flag = True
         SSO_ID = SSOscanID.index(onsourceScans[scan_index])
@@ -172,6 +176,8 @@ for scan_index in range(scanNum):
             SEFD /= (indivRelGain**2).T
         #
         AmpCalVis = (pCalVis[spw_index].transpose(3,0,1,2)* np.sqrt(SEFD[chRange][:,polYindex][:,:,ant0[0:SAblNum]]* SEFD[chRange][:,polXindex][:,:,ant1[0:SAblNum]])).transpose(3,2,1,0)
+        VisSpec[spw_index, timeIndex][chRange] = AmpCalVis[:,1]/AmpCalVis[:,1]
+
         text_sd = ' SPW%02d %5.1f GHz ' % (spwList[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
         Stokes = np.zeros([4,SAblNum], dtype=complex)
         for bl_index in range(SAblNum):
@@ -246,9 +252,12 @@ for scan_index in range(scanNum):
     logfile.write('\n')
     text_sd = 'UV_min_max  %6.1f  %6.1f ' % (uvMin, uvMax); logfile.write(text_sd); print text_sd,
     logfile.write('\n \n'); print '\n'
-    if not SSO_flag:
+    if SSO_flag:
+        StokesDic[sourceName] = [pflux[0], 0.0, 0.0, 0.0]
+    else:
+        StokesDic[sourceName] = pflux.tolist()
         waveLength = 299.792458/meanFreq    # wavelength in mm
-        text_sd = '%s, NE, NE, NE, NE, %.2fE+09, %.3f, %.3f, %.3f, %.3f, %.2f, %.2f, %.2f, %.2f, %s\n' % (sourceList[sourceIDscan[scan_index]], meanFreq, pflux[0], pfluxerr[0], np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi, np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/np.sqrt(pflux[1]**2 + pflux[2]**2)*90.0/pi, uvMin/waveLength, uvMax/waveLength, timeLabel[0:10].replace('/','-'))
+        text_sd = '%s, NE, NE, NE, NE, %.2fE+09, %.3f, %.3f, %.3f, %.3f, %.2f, %.2f, %.2f, %.2f, %s\n' % (sourceName, meanFreq, pflux[0], pfluxerr[0], np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi, np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/np.sqrt(pflux[1]**2 + pflux[2]**2)*90.0/pi, uvMin/waveLength, uvMax/waveLength, timeLabel[0:10].replace('/','-'))
         ingestFile.write(text_sd)
     #
     if COMPDB & (not SSO_flag):

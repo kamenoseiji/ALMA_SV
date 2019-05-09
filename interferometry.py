@@ -855,6 +855,7 @@ def VisPA_solveD(Vis, PA, Stokes, Dx=[], Dy=[]):
     Dy += Solution[2*antNum:3*antNum] + (1.0j)* Solution[3*antNum:4*antNum]
     return Dx, Dy
 #
+"""
 #-------- D-term determination using full-polarization visibilities to a calibrator whose Stokes parameters are known
 def VisMuiti_solveD(Vis, QCpUS, UCmQS, Dx=[], Dy=[]):
     # Vis (input) : full-polarization visibilities [pol, bl, PA]
@@ -920,6 +921,82 @@ def VisMuiti_solveD(Vis, QCpUS, UCmQS, Dx=[], Dy=[]):
     #-------- Solution
     L = np.linalg.cholesky(PTP)
     t = np.linalg.solve(L, resid)
+    Solution = np.linalg.solve(L.T, t)
+    #-------- Correction
+    Dx += Solution[0:antNum] + (1.0j)* Solution[antNum:2*antNum]
+    Dy += Solution[2*antNum:3*antNum] + (1.0j)* Solution[3*antNum:4*antNum]
+    return Dx, Dy
+"""
+#-------- D-term determination using full-polarization visibilities to a calibrator whose Stokes parameters are known
+def VisMuiti_solveD(Vis, QCpUS, UCmQS, Dx=[], Dy=[], I=1.0):
+    # Vis (input) : full-polarization visibilities [pol, bl, PA]
+    # QCpUS  (input) : Q cos(2PA) + U sin(2PA)
+    # UCmQS  (input) : U cos(2PA) - Q sin(2PA)
+    PAnum, blNum = len(QCpUS), Vis.shape[1]; antNum = Bl2Ant(blNum)[0]; PABLnum = PAnum* blNum
+    ant0, ant1 = np.array(ANT0[0:blNum]), np.array(ANT1[0:blNum])
+    ssqUCmQS = UCmQS.dot(UCmQS)     # sum( UCmQS^2 )
+    ImmQCpUS = (I - QCpUS).dot(I - QCpUS)  # sum (I - QCpUS)^2)
+    IppQCpUS = (I + QCpUS).dot(I + QCpUS)  # sum (I + QCpUS)^2)
+    IpmQCpUS = (I + QCpUS).dot(I - QCpUS)  # sum (I + QCpUS)(I - QCpUS)
+    #sumQCpUS = np.sum(QCpUS)        # sum( QCpUS )
+    if len(Dx) == 0 :                    # Start over the initial D-term value
+        #-------- <XX*> to determine Dx (initial value)
+        PTP_inv = np.zeros([2*antNum-1, 2*antNum-1])
+        PTP_inv[0:antNum][:,0:antNum] = ((2.0* antNum - 2.0)*np.identity(antNum) - 1.0) / (2.0* (antNum - 2.0)* (antNum - 3.0))
+        PTP_inv[antNum:(2*antNum-1)][:,antNum:(2*antNum-1)] = (np.identity(antNum - 1) + 1.0) / antNum
+        PTP_inv *= (blNum/ ssqUCmQS)
+        PTY = np.zeros([2*antNum-1])
+        resid = Vis[0] - (I + QCpUS)
+        for ant_index in range(1, antNum):
+            index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
+            PTY[ant_index] = np.sum((resid[index0].real).dot(QCpUS)) + np.sum((resid[index1].real).dot(QCpUS))
+            PTY[antNum + ant_index - 1] = np.sum((resid[index0].imag).dot(QCpUS)) - np.sum((resid[index1].imag).dot(QCpUS))
+        #
+        index1 = np.where(ant1 == 0)[0].tolist(); PTY[0] = np.sum((resid[index1].real).dot(QCpUS))
+        Solution = PTP_inv.dot(PTY); Dx = Solution[0:antNum] + (1.0j)* np.append(0.0, Solution[antNum:(2*antNum-1)])
+        #-------- <YY*> to determine Dy (initial value)
+        resid = Vis[3] - (I - QCpUS)
+        for ant_index in range(antNum):
+            index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
+            PTY[ant_index] = np.sum((resid[index0].real).dot(QCpUS)) + np.sum((resid[index1].real).dot(QCpUS))
+            PTY[antNum + ant_index - 1] = np.sum((resid[index0].imag).dot(QCpUS)) - np.sum((resid[index1].imag).dot(QCpUS))
+        #
+        index1 = np.where(ant1 == 0)[0].tolist(); PTY[0] = np.sum((resid[index1].real).dot(QCpUS))
+        Solution = PTP_inv.dot(PTY); Dy = Solution[0:antNum] + (1.0j)* np.append(0.0, Solution[antNum:(2*antNum-1)])
+    #
+    #-------- <XY*> and <YX*> to determine Dx and Dy
+    PTP = np.zeros([4*antNum, 4*antNum])            # (Dx.real, Dx.imag, Dy.real, Dy.imag)
+    PTP[0:2*antNum][:,0:2*antNum] = ImmQCpUS* (antNum - 1.0)* np.identity(2*antNum)    # P00, P01, P10, and P11
+    PTP[2*antNum:4*antNum][:,2*antNum:4*antNum] = IppQCpUS* (antNum - 1.0)* np.identity(2*antNum)  # P22, P23, P32, and P33
+    PTP[2*antNum:3*antNum][:,0:antNum] = IpmQCpUS* (1.0 - np.identity(antNum))         # P02
+    PTP[3*antNum:4*antNum][:,antNum:2*antNum] = -PTP[2*antNum:3*antNum][:,0:antNum]    # P13
+    PTP[0:antNum][:,2*antNum:3*antNum] = PTP[2*antNum:3*antNum][:,0:antNum]            # P20
+    PTP[antNum:2*antNum][:,3*antNum:4*antNum] = -PTP[2*antNum:3*antNum][:,0:antNum]    # P31
+    PTY = np.zeros(4* antNum)
+    #-------- Residual Vector
+    residXY, residYX = Vis[1] - UCmQS, Vis[2] - UCmQS
+    for ant_index in range(antNum):
+        index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
+        residXY[index0] -= Dx[ant_index]* (I - QCpUS)
+        residXY[index1] -= Dy[ant_index].conjugate()* (I + QCpUS)
+        residYX[index0] -= Dy[ant_index]* (I + QCpUS)
+        residYX[index1] -= Dx[ant_index].conjugate()* (I - QCpUS)
+    #
+    #-------- PTR vector
+    for ant_index in range(antNum):
+        index0, index1 = np.where(ant0 == ant_index)[0].tolist(), np.where(ant1 == ant_index)[0].tolist()
+        PTY[ant_index] += (I - QCpUS).dot(np.sum(residXY[index0].real, axis=0))
+        PTY[ant_index] += (I - QCpUS).dot(np.sum(residYX[index1].real, axis=0))
+        PTY[antNum + ant_index] += (I - QCpUS).dot(np.sum(residXY[index0].imag, axis=0))
+        PTY[antNum + ant_index] -= (I - QCpUS).dot(np.sum(residYX[index1].imag, axis=0))
+        PTY[2*antNum + ant_index] += (I + QCpUS).dot(np.sum(residXY[index1].real, axis=0))
+        PTY[2*antNum + ant_index] += (I + QCpUS).dot(np.sum(residYX[index0].real, axis=0))
+        PTY[3*antNum + ant_index] -= (I + QCpUS).dot(np.sum(residXY[index1].imag, axis=0))
+        PTY[3*antNum + ant_index] += (I + QCpUS).dot(np.sum(residYX[index0].imag, axis=0))
+    #
+    #-------- Solution
+    L = np.linalg.cholesky(PTP)
+    t = np.linalg.solve(L, PTY)
     Solution = np.linalg.solve(L.T, t)
     #-------- Correction
     Dx += Solution[0:antNum] + (1.0j)* Solution[antNum:2*antNum]

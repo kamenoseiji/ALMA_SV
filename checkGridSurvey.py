@@ -42,6 +42,7 @@ for band_index in range(NumBands):
     onsourceScans, atmScans = ONScan.tolist(), ATMScan.tolist()
     scanNum, atmscanNum = len(onsourceScans), len(atmScans)
     SSOScanIndex = []
+    StokesDic = dict(zip(sourceList, [[]]*numSource))   # Stokes parameters for each source
     #-------- Check AZEL
     azelTime, AntID, AZ, EL = GetAzEl(msfile)
     azelTime_index = np.where( AntID == 0 )[0].tolist() 
@@ -57,9 +58,11 @@ for band_index in range(NumBands):
         lines = fp.readlines()
         fp.close()
         for eachLine in lines:
-            catalogStokesI[eachLine.split()[0]] = float(eachLine.split()[1])
-            catalogStokesQ[eachLine.split()[0]] = float(eachLine.split()[2])
-            catalogStokesU[eachLine.split()[0]] = float(eachLine.split()[3])
+            sourceName = eachLine.split()[0]
+            StokesDic[sourceName] = [float(eachLine.split()[1]), float(eachLine.split()[2]), float(eachLine.split()[3]), 0.0]
+            #catalogStokesI[sourceName] = float(eachLine.split()[1])
+            #catalogStokesQ[sourceName] = float(eachLine.split()[2])
+            #catalogStokesU[sourceName] = float(eachLine.split()[3])
         #
     #
     for scan_index in range(scanNum):
@@ -69,17 +72,19 @@ for band_index in range(NumBands):
         PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; dPA = np.std(np.sin(PA)) #dPA = abs(np.sin(max(PA) - min(PA)))
         OnAZ.append(np.median(AzScan)); OnEL.append(np.median(ElScan)); OnPA.append(np.median(PA))
         refTime = refTime + [np.median(timeStamp)]
-        catalogIQUV = np.array([catalogStokesI.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesQ.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesU.get(sourceList[sourceIDscan[scan_index]], 0.0), 0.0])
-        if catalogIQUV[0] > 0.1:
+        sourceName = sourceList[sourceIDscan[scan_index]]
+        #catalogIQUV = np.array([catalogStokesI.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesQ.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesU.get(sourceList[sourceIDscan[scan_index]], 0.0), 0.0])
+        #if catalogIQUV[0] > 0.1:
+        if len(StokesDic[sourceName]) == 4:
             CS, SN = np.cos(2.0* OnPA[scan_index]), np.sin(2.0* OnPA[scan_index])
-            QCpUS = catalogIQUV[1]*CS + catalogIQUV[2]*SN   # Qcos + Usin
-            UCmQS = catalogIQUV[2]*CS - catalogIQUV[1]*SN   # Ucos - Qsin
+            QCpUS = StokesDic[sourceName][1]*CS + StokesDic[sourceName][2]*SN   # Qcos + Usin
+            UCmQS = StokesDic[sourceName][2]*CS - StokesDic[sourceName][1]*SN   # Ucos - Qsin
             if QUMODEL:
-                BPquality = BPquality + [1000.0* abs(UCmQS)* np.sin(OnEL[scan_index] - 0.5*ELshadow) / np.sqrt(catalogIQUV[0])]
+                BPquality = BPquality + [1000.0* abs(UCmQS)* np.sin(OnEL[scan_index] - 0.5*ELshadow) / np.sqrt(StokesDic[sourceName][0])]
             else:
-                BPquality = BPquality + [1000.0* abs(UCmQS)* dPA* np.sin(OnEL[scan_index] - 0.5*ELshadow) / np.sqrt(catalogIQUV[0])]
+                BPquality = BPquality + [1000.0* abs(UCmQS)* dPA* np.sin(OnEL[scan_index] - 0.5*ELshadow) / np.sqrt(StokesDic[sourceName][0])]
             #
-            EQquality = EQquality + [catalogIQUV[0]**2 * np.sin(OnEL[scan_index] - ELshadow) / (1.0e-4 + abs(QCpUS))]
+            EQquality = EQquality + [StokesDic[sourceName][0]**2 * np.sin(OnEL[scan_index] - ELshadow) / (1.0e-4 + abs(QCpUS))]
         else:
             QCpUS, UCmQS = 0.0, 0.0
             BPquality = BPquality + [-9999.9]
@@ -124,6 +129,7 @@ for band_index in range(NumBands):
     msmd.done()
     if polNum == 4:
         pPol, cPol = [0,3], [1,2];  ppolNum, cpolNum = len(pPol), len(cPol)
+        #execfile(SCR_DIR + 'checkSEFDStokes.py')
         if Apriori:
             try:
                 execfile(SCR_DIR + 'aprioriStokes.py')
@@ -139,7 +145,7 @@ for band_index in range(NumBands):
                 except:
                     print '  --A priori flux calibration falied.'
             #
-        ##
+        #
     #
     if polNum == 2:
         cPol = [0,1], []; ppolNum, cpolNum = len(pPol), len(cPol)
