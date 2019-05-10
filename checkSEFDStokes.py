@@ -177,7 +177,8 @@ if catalogStokesQ.get(EQcal) > 0.0 :
 QCpUS = (QUsolution[0]* np.cos(2.0* PA) + QUsolution[1]* np.sin(2.0* PA)) / catalogStokesI.get(EQcal)
 #
 if len(atmTimeRef) > 5:
-    exTauSP  = UnivariateSpline(atmTimeRef, Tau0E, np.ones(len(atmTimeRef)), s=0.1*np.std(Tau0E), ext=3)
+    #exTauSP  = UnivariateSpline(atmTimeRef, Tau0E, np.ones(len(atmTimeRef)), s=0.1*np.std(Tau0E), ext=3)
+    exTauSP  = UnivariateSpline(np.append(np.append(atmTimeRef[0]-180.0,atmTimeRef), atmTimeRef[-1]+180.0), np.append(np.append(Tau0E[0], Tau0E), Tau0E[-1]), np.ones(len(atmTimeRef)+2), s=0.1*np.std(Tau0E))
 else:
     tempTime = np.arange(np.min(atmTimeRef) - 3600.0,  np.max(atmTimeRef) + 3600.0, 300.0)
     tempTauE = np.repeat(np.median(Tau0E[spw_index]), len(tempTime))
