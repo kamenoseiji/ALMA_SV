@@ -1751,18 +1751,8 @@ def QUscale(PA,  StokesQ, StokesU):
     Xscale = 1.0 / (1.0 + StokesQ* csPA + StokesU* snPA)
     Yscale = 1.0 / (1.0 - StokesQ* csPA - StokesU* snPA)
 #
-#def polariGain( XX, YY, PA, StokesQ, StokesU):
-#    blNum, timeNum = XX.shape[0], XX.shape[1]
-#    csPA, snPA = np.cos(2.0* PA), np.sin(2.0* PA)
-#    Xscale = 1.0 / (1.0 + StokesQ* csPA + StokesU* snPA)
-#    Yscale = 1.0 / (1.0 - StokesQ* csPA - StokesU* snPA)
-#    #
-#    ScaledXX, ScaledYY = XX * Xscale, YY* Yscale
-#    return gainComplexVec(ScaledXX), gainComplexVec(ScaledYY)
-#
 def polariGain( XX, YY, QCpUS):
     blNum, timeNum = XX.shape[0], XX.shape[1]
-    #csPA, snPA = np.cos(2.0* PA), np.sin(2.0* PA)
     Xscale = 1.0 / (1.0 + QCpUS)
     Yscale = 1.0 / (1.0 - QCpUS)
     #
@@ -1775,23 +1765,10 @@ def XXYY2QU(PA, Vis):       # <XX*>, <YY*> to determine Q and U
     P = np.array(np.c_[np.ones(timeNum), cosPA2, sinPA2]).T
     return scipy.linalg.solve(np.dot(P, np.dot(np.diag(W), P.T)), np.dot(P, W* XX_YY))[[1,2]]
 #
-#def XY2Phase(PA, Q, U, Vis):       # XY*, YX* to determine XYphase
-#    UC_QS = U* np.cos(2.0* PA) - Q* np.sin(2.0* PA)
-#    correlation = np.dot(Vis[0], UC_QS) + np.dot(Vis[1].conjugate(), UC_QS)
-#    return np.angle(correlation)
-##
 def XY2Phase(UC_QS, Vis):       # XY*, YX* to determine XYphase
     #UC_QS = U* np.cos(2.0* PA) - Q* np.sin(2.0* PA)
     correlation = np.dot(Vis[0], UC_QS) + np.dot(Vis[1].conjugate(), UC_QS)
     return np.angle(correlation)
-#
-#def XY2PhaseVec(TS, PA, Q, U, Vis):    # XY*, YX* to measuere XYphase variation
-#    UC_QS = U* np.cos(2.0* PA) - Q* np.sin(2.0* PA)
-#    product = (Vis[0] + Vis[1].conjugate())* UC_QS
-#    SP_phas = UnivariateSpline(TS, np.angle(product), w=abs(product)**2, s=0.1)
-#    return SP_phas(TS), product
-##SP_imag = UnivariateSpline(PA, product.imag, w=product.real, s=0.1)
-##return np.angle(product.real + SP_imag(PA)* (1.0j))
 #
 def XY2PhaseVec(TS, UC_QS, Vis):    # XY*, YX* to measuere XYphase variation
     #UC_QS = U* np.cos(2.0* PA) - Q* np.sin(2.0* PA)

@@ -236,7 +236,7 @@ for spw_index in range(spwNum):
         StokesVis = PS.reshape(4, 4*timeNum).dot(Minv.reshape(4, 4*blNum).dot(caledVis[:,:,timeIndex].reshape(4*blNum, timeNum)).reshape(4*timeNum)) / (timeNum* blNum)
         Isol, Qsol, Usol = StokesVis[0].real, StokesVis[1].real, StokesVis[2].real
         Ierr, Qerr, Uerr = abs(StokesVis[0].imag), abs(StokesVis[1].imag), abs(StokesVis[2].imag)
-        text_sd = '%s: I= %6.3f+-%6.4f  Q= %6.3f+-%6.4f  U= %6.3f+-%6.4f EVPA = %6.2f deg' % (sourceName, Isol, Ierr, Qsol, Qerr, Usol, Uerr, np.arctan2(Usol,Qsol)*90.0/pi); print text_sd
+        text_sd = '%s: I= %6.3f  Q= %6.3f+-%6.4f  U= %6.3f+-%6.4f EVPA = %6.2f deg' % (sourceName, Isol, Qsol, Qerr, Usol, Uerr, np.arctan2(Usol,Qsol)*90.0/pi); print text_sd
         StokesDic[sourceName] = (np.array([Isol, Qsol, Usol, 0.0])).tolist()
         StokesI[timeIndex] = Isol
         QCpUS[timeIndex] = Qsol* CS[timeIndex] + Usol* SN[timeIndex]
@@ -262,69 +262,24 @@ for spw_index in range(spwNum):
         #
     #
     #-------- D-term-corrected visibilities (invD dot Vis = PS)
-    """
-    M  = InvMullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum]))
-    DcorrectedVis = np.zeros([4, chNum, blNum, PAnum], dtype=complex)
-    for bl_index in range(blNum):
-        for ch_index in range(chNum):
-            for pa_index in range(PAnum):
-                DcorrectedVis[:,ch_index,bl_index,pa_index] = M[:,:,bl_index, ch_index].dot(VisSpec[:,ch_index,bl_index,pa_index])
-            #
-        #
+    print '  -- Applying D-term spectral correction'
+    M  = InvMullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum])).transpose(0, 2, 3, 1)
+    DcorrectedVis = np.zeros([4, blNum, chNum, PAnum], dtype=complex)
+    for pa_index in range(PAnum):
+        progress = (pa_index + 1.0) / PAnum
+        sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
+        DcorrectedVis[:,:,:,pa_index] = np.sum(M* GainCaledVisSpec[:,:,:,pa_index].transpose(2, 0, 1), axis=3)
     #
-    chAvgVis = np.mean(DcorrectedVis[:,chRange], axis=1)
-    Gain = np.array([gainComplexVec(chAvgVis[0]), gainComplexVec(chAvgVis[3])])   # Gain[pol, ant, time]
-    caledVis = DcorrectedVis.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
-    for sourceName in sourceList:
-        scanList = scanDic[sourceName]
-        if len(scanList) < 1 : continue
-        timeIndex = []
-        for scanIndex in scanList: timeIndex = timeIndex + range(scanST[scanIndex], scanET[scanIndex])
-        timeNum = len(timeIndex)
-        PS = InvPAVector(PA[timeIndex], np.ones(timeNum))
-        StokesVis = PS*  np.mean(caledVis[:,:,timeIndex], axis=1)
-
-.reshape(4*blNum, timeNum)).reshape(4*timeNum)) / (timeNum* blNum)
-
-        Qsol, Usol = StokesVis[1].real, StokesVis[2].real; Qerr, Uerr = abs(StokesVis[1].imag), abs(StokesVis[2].imag)
-        text_sd = '%s:  Q/I= %6.3f+-%6.4f  U/I= %6.3f+-%6.4f EVPA = %6.2f deg' % (sourceName, Qsol, Qerr, Usol, Uerr, np.arctan2(Usol,Qsol)*90.0/pi); print text_sd
-        QCpUS[timeIndex] = Qsol* CS[timeIndex] + Usol* SN[timeIndex]
-        UCmQS[timeIndex] = Usol* CS[timeIndex] - Qsol* SN[timeIndex]
-    #
-    #XX, YY = np.mean(GainCaledVisSpec[:,0], axis=2), np.mean(GainCaledVisSpec[:,3], axis=2)
-    #BP_ant[:,0] *= gainComplexVec(XX.T); BP_ant[:,1] *= gainComplexVec(YY.T)
-    #BP_bl = BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate()    # Baseline-based bandpass table
-
-    #-------- D-term-corrected visibilities (invD dot Vis = PS)
-    print 'Update Bandpass with D-term-corrected visibilities'
-    PS = (PAVector(PA, np.ones(PAnum)).transpose(2,0,1).dot(StokesVis.real))
-    M  = MullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum])).transpose(0,3,2,1)
-    DcorrectedVis = VisSpec / M.dot(PS.T)
-    chAvgVis = np.mean(DcorrectedVis[:,chRange], axis=1)
-    Gain = np.array([gainComplexVec(chAvgVis[0]), gainComplexVec(chAvgVis[3])])   # Gain[pol, ant, time]
-    caledVis = DcorrectedVis.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
-    #-------- Updating bandpass
-    """
-    #XX, YY = np.mean(GainCaledVisSpec[:,0], axis=2), np.mean(GainCaledVisSpec[:,3], axis=2)
-    #BP_ant[:,0] *= gainComplexVec(XX.T); BP_ant[:,1] *= gainComplexVec(YY.T)
-    #-------- Updating bandpass XY phase
-    #XY  = np.mean(GainCaledVisSpec[:,1:3], axis=(1,2))  # XY[ch, time]
-    """
-    XYresponse = XY.dot(abs(PS[:,1]))
-    XYtwiddle  = XYresponse / abs(XYresponse)
-    BP_ant[:,1] *= XYtwiddle
-    XYspec = np.ones(chNum, dtype=complex)
-    np.save(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy', BP_ant); print 'Updating BP table : ' + BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy'
-    np.save(XYprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy', XYspec); print 'Resetting XY phase : ' + XYprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy'
-    #-------- Time-series XY phase
-    XYphase = np.angle((XY.T).dot(XYresponse.conjugate()))
-    #-------- Plot
-    """
-    chAvgVis = np.mean(GainCaledVisSpec[chRange], axis=(0,2))
+    sys.stderr.write('\n'); sys.stderr.flush()
+    chAvgVis = np.mean(DcorrectedVis[:,:,chRange], axis=2)
+    GainX, GainY = polariGain(chAvgVis[0], chAvgVis[3], QCpUS)
+    Gain = np.array([GainX, GainY])
+    chAvgVis = np.mean( (chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())), axis=1)
     maxP = 0.0
     for sourceName in sourceList:
         timeIndex = timeDic[sourceName]
         if len(timeIndex) < 1 : continue
+        #chAvgVis[:,timeIndex] *= StokesDic[sourceName][0]
         QUsol = np.array([StokesDic[sourceName][1], StokesDic[sourceName][2]])
         maxP = max(maxP, sqrt(QUsol.dot(QUsol)))
         EVPA = 0.5* np.arctan2(QUsol[1], QUsol[0])
@@ -341,12 +296,12 @@ for spw_index in range(spwNum):
         plt.plot(RADDEG* ThetaRange,  np.mean(Dy).real* (StokesDic[sourceName][0] + QCpUS) + UCmQS + np.mean(Dx).real* (StokesDic[sourceName][1] - QCpUS), '-', label=sourceName + ' ReXY*')
         plt.plot(RADDEG* ThetaRange, -np.mean(Dy).imag* (StokesDic[sourceName][1] + QCpUS) + np.mean(Dx).imag* (StokesDic[sourceName][1] - QCpUS), '-', label=sourceName + ' ImXY*')
         plt.plot(RADDEG* ThetaRange,  np.mean(Dy).imag* (StokesDic[sourceName][1] + QCpUS) - np.mean(Dx).imag* (StokesDic[sourceName][1] - QCpUS), '-', label=sourceName + ' ImYX*')
-        plt.plot(RADDEG* ThetaPlot, chAvgVis[0][timeIndex].real - 1.0, ',')
+        plt.plot(RADDEG* ThetaPlot, chAvgVis[0][timeIndex].real - StokesDic[sourceName][0], ',')
         plt.plot(RADDEG* ThetaPlot, chAvgVis[1][timeIndex].real, ',')
         plt.plot(RADDEG* ThetaPlot, chAvgVis[1][timeIndex].imag, ',')
         plt.plot(RADDEG* ThetaPlot, chAvgVis[2][timeIndex].real, ',')
         plt.plot(RADDEG* ThetaPlot, chAvgVis[2][timeIndex].imag, ',')
-        plt.plot(RADDEG* ThetaPlot, chAvgVis[3][timeIndex].real - 1.0, ',')
+        plt.plot(RADDEG* ThetaPlot, chAvgVis[3][timeIndex].real - StokesDic[sourceName][0], ',')
         #text_sd = '%s: (Q, U)/I = (%7.4f+-%6.4f, %7.4f+-%6.4f) XY-phase=%6.2f deg (Ref:%s)' % (sourceName, QUsol[0], QUerr[0], QUsol[1], QUerr[1], np.angle(np.mean(XYtwiddle[chRange])*np.mean(np.exp((0.0 + 1.0j)* XYphase)))* 180.0/pi,  antList[refAntID])
     #
     plt.xlabel('Linear polarization angle w.r.t. X-Feed [deg]'); plt.ylabel('Normalized cross correlations')
