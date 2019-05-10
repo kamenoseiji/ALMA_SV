@@ -171,10 +171,12 @@ polXindex, polYindex, scan_index = (arange(4)//2).tolist(), (arange(4)%2).tolist
 interval, timeStamp = GetTimerecord(msfile, 0, 0, spwList[0], EQScan); timeNum = len(timeStamp)
 AzScan, ElScan = AzElMatch(timeStamp[flagIndex], azelTime, AntID, refantID, AZ, EL)
 PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), np.cos(PA))
-QUsolution = np.zeros(2)
-if catalogStokesQ.get(EQcal) > 0.0 :
-    QUsolution = np.array([catalogStokesQ.get(EQcal), catalogStokesU.get(EQcal)])
-QCpUS = (QUsolution[0]* np.cos(2.0* PA) + QUsolution[1]* np.sin(2.0* PA)) / catalogStokesI.get(EQcal)
+if len(StokesDic[EQcal]) > 0:
+    StokesEQ = np.array(StokesDic[EQcal])
+else: 
+    StokesEQ = np.array([1.0, 0.0, 0.0, 0.0])
+#
+QCpUS = (StokesEQ[1]* np.cos(2.0* PA) + StokesEQ[2]* np.sin(2.0* PA)) / StokesEQ[0]
 #
 if len(atmTimeRef) > 5:
     #exTauSP  = UnivariateSpline(atmTimeRef, Tau0E, np.ones(len(atmTimeRef)), s=0.1*np.std(Tau0E), ext=3)
