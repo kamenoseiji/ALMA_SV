@@ -271,10 +271,7 @@ for spw_index in range(spwNum):
         DcorrectedVis[:,:,:,pa_index] = np.sum(M* GainCaledVisSpec[:,:,:,pa_index].transpose(2, 0, 1), axis=3)
     #
     sys.stderr.write('\n'); sys.stderr.flush()
-    chAvgVis = np.mean(DcorrectedVis[:,:,chRange], axis=2)
-    GainX, GainY = polariGain(chAvgVis[0], chAvgVis[3], QCpUS)
-    Gain = np.array([GainX, GainY])
-    chAvgVis = np.mean( (chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())), axis=1)
+    chAvgVis = np.mean(DcorrectedVis[:,:,chRange], axis=(1,2))
     maxP = 0.0
     for sourceName in sourceList:
         timeIndex = timeDic[sourceName]
@@ -293,9 +290,8 @@ for spw_index in range(spwNum):
         ThetaRange[ThetaRange < -1.56] = -np.inf
         plt.plot(RADDEG* ThetaRange,  QCpUS, '-', label=sourceName + ' XX* - I')     # XX* - 1.0
         plt.plot(RADDEG* ThetaRange, -QCpUS, '-', label=sourceName + ' YY* - I')     # YY* - 1.0
-        plt.plot(RADDEG* ThetaRange,  np.mean(Dy).real* (StokesDic[sourceName][0] + QCpUS) + UCmQS + np.mean(Dx).real* (StokesDic[sourceName][1] - QCpUS), '-', label=sourceName + ' ReXY*')
-        plt.plot(RADDEG* ThetaRange, -np.mean(Dy).imag* (StokesDic[sourceName][1] + QCpUS) + np.mean(Dx).imag* (StokesDic[sourceName][1] - QCpUS), '-', label=sourceName + ' ImXY*')
-        plt.plot(RADDEG* ThetaRange,  np.mean(Dy).imag* (StokesDic[sourceName][1] + QCpUS) - np.mean(Dx).imag* (StokesDic[sourceName][1] - QCpUS), '-', label=sourceName + ' ImYX*')
+        plt.plot(RADDEG* ThetaRange,  UCmQS, '-', label=sourceName + ' ReXY*')
+        plt.plot(RADDEG* ThetaRange,  np.zeros(len(ThetaRange)), '-', label=sourceName + ' ImXY*')
         plt.plot(RADDEG* ThetaPlot, chAvgVis[0][timeIndex].real - StokesDic[sourceName][0], ',')
         plt.plot(RADDEG* ThetaPlot, chAvgVis[1][timeIndex].real, ',')
         plt.plot(RADDEG* ThetaPlot, chAvgVis[1][timeIndex].imag, ',')
