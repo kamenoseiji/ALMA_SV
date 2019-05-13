@@ -66,7 +66,8 @@ for spw_index in range(spwNum):
 #
 caledVis = np.array(caledVis)   # [spw, pol, time]
 if 'QUMODEL' in locals():
-    if QUMODEL: QUsolution = np.array([catalogStokesQ.get(BPcal), catalogStokesU.get(BPcal)])
+    StokesBP = np.array(StokesDic[BPcal])
+    if QUMODEL: QUsolution = np.array(StokesBP[[1,2]])/StokesBP[0]
 else: QUsolution = XXYY2QU(PA, np.mean(caledVis[:,[0,3]], axis=0))
 #-------- XY phase cal in Bandpass table
 for spw_index in range(spwNum):
