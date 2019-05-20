@@ -128,14 +128,21 @@ for ant_index in range(antNum):
         Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[ant_index] + '.DSpec.npy'
         # print 'Loading %s' % (Dfile)
         Dterm = np.load(Dfile)
-        DxList = DxList + [Dterm[1] + (0.0 + 1.0j)* Dterm[2]]
-        DyList = DyList + [Dterm[3] + (0.0 + 1.0j)* Dterm[4]]
+        if Dterm.shape[1] == chNum:
+            DxList = DxList + [Dterm[1] + (0.0 + 1.0j)* Dterm[2]]
+            DyList = DyList + [Dterm[3] + (0.0 + 1.0j)* Dterm[4]]
+        else:
+            chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index]); Freq = Freq * 1.0e-9
+            chIndex = range(int(Dterm.shape[1]*0.05), int(Dterm.shape[1]*0.95))
+            DXSPL_real, DXSPL_imag = UnivariateSpline(Dterm[0,chIndex], Dterm[1,chIndex]), UnivariateSpline(Dterm[0,chIndex], Dterm[2,chIndex])
+            DYSPL_real, DYSPL_imag = UnivariateSpline(Dterm[0,chIndex], Dterm[3,chIndex]), UnivariateSpline(Dterm[0,chIndex], Dterm[4,chIndex])
+            DxList = DxList + [DXSPL_real(Freq) + (0.0 + 1.0j)* DXSPL_imag(Freq)]
+            DyList = DyList + [DYSPL_real(Freq) + (0.0 + 1.0j)* DYSPL_imag(Freq)]
+        #
     #
 #
-chNum = np.array(DxList).shape[1]
 DxSpec, DySpec = np.array(DxList).reshape([antNum, spwNum, chNum]), np.array(DyList).reshape([antNum, spwNum, chNum])
 Dloaded = True
-
 if 'gainRef' in locals(): flagRef = np.zeros([UseAntNum]); refIndex = indexList(gainRef, antList[antMap]); flagRef[refIndex] = 1.0; del(gainRef)
 if 'refIndex' not in locals(): refIndex = range(UseAntNum)
 if len(refIndex) == 0: refIndex = range(UseAntNum)
