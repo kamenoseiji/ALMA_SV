@@ -129,23 +129,23 @@ for band_index in range(NumBands):
     msmd.done()
     if polNum == 4:
         pPol, cPol = [0,3], [1,2];  ppolNum, cpolNum = len(pPol), len(cPol)
-        execfile(SCR_DIR + 'checkSEFDStokes.py')
+        #execfile(SCR_DIR + 'checkSEFDStokes.py')
         #execfile(SCR_DIR + 'aprioriStokes.py')
-        #if Apriori:
-        #    try:
-        #        execfile(SCR_DIR + 'aprioriStokes.py')
-        #    except:
-        #        print '  --A priori flux calibration falied.'
-        #else:
-        #    try:
-        #        execfile(SCR_DIR + 'checkSEFDStokes.py')
-        #    except:
-        #        print '  --SSO-based flux calibration falied. Switch to a priori (SEFD) calibration.'
-        #        try:
-        #            execfile(SCR_DIR + 'aprioriStokes.py')
-        #        except:
-        #            print '  --A priori flux calibration falied.'
-        #    #
+        if Apriori:
+            try:
+                execfile(SCR_DIR + 'aprioriStokes.py')
+            except:
+                print '  --A priori flux calibration falied.'
+        else:
+            try:
+                execfile(SCR_DIR + 'checkSEFDStokes.py')
+            except:
+                print '  --SSO-based flux calibration falied. Switch to a priori (SEFD) calibration.'
+                try:
+                    execfile(SCR_DIR + 'aprioriStokes.py')
+                except:
+                    print '  --A priori flux calibration falied.'
+            #
         #
     #
     if polNum == 2:
@@ -160,8 +160,8 @@ for band_index in range(NumBands):
             execfile(SCR_DIR + 'aprioriFlux.py')
     #
 #
-#del msfile, UniqBands, useAnt, atmspwLists
-#if 'spwFlag' in locals(): del spwFlag
-#if 'flagAnt' in locals(): del flagAnt
-#if 'BPScans' in locals(): del BPScans
-#if 'EQScans' in locals(): del EQScans
+del msfile, UniqBands, useAnt, atmspwLists
+if 'spwFlag' in locals(): del spwFlag
+if 'flagAnt' in locals(): del flagAnt
+if 'BPScans' in locals(): del BPScans
+if 'EQScans' in locals(): del EQScans
