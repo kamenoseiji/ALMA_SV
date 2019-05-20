@@ -199,6 +199,8 @@ if PLOTBP:
 #
 BPDone = True
 ##-------- Equalization using EQ scan
+spwStokesDic = []
+for spw_index in range(spwNum): spwStokesDic = spwStokesDic + [StokesDic.copy()]
 scanList = onsourceScans
 relGain = np.ones([spwNum, 2, UseAntNum])
 polXindex, polYindex, scan_index = (arange(4)//2).tolist(), (arange(4)%2).tolist(), scanList.index(EQScan)
@@ -324,6 +326,9 @@ for scan_index in range(scanNum):
     if scan_index > 0:
         for PL in IList: figFL.delaxes(PL)
         for PL in PList: figFL.delaxes(PL)
+    sourceName = sourceList[sourceIDscan[scan_index]]
+    SSO_flag = False
+    if sourceName in SSOCatalog: SSO_flag = True
     #-------- UV distance
     timeStamp, UVW = GetUVW(msfile, spwList[0], scanList[scan_index]);  timeNum = len(timeStamp)
     scanTime = scanTime + [np.median(timeStamp)]
@@ -337,7 +342,7 @@ for scan_index in range(scanNum):
     #-------- Plot Frame
     IList, PList = [], []      # XY delay and correlation
     text_time = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
-    text_src  = ' %02d %010s EL=%4.1f deg' % (scanList[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* OnEL[scan_index]/pi); logfile.write(text_src + ' ' + text_time + '\n'); print text_src + ' ' + text_time
+    text_src  = ' %02d %010s EL=%4.1f deg' % (scanList[scan_index], sourceName, 180.0* OnEL[scan_index]/pi); logfile.write(text_src + ' ' + text_time + '\n'); print text_src + ' ' + text_time
     BPCaledXspec = []
     #-------- Subarray formation
     SAantMap, SAblMap, SAblInv, SAant0, SAant1 = antMap, blMap, blInv, ant0, ant1
@@ -434,10 +439,14 @@ for scan_index in range(scanNum):
         StokesP_PL.plot( uvDist[SAblMap], StokesVis[2], '.', label=polLabel[2], color=Pcolor[2])
         StokesP_PL.plot( uvDist[SAblMap], StokesVis[3], '.', label=polLabel[3], color=Pcolor[3])
         text_sd = '%6.3f   %6.1f \n' % (100.0* np.sqrt(ScanFlux[scan_index, spw_index, 1]**2 + ScanFlux[scan_index, spw_index, 2]**2)/ScanFlux[scan_index, spw_index, 0], np.arctan2(ScanFlux[scan_index, spw_index, 2],ScanFlux[scan_index, spw_index, 1])*90.0/pi); logfile.write(text_sd); print text_sd,
-        #
     #
     uvMin, uvMax, IMax = min(uvDist), max(uvDist), max(ScanFlux[scan_index,:,0])
     for spw_index in range(spwNum):
+        if SSO_flag:
+            spwStokesDic[spw_index][sourceName] = [ScanFlux[scan_index, spw_index, 0], 0.0, 0.0, 0.0]
+        else:
+            spwStokesDic[spw_index][sourceName] = ScanFlux[scan_index, spw_index].tolist()
+        #
         StokesI_PL, StokesP_PL = IList[spw_index], PList[spw_index]
         if spw_index == 0: StokesI_PL.text(0.0, IMax*1.35, text_src)
         if spw_index == spwNum - 1: StokesI_PL.text(0.0, IMax*1.35, text_time)
@@ -465,12 +474,12 @@ for scan_index in range(scanNum):
         logfile.write('\n')
         #if not SSO_flag:
         waveLength = 299.792458/meanFreq    # wavelength in mm
-        text_sd = '%s, NE, NE, NE, NE, %.2fE+09, %.3f, %.3f, %.3f, %.3f, %.2f, %.2f, %.2f, %.2f, %s\n' % (sourceList[sourceIDscan[scan_index]], meanFreq, pflux[0], pfluxerr[0], np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi, np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/np.sqrt(pflux[1]**2 + pflux[2]**2)*90.0/pi, uvMin/waveLength, uvMax/waveLength, text_time[0:10].replace('/','-'))
+        text_sd = '%s, NE, NE, NE, NE, %.2fE+09, %.3f, %.3f, %.3f, %.3f, %.2f, %.2f, %.2f, %.2f, %s\n' % (sourceName, meanFreq, pflux[0], pfluxerr[0], np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi, np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/np.sqrt(pflux[1]**2 + pflux[2]**2)*90.0/pi, uvMin/waveLength, uvMax/waveLength, text_time[0:10].replace('/','-'))
         ingestFile.write(text_sd)
     #
     if COMPDB: 
         print ' -------- Comparison with ALMA Calibrator Catalog --------'
-        au.searchFlux(sourcename='%s' % (sourceList[sourceIDscan[scan_index]]), band=int(UniqBands[band_index][3:5]), date=timeText[0:10], maxrows=3)
+        au.searchFlux(sourcename='%s' % (sourceName), band=int(UniqBands[band_index][3:5]), date=timeText[0:10], maxrows=3)
     #
     print '\n'; logfile.write('')
 #

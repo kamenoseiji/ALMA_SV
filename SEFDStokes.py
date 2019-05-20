@@ -1,6 +1,8 @@
 EQflux = np.ones([2*spwNum])
+spwStokesDic = []
 #-------- Flux density of the equalizer
 for spw_index in range(spwNum):
+    spwStokesDic = spwStokesDic + [StokesDic.copy()]   # List of dictionary to store Stokes parameters of each source, each SPW
     FLX, FLY = [], []
     for sso_index in SSOUseList:
         index = np.where(AeX[:, spw_index, sso_index] > 1.0)[0].tolist()
@@ -213,9 +215,11 @@ for scan_index in range(scanNum):
         StokesP_PL.plot( uvDist[SAblMap], StokesVis[2], '.', label=polLabel[2], color=Pcolor[2])
         StokesP_PL.plot( uvDist[SAblMap], StokesVis[3], '.', label=polLabel[3], color=Pcolor[3])
         if(SSO_flag):
+            spwStokesDic[spw_index][sourceName] = [ScanFlux[scan_index, spw_index, 0], 0.0, 0.0, 0.0]
             text_sd = '| %6.3f ' % (SSOflux0[SSO_ID, spw_index]); logfile.write(text_sd); print text_sd,
             logfile.write('\n'); print ''
         else: 
+            spwStokesDic[spw_index][sourceName] = ScanFlux[scan_index, spw_index].tolist()
             text_sd = '%6.3f   %6.1f ' % (100.0* np.sqrt(ScanFlux[scan_index, spw_index, 1]**2 + ScanFlux[scan_index, spw_index, 2]**2)/ScanFlux[scan_index, spw_index, 0], np.arctan2(ScanFlux[scan_index, spw_index, 2],ScanFlux[scan_index, spw_index, 1])*90.0/pi); logfile.write(text_sd); print text_sd,
             logfile.write('\n'); print ''
         #
