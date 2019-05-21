@@ -199,8 +199,7 @@ if PLOTBP:
 #
 BPDone = True
 ##-------- Equalization using EQ scan
-spwStokesDic = []
-for spw_index in range(spwNum): spwStokesDic = spwStokesDic + [StokesDic.copy()]
+spwStokesDic = dict(zip(sourceList, [[]]*len(sourceList))) # StokesDic[sourceName][pol* spw]
 scanList = onsourceScans
 relGain = np.ones([spwNum, 2, UseAntNum])
 polXindex, polYindex, scan_index = (arange(4)//2).tolist(), (arange(4)%2).tolist(), scanList.index(EQScan)
@@ -442,11 +441,6 @@ for scan_index in range(scanNum):
     #
     uvMin, uvMax, IMax = min(uvDist), max(uvDist), max(ScanFlux[scan_index,:,0])
     for spw_index in range(spwNum):
-        if SSO_flag:
-            spwStokesDic[spw_index][sourceName] = [ScanFlux[scan_index, spw_index, 0], 0.0, 0.0, 0.0]
-        else:
-            spwStokesDic[spw_index][sourceName] = ScanFlux[scan_index, spw_index].tolist()
-        #
         StokesI_PL, StokesP_PL = IList[spw_index], PList[spw_index]
         if spw_index == 0: StokesI_PL.text(0.0, IMax*1.35, text_src)
         if spw_index == spwNum - 1: StokesI_PL.text(0.0, IMax*1.35, text_time)
@@ -469,6 +463,8 @@ for scan_index in range(scanNum):
         for pol_index in range(4):
             sol, solerr = linearRegression(relFreq, ScanFlux[scan_index, :, pol_index], ErrFlux[scan_index, :, pol_index] ); pflux[pol_index], pfluxerr[pol_index] = sol[0], solerr[0]
             text_sd = '%7.4f (%.4f) ' % (pflux[pol_index], pfluxerr[pol_index]) ; logfile.write(text_sd); print text_sd,
+            if SSO_flag and (pol_index > 0):  sol = np.zeros(2)
+            spwStokesDic[sourceName] = spwStokesDic[sourceName] + (sol[0] + sol[1]* relFreq).tolist()
         #
         text_sd = '%6.3f   %6.1f \n' % (100.0* np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi); logfile.write(text_sd); print text_sd,
         logfile.write('\n')

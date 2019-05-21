@@ -1,8 +1,7 @@
 EQflux = np.ones([2*spwNum])
-spwStokesDic = []
 #-------- Flux density of the equalizer
+spwStokesDic = dict(zip(sourceList, [[]]*len(sourceList))) # StokesDic[sourceName][pol* spw]
 for spw_index in range(spwNum):
-    spwStokesDic = spwStokesDic + [StokesDic.copy()]   # List of dictionary to store Stokes parameters of each source, each SPW
     FLX, FLY = [], []
     for sso_index in SSOUseList:
         index = np.where(AeX[:, spw_index, sso_index] > 1.0)[0].tolist()
@@ -215,11 +214,9 @@ for scan_index in range(scanNum):
         StokesP_PL.plot( uvDist[SAblMap], StokesVis[2], '.', label=polLabel[2], color=Pcolor[2])
         StokesP_PL.plot( uvDist[SAblMap], StokesVis[3], '.', label=polLabel[3], color=Pcolor[3])
         if(SSO_flag):
-            spwStokesDic[spw_index][sourceName] = [ScanFlux[scan_index, spw_index, 0], 0.0, 0.0, 0.0]
             text_sd = '| %6.3f ' % (SSOflux0[SSO_ID, spw_index]); logfile.write(text_sd); print text_sd,
             logfile.write('\n'); print ''
         else: 
-            spwStokesDic[spw_index][sourceName] = ScanFlux[scan_index, spw_index].tolist()
             text_sd = '%6.3f   %6.1f ' % (100.0* np.sqrt(ScanFlux[scan_index, spw_index, 1]**2 + ScanFlux[scan_index, spw_index, 2]**2)/ScanFlux[scan_index, spw_index, 0], np.arctan2(ScanFlux[scan_index, spw_index, 2],ScanFlux[scan_index, spw_index, 1])*90.0/pi); logfile.write(text_sd); print text_sd,
             logfile.write('\n'); print ''
         #
@@ -230,7 +227,6 @@ for scan_index in range(scanNum):
         StokesI_PL, StokesP_PL = IList[spw_index], PList[spw_index]
         if spw_index == 0: StokesI_PL.text(0.0, IMax*1.35, text_src)
         if spw_index == spwNum - 1: StokesI_PL.text(0.0, IMax*1.35, text_time)
-        #for spw_index in range(spwNum):
         StokesI_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 0], ScanFlux[scan_index, spw_index, 0]+ uvMax* ScanSlope[scan_index, spw_index, 0]]), '-', color=Pcolor[0])
         StokesP_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 1], ScanFlux[scan_index, spw_index, 1]+ uvMax* ScanSlope[scan_index, spw_index, 1]]), '-', color=Pcolor[1])
         StokesP_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 2], ScanFlux[scan_index, spw_index, 2]+ uvMax* ScanSlope[scan_index, spw_index, 2]]), '-', color=Pcolor[2])
@@ -250,6 +246,8 @@ for scan_index in range(scanNum):
     for pol_index in range(4):
         sol, solerr = linearRegression(relFreq, ScanFlux[scan_index, :, pol_index], ErrFlux[scan_index, :, pol_index] ); pflux[pol_index], pfluxerr[pol_index] = sol[0], solerr[0]
         text_sd = '%7.4f (%.4f) ' % (pflux[pol_index], pfluxerr[pol_index]) ; logfile.write(text_sd); print text_sd,
+        if SSO_flag and (pol_index > 0):  sol = np.zeros(2)
+        spwStokesDic[sourceName] = spwStokesDic[sourceName] + (sol[0] + sol[1]* relFreq).tolist()
     #
     text_sd = '%6.3f   %6.1f ' % (100.0* np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi); logfile.write(text_sd); print text_sd,
     logfile.write('\n')

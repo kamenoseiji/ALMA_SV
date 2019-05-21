@@ -60,9 +60,6 @@ for band_index in range(NumBands):
         for eachLine in lines:
             sourceName = eachLine.split()[0]
             StokesDic[sourceName] = [float(eachLine.split()[1]), float(eachLine.split()[2]), float(eachLine.split()[3]), 0.0]
-            #catalogStokesI[sourceName] = float(eachLine.split()[1])
-            #catalogStokesQ[sourceName] = float(eachLine.split()[2])
-            #catalogStokesU[sourceName] = float(eachLine.split()[3])
         #
     #
     for scan_index in range(scanNum):
@@ -73,8 +70,6 @@ for band_index in range(NumBands):
         OnAZ.append(np.median(AzScan)); OnEL.append(np.median(ElScan)); OnPA.append(np.median(PA))
         refTime = refTime + [np.median(timeStamp)]
         sourceName = sourceList[sourceIDscan[scan_index]]
-        #catalogIQUV = np.array([catalogStokesI.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesQ.get(sourceList[sourceIDscan[scan_index]], 0.0), catalogStokesU.get(sourceList[sourceIDscan[scan_index]], 0.0), 0.0])
-        #if catalogIQUV[0] > 0.1:
         if len(StokesDic[sourceName]) == 4:
             CS, SN = np.cos(2.0* OnPA[scan_index]), np.sin(2.0* OnPA[scan_index])
             QCpUS = StokesDic[sourceName][1]*CS + StokesDic[sourceName][2]*SN   # Qcos + Usin

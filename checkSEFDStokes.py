@@ -294,8 +294,8 @@ if len(SSOUseList) > 0:
     execfile(SCR_DIR + 'SEFDStokes.py')
 else:
     print 'No available Solar System Objects!! Try a-priori calibration.'
-    msmd.close()
-    msmd.done()
     #del flagAnt, TrxFlag, gainFlag, Dflag, AntID, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, TrxList, TsysSPW, TsysBL, azelTime, azelTime_index, chAvgVis, W
     execfile(SCR_DIR + 'aprioriStokes.py')
 #
+msmd.close()
+msmd.done()
