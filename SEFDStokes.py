@@ -1,6 +1,6 @@
 EQflux = np.ones([2*spwNum])
 #-------- Flux density of the equalizer
-spwStokesDic = dict(zip(sourceList, [[]]*len(sourceList))) # StokesDic[sourceName][pol* spw]
+spwStokesDic = dict(zip(sourceList, [[]]*len(sourceList))) # spwStokesDic[sourceName][pol* spw]
 for spw_index in range(spwNum):
     FLX, FLY = [], []
     for sso_index in SSOUseList:
@@ -86,12 +86,18 @@ polLabel = ['I', 'Q', 'U', 'V']
 Pcolor   = ['black', 'blue', 'red', 'green']
 XYD, XYC, scanTime = [], [],[]      # XY delay and correlation
 StokesDic = dict(zip(sourceList, [[]]*len(sourceList))) # Stokes parameters for each source
+scanDic   = dict(zip(sourceList, [[]]*len(sourceList))) # Scan list index for each source
+timeDic   = dict(zip(sourceList, [[]]*len(sourceList))) # Time index list for each source
+PADic     = dict(zip(sourceList, [[]]*len(sourceList))) # PA list for each source
 figFL = plt.figure(figsize = (11, 8))
 figFL.suptitle(prefix + ' ' + UniqBands[band_index])
 figFL.text(0.45, 0.05, 'Projected baseline [m]')
 figFL.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90)
+VisSpec = np.zeros([spwNum, 4, chNum, UseBlNum, timeSum], dtype=complex)
+timePointer = 0
 for scan_index in range(scanNum):
     sourceName = sourceList[sourceIDscan[scan_index]]
+    scanDic[sourceName] = scanDic[sourceName] + [scan_index]
     if scan_index > 0:
         for PL in IList: figFL.delaxes(PL)
         for PL in PList: figFL.delaxes(PL)
@@ -99,10 +105,13 @@ for scan_index in range(scanNum):
     #-------- UV distance
     timeStamp, UVW = GetUVW(msfile, spwList[0], onsourceScans[scan_index])
     scanTime = scanTime + [np.median(timeStamp)]
+    timeNum = len(timeStamp)
+    timeDic[sourceName] = range(timePointer, timePointer + timeNum)
     uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
     if min(ElScan) < 20.0 / 180.0* pi: continue
     PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
+    PADic[sourceName] = PA.tolist()
     #-------- Prepare plots
     IList, PList = [], []      # XY delay and correlation
     text_time = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
@@ -133,7 +142,7 @@ for scan_index in range(scanNum):
     #-------- Baseline-based cross power spectra
     for spw_index in range(spwNum):
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], onsourceScans[scan_index])
-        timeNum, chNum = Xspec.shape[3], Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum)); UseChNum = len(chRange)
+        chNum = Xspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum)); UseChNum = len(chRange)
         tempSpec = CrossPolBL(Xspec[:,:,SAblMap], SAblInv).transpose(3,2,0,1)      # Cross Polarization Baseline Mapping
         #-------- Bandpass Calibration
         BPCaledXspec = BPCaledXspec + [(tempSpec / (BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate())).transpose(2,3,1,0)] # Bandpass Cal
@@ -176,6 +185,7 @@ for scan_index in range(scanNum):
             SEFD /= (indivRelGain**2).T
         #
         AmpCalVis = (pCalVis[spw_index].transpose(3,0,1,2)* np.sqrt(SEFD[chRange][:,polYindex][:,:,ant0[0:SAblNum]]* SEFD[chRange][:,polXindex][:,:,ant1[0:SAblNum]])).transpose(3,2,1,0)
+        VisSpec[spw_index][:,chRange,:,timePointer:timePointer+timeNum] = AmpCalVis.transpose(1,2,0,3)
         text_sd = ' SPW%02d %5.1f GHz ' % (spwList[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
         Stokes = np.zeros([4,SAblNum], dtype=complex)
         for bl_index in range(SAblNum):
@@ -264,6 +274,7 @@ for scan_index in range(scanNum):
         au.searchFlux(sourcename='%s' % (sourceList[sourceIDscan[scan_index]]), band=int(UniqBands[band_index][3:5]), date=timeLabel[0:10], maxrows=3)
         print '\n'
     #
+    timePointer += timeNum
 #
 for PL in IList: figFL.delaxes(PL)
 for PL in PList: figFL.delaxes(PL)
@@ -278,6 +289,35 @@ np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceLis
 np.save(prefix + '-' + UniqBands[band_index] + '.AZEL.npy', np.array([scanTime, OnAZ, OnEL, OnPA]))
 np.save(prefix + '-' + UniqBands[band_index] + '.XYC.npy', np.array(XYC).reshape([len(XYC)/spwNum/2, spwNum, 2]))
 np.save(prefix + '-' + UniqBands[band_index] + '.XYD.npy', np.array(XYD).reshape([len(XYC)/spwNum/2, spwNum, 2]))
+#----
+StokesI, QCpUS, UCmQS = np.zeros(timeSum), np.zeros(timeSum), np.zeros(timeSum)
+DxNew, DyNew = np.zeros([UseAntNum, spwNum, UseChNum], dtype=complex), np.zeros([UseAntNum, spwNum, UseChNum], dtype=complex)
+for spw_index in range(spwNum):
+    chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index]); Freq = Freq * 1.0e-9
+    for sourceName in sourceList:
+        scanList = scanDic[sourceName]
+        timeIndex = timeDic[sourceName]
+        if len(scanList) < 1 : continue
+        PA = np.array(PADic[sourceName]); timeNum = len(PA)
+        CS, SN = np.cos(2.0* PA), np.sin(2.0* PA)
+        Isol, Qsol, Usol = spwStokesDic[sourceName][spw_index], spwStokesDic[sourceName][spwNum + spw_index], spwStokesDic[sourceName][2*spwNum + spw_index]
+        QCpUS[timeIndex] = Qsol* CS + Usol* SN
+        UCmQS[timeIndex] = Usol* CS - Qsol* SN
+        StokesI[timeIndex] = Isol
+    #
+    print '  -- Determining D-term spectra for spw ' + `spwList[spw_index]`
+    for ch_index in range(UseChNum):
+        DxNew[:,spw_index, ch_index], DyNew[:,spw_index, ch_index] = VisMuiti_solveD(VisSpec[spw_index][:,chRange[ch_index]], QCpUS, UCmQS, DxSpec[:,spw_index, chRange[ch_index]], DySpec[:,spw_index, chRange[ch_index]], StokesI)
+    #
+    DxSpec[:,:,chRange], DySpec[:,:,chRange] = DxNew, DyNew
+    #
+    for ant_index in range(UseAntNum):
+        Dfile = 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[antMap[ant_index]] + '.DSpec.npy'
+        Dterm = np.array([Freq, DxSpec[ant_index, spw_index].real, DxSpec[ant_index, spw_index].imag, DySpec[ant_index, spw_index].real, DySpec[ant_index, spw_index].imag])
+        np.save(Dfile, Dterm)
+    #
+#
+#----
 msmd.close()
 msmd.done()
 del flagAnt, TrxFlag, gainFlag, Dflag, AntID, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, TrxList, TsysSPW, TsysBL, azelTime, azelTime_index, chAvgVis, W
