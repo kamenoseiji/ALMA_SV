@@ -321,16 +321,21 @@ figFL = plt.figure(figsize = (11, 8))
 figFL.suptitle(prefix + ' ' + UniqBands[band_index])
 figFL.text(0.45, 0.05, 'Projected baseline [m]')
 figFL.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90)
+VisSpec = np.zeros([spwNum, 4, chNum, UseBlNum, timeSum], dtype=complex)
+timePointer = 0
 for scan_index in range(scanNum):
+    sourceName = sourceList[sourceIDscan[scan_index]]
+    scanDic[sourceName] = scanDic[sourceName] + [scan_index]
     if scan_index > 0:
         for PL in IList: figFL.delaxes(PL)
         for PL in PList: figFL.delaxes(PL)
-    sourceName = sourceList[sourceIDscan[scan_index]]
     SSO_flag = False
     if sourceName in SSOCatalog: SSO_flag = True
     #-------- UV distance
     timeStamp, UVW = GetUVW(msfile, spwList[0], scanList[scan_index]);  timeNum = len(timeStamp)
     scanTime = scanTime + [np.median(timeStamp)]
+    timeNum = len(timeStamp)
+    timeDic[sourceName] = range(timePointer, timePointer + timeNum)
     uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     #-------- Flagging
     if 'FG' in locals(): flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
@@ -338,6 +343,7 @@ for scan_index in range(scanNum):
     #-------- Parallactic Angle
     AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
     PA = (AzEl2PA(AzScan, ElScan) + BandPA[band_index])[flagIndex]; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
+    PADic[sourceName] = PA.tolist()
     #-------- Plot Frame
     IList, PList = [], []      # XY delay and correlation
     text_time = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
@@ -409,6 +415,7 @@ for scan_index in range(scanNum):
         indivRelGain = abs(gainComplexVec(AmpCalVis.T)); indivRelGain /= np.percentile(indivRelGain, 75, axis=0)
         SEFD /= (indivRelGain**2).T
         AmpCalVis = (pCalVis[spw_index].transpose(3,0,1,2)* np.sqrt(SEFD[chRange][:,polYindex][:,:,SAant0]* SEFD[chRange][:,polXindex][:,:,SAant1])).transpose(3,2,1,0)
+        VisSpec[spw_index][:,chRange,:,timePointer:timePointer+timeNum] = AmpCalVis.transpose(1,2,0,3)
         text_sd = ' SPW%02d %5.1f GHz' % (spwList[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
         Stokes = np.zeros([4,SAblNum], dtype=complex)
         for bl_index in range(SAblNum):
@@ -473,6 +480,7 @@ for scan_index in range(scanNum):
         text_sd = '%s, NE, NE, NE, NE, %.2fE+09, %.3f, %.3f, %.3f, %.3f, %.2f, %.2f, %.2f, %.2f, %s\n' % (sourceName, meanFreq, pflux[0], pfluxerr[0], np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi, np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/np.sqrt(pflux[1]**2 + pflux[2]**2)*90.0/pi, uvMin/waveLength, uvMax/waveLength, text_time[0:10].replace('/','-'))
         ingestFile.write(text_sd)
     #
+    timePointer += timeNum
     if COMPDB: 
         print ' -------- Comparison with ALMA Calibrator Catalog --------'
         au.searchFlux(sourcename='%s' % (sourceName), band=int(UniqBands[band_index][3:5]), date=timeText[0:10], maxrows=3)
@@ -489,6 +497,36 @@ np.save(prefix + '-' + UniqBands[band_index] + '.Source.npy', np.array(sourceLis
 np.save(prefix + '-' + UniqBands[band_index] + '.AZEL.npy', np.array([scanTime, OnAZ, OnEL, OnPA]))
 np.save(prefix + '-' + UniqBands[band_index] + '.XYC.npy', np.array(XYC).reshape([len(XYC)/spwNum/2, spwNum, 2]))
 np.save(prefix + '-' + UniqBands[band_index] + '.XYD.npy', np.array(XYD).reshape([len(XYC)/spwNum/2, spwNum, 2]))
+#---- D-term solution
+StokesI, QCpUS, UCmQS = np.zeros(timeSum), np.zeros(timeSum), np.zeros(timeSum)
+DxNew, DyNew = np.zeros([UseAntNum, spwNum, UseChNum], dtype=complex), np.zeros([UseAntNum, spwNum, UseChNum], dtype=complex)
+for spw_index in range(spwNum):
+    chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index]); Freq = Freq * 1.0e-9
+    for sourceName in sourceList:
+        scanList = scanDic[sourceName]
+        timeIndex = timeDic[sourceName]
+        if len(scanList) < 1 : continue
+        PA = np.array(PADic[sourceName]); timeNum = len(PA)
+        CS, SN = np.cos(2.0* PA), np.sin(2.0* PA)
+        Isol, Qsol, Usol = spwStokesDic[sourceName][spw_index], spwStokesDic[sourceName][spwNum + spw_index], spwStokesDic[sourceName][2*spwNum + spw_index]
+        QCpUS[timeIndex] = Qsol* CS + Usol* SN
+        UCmQS[timeIndex] = Usol* CS - Qsol* SN
+        StokesI[timeIndex] = Isol
+    #
+    print '  -- Determining D-term spectra for spw ' + `spwList[spw_index]`
+    for ch_index in range(UseChNum):
+        #DxNew[:,spw_index, ch_index], DyNew[:,spw_index, ch_index] = VisMuiti_solveD(VisSpec[spw_index][:,chRange[ch_index]], QCpUS, UCmQS, DxSpec[:,spw_index, chRange[ch_index]], DySpec[:,spw_index, chRange[ch_index]], StokesI)
+        DxNew[:,spw_index, ch_index], DyNew[:,spw_index, ch_index] = VisMuiti_solveD(VisSpec[spw_index][:,chRange[ch_index]], QCpUS, UCmQS, [],[], StokesI)
+    #
+    DxSpec[:,:,chRange], DySpec[:,:,chRange] = DxNew, DyNew
+    #
+    for ant_index in range(UseAntNum):
+        Dfile = 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[antMap[ant_index]] + '.DSpec.npy'
+        Dterm = np.array([Freq, DxSpec[ant_index, spw_index].real, DxSpec[ant_index, spw_index].imag, DySpec[ant_index, spw_index].real, DySpec[ant_index, spw_index].imag])
+        np.save(Dfile, Dterm)
+    #
+#
+#----
 msmd.close()
 msmd.done()
 del flagAnt, TrxFlag, gainFlag, Dflag, AntID, Xspec, tempSpec, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, TrxList, TsysSPW, azelTime, azelTime_index, chAvgVis, W, refIndex
