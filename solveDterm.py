@@ -58,7 +58,7 @@ for file_index in range(fileNum):
         sourceName = sourceList[msmd.sourceidforfield(msmd.fieldsforscan(scan))]
         sourceScan = sourceScan + [sourceName]
         scanDic[sourceName] = scanDic[sourceName] + [scanIndex]
-        IQU = GetPolQuery(sourceName, timeStamp[0], BANDFQ[bandID], SCR_DIR)
+        IQU = GetPolQuery(sourceName, timeStamp[0], BANDFQ[bandID], SCR_DIR, R_DIR)
         if len(IQU[0]) == 1:
             StokesDic[sourceName] = [IQU[0][sourceName], IQU[1][sourceName], IQU[2][sourceName], 0.0]
         else:
