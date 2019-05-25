@@ -268,11 +268,7 @@ for spw_index in range(spwNum):
     print '  -- Applying D-term spectral correction'
     M  = InvMullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum])).transpose(0, 2, 3, 1)
     DcorrectedVis = np.zeros([4, blNum, chNum, PAnum], dtype=complex)
-    for pa_index in range(PAnum):
-        progress = (pa_index + 1.0) / PAnum
-        sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
-        DcorrectedVis[:,:,:,pa_index] = np.sum(M* GainCaledVisSpec[:,:,:,pa_index].transpose(2, 0, 1), axis=3)
-    #
+    for pol_index in range(4): DcorrectedVis[pol_index] = np.sum(M[pol_index]* GainCaledVisSpec.transpose(3,2,0,1), axis=3).transpose(1,2,0)
     sys.stderr.write('\n'); sys.stderr.flush()
     chAvgVis = np.mean(DcorrectedVis[:,:,chRange], axis=(1,2))
     maxP = 0.0
