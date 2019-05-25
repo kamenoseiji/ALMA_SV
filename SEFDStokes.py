@@ -85,7 +85,6 @@ pp = PdfPages('FL_' + prefix + '_' + UniqBands[band_index] + '.pdf')
 polLabel = ['I', 'Q', 'U', 'V']
 Pcolor   = ['black', 'blue', 'red', 'green']
 XYD, XYC, scanTime = [], [],[]      # XY delay and correlation
-StokesDic = dict(zip(sourceList, [[]]*len(sourceList))) # Stokes parameters for each source
 scanDic   = dict(zip(sourceList, [[]]*len(sourceList))) # Scan list index for each source
 timeDic   = dict(zip(sourceList, [[]]*len(sourceList))) # Time index list for each source
 PADic     = dict(zip(sourceList, [[]]*len(sourceList))) # PA list for each source
@@ -305,7 +304,7 @@ for spw_index in range(spwNum):
         UCmQS[timeIndex] = Usol* CS - Qsol* SN
         StokesI[timeIndex] = Isol
     #
-    print '  -- Determining D-term spectra for spw ' + `spwList[spw_index]`
+    #print '  -- Determining D-term spectra for spw ' + `spwList[spw_index]`
     for ch_index in range(UseChNum):
         #DxNew[:,spw_index, ch_index], DyNew[:,spw_index, ch_index] = VisMuiti_solveD(VisSpec[spw_index][:,chRange[ch_index]], QCpUS, UCmQS, DxSpec[:,spw_index, chRange[ch_index]], DySpec[:,spw_index, chRange[ch_index]], StokesI)
         DxNew[:,spw_index, ch_index], DyNew[:,spw_index, ch_index] = VisMuiti_solveD(VisSpec[spw_index][:,chRange[ch_index]], QCpUS, UCmQS, [], [], StokesI)
@@ -313,7 +312,7 @@ for spw_index in range(spwNum):
     DxSpec[:,:,chRange], DySpec[:,:,chRange] = DxNew, DyNew
     #
     for ant_index in range(UseAntNum):
-        Dfile = 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[antMap[ant_index]] + '.DSpec.npy'
+        Dfile = prefix + '-B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[antMap[ant_index]] + '.DSpec.npy'
         Dterm = np.array([Freq, DxSpec[ant_index, spw_index].real, DxSpec[ant_index, spw_index].imag, DySpec[ant_index, spw_index].real, DySpec[ant_index, spw_index].imag])
         np.save(Dfile, Dterm)
     #
