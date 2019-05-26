@@ -265,12 +265,16 @@ for spw_index in range(spwNum):
         #
     #
     #-------- D-term-corrected visibilities (invD dot Vis = PS)
+    del Stokes, StokesVis
     print '  -- Applying D-term spectral correction'
     M  = InvMullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum])).transpose(0, 2, 3, 1)
-    DcorrectedVis = np.zeros([4, blNum, chNum, PAnum], dtype=complex)
-    for pol_index in range(4): DcorrectedVis[pol_index] = np.sum(M[pol_index]* GainCaledVisSpec.transpose(3,2,0,1), axis=3).transpose(1,2,0)
-    sys.stderr.write('\n'); sys.stderr.flush()
-    chAvgVis = np.mean(DcorrectedVis[:,:,chRange], axis=(1,2))
+    #DcorrectedVis = np.zeros([4, blNum, chNum, PAnum], dtype=complex)
+    chAvgVis = np.zeros([4, PAnum], dtype=complex)
+    temp = GainCaledVisSpec[chRange].transpose(3,2,0,1)
+    for pol_index in range(4):
+        #DcorrectedVis[pol_index] = np.sum(M[pol_index]* temp, axis=3).transpose(1,2,0)
+        chAvgVis[pol_index] = 4.0* np.mean(M[pol_index][:,:,chRange]* temp, axis=(1,2,3))
+    #chAvgVis = np.mean(DcorrectedVis[:,:,chRange], axis=(1,2))
     maxP = 0.0
     for sourceName in sourceList:
         timeIndex = timeDic[sourceName]

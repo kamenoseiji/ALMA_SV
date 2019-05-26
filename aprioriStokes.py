@@ -426,6 +426,7 @@ for scan_index in range(scanNum):
             Stokes[:,bl_index] = PS.reshape(4, 4*PAnum).dot(Minv.reshape(4, 4*UseChNum).dot(AmpCalVis[bl_index].reshape(4*UseChNum, PAnum)).reshape(4*PAnum)) / (PAnum* UseChNum)
         #
         StokesVis, StokesErr = Stokes.real, Stokes.imag
+        # StokesVis[0] = 180.0* np.angle(Stokes[0]) / pi
         #-------- Visibility slope vs uvdist using Stokes I
         percent75 = np.percentile(StokesVis[0], 75); sdvis = np.std(StokesVis[0])
         visFlag = np.where(abs(StokesVis[0] - percent75) < 2.0* sdvis )[0].tolist()
@@ -459,6 +460,7 @@ for scan_index in range(scanNum):
         StokesP_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 2], ScanFlux[scan_index, spw_index, 2]+ uvMax* ScanSlope[scan_index, spw_index, 2]]), '-', color=Pcolor[2])
         StokesP_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 3], ScanFlux[scan_index, spw_index, 3]+ uvMax* ScanSlope[scan_index, spw_index, 3]]), '-', color=Pcolor[3])
         StokesI_PL.axis([0.0, uvMax, 0.0, 1.25*IMax]); StokesP_PL.axis([0.0, uvMax, -0.25*IMax, 0.25*IMax])
+        #StokesI_PL.axis([0.0, uvMax, -30.0, 30.0]); StokesP_PL.axis([0.0, uvMax, -0.25*IMax, 0.25*IMax])
         StokesI_PL.text(0.0, 1.26*IMax, 'SPW%2d %5.1f GHz' % (spwList[spw_index], centerFreqList[spw_index]))
     #
     StokesI_PL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
