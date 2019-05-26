@@ -265,10 +265,12 @@ def GetFWHM(msfile, spw, antD ):    # antD is the antenna diameter [m]
     return 1.13* 180.0* 3600.0* wavelength / (antD* pi) # Gaussian beam, in unit of arcsec
 #
 def GetSourceList(msfile):              # Source List
-    tb.open( msfile + '/SOURCE')
+    #tb.open( msfile + '/SOURCE')
+    tb.open( msfile + '/FIELD')
     SourceID = tb.getcol('SOURCE_ID')
     SourceName = tb.getcol('NAME')
-    SourcePos  = tb.getcol('DIRECTION')
+    #SourcePos  = tb.getcol('DIRECTION')
+    SourcePos  = tb.getcol('PHASE_DIR')
     tb.close()
     IDNum = np.max(SourceID) + 1
     sourceList, posList = ['']*IDNum, np.zeros([IDNum, 2])
@@ -276,7 +278,8 @@ def GetSourceList(msfile):              # Source List
     for ID in IDList:
         IDindex = SourceID.tolist().index(ID) 
         sourceList[ID] = SourceName[IDindex]
-        posList[ID] = SourcePos[:,IDindex]
+        #posList[ID] = SourcePos[:,IDindex]
+        posList[ID] = SourcePos[:,0,IDindex]
     #
     return sourceList, posList
 #
