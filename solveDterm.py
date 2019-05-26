@@ -265,7 +265,7 @@ for spw_index in range(spwNum):
         #
     #
     #-------- D-term-corrected visibilities (invD dot Vis = PS)
-    del Stokes, StokesVis
+    del StokesVis
     print '  -- Applying D-term spectral correction'
     M  = InvMullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum])).transpose(0, 2, 3, 1)
     #DcorrectedVis = np.zeros([4, blNum, chNum, PAnum], dtype=complex)
