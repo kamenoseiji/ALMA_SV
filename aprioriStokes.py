@@ -520,10 +520,9 @@ for spw_index in range(spwNum):
     #
     #print '  -- Determining D-term spectra for spw ' + `spwList[spw_index]`
     for ch_index in range(UseChNum):
-        #DxNew[:,spw_index, ch_index], DyNew[:,spw_index, ch_index] = VisMuiti_solveD(VisSpec[spw_index][:,chRange[ch_index]], QCpUS, UCmQS, DxSpec[:,spw_index, chRange[ch_index]], DySpec[:,spw_index, chRange[ch_index]], StokesI)
         DxNew[:,spw_index, ch_index], DyNew[:,spw_index, ch_index] = VisMuiti_solveD(VisSpec[spw_index][:,chRange[ch_index]], QCpUS, UCmQS, [],[], StokesI)
     #
-    DxSpec[:,:,chRange], DySpec[:,:,chRange] = DxNew, DyNew
+    DxSpec[antMap][:,:,chRange], DySpec[antMap][:,:,chRange] = DxNew, DyNew
     #
     for ant_index in range(UseAntNum):
         Dfile = prefix + '-B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[antMap[ant_index]] + '.DSpec.npy'
