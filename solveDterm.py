@@ -63,7 +63,7 @@ for file_index in range(fileNum):
             StokesDic[sourceName] = [IQU[0][sourceName], IQU[1][sourceName], IQU[2][sourceName], 0.0]
         else:
             StokesDic[sourceName] = [0.01, 0.0, 0.0, 0.0]
-        print '---- Scan%3d : %d tracking antennas : %s, %d records, expected I = %.1f p=%.1f%%' % (scan, len(trkAnt), sourceName, len(timeStamp), StokesDic[sourceName][0], 100.0*sqrt(StokesDic[sourceName][1]**2 + StokesDic[sourceName][2]**2)/StokesDic[sourceName][0])
+        print '---- Scan%3d : %d tracking antennas : %s, %d records, expected I=%.1f p=%.1f%%' % (scan, len(trkAnt), sourceName, len(timeStamp), StokesDic[sourceName][0], 100.0*sqrt(StokesDic[sourceName][1]**2 + StokesDic[sourceName][2]**2)/StokesDic[sourceName][0])
         scanIndex += 1
     #
     scansFile.append(scanLS)
@@ -268,18 +268,15 @@ for spw_index in range(spwNum):
     del StokesVis
     print '  -- Applying D-term spectral correction'
     M  = InvMullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum])).transpose(0, 2, 3, 1)
-    #DcorrectedVis = np.zeros([4, blNum, chNum, PAnum], dtype=complex)
     chAvgVis = np.zeros([4, PAnum], dtype=complex)
-    temp = GainCaledVisSpec[chRange].transpose(3,2,0,1)
-    for pol_index in range(4):
-        #DcorrectedVis[pol_index] = np.sum(M[pol_index]* temp, axis=3).transpose(1,2,0)
-        chAvgVis[pol_index] = 4.0* np.mean(M[pol_index][:,:,chRange]* temp, axis=(1,2,3))
-    #chAvgVis = np.mean(DcorrectedVis[:,:,chRange], axis=(1,2))
     maxP = 0.0
     for sourceName in sourceList:
         timeIndex = timeDic[sourceName]
         if len(timeIndex) < 1 : continue
-        #chAvgVis[:,timeIndex] *= StokesDic[sourceName][0]
+        temp = (GainCaledVisSpec[chRange][:,:,:,timeIndex]).transpose(3,2,0,1)
+        for pol_index in range(4):
+            chAvgVis[pol_index,timeIndex] = 4.0* np.mean(M[pol_index][:,chRange]* temp, axis=(1,2,3))
+        #
         QUsol = np.array([StokesDic[sourceName][1], StokesDic[sourceName][2]])
         maxP = max(maxP, sqrt(QUsol.dot(QUsol)))
         EVPA = 0.5* np.arctan2(QUsol[1], QUsol[0])
