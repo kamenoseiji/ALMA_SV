@@ -267,16 +267,18 @@ for spw_index in range(spwNum):
     #-------- D-term-corrected visibilities (invD dot Vis = PS)
     del StokesVis
     print '  -- Applying D-term spectral correction'
-    M  = InvMullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum])).transpose(0, 2, 3, 1)
+    M  = InvMullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum])).transpose(0,3,1,2)
     chAvgVis = np.zeros([4, PAnum], dtype=complex)
+    for time_index in range(PAnum):
+        progress = (time_index + 1.0) / PAnum
+        sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
+        chAvgVis[:,time_index] = 4.0* np.mean(M[:,chRange]* GainCaledVisSpec[chRange,:,:,time_index], axis=(1,2,3))
+    #
+    sys.stderr.write('\n'); sys.stderr.flush()
     maxP = 0.0
     for sourceName in sourceList:
         timeIndex = timeDic[sourceName]
         if len(timeIndex) < 1 : continue
-        temp = (GainCaledVisSpec[chRange][:,:,:,timeIndex]).transpose(3,2,0,1)
-        for pol_index in range(4):
-            chAvgVis[pol_index,timeIndex] = 4.0* np.mean(M[pol_index][:,chRange]* temp, axis=(1,2,3))
-        #
         QUsol = np.array([StokesDic[sourceName][1], StokesDic[sourceName][2]])
         maxP = max(maxP, sqrt(QUsol.dot(QUsol)))
         EVPA = 0.5* np.arctan2(QUsol[1], QUsol[0])
