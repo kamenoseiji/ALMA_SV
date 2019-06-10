@@ -275,10 +275,10 @@ for sso_index in range(SSONum):
         index = np.where(AeX[:, spw_index, sso_index] > 1.0)[0].tolist()
         if len(index) < 4: SSO_flag[sso_index] = 0.0; continue
         FLX_stat, FLY_stat = AeX[index, spw_index, sso_index]/AeNominal[np.array(antMap)[index].tolist()], AeY[index, spw_index, sso_index]/AeNominal[np.array(antMap)[index].tolist()]
-        if np.median(FLX_stat) < 0.7: SSO_flag[sso_index] = 0.0 
-        if np.median(FLY_stat) < 0.7: SSO_flag[sso_index] = 0.0 
-        if np.median(FLX_stat) > 1.5: SSO_flag[sso_index] = 0.0 
-        if np.median(FLY_stat) > 1.5: SSO_flag[sso_index] = 0.0 
+        if np.median(FLX_stat) < 0.4: SSO_flag[sso_index] = 0.0 
+        if np.median(FLY_stat) < 0.4: SSO_flag[sso_index] = 0.0 
+        if np.median(FLX_stat) > 2.0: SSO_flag[sso_index] = 0.0 
+        if np.median(FLY_stat) > 2.0: SSO_flag[sso_index] = 0.0 
         if np.percentile(FLX_stat, 75) / np.median(FLX_stat) > 1.5: SSO_flag[sso_index] = 0.0
         if np.percentile(FLY_stat, 75) / np.median(FLY_stat) > 1.5: SSO_flag[sso_index] = 0.0
     #
