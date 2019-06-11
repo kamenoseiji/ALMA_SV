@@ -250,6 +250,7 @@ for scan_index in range(scanNum):
     text_sd = ' --------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
     pflux, pfluxerr = np.zeros(4), np.zeros(4)
     text_sd = ' mean  %5.1f GHz' % (meanFreq); logfile.write(text_sd); print text_sd,
+    spwStokesDic[sourceName] = []
     for pol_index in range(4):
         sol, solerr = linearRegression(relFreq, ScanFlux[scan_index, :, pol_index], ErrFlux[scan_index, :, pol_index] ); pflux[pol_index], pfluxerr[pol_index] = sol[0], solerr[0]
         text_sd = '%7.4f (%.4f) ' % (pflux[pol_index], pfluxerr[pol_index]) ; logfile.write(text_sd); print text_sd,
@@ -299,10 +300,17 @@ for spw_index in range(spwNum):
         if len(scanList) < 1 : continue
         PA = np.array(PADic[sourceName]); timeNum = len(PA)
         CS, SN = np.cos(2.0* PA), np.sin(2.0* PA)
-        Isol, Qsol, Usol = spwStokesDic[sourceName][spw_index], spwStokesDic[sourceName][spwNum + spw_index], spwStokesDic[sourceName][2*spwNum + spw_index]
-        QCpUS[timeIndex] = Qsol* CS + Usol* SN
-        UCmQS[timeIndex] = Usol* CS - Qsol* SN
-        StokesI[timeIndex] = Isol
+        if len(spwStokesDic[sourceName]) == 4* spwNum:
+            Isol, Qsol, Usol = spwStokesDic[sourceName][spw_index], spwStokesDic[sourceName][spwNum + spw_index], spwStokesDic[sourceName][2*spwNum + spw_index]
+            QCpUS[timeIndex] = Qsol* CS + Usol* SN
+            UCmQS[timeIndex] = Usol* CS - Qsol* SN
+            StokesI[timeIndex] = Isol
+        else:   # Flagged source
+            QCpUS[timeIndex] = 0.0
+            UCmQS[timeIndex] = 0.0
+            StokesI[timeIndex] = 0.0
+            VisSpec[:,:,:,:,timeIndex] = 0.0
+        #
     #
     #print '  -- Determining D-term spectra for spw ' + `spwList[spw_index]`
     for ch_index in range(UseChNum):
