@@ -100,7 +100,7 @@ if len(UseAnt) < 5:
     sys.exit('Too few usable antennas. Reduction failed.')
 #-------- Check Scans for atmCal
 ingestFile = open(prefix + '-' + UniqBands[band_index] + '-Ingest.log', 'w')
-text_sd = '#source,   RA,eRA,dec,edec,frequency,  flux,eflux,degree,edeg,EVPA,eEVPA,uvmin,uvmax,date\n'; ingestFile.write(text_sd)
+text_sd = '#source,    RA,eRA,dec,edec, frequency,   flux, eflux,     %P,   d%P,   EVPA,  eEVPA,  uvmin,  uvmax,                date, fluxCal\n'; ingestFile.write(text_sd)
 logfile = open(prefix + '-' + UniqBands[band_index] + '-Flux.log', 'w')
 if 'BPcalText' in locals(): logfile.write(BPcalText + '\n')
 if 'EQcalText' in locals(): logfile.write(EQcalText + '\n')
@@ -482,7 +482,7 @@ for scan_index in range(scanNum):
         logfile.write('\n')
         #if not SSO_flag:
         waveLength = 299.792458/meanFreq    # wavelength in mm
-        text_sd = '%s, NE, NE, NE, NE, %.2fE+09, %.3f, %.3f, %.3f, %.3f, %.2f, %.2f, %.2f, %.2f, %s\n' % (sourceName, meanFreq, pflux[0], pfluxerr[0], np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi, np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/np.sqrt(pflux[1]**2 + pflux[2]**2)*90.0/pi, uvMin/waveLength, uvMax/waveLength, text_time[0:10].replace('/','-'))
+        text_sd = '%10s, NE, NE, NE, NE, %.2fE+09, %6.3f, %5.3f, %6.3f, %5.3f, %6.2f, %6.2f, %6.2f, %6.2f, %s, %s\n' % (sourceName, meanFreq, pflux[0], pfluxerr[0], np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi, np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/np.sqrt(pflux[1]**2 + pflux[2]**2)*90.0/pi, uvMin/waveLength, uvMax/waveLength, timeLabel.replace('/','-'), '-')
         ingestFile.write(text_sd)
     #
     timePointer += timeNum

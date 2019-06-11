@@ -84,7 +84,7 @@ UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum 
 if len(UseAnt) < 5: sys.exit('Too few usable antennas. Reduction failed.')
 #-------- Check Scans for atmCal
 ingestFile = open(prefix + '-' + UniqBands[band_index] + '-Ingest.log', 'w') 
-text_sd = '#source,   RA,eRA,dec,edec,frequency,  flux,eflux,degree,edeg,EVPA,eEVPA,uvmin,uvmax,date\n'; ingestFile.write(text_sd)
+text_sd = '#source,    RA,eRA,dec,edec, frequency,   flux, eflux,     %P,   d%P,   EVPA,  eEVPA,  uvmin,  uvmax,                date, fluxCal\n'; ingestFile.write(text_sd)
 logfile = open(prefix + '-' + UniqBands[band_index] + '-Flux.log', 'w') 
 logfile.write(BPcalText + '\n'); logfile.write(EQcalText + '\n')
 #-------- Tsys measurements
@@ -290,9 +290,15 @@ for sso_index in range(SSONum):
     #
 #
 SSOUseList = np.where(SSO_flag == 1.0)[0].tolist()
+fluxCalText = ''
 if len(SSOUseList) > 0:
+    for sso_ID in SSOUseList:
+        fluxCalText = fluxCalText + sourceList[BandSSOList[sso_ID]] + '-'
+    #
+    fluxCalText = fluxCalText[:-1]
     execfile(SCR_DIR + 'SEFDStokes.py')
 else:
+    fluxCalText = '-'
     print 'No available Solar System Objects!! Try a-priori calibration.'
     #del flagAnt, TrxFlag, gainFlag, Dflag, AntID, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, TrxList, TsysSPW, TsysBL, azelTime, azelTime_index, chAvgVis, W
     execfile(SCR_DIR + 'aprioriStokes.py')
