@@ -184,7 +184,8 @@ for scan_index in range(scanNum):
             SEFD /= (indivRelGain**2).T
         #
         AmpCalVis = (pCalVis[spw_index].transpose(3,0,1,2)* np.sqrt(SEFD[chRange][:,polYindex][:,:,ant0[0:SAblNum]]* SEFD[chRange][:,polXindex][:,:,ant1[0:SAblNum]])).transpose(3,2,1,0)
-        VisSpec[spw_index][:,chRange,:,timePointer:timePointer+timeNum] = AmpCalVis.transpose(1,2,0,3)
+        #VisSpec[spw_index][:,chRange,:,timePointer:timePointer+timeNum] = AmpCalVis.transpose(1,2,0,3)
+        VisSpec[spw_index][:,chRange][:,:,0:SAblNum][:,:,:,timePointer:timePointer+timeNum] = AmpCalVis.transpose(1,2,0,3)
         text_sd = ' SPW%02d %5.1f GHz ' % (spwList[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
         Stokes = np.zeros([4,SAblNum], dtype=complex)
         for bl_index in range(SAblNum):
