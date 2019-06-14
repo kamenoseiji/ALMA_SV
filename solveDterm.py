@@ -158,10 +158,10 @@ for spw_index in range(spwNum):
     if 'QUmodel' not in locals(): QUmodel = False
     CS, SN = np.cos(2.0* PA), np.sin(2.0* PA)
     for sourceName in sourceList:
-        scanList = scanDic[sourceName]
-        if len(scanList) < 1 : continue
+        scanLS = scanDic[sourceName]
+        if len(scanLS) < 1 : continue
         timeIndex = []
-        for scanIndex in scanList: timeIndex = timeIndex + range(scanST[scanIndex], scanET[scanIndex])
+        for scanIndex in scanLS: timeIndex = timeIndex + range(scanST[scanIndex], scanET[scanIndex])
         timeDic[sourceName] = timeIndex
         if QUmodel:
             QUsol = np.array(StokesDic[sourceName])[[1,2]]/StokesDic[sourceName][0]
