@@ -96,7 +96,7 @@ for ant_index in range(antNum): print '   %.0f' % (Dflag[ant_index]),
 print
 flagAnt = flagAnt* TrxFlag* gainFlag* Dflag
 UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
-if len(UseAnt) < 5:
+if len(UseAnt) < 4:
     sys.exit('Too few usable antennas. Reduction failed.')
 #-------- Check Scans for atmCal
 ingestFile = open(prefix + '-' + UniqBands[band_index] + '-Ingest.log', 'w')
@@ -349,8 +349,8 @@ for scan_index in range(scanNum):
     PADic[sourceName] = PA.tolist()
     #-------- Plot Frame
     IList, PList = [], []      # XY delay and correlation
-    text_time = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
-    text_src  = ' %02d %010s EL=%4.1f deg' % (scanList[scan_index], sourceName, 180.0* OnEL[scan_index]/pi); logfile.write(text_src + ' ' + text_time + '\n'); print text_src + ' ' + text_time
+    timeLabel = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
+    text_src  = ' %02d %010s EL=%4.1f deg' % (scanList[scan_index], sourceName, 180.0* OnEL[scan_index]/pi); logfile.write(text_src + ' ' + timeLabel + '\n'); print text_src + ' ' + timeLabel
     BPCaledXspec = []
     #-------- Subarray formation
     SAantMap, SAblMap, SAblInv, SAant0, SAant1 = antMap, blMap, blInv, ant0, ant1
@@ -454,7 +454,7 @@ for scan_index in range(scanNum):
     for spw_index in range(spwNum):
         StokesI_PL, StokesP_PL = IList[spw_index], PList[spw_index]
         if spw_index == 0: StokesI_PL.text(0.0, IMax*1.35, text_src)
-        if spw_index == spwNum - 1: StokesI_PL.text(0.0, IMax*1.35, text_time)
+        if spw_index == spwNum - 1: StokesI_PL.text(0.0, IMax*1.35, timeLabel)
         StokesI_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 0], ScanFlux[scan_index, spw_index, 0]+ uvMax* ScanSlope[scan_index, spw_index, 0]]), '-', color=Pcolor[0])
         StokesP_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 1], ScanFlux[scan_index, spw_index, 1]+ uvMax* ScanSlope[scan_index, spw_index, 1]]), '-', color=Pcolor[1])
         StokesP_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 2], ScanFlux[scan_index, spw_index, 2]+ uvMax* ScanSlope[scan_index, spw_index, 2]]), '-', color=Pcolor[2])
