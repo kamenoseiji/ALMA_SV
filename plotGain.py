@@ -6,45 +6,39 @@ from matplotlib.backends.backend_pdf import PdfPages
 #-------- Load tables
 antList, timeStamp, Gain = np.load(antFile), np.load(timeFile), np.load(GainFile)
 #-------- Plots
-pp = PdfPages('GA_' + prefix + '.pdf')
-plotMax = 1.5* np.median(abs(Gain))
+pp = PdfPages('GA_' + GainFile + '.pdf')
 antNum = len(antList)
 #-------- Prepare Plots
-for ant_index in range(antNum):
-figAnt = plt.figure(ant_index, figsize = (11, 8))
-figAnt.suptitle(prefix + ' ' + antList[ant_index])
-figAnt.text(0.45, 0.05, 'Time')
-figAnt.text(0.03, 0.45, 'Gain Amplitude and Phase', rotation=90)
+figAmp, figPhs = plt.figure(figsize = (8, 11)), plt.figure(figsize = (8, 11))
+figAmp.suptitle(GainFile + ' Gain Amplitude'); figPhs.suptitle(GainFile + ' Gain Phase')
+figAmp.text(0.45, 0.05, 'Time'); figPhs.text(0.45, 0.05, 'Time')
+figAmp.text(0.03, 0.45, 'Gain Amplitude', rotation=90); figPhs.text(0.03, 0.45, 'Gain Phase [rad]', rotation=90)
 #
 #-------- Plot Gain
-    for ant_index in range(UseAntNum):
-        figAnt = plt.figure(ant_index)
-        for spw_index in range(spwNum):
-            chNum, chWid, Freq = GetChNum(msfile, spw[spw_index]); Freq = 1.0e-9* Freq  # GHz
-            BPampPL = figAnt.add_subplot( 2, spwNum, spw_index + 1 )
-            BPphsPL = figAnt.add_subplot( 2, spwNum, spw_index + spwNum + 1 )
-            for pol_index in range(ppolNum):
-                plotBP = BP_ant[ant_index, spw_index, pol_index]
-                BPampPL.plot( Freq, abs(plotBP), ls='steps-mid', label = 'Pol=' + PolList[pol_index])
-                BPampPL.axis([np.min(Freq), np.max(Freq), 0.0, 1.25* plotMax])
-                BPampPL.yaxis.set_major_formatter(ptick.ScalarFormatter(useMathText=True))
-                BPampPL.yaxis.offsetText.set_fontsize(10)
-                BPampPL.ticklabel_format(style='sci',axis='y',scilimits=(0,0))
-                BPphsPL.plot( Freq, np.angle(plotBP), '.', label = 'Pol=' + PolList[pol_index])
-                BPphsPL.axis([np.min(Freq), np.max(Freq), -math.pi, math.pi])
-            #
-            BPampPL.legend(loc = 'lower left', prop={'size' :7}, numpoints = 1)
-            BPphsPL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
-            BPampPL.text( np.min(Freq), 1.1* plotMax, 'SPW=' + `spw[spw_index]` + ' Amp')
-            BPphsPL.text( np.min(Freq), 2.5, 'SPW=' + `spw[spw_index]` + ' Phase')
-        #
-        if PLOTFMT == 'png':
-            figAnt.savefig('BP_' + prefix + '_' + antList[antMap[ant_index]] + '-REF' + antList[UseAnt[refantID]] + '_Scan' + `BPscan` + '.png')
-        else :
-            #figAnt.savefig('BP_' + prefix + '_' + antList[antMap[ant_index]] + '-REF' + antList[UseAnt[refantID]] + '_Scan' + `BPscan` + '.pdf')
-            figAnt.savefig(pp, format='pdf')
-        #
+for ant_index in range(antNum):
+    plotMax = 1.1* np.median(abs(Gain[ant_index]))
+    plotMin = 0.9* np.min(abs(Gain[ant_index]))
+    AmpPL = figAmp.add_subplot( int(np.ceil(antNum/2.0)), 2, ant_index + 1 )
+    PhsPL = figPhs.add_subplot( int(np.ceil(antNum/2.0)), 2, ant_index + 1 )
+    #PhsPL = figAnt.add_subplot( antNum, 1, ant_index + 1 )
+    #plotX, plotY = Gain[ant_index, 0], Gain[ant_index, 0]
+    for pol_index in range(2): AmpPL.plot( timeStamp, abs(Gain[ant_index, pol_index]), ls='steps-mid')
+    for pol_index in range(2): PhsPL.plot( timeStamp, np.angle(Gain[ant_index, pol_index]), '.')
+    AmpPL.yaxis.set_major_formatter(ptick.ScalarFormatter(useMathText=True))
+    AmpPL.yaxis.offsetText.set_fontsize(3)
+    PhsPL.yaxis.offsetText.set_fontsize(3)
+    AmpPL.ticklabel_format(style='sci',axis='y',scilimits=(0,0))
+    AmpPL.tick_params(labelsize=4)
+    PhsPL.tick_params(labelsize=4)
+    AmpPL.axis([np.min(timeStamp), np.max(timeStamp), plotMin, plotMax], fontsize=3)
+    PhsPL.axis([np.min(timeStamp), np.max(timeStamp), -pi, pi], fontsize=3)
     #
-    plt.close('all')
-    pp.close()
+    #AmpPL.legend(loc = 'lower left', prop={'size' :7}, numpoints = 1)
+    #PhsPL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
+    AmpPL.text( np.min(timeStamp), 0.8* plotMin + 0.2* plotMax, antList[ant_index], fontsize=5)
+    PhsPL.text( np.min(timeStamp), -0.5*pi, antList[ant_index], fontsize=5)
 #
+figAmp.savefig(pp, format='pdf')
+figPhs.savefig(pp, format='pdf')
+plt.close('all')
+pp.close()

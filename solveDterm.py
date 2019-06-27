@@ -301,6 +301,7 @@ for spw_index in range(spwNum):
         plt.plot(RADDEG* ThetaPlot, chAvgVis[2][timeIndex].imag, ',')
         plt.plot(RADDEG* ThetaPlot, chAvgVis[3][timeIndex].real - StokesDic[sourceName][0], ',')
         #text_sd = '%s: (Q, U)/I = (%7.4f+-%6.4f, %7.4f+-%6.4f) XY-phase=%6.2f deg (Ref:%s)' % (sourceName, QUsol[0], QUerr[0], QUsol[1], QUerr[1], np.angle(np.mean(XYtwiddle[chRange])*np.mean(np.exp((0.0 + 1.0j)* XYphase)))* 180.0/pi,  antList[refAntID])
+        #for scan_index in range(len(scanST)): plt.text(RADDEG* ThetaPlot[scanST[scan_index]], maxP, `scanList[file_index][scan_index]`, fontsize=6)
     #
     plt.xlabel('Linear polarization angle w.r.t. X-Feed [deg]'); plt.ylabel('Normalized cross correlations')
     plt.xlim([-90.0, 90.0])
