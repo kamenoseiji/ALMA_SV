@@ -58,7 +58,7 @@ for(sourceName in srcList){
 		    }
 	    }
 	    lambdaSQ <- (0.299792458 / freqList)^2; lambdasqSpan <- diff(range(lambdaSQ))
-	    estP <- sqrt(estQ^2 + estU^2); errP <- sqrt(errQ^2 + errU^2); estEVPA <- 0.5*atan2(estU, estQ)
+	    estP <- sqrt(estQ^2 + estU^2); errP <- 0.01*estI + sqrt(errQ^2 + errU^2); estEVPA <- 0.5*atan2(estU, estQ)
 	    fit <- lm(log(estI) ~ log(freqList/100.0), weights=1.0/errI^2); I100 <- exp(as.numeric(coef(fit)[1])); spixI <- as.numeric(coef(fit)[2])
 	    fit <- lm(log(estP) ~ log(freqList/100.0), weights=1.0/errP^2); P100 <- exp(as.numeric(coef(fit)[1])); spixP <- as.numeric(coef(fit)[2])
 	    estEVPAend <- estEVPA[freqNum]
