@@ -682,7 +682,18 @@ def clamp_solve(bl_amp, niter=2):
     #
     return antGain
 #
-
+def cldelay_solve(bl_delay):    # see http://qiita.com/kamenoseiji/items/782031a0ce8bbc1dc99c
+    blNum = len(bl_delay); antNum = Bl2Ant(blNum)[0]
+    PTY = np.zeros(antNum)
+    ant0, ant1 = np.array(ANT0[0:blNum]), np.array(ANT1[0:blNum])
+    for ant_index in range(antNum):
+        index0 = np.where(ant0 == ant_index)[0].tolist()
+        index1 = np.where(ant1 == ant_index)[0].tolist()
+        PTY[ant_index] += (np.sum(bl_delay[index0]) - np.sum(bl_delay[index1]))
+    #
+    return PTY / antNum
+#
+'''
 def cldelay_solve(bl_delay):    # see http://qiita.com/kamenoseiji/items/782031a0ce8bbc1dc99c
     blNum = len(bl_delay); antNum = Bl2Ant(blNum)[0]
     ant0, ant1 = np.array(ANT0[0:blNum]), np.array(ANT1[0:blNum])
@@ -695,6 +706,7 @@ def cldelay_solve(bl_delay):    # see http://qiita.com/kamenoseiji/items/782031a
     #
     return np.array( [0.0] + (PTP_inv.dot(PTY)).tolist() )
 #
+'''
 def clcomplex_solve(bl_vis, bl_error):
 	blnum  =  len(bl_vis)
 	antnum =  Bl2Ant(blnum)[0]
@@ -751,6 +763,36 @@ def clcomplex_solve(bl_vis, bl_error):
 	return solution[range(antnum)] + 1j* np.append(0, solution[range(antnum, 2*antnum-1)])
 #
 def clphase_solve(Vis, iterNum = 2):
+    WeightBL = abs(Vis)
+    Vis = Vis / WeightBL    # Normalization
+    WeightAnt = clamp_solve(WeightBL)
+    blNum, antNum = len(Vis), len(WeightAnt)
+    ant0, ant1 = np.array(ANT0[0:blNum]), np.array(ANT1[0:blNum])
+    antGain = np.append(1.0 + 0.0j, Vis[KERNEL_BL[0:antNum-1]])
+    for iter_index in range(iterNum):
+        # resid = WeightBL* (Vis - (antGain[ant0] * antGain[ant1].conjugate()))
+        resid = Vis - (antGain[ant0] * antGain[ant1].conjugate())
+        # print 'Iter %d : resid = %e : sum(antGain) = %e' % (iter_index, resid.dot(resid.conjugate()).real, sum(antGain).real)
+        sumRealAntGain = np.sum(antGain).real
+        alpha = 1.0 - sumRealAntGain**2
+        PTY = np.ones(antNum, dtype=complex)* sumRealAntGain
+        PTP_inv = (np.diag(((3.0 - antNum)* alpha - antNum)*np.ones(antNum)) + alpha) / ((2.0* antNum - 4.0)*alpha**2 + (4.0* antNum - antNum**2)* alpha - antNum**2)
+        for ant_index in range(antNum):
+            index0 = np.where(ant0 == ant_index)[0].tolist()
+            index1 = np.where(ant1 == ant_index)[0].tolist()
+            Y = np.zeros(blNum, dtype=complex)
+            Y[index0] = -1.0j* antGain[ant_index].conjugate()* antGain[ant1[index0]]
+            Y[index1] =  1.0j* antGain[ant_index]* antGain[ant0[index1]].conjugate()
+            PTY[ant_index] += Y.dot(resid)
+        #
+        antPhs  = np.angle(antGain) + PTP_inv.dot(PTY.real)
+        antGain = np.cos(antPhs) + 1.0j* np.sin(antPhs)
+    #
+    #return antGain * np.exp(-1.0j* np.angle(np.sum(antGain)))
+    return antGain
+#
+'''
+def clphase_solve(Vis, iterNum = 2):
     Vis = Vis / abs(Vis)    # Normalization
     blNum = len(Vis); antNum = Bl2Ant(blNum)[0]
     ant0, ant1 = np.array(ANT0[0:blNum]), np.array(ANT1[0:blNum])
@@ -759,7 +801,7 @@ def clphase_solve(Vis, iterNum = 2):
     #
     for iter_index in range(iterNum):
         resid = Vis - (antGain[ant0] * antGain[ant1].conjugate())
-        # print 'Iter %d: resid = %f' % (iter_index, np.sum(abs(resid)**2))
+        print 'Iter %d: resid = %f' % (iter_index, np.sum(abs(resid)**2))
         PTY = np.zeros(antNum - 1, dtype=complex)
         for ant_index in range(1,antNum):
             index0 = np.where(ant0 == ant_index)[0].tolist()
@@ -774,6 +816,7 @@ def clphase_solve(Vis, iterNum = 2):
     #
     return antGain
 #
+'''
 def dMdDVec(Dx1, Dy1, Unity):
     return np.array([
         [0.0*Unity, 0.0*Unity, Unity,  Dx1.conjugate()],

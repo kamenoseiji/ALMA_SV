@@ -84,7 +84,7 @@ UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum 
 if len(UseAnt) < 4: sys.exit('Too few usable antennas. Reduction failed.')
 #-------- Check Scans for atmCal
 ingestFile = open(prefix + '-' + UniqBands[band_index] + '-Ingest.log', 'w') 
-text_sd = '#source,    RA,eRA,dec,edec, frequency,   flux, eflux,     %P,   d%P,   EVPA,  eEVPA,  uvmin,  uvmax,                date, fluxCal\n'; ingestFile.write(text_sd)
+text_sd = '#source,    RA,eRA,dec,edec, frequency,  flux,  eflux,     %P,    d%P,  EVPA, eEVPA, uvmin, uvmax,         date, fluxCal, ExecBlock\n'; ingestFile.write(text_sd)
 logfile = open(prefix + '-' + UniqBands[band_index] + '-Flux.log', 'w') 
 logfile.write(BPcalText + '\n'); logfile.write(EQcalText + '\n')
 #-------- Tsys measurements
@@ -188,11 +188,11 @@ QCpUS = (StokesEQ[1]* np.cos(2.0* PA) + StokesEQ[2]* np.sin(2.0* PA)) / StokesEQ
 #
 if len(atmTimeRef) > 5:
     #exTauSP  = UnivariateSpline(atmTimeRef, Tau0E, np.ones(len(atmTimeRef)), s=0.1*np.std(Tau0E), ext=3)
-    exTauSP  = UnivariateSpline(np.append(np.append(atmTimeRef[0]-180.0,atmTimeRef), atmTimeRef[-1]+180.0), np.append(np.append(Tau0E[0], Tau0E), Tau0E[-1]), np.ones(len(atmTimeRef)+2), s=0.1*np.std(Tau0E))
+    exTauSP  = UnivariateSpline(np.append(np.append(atmTimeRef[0]-180.0,atmTimeRef), atmTimeRef[-1]+180.0), np.append(np.append(Tau0E[0], Tau0E), Tau0E[-1]), np.ones(len(atmTimeRef)+2), s=0.001*np.std(Tau0E))
 else:
     tempTime = np.arange(np.min(atmTimeRef) - 3600.0,  np.max(atmTimeRef) + 3600.0, 300.0)
     tempTauE = np.repeat(np.median(Tau0E[spw_index]), len(tempTime))
-    exTauSP = UnivariateSpline(tempTime, tempTauE, np.ones(len(tempTime)), s=0.1, ext=3)
+    exTauSP = UnivariateSpline(tempTime, tempTauE, np.ones(len(tempTime)), s=0.01, ext=3)
 #
 for spw_index in range(spwNum):
     exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
@@ -292,13 +292,14 @@ for sso_index in range(SSONum):
 SSOUseList = np.where(SSO_flag == 1.0)[0].tolist()
 fluxCalText = ''
 if len(SSOUseList) > 0:
-    for sso_ID in SSOUseList:
-        fluxCalText = fluxCalText + sourceList[BandSSOList[sso_ID]] + '-'
-    #
-    fluxCalText = fluxCalText[:-1]
+    fluxCalText = sourceList[BandSSOList[SSOUseList[0]]]
+    #for sso_ID in SSOUseList:
+    #    fluxCalText = fluxCalText + sourceList[BandSSOList[sso_ID]] + '-'
+    ##
+    #fluxCalText = fluxCalText[:-1]
     execfile(SCR_DIR + 'SEFDStokes.py')
 else:
-    fluxCalText = '-'
+    fluxCalText = 'SEFD'
     print 'No available Solar System Objects!! Try a-priori calibration.'
     #del flagAnt, TrxFlag, gainFlag, Dflag, AntID, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, TrxList, TsysSPW, TsysBL, azelTime, azelTime_index, chAvgVis, W
     execfile(SCR_DIR + 'aprioriStokes.py')

@@ -265,7 +265,7 @@ for scan_index in range(scanNum):
     if SSO_flag: StokesDic[sourceName] = [pflux[0], 0.0, 0.0, 0.0]
     else: StokesDic[sourceName] = pflux.tolist()
     waveLength = 299.792458/meanFreq    # wavelength in mm
-    text_sd = '%10s, NE, NE, NE, NE, %.2fE+09, %6.3f, %5.3f, %6.3f, %5.3f, %6.2f, %6.2f, %6.2f, %6.2f, %s, %s\n' % (sourceName, meanFreq, pflux[0], pfluxerr[0], np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi, np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/np.sqrt(pflux[1]**2 + pflux[2]**2)*90.0/pi, uvMin/waveLength, uvMax/waveLength, timeLabel.replace('/','-'), fluxCalText)
+    text_sd = '%10s, NE, NE, NE, NE, %.2fE+09, %6.3f, %6.4f, %6.3f, %6.4f, %5.1f, %5.1f, NE, NE, %s, %s, %s\n' % (sourceName, meanFreq, pflux[0], np.sqrt(0.0004*pflux[0]**2 + pfluxerr[0]**2), np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi, np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/np.sqrt(pflux[1]**2 + pflux[2]**2)*90.0/pi, timeLabel.replace('/','-'), fluxCalText, prefix)
     ingestFile.write(text_sd)
     if COMPDB & (not SSO_flag):
         print ' -------- Comparison with ALMA Calibrator Catalog --------'

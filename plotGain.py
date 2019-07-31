@@ -16,7 +16,8 @@ figAmp.text(0.03, 0.45, 'Gain Amplitude', rotation=90); figPhs.text(0.03, 0.45, 
 #
 #-------- Plot Gain
 for ant_index in range(antNum):
-    plotMax = 2.1* np.median(abs(Gain[ant_index]))
+    #*plotMax = 2.1* np.median(abs(Gain[ant_index]))
+    plotMax = 1.1* np.max(abs(Gain[ant_index]))
     plotMin = 0.0* np.min(abs(Gain[ant_index]))
     AmpPL = figAmp.add_subplot( int(np.ceil(antNum/2.0)), 2, ant_index + 1 )
     PhsPL = figPhs.add_subplot( int(np.ceil(antNum/2.0)), 2, ant_index + 1 )
