@@ -101,7 +101,7 @@ if len(UseAnt) < 4:
     sys.exit('Too few usable antennas. Reduction failed.')
 #-------- Check Scans for atmCal
 ingestFile = open(prefix + '-' + UniqBands[band_index] + '-Ingest.log', 'w')
-text_sd = '#source,    RA,eRA,dec,edec, frequency,   flux, eflux,     %P,   d%P,   EVPA,  eEVPA,  uvmin,  uvmax,                date, fluxCal\n'; ingestFile.write(text_sd)
+text_sd = '#source,    RA,eRA,dec,edec, frequency,  flux,  eflux,     %P,    d%P,  EVPA, eEVPA, uvmin, uvmax,         date, fluxCal, ExecBlock\n'; ingestFile.write(text_sd)
 logfile = open(prefix + '-' + UniqBands[band_index] + '-Flux.log', 'w')
 if 'BPcalText' in locals(): logfile.write(BPcalText + '\n')
 if 'EQcalText' in locals(): logfile.write(EQcalText + '\n')
