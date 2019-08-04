@@ -64,9 +64,9 @@ PolList = ['X', 'Y']
 #-------- Save CalTables
 np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '.Ant.npy', antList[antMap]) 
 for spw_index in range(spwNum):
-    np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SPW' + `spwList[spw_index]` + '-BPant.npy', BP_ant[:,spw_index]) 
-    np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SPW' + `spwList[spw_index]` + '-XYspec.npy', XYspec[spw_index]) 
-    np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SPW' + `spwList[spw_index]` + '-XYdelay.npy', XYdelay[spw_index]) 
+    np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SC' + `BPscan` + '-SPW' + `spwList[spw_index]` + '-BPant.npy', BP_ant[:,spw_index]) 
+    np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SC' + `BPscan` + '-SPW' + `spwList[spw_index]` + '-XYspec.npy', XYspec[spw_index]) 
+    np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SC' + `BPscan` + '-SPW' + `spwList[spw_index]` + '-XYdelay.npy', XYdelay[spw_index]) 
 #
 #-------- Plots
 if BPPLOT:

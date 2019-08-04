@@ -1146,14 +1146,18 @@ def delayCalSpec2( Xspec, chRange, sigma ):  # chRange = [startCH:stopCH] specif
 	#   
 	return delay_ant, delay_err, delayCalXspec
 #
-def BPtable(msfile, spw, BPScan, blMap, blInv, FG=np.array([]), TS=np.array([])): 
+def BPtable(msfile, spw, BPScan, blMap, blInv, bunchNum=1, FG=np.array([]), TS=np.array([])): 
     blNum = len(blMap); antNum = Bl2Ant(blNum)[0]
     #timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan, -1, False)    # Xspec[pol, ch, bl, time]
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan, -1, True)    # Xspec[pol, ch, bl, time]
+    if bunchNum > 1:
+        def bunchN(Spec): return bunchVec(Spec, bunchNum)
+        Xspec = np.apply_along_axis(bunchN, 1, Xspec)
+    #
     if len(FG) > 0: flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
     else: flagIndex = range(len(timeStamp))
     #
-    ant0, ant1, polNum, chNum, timeNum = ANT0[0:blNum], ANT1[0:blNum], Pspec.shape[0], Pspec.shape[1], Pspec.shape[3]
+    ant0, ant1, polNum, chNum, timeNum = ANT0[0:blNum], ANT1[0:blNum], Pspec.shape[0], Xspec.shape[1], Xspec.shape[3]
     chRange = range(int(0.05*chNum), int(0.95*chNum))                   # Trim band edge
     kernel_index = KERNEL_BL[0:(antNum-1)]
     if polNum == 4:
