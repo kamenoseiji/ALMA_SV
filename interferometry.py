@@ -693,6 +693,13 @@ def cldelay_solve(bl_delay):    # see http://qiita.com/kamenoseiji/items/782031a
     #
     return PTY / antNum
 #
+def GFS_delay(Vis, Freq, niter=2):             # Vis[ch, bl]
+    blNum = Vis.shape[1]
+    antNum = Bl2Ant(blNum)[0]
+    antDelay = np.zeros(antNum)
+    BBFreq = Freq - np.mean(Freq)
+    PM = GFSmatrix(antDelay, BBFreq)
+    antDelay = antDelay + np.sum(PM * Vis.T, axis=(1,2))
 '''
 def cldelay_solve(bl_delay):    # see http://qiita.com/kamenoseiji/items/782031a0ce8bbc1dc99c
     blNum = len(bl_delay); antNum = Bl2Ant(blNum)[0]
@@ -1618,6 +1625,19 @@ def plotAmphi(fig, freq, spec):
 	phsAxis.plot(freq, phase, '.')
 	phsAxis.axis( [min(freq), max(freq), -pi, pi], size='x-small' )
 	return
+#
+def GFSmatrix(antDelay, Frequency):
+    chNum, antNum = len(Frequency), len(antDelay)
+    blNum = antNum* (antNum - 1) / 2
+    ant0, ant1= np.array(ANT0[0:blNum]), np.array(ANT1[0:blNum])
+    PM = np.zeros([antNum, blNum, chNum], dtype=complex)
+    for ant_index in range(antNum):
+        index0 = np.where(ant0 == ant_index)[0].tolist()
+        index1 = np.where(ant1 == ant_index)[0].tolist()
+        PM[ant_index, index1] =-np.exp(2.0j* pi* np.outer((antDelay[ant0[index1]] - antDelay[ant_index]), Frequency))
+        PM[ant_index, index0] = np.exp(2.0j* pi* np.outer((antDelay[ant_index] - antDelay[ant1[index0]]), Frequency))
+    #
+    return -4.0j* pi* Frequency* PM
 #
 def PMatrix(CompSol):
     antNum = len(CompSol); matSize = 2*antNum-1

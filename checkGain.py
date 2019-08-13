@@ -60,6 +60,10 @@ for scan in scanList:
     #
     #-------- Antenna-based Gain correction
     chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
+    if 'timeBunch' in locals():
+        chAvgVis = np.array([specBunch(chAvgVis[0], 1, timeBunch), specBunch(chAvgVis[1], 1, timeBunch)])
+        timeNum = chAvgVis.shape[2]
+        timeStamp = bunchVec(timeStamp, timeBunch)
     for time_index in range(timeNum):
         #------ Progress bar
         progress = (time_index + 1.0) / timeNum
