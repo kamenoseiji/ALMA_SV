@@ -664,7 +664,7 @@ def ATBmatrix(Gain):  # Gain is a vector of antenna-based complex gain
     return PTP[1:antNum]
 #
 def clamp_solve(bl_amp, niter=2):
-    blnum  =  len(bl_amp)
+    blNum  =  len(bl_amp)
     antGain = logamp_solve(bl_amp); antNum = len(antGain)
     ant0, ant1 = np.array(ANT0[0:blNum]), np.array(ANT1[0:blNum])
     for iter_index in range(niter):
