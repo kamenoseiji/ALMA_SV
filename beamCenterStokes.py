@@ -68,10 +68,10 @@ for spw_index in range(spwNum):
         TS = np.load(FGprefix + '-SPW' + `spw` + '.TS.npy')
     #
     if 'BPprefix' in locals():  # Bandpass file
-        BPantList, BP_ant = np.load(BPprefix + '-REF' + refantName + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy')
+        BPantList, BP_ant = np.load(BPprefix + '-REF' + refantName + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SC' + `BPscan` + '-SPW' + `spw` + '-BPant.npy')
         BP_ant = BP_ant[indexList(antList[antMap], BPantList)]      # BP antenna mapping
     if 'XYprefix' in locals():
-        XYspec = np.load(XYprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy')
+        XYspec = np.load(XYprefix + '-REF' + refantName + '-SC' + `BPscan` + '-SPW' + `spw` + '-XYspec.npy')
         print 'Apply XY phase into Y-pol Bandpass.'; BP_ant[:,1] *= XYspec  # XY phase cal
     #
     BP_ant = np.apply_along_axis(bunchVecCH, 2, BP_ant)
