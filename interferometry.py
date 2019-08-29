@@ -1788,20 +1788,18 @@ def polariGain( XX, YY, QCpUS):
     #
     ScaledXX, ScaledYY = XX * Xscale, YY* Yscale
     return gainComplexVec(ScaledXX), gainComplexVec(ScaledYY)
-def XXYY2QU(PA, Vis):       # <XX*>, <YY*> to determine Q and U
-    timeNum, sinPA2, cosPA2 = len(PA),np.sin(2.0*PA), np.cos(2.0*PA)
-    W = np.ones(timeNum) / (np.var(Vis[0].imag) + np.var(Vis[1].imag))   # weight
-    XX_YY = (Vis[0].real - Vis[1].real) / (Vis[0].real + Vis[1].real)
-    P = np.array(np.c_[np.ones(timeNum), cosPA2, sinPA2]).T
-    return scipy.linalg.solve(np.dot(P, np.dot(np.diag(W), P.T)), np.dot(P, W* XX_YY))[[1,2]]
+def XXYY2QU(PA, XX_YY):       # <XX*>, <YY*> to determine Q and U
+    PAnum, SN, CS = len(PA),np.sin(2.0*PA), np.cos(2.0*PA)
+    W = np.ones(PAnum) / (np.var(XX_YY[0].imag) + np.var(XX_YY[1].imag))   # weight
+    XXmYY = (XX_YY[0].real - XX_YY[1].real) / (XX_YY[0].real + XX_YY[1].real)
+    P = np.array(np.c_[np.ones(PAnum), CS, SN]).T
+    return scipy.linalg.solve(np.dot(P, np.dot(np.diag(W), P.T)), np.dot(P, W* XXmYY))[[1,2]]
 #
 def XY2Phase(UC_QS, Vis):       # XY*, YX* to determine XYphase
-    #UC_QS = U* np.cos(2.0* PA) - Q* np.sin(2.0* PA)
     correlation = np.dot(Vis[0], UC_QS) + np.dot(Vis[1].conjugate(), UC_QS)
     return np.angle(correlation)
 #
 def XY2PhaseVec(TS, UC_QS, Vis):    # XY*, YX* to measuere XYphase variation
-    #UC_QS = U* np.cos(2.0* PA) - Q* np.sin(2.0* PA)
     product = (Vis[0] + Vis[1].conjugate())* UC_QS
     SP_phas = UnivariateSpline(TS, np.arctan(product.imag/product.real), w=abs(product)**2, s=0.01* np.median(abs(product)**2))
     return SP_phas(TS), product
