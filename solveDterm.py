@@ -93,10 +93,10 @@ for spw_index in range(spwNum):
         TS = np.load(FGprefix + '-SPW' + `spw` + '.TS.npy')
     #
     if 'BPprefix' in locals():  # Bandpass file
-        BPantList, BP_ant = np.load(BPprefix + '-REF' + refantName + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SPW' + `spw` + '-BPant.npy')
+        BPantList, BP_ant = np.load(BPprefix + '-REF' + refantName + '.Ant.npy'), np.load(BPprefix + '-REF' + refantName + '-SC' + `BPscan` + '-SPW' + `spw` + '-BPant.npy')
         BP_ant = BP_ant[indexList(antList[antMap], BPantList)]      # BP antenna mapping
     if 'XYprefix' in locals():
-        XYspec = np.load(XYprefix + '-REF' + refantName + '-SPW' + `spw` + '-XYspec.npy')
+        XYspec = np.load(XYprefix + '-REF' + refantName + '-SC' + `BPscan` + '-SPW' + `spw` + '-XYspec.npy')
         print 'Apply XY phase into Y-pol Bandpass.'; BP_ant[:,1] *= XYspec  # XY phase cal
     #
     BP_ant = np.apply_along_axis(bunchVecCH, 2, BP_ant)
@@ -233,10 +233,10 @@ for spw_index in range(spwNum):
     print '  -- D-term-corrected visibilities'
     for sourceName in sourceList:
         timeIndex = timeDic[sourceName]
-        timeNum = len(timeIndex)
-        if timeNum < 1 : continue
-        PS = InvPAVector(PA[timeIndex], np.ones(timeNum))
-        StokesVis = PS.reshape(4, 4*timeNum).dot(Minv.reshape(4, 4*blNum).dot(caledVis[:,:,timeIndex].reshape(4*blNum, timeNum)).reshape(4*timeNum)) / (timeNum* blNum)
+        srcTimeNum = len(timeIndex)
+        if srcTimeNum < 1 : continue
+        PS = InvPAVector(PA[timeIndex], np.ones(srcTimeNum))
+        StokesVis = PS.reshape(4, 4*srcTimeNum).dot(Minv.reshape(4, 4*blNum).dot(caledVis[:,:,timeIndex].reshape(4*blNum, srcTimeNum)).reshape(4*srcTimeNum)) / (srcTimeNum* blNum)
         Isol, Qsol, Usol = StokesVis[0].real, StokesVis[1].real, StokesVis[2].real
         Ierr, Qerr, Uerr = abs(StokesVis[0].imag), abs(StokesVis[1].imag), abs(StokesVis[2].imag)
         text_sd = '%s: I= %6.3f  Q= %6.3f+-%6.4f  U= %6.3f+-%6.4f EVPA = %6.2f deg' % (sourceName, Isol, Qsol, Qerr, Usol, Uerr, np.arctan2(Usol,Qsol)*90.0/pi); print text_sd

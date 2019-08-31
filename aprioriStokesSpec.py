@@ -64,23 +64,23 @@ Tau0E = np.nanmedian(Tau0E, axis=0); Tau0E[np.isnan(Tau0E)] = np.nanmedian(Tau0E
 TrxMed = np.median(Trxspec, axis=3)
 #-------- Tsys channel interpolation
 chNum, chWid, Freq = GetChNum(msfile, spwList[0])
-if TrxFreq.shape[1] != chNum:
-    tmpTAU0, tmpTRX = np.zeros([spwNum, chNum]), np.zeros([spwNum, antNum, 2, chNum])
-    for spw_index in range(spwNum):
-        chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index]); Freq *= 1.0e-9
-        TAU0 = interpolate.interp1d(TrxFreq[spw_index], Tau0spec[spw_index])
-        tmpTAU0[spw_index] = TAU0(Freq)
-        for ant_index in range(len(TrxAnts)):
-            for pol_index in range(2):
-                TRX = interpolate.interp1d(TrxFreq[spw_index], np.median(Trxspec, axis=4)[spw_index, pol_index][:, ant_index])
-                tmpTRX[spw_index, ant_index, pol_index] = TRX(Freq)
-        #
-        TrxList = TrxList + [tmpTRX[spw_index]]
-    #
-    Tau0spec = tmpTAU0
-    Trxspec  = tmpTRX
-#
+#if TrxFreq.shape[1] != chNum:
+tmpTAU0, tmpTRX = np.zeros([spwNum, chNum]), np.zeros([spwNum, antNum, 2, chNum])
 for spw_index in range(spwNum):
+    chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index]); Freq *= 1.0e-9
+    TAU0 = interpolate.interp1d(TrxFreq[spw_index], Tau0spec[spw_index])
+    tmpTAU0[spw_index] = TAU0(Freq)
+    for ant_index in range(len(TrxAnts)):
+        for pol_index in range(2):
+            TRX = interpolate.interp1d(TrxFreq[spw_index], np.median(Trxspec, axis=4)[spw_index, pol_index][:, ant_index])
+            tmpTRX[spw_index, ant_index, pol_index] = TRX(Freq)
+        #
+    TrxList = TrxList + [tmpTRX[spw_index]]
+#
+Tau0spec = tmpTAU0
+Trxspec  = tmpTRX
+for spw_index in range(spwNum):
+##
     for pol_index in range(2): TrxFlag[np.where(TrxMed[spw_index][:,pol_index] - np.median(TrxMed[spw_index][:,pol_index]) > 1.5* np.median(TrxMed[spw_index][:,pol_index]))[0].tolist()] *= 0.0
     for pol_index in range(2): TrxFlag[np.where(TrxMed[spw_index][:,pol_index] < 0.3* np.median(TrxMed[spw_index][:,pol_index]))[0].tolist()] *= 0.0
 if np.min(np.median(Tau0spec[:,chRange], axis=1)) < 0.0: TrxFlag *= 0.0    # Negative Tau(zenith) 
@@ -259,6 +259,14 @@ if 'PolCalScans' in locals():
         plt.plot(mjdSec, XYphase, '.')
     #
 #
+if 'XYPHprefix' in locals():
+    SP_XYPH = []
+    for spw_index in range(spwNum):
+        XYPH = np.load(prefix + '-SPW' + `spwList[spw_index]` + '-' + refant + '.XYPH.npy')
+        TS   = np.load(prefix + '-SPW' + `spwList[spw_index]` + '-' + refant + '.TS.npy')
+        SP_XYPH = SP_XYPH + [UnivariateSpline(TS, XYPH)]
+    #
+#
 FreqList = []
 for spw_index in range(spwNum):
     chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index])
@@ -319,10 +327,12 @@ for scan_index in range(scanNum):
         BPCaledXspec = (tempSpec / (BPList[spw_index][SAant0][:,polYindex]* BPList[spw_index][SAant1][:,polXindex].conjugate())).transpose(2,3,1,0)
         chAvgVis = np.mean(BPCaledXspec[[0,3]][:,chRange], axis=1) # chAvgVis[pol, bl, time]
         GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[1])])
-        for ant_index in range(UseAntNum):
-            GainRatio = np.sqrt(SP_GR[spw_index* UseAntNum + ant_index](timeStamp))     # sqrt(GainY / GainX)
-            GainP[0,ant_index] /= np.sqrt(GainRatio)
-            GainP[1,ant_index] *= np.sqrt(GainRatio)
+        if 'SP_GR' in locals():
+            for ant_index in range(UseAntNum):
+                GainRatio = np.sqrt(SP_GR[spw_index* UseAntNum + ant_index](timeStamp))     # sqrt(GainY / GainX)
+                GainP[0,ant_index] /= np.sqrt(GainRatio)
+                GainP[1,ant_index] *= np.sqrt(GainRatio)
+            #
         #
         pCalVis = (BPCaledXspec.transpose(1,0,2,3) / (GainP[polYindex][:,SAant0]* GainP[polXindex][:,SAant1].conjugate()))[chRange]
         #-------- SEFD amplitude calibration
