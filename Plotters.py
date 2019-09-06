@@ -3,6 +3,8 @@ import matplotlib.ticker as ptick
 import matplotlib.cm as cm
 from matplotlib.backends.backend_pdf import PdfPages
 #
+#-------- Set Color Map
+lineCmap = plt.get_cmap('Set1')
 #-------- Plot optical depth
 def plotTau(prefix, spwList, freqList, Tau0spec):
     figTau = plt.figure(0, figsize = (11,8))

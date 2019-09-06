@@ -14,7 +14,11 @@ blNum = antNum* (antNum - 1) / 2
 msmd.open(msfile)
 print '---Checking spectral windows with atmCal for ' + prefix
 atmSPWs = list(set(msmd.tdmspws()) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); atmSPWs.sort()
-bpSPWs  = msmd.spwsforintent("CALIBRATE_BANDPASS*").tolist(); bpSPWs.sort()
+if 'spwList' in locals():
+    bpSPWs = spwList
+else:
+    bpSPWs  = msmd.spwsforintent("CALIBRATE_BANDPASS*").tolist()
+bpSPWs.sort()
 atmspwNames, bpspwNames = msmd.namesforspws(atmSPWs), msmd.namesforspws(bpSPWs)
 bpSPWs = np.array(bpSPWs)[indexList(np.array(atmspwNames), np.array(bpspwNames))].tolist(); bpspwNames = msmd.namesforspws(bpSPWs)
 atmBandNames, atmPattern = [], r'RB_..'

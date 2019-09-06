@@ -265,7 +265,7 @@ for spw_index in range(spwNum):
         #
     #
     #-------- D-term-corrected visibilities (invD dot Vis = PS)
-    del StokesVis
+    #del StokesVis
     print '  -- Applying D-term spectral correction'
     M  = InvMullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum])).transpose(0,3,1,2)
     chAvgVis = np.zeros([4, PAnum], dtype=complex)
@@ -277,6 +277,7 @@ for spw_index in range(spwNum):
     sys.stderr.write('\n'); sys.stderr.flush()
     maxP = 0.0
     for sourceName in sourceList:
+        colorIndex = lineCmap(sourceList.index(sourceName) / 8.0)
         timeIndex = timeDic[sourceName]
         if len(timeIndex) < 1 : continue
         QUsol = np.array([StokesDic[sourceName][1], StokesDic[sourceName][2]])
@@ -290,20 +291,20 @@ for spw_index in range(spwNum):
         UCmQS, QCpUS = QUsol[1]*CSrange - QUsol[0]* SNrange, QUsol[0]*CSrange + QUsol[1]* SNrange
         ThetaRange[ThetaRange >  1.56] = np.inf
         ThetaRange[ThetaRange < -1.56] = -np.inf
-        plt.plot(RADDEG* ThetaRange,  QCpUS, '-', label=sourceName + ' XX* - I')     # XX* - 1.0
-        plt.plot(RADDEG* ThetaRange, -QCpUS, '-', label=sourceName + ' YY* - I')     # YY* - 1.0
-        plt.plot(RADDEG* ThetaRange,  UCmQS, '-', label=sourceName + ' ReXY*')
-        plt.plot(RADDEG* ThetaRange,  np.zeros(len(ThetaRange)), '-', label=sourceName + ' ImXY*')
-        plt.plot(RADDEG* ThetaPlot, chAvgVis[0][timeIndex].real - StokesDic[sourceName][0], ',')
-        plt.plot(RADDEG* ThetaPlot, chAvgVis[1][timeIndex].real, ',')
-        plt.plot(RADDEG* ThetaPlot, chAvgVis[1][timeIndex].imag, ',')
-        plt.plot(RADDEG* ThetaPlot, chAvgVis[2][timeIndex].real, ',')
-        plt.plot(RADDEG* ThetaPlot, chAvgVis[2][timeIndex].imag, ',')
-        plt.plot(RADDEG* ThetaPlot, chAvgVis[3][timeIndex].real - StokesDic[sourceName][0], ',')
+        plt.plot(RADDEG* ThetaRange,  QCpUS, '-', color=colorIndex, linestyle='dashed', label=sourceName + ' XX* - I')     # XX* - 1.0
+        plt.plot(RADDEG* ThetaRange, -QCpUS, '-', color=colorIndex, linestyle='dashdot', label=sourceName + ' YY* - I')     # YY* - 1.0
+        plt.plot(RADDEG* ThetaRange,  UCmQS, '-', color=colorIndex, linestyle='solid', label=sourceName + ' ReXY*')
+        plt.plot(RADDEG* ThetaRange,  np.zeros(len(ThetaRange)), '-', color=colorIndex, linestyle='dotted', label=sourceName + ' ImXY*')
+        plt.plot(RADDEG* ThetaPlot, chAvgVis[0][timeIndex].real - StokesDic[sourceName][0], ',', color=colorIndex)
+        plt.plot(RADDEG* ThetaPlot, chAvgVis[1][timeIndex].real, ',', color=colorIndex)
+        plt.plot(RADDEG* ThetaPlot, chAvgVis[1][timeIndex].imag, ',', color=colorIndex)
+        plt.plot(RADDEG* ThetaPlot, chAvgVis[2][timeIndex].real, ',', color=colorIndex)
+        plt.plot(RADDEG* ThetaPlot, chAvgVis[2][timeIndex].imag, ',', color=colorIndex)
+        plt.plot(RADDEG* ThetaPlot, chAvgVis[3][timeIndex].real - StokesDic[sourceName][0], ',', color=colorIndex)
         #text_sd = '%s: (Q, U)/I = (%7.4f+-%6.4f, %7.4f+-%6.4f) XY-phase=%6.2f deg (Ref:%s)' % (sourceName, QUsol[0], QUerr[0], QUsol[1], QUerr[1], np.angle(np.mean(XYtwiddle[chRange])*np.mean(np.exp((0.0 + 1.0j)* XYphase)))* 180.0/pi,  antList[refAntID])
         #for scan_index in range(len(scanST)): plt.text(RADDEG* ThetaPlot[scanST[scan_index]], maxP, `scanList[file_index][scan_index]`, fontsize=6)
     #
-    plt.xlabel('Linear polarization angle w.r.t. X-Feed [deg]'); plt.ylabel('Normalized cross correlations')
+    plt.xlabel('Linear polarization angle w.r.t. X-Feed [deg]'); plt.ylabel('Cross correlations [Jy]')
     plt.xlim([-90.0, 90.0])
     plt.ylim([-1.5* maxP, 1.5*maxP])
     plt.legend(loc = 'best', prop={'size' :6}, numpoints = 1)

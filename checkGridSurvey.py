@@ -127,7 +127,8 @@ for band_index in range(NumBands):
     if polNum == 4:
         pPol, cPol = [0,3], [1,2];  ppolNum, cpolNum = len(pPol), len(cPol)
         #execfile(SCR_DIR + 'checkSEFDStokes.py')
-        #execfile(SCR_DIR + 'aprioriStokes.py')
+        execfile(SCR_DIR + 'aprioriStokes.py')
+        '''
         if Apriori:
             try:
                 execfile(SCR_DIR + 'aprioriStokes.py')
@@ -144,6 +145,7 @@ for band_index in range(NumBands):
                     print '  --A priori flux calibration falied.'
             #
         #
+        '''
     #
     if polNum == 2:
         cPol = [0,1], []; ppolNum, cpolNum = len(pPol), len(cPol)
@@ -157,8 +159,8 @@ for band_index in range(NumBands):
             execfile(SCR_DIR + 'aprioriFlux.py')
     #
 #
-del msfile, UniqBands, useAnt, atmspwLists
-if 'spwFlag' in locals(): del spwFlag
-if 'flagAnt' in locals(): del flagAnt
-if 'BPScans' in locals(): del BPScans
-if 'EQScans' in locals(): del EQScans
+#del msfile, UniqBands, useAnt, atmspwLists
+#if 'spwFlag' in locals(): del spwFlag
+#if 'flagAnt' in locals(): del flagAnt
+#if 'BPScans' in locals(): del BPScans
+#if 'EQScans' in locals(): del EQScans
