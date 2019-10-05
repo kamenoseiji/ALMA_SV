@@ -87,7 +87,7 @@ def plotAC(prefix, antList, spwList, freqList, AC):
     figAnt = plt.figure(figsize = (11, 8))
     figAnt.suptitle(prefix + ' Power Spectra')
     figAnt.text(0.45, 0.05, 'Frequency [GHz]')
-    figAnt.text(0.03, 0.5, 'Median amplitude and rms', rotation=90)
+    figAnt.text(0.03, 0.5, 'Median amplitude and variation [dB]', rotation=90)
     #-------- Plot AC
     for ant_index in range(antNum):
         if ant_index > 0:
@@ -95,17 +95,25 @@ def plotAC(prefix, antList, spwList, freqList, AC):
             for PL in SDList: figAnt.delaxes(PL)
         #
         ACList, SDList = [], []
+        ACMAX = 0.0
+        for spw_index in range(spwNum): ACMAX = max(ACMAX, np.max(AC[spw_index][ant_index]))
         for spw_index in range(spwNum):
             for pol_index in range(polNum):
                 ACPL = figAnt.add_subplot(4, spwNum, spwNum* pol_index + spw_index + 1)
                 SDPL = figAnt.add_subplot(4, spwNum, spwNum* (2+pol_index) + spw_index + 1)
                 ACPL.set_title('AC SPW' + `spwList[spw_index]` + ' POL-' + polName[pol_index])
                 SDPL.set_title('SD SPW' + `spwList[spw_index]` + ' POL-' + polName[pol_index])
-                ACList = ACList + [ACPL]
-                SDList = SDList + [SDPL]
-                ACPL.fill_between(freqList[spw_index], np.max(AC[spw_index][ant_index, :, pol_index], axis=0), np.min(AC[spw_index][ant_index, :, pol_index], axis=0))
-                ACPL.plot(freqList[spw_index], np.median(AC[spw_index][ant_index, :, pol_index], axis=0), ls='steps-mid')
-                SDPL.plot(freqList[spw_index], np.std(AC[spw_index][ant_index, :, pol_index], axis=0) / np.median(AC[spw_index][ant_index, :, pol_index]), ls='steps-mid')
+                ACList = ACList + [ACPL]; SDList = SDList + [SDPL]
+                plotAC = 10.0* np.log10(np.median(AC[spw_index][ant_index, :, pol_index], axis=0) / ACMAX)
+                plotSD = 10.0* np.log10(np.std(AC[spw_index][ant_index, :, pol_index], axis=0) / np.median(AC[spw_index][ant_index, :, pol_index]))
+                ACPL.plot(freqList[spw_index], plotAC, ls='steps-mid')
+                SDPL.plot(freqList[spw_index], plotSD, ls='steps-mid')
+                ACPL.axis([np.min(Freq), np.max(Freq), -30.0, 3.0])
+                ACPL.tick_params(axis='both', labelsize=6)
+                ACPL.text( np.min(Freq), 1.0, 'AC SPW=' + `spwList[spw_index]` + ' Pol-' + polName[pol_index])
+                SDPL.axis([np.min(Freq), np.max(Freq), -50.0, -10.0])
+                SDPL.tick_params(axis='both', labelsize=6)
+                SDPL.text( np.min(Freq), -15.0, 'SD SPW=' + `spwList[spw_index]` + ' Pol-' + polName[pol_index])
             #
         #
         plt.show()
