@@ -79,6 +79,44 @@ def plotTsys(prefix, antList, spwList, freqList, atmTime, TrxList, TskyList):
     del(figAnt)
     return
 #
+#-------- Plot autocorrelation power spectra
+def plotAC(prefix, antList, spwList, freqList, AC):
+    pp = PdfPages('AC_' + prefix + '.pdf')
+    antNum, spwNum, polNum = len(antList), len(spwList), AC[0].shape[2]
+    figAnt = plt.figure(figsize = (11, 8))
+    figAnt.suptitle(prefix + ' Power Spectra')
+    figAnt.text(0.45, 0.05, 'Frequency [GHz]')
+    figAnt.text(0.03, 0.45, 'Median amplitude and rms', rotation=90)
+    #-------- Plot AC
+    for ant_index in range(antNum):
+        if ant_index > 0:
+            for PL in ACList: figAnt.delaxes(PL)
+            for PL in SDList: figAnt.delaxes(PL)
+        #
+        ACList, SDList = [], []
+        for spw_index in range(spwNum):
+            for pol_index in range(polNum):
+                ACPL = figAnt.add_subplot(4, spwNum, spwNum* pol_index + spw_index + 1)
+                SDPL = figAnt.add_subplot(4, spwNum, spwNum* (2+pol_index) + spw_index + 1)
+                ACList = ACList + [ACPL]
+                SDList = SDList + [SDPL]
+                ACPL.plot(freqList[spw_index], np.median(AC[spw_index][ant_index, :, pol_index], axis=0), ls='steps-mid')
+                SDPL.plot(freqList[spw_index], np.std(AC[spw_index][ant_index, :, pol_index], axis=0), ls='steps-mid')
+                ACList = ACList + [ACPL]
+                SDList = SDList + [SDPL]
+            #
+        #
+        plt.show()
+        figAnt.savefig(pp, format='pdf')
+    #
+    plt.close('all')
+    pp.close()
+    del(ACList)
+    del(SDList)
+    del(ACPL)
+    del(SDPL)
+    return
+#
 #-------- Plot Bandpass
 def plotBP(pp, prefix, antList, spwList, BPscan, BPList):
     plotMax = 1.5
