@@ -86,7 +86,7 @@ def plotAC(prefix, antList, spwList, freqList, AC):
     figAnt = plt.figure(figsize = (11, 8))
     figAnt.suptitle(prefix + ' Power Spectra')
     figAnt.text(0.45, 0.05, 'Frequency [GHz]')
-    figAnt.text(0.03, 0.45, 'Median amplitude and rms', rotation=90)
+    figAnt.text(0.2, 0.45, 'Median amplitude and rms', rotation=90)
     #-------- Plot AC
     for ant_index in range(antNum):
         if ant_index > 0:
@@ -102,8 +102,6 @@ def plotAC(prefix, antList, spwList, freqList, AC):
                 SDList = SDList + [SDPL]
                 ACPL.plot(freqList[spw_index], np.median(AC[spw_index][ant_index, :, pol_index], axis=0), ls='steps-mid')
                 SDPL.plot(freqList[spw_index], np.std(AC[spw_index][ant_index, :, pol_index], axis=0), ls='steps-mid')
-                ACList = ACList + [ACPL]
-                SDList = SDList + [SDPL]
             #
         #
         plt.show()
