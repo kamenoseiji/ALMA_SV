@@ -3,10 +3,10 @@ from scipy import stats
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Plotters.py')
 #-------- Procedures
-msmd.open(msfile)
 msfile = wd + prefix + '.ms'
 antList = GetAntName(msfile)
 antNum = len(antList)
+msmd.open(msfile)
 #-------- Check Scans
 if 'scanList' not in locals():
     print '---Checking Scans with CALIBRATE_PHASE'
