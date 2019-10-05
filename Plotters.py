@@ -98,6 +98,7 @@ def plotAC(prefix, antList, spwList, freqList, AC):
         ACMAX = 0.0
         for spw_index in range(spwNum): ACMAX = max(ACMAX, np.max(AC[spw_index][ant_index]))
         for spw_index in range(spwNum):
+            Freq = freqList[spw_index]
             for pol_index in range(polNum):
                 ACPL = figAnt.add_subplot(4, spwNum, spwNum* pol_index + spw_index + 1)
                 SDPL = figAnt.add_subplot(4, spwNum, spwNum* (2+pol_index) + spw_index + 1)
@@ -106,14 +107,13 @@ def plotAC(prefix, antList, spwList, freqList, AC):
                 ACList = ACList + [ACPL]; SDList = SDList + [SDPL]
                 plotAC = 10.0* np.log10(np.median(AC[spw_index][ant_index, :, pol_index], axis=0) / ACMAX)
                 plotSD = 10.0* np.log10(np.std(AC[spw_index][ant_index, :, pol_index], axis=0) / np.median(AC[spw_index][ant_index, :, pol_index]))
-                ACPL.plot(freqList[spw_index], plotAC, ls='steps-mid')
-                SDPL.plot(freqList[spw_index], plotSD, ls='steps-mid')
-                ACPL.axis([np.min(Freq), np.max(Freq), -30.0, 3.0])
+                ACPL.plot(Freq, plotAC, ls='steps-mid'); SDPL.plot(Freq, plotSD, ls='steps-mid')
+                ACPL.axis([np.min(Freq), np.max(Freq), -10.0, 10.0])
                 ACPL.tick_params(axis='both', labelsize=6)
-                ACPL.text( np.min(Freq), 1.0, 'AC SPW=' + `spwList[spw_index]` + ' Pol-' + polName[pol_index])
-                SDPL.axis([np.min(Freq), np.max(Freq), -50.0, -10.0])
+                ACPL.text( np.min(Freq), 9.0, 'AC SPW=' + `spwList[spw_index]` + ' Pol-' + polName[pol_index])
+                SDPL.axis([np.min(Freq), np.max(Freq), -40.0, -20.0])
                 SDPL.tick_params(axis='both', labelsize=6)
-                SDPL.text( np.min(Freq), -15.0, 'SD SPW=' + `spwList[spw_index]` + ' Pol-' + polName[pol_index])
+                SDPL.text( np.min(Freq), -18.0, 'SD SPW=' + `spwList[spw_index]` + ' Pol-' + polName[pol_index])
             #
         #
         plt.show()
