@@ -38,6 +38,7 @@ print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 print '---Generating antenna-based bandpass table'
 BPList, XYList, XYdelayList = [], [], []
 spwNum = len(spwList)
+if 'bunchNum' not in locals(): bunchNum = 1
 for spw_index in spwList:
     if 'FGprefix' in locals():  # Flag table
         try:
@@ -48,7 +49,7 @@ for spw_index in spwList:
             BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPscan, blMap, blInv)
         #
     else:
-        BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPscan, blMap, blInv)
+        BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPscan, blMap, blInv, bunchNum)
     #
     BPList = BPList + [BP_ant]
     XYList = XYList + [XY_BP]
@@ -71,5 +72,5 @@ for spw_index in range(spwNum):
 #-------- Plots
 if BPPLOT:
     pp = PdfPages('BP_' + prefix + '_REF' + antList[UseAnt[refantID]] + '_Scan' + `BPscan` + '.pdf')
-    plotBP(pp, prefix, antList[antMap], spwList, BPscan, BPList) 
+    plotBP(pp, prefix, antList[antMap], spwList, BPscan, BPList, bunchNum) 
 #

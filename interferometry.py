@@ -218,6 +218,16 @@ def AzElMatch( refTime, scanTime, AntID, targetAnt, Az, El ):
         az[time_index], el[time_index] = np.median(Az[antTimeIndex[time_ptr]]), np.median(El[antTimeIndex[time_ptr]])
     return az, el
 #
+#-------- Get SPW to DATA_DESC_ID
+def SPW2DATA_DESC_ID(msfile, spwID):
+    tb.open(msfile + '/' + 'DATA_DESCRIPTION')
+    data_desc_id, spw_index = -1,0
+    while( spw_index <  spwID ):
+        data_desc_id += 1
+        spw_index = tb.getcell('SPECTRAL_WINDOW_ID', data_desc_id)
+    #
+    tb.close()
+    return data_desc_id
 #-------- Get atmCal SPWs
 def GetAtmSPWs(msfile):
     msmd.open(msfile)
@@ -375,42 +385,44 @@ def GetBasePair(AntNum):
 	return BasePair
 
 def GetTimerecord(msfile, ant1, ant2, spwID, PScan):
-	Out='ANTENNA1 == '+`ant1`+' && ANTENNA2 == '+`ant2` + ' && DATA_DESC_ID == '+`spwID`  + ' && SCAN_NUMBER == ' + `PScan`
-	tb.open(msfile)
-	antXantYspw = tb.query(Out)
-	interval=antXantYspw.getcol('INTERVAL')
-	timeXY = antXantYspw.getcol('TIME')
-	tb.close()
-	return interval, timeXY
+    data_desc_id = SPW2DATA_DESC_ID(msfile, spwID)
+    Out='ANTENNA1 == '+`ant1`+' && ANTENNA2 == '+`ant2` + ' && DATA_DESC_ID == '+`data_desc_id`  + ' && SCAN_NUMBER == ' + `PScan`
+    tb.open(msfile)
+    antXantYspw = tb.query(Out)
+    interval=antXantYspw.getcol('INTERVAL')
+    timeXY = antXantYspw.getcol('TIME')
+    tb.close()
+    return interval, timeXY
 #
 def GetVisCross(msfile, spwID, scanID):
-	antNum = len(GetAntName(msfile))
-	corrNum= antNum* (antNum + 1)/2		# Number of correlations (with autocorr)
-	blNum  = corrNum - antNum
-	#
-	Out='DATA_DESC_ID == '+`spwID` + ' && SCAN_NUMBER == ' + `scanID`
-	tb.open(msfile)
-	antXantYspw = tb.query(Out, sortlist='noduplicates ANTENNA1, ANTENNA2, TIME')
-	timeXY = antXantYspw.getcol('TIME')
-	timeNum = len(timeXY) / corrNum
-	try:
-		dataXY = antXantYspw.getcol('DATA')		# dataXY in array[pol, ch, baselinextime]
-	except:
-		dataXY = antXantYspw.getcol('FLOAT_DATA')		# dataXY in array[pol, ch, baselinextime]
-	tb.close()
-	polNum, chNum = dataXY.shape[0], dataXY.shape[1]
-	timeStamp = timeXY.reshape(corrNum, timeNum)[0]
-	for bl_index in range(blNum):
-		ant1, ant0 = Bl2Ant(bl_index)
-		xcorr_index[bl_index] = Ant2Bla_RevLex(ant0, ant1, antNum)
-	Xspec = dataXY.reshape(polNum, chNum, corrNum, timeNum)[:,:,xcorr_index,:]
-	return timeStamp, Xspec
+    antNum = len(GetAntName(msfile))
+    corrNum= antNum* (antNum + 1)/2		# Number of correlations (with autocorr)
+    blNum  = corrNum - antNum
+    data_desc_id = SPW2DATA_DESC_ID(msfile, spwID)
+    Out='DATA_DESC_ID == '+`data_desc_id` + ' && SCAN_NUMBER == ' + `scanID`
+    tb.open(msfile)
+    antXantYspw = tb.query(Out, sortlist='noduplicates ANTENNA1, ANTENNA2, TIME')
+    timeXY = antXantYspw.getcol('TIME')
+    timeNum = len(timeXY) / corrNum
+    try:
+        dataXY = antXantYspw.getcol('DATA')		# dataXY in array[pol, ch, baselinextime]
+    except:
+        dataXY = antXantYspw.getcol('FLOAT_DATA')		# dataXY in array[pol, ch, baselinextime]
+    tb.close()
+    polNum, chNum = dataXY.shape[0], dataXY.shape[1]
+    timeStamp = timeXY.reshape(corrNum, timeNum)[0]
+    for bl_index in range(blNum):
+        ant1, ant0 = Bl2Ant(bl_index)
+        xcorr_index[bl_index] = Ant2Bla_RevLex(ant0, ant1, antNum)
+    Xspec = dataXY.reshape(polNum, chNum, corrNum, timeNum)[:,:,xcorr_index,:]
+    return timeStamp, Xspec
 #
 def GetVisAllBL(msfile, spwID, scanID, fieldID=-1, AC=True):
     antNum = len(GetAntName(msfile))
     corrNum= antNum* (antNum + 1)/2		# Number of correlations (with autocorr)
     blNum  = corrNum - antNum
-    Out = 'DATA_DESC_ID == ' + `spwID` + ' && SCAN_NUMBER == ' + `scanID`
+    data_desc_id = SPW2DATA_DESC_ID(msfile, spwID)
+    Out = 'DATA_DESC_ID == ' + `data_desc_id` + ' && SCAN_NUMBER == ' + `scanID`
     if fieldID >= 0: Out = Out + ' && FIELD_ID == ' + `fieldID`
     tb.open(msfile)
     antXantYspw = tb.query(Out, sortlist='noduplicates ANTENNA1, ANTENNA2, TIME')
@@ -454,7 +466,8 @@ def GetUVW(msfile, spwID, scanID):
     corrNum= antNum* (antNum + 1)/2		# Number of correlations (with autocorr)
     blNum  = corrNum - antNum
     #
-    Out='DATA_DESC_ID == '+`spwID` + ' && SCAN_NUMBER == ' + `scanID`
+    data_desc_id = SPW2DATA_DESC_ID(msfile, spwID)
+    Out='DATA_DESC_ID == '+`data_desc_id` + ' && SCAN_NUMBER == ' + `scanID`
     tb.open(msfile)
     antXantYspw = tb.query(Out, sortlist='noduplicates ANTENNA1, ANTENNA2, TIME')
     timeXY = antXantYspw.getcol('TIME')
@@ -471,23 +484,25 @@ def GetUVW(msfile, spwID, scanID):
     return timeStamp, UVW
 #
 def GetVisibility(msfile, ant1, ant2, pol, spwID, scanID):
-	nameList = GetAntName(msfile)
-	NumAnt   = len(nameList)
-	BasePair = GetBasePair(NumAnt)
-	NumBase  = len(BasePair)
-	Out='ANTENNA1 == '+`ant1`+' && ANTENNA2 == '+`ant2` + ' && DATA_DESC_ID == '+`spwID`  + ' && SCAN_NUMBER == ' + `scanID`
-	tb.open(msfile)
-	antXantYspw = tb.query(Out)
-	timeXY = antXantYspw.getcol('TIME')
-	try:
-		dataXY = antXantYspw.getcol('DATA')[pol]
-	except:
-		dataXY = antXantYspw.getcol('FLOAT_DATA')[pol]
-	tb.close()
-	return timeXY, dataXY
+    nameList = GetAntName(msfile)
+    NumAnt   = len(nameList)
+    BasePair = GetBasePair(NumAnt)
+    NumBase  = len(BasePair)
+    data_desc_id = SPW2DATA_DESC_ID(msfile, spwID)
+    Out='ANTENNA1 == '+`ant1`+' && ANTENNA2 == '+`ant2` + ' && DATA_DESC_ID == '+`data_desc_id`  + ' && SCAN_NUMBER == ' + `scanID`
+    tb.open(msfile)
+    antXantYspw = tb.query(Out)
+    timeXY = antXantYspw.getcol('TIME')
+    try:
+        dataXY = antXantYspw.getcol('DATA')[pol]
+    except:
+        dataXY = antXantYspw.getcol('FLOAT_DATA')[pol]
+    tb.close()
+    return timeXY, dataXY
 #
 def GetPSpec(msfile, ant, spwID):
-    Out='ANTENNA1 == '+`ant`+' && ANTENNA2 == '+`ant` + ' && DATA_DESC_ID == '+`spwID`
+    data_desc_id = SPW2DATA_DESC_ID(msfile, spwID)
+    Out='ANTENNA1 == '+`ant`+' && ANTENNA2 == '+`ant` + ' && DATA_DESC_ID == '+`data_desc_id`
     tb.open(msfile)
     antXantYspw = tb.query(Out)
     timeXY = antXantYspw.getcol('TIME')
@@ -499,7 +514,8 @@ def GetPSpec(msfile, ant, spwID):
     return timeXY, dataXY.real
 #
 def GetPSpecScan(msfile, ant, spwID, scanID):
-    Out='ANTENNA1 == '+`ant`+' && ANTENNA2 == '+`ant` + ' && DATA_DESC_ID == '+`spwID` + ' && SCAN_NUMBER == ' + `scanID`
+    data_desc_id = SPW2DATA_DESC_ID(msfile, spwID)
+    Out='ANTENNA1 == '+`ant`+' && ANTENNA2 == '+`ant` + ' && DATA_DESC_ID == '+`data_desc_id` + ' && SCAN_NUMBER == ' + `scanID`
     tb.open(msfile)
     antXantYspw = tb.query(Out)
     timeXY = antXantYspw.getcol('TIME')
