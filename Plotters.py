@@ -88,8 +88,8 @@ def plotAC(prefix, antList, spwList, freqList, AC):
     figAnt.suptitle(prefix + ' Power Spectra')
     figAnt.text(0.45, 0.05, 'Frequency [GHz]')
     figAnt.text(0.03, 0.5, 'Median amplitude and variation [dB]', rotation=90)
-    phaseCalIndex = range(55,60) + range(135,140) + range(160,165)
-    targetIndex = range(55,135) + range(140,160)
+    #phaseCalIndex = range(55,60) + range(135,140) + range(160,165)
+    #targetIndex = range(55,135) + range(140,160)
     #-------- Plot AC
     for ant_index in range(antNum):
         if ant_index > 0:

@@ -24,7 +24,7 @@ msmd.done()
 #-------- Time Records
 timeList = []
 for scan_index in range(scanNum):
-    interval, timeStamp = GetTimerecord(msfile, 0, 0, spwList[0]-2, scanList[scan_index])
+    interval, timeStamp = GetTimerecord(msfile, 0, 0, spwList[0], scanList[scan_index])
     print 'scan%d : %d time records' % (scanList[scan_index], len(timeStamp))
     timeList = timeList + timeStamp.tolist()
 #
@@ -43,7 +43,7 @@ for ant_index in range(antNum):
     for spw_index in range(spwNum):
         timePointer = 0
         for scan_index in range(scanNum):
-            timeStamp, Pspec = GetPSpecScan(msfile, ant_index, spwList[spw_index]-2, scanList[scan_index])    # Pspec[pol, ch, time]
+            timeStamp, Pspec = GetPSpecScan(msfile, ant_index, spwList[spw_index], scanList[scan_index])    # Pspec[pol, ch, time]
             recNum = len(timeStamp)
             AC[spw_index][ant_index, timePointer:(timePointer + recNum)] = Pspec.transpose(2, 0, 1) # AC[spw][ant, time, pol, ch] 
             timePointer += recNum
