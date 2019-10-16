@@ -77,12 +77,15 @@ def scanAtmSpec(msfile, useAnt, scanList, spwList, timeOFF=0, timeON=0, timeAMB=
     return np.array(timeList), offSpecList, ambSpecList, hotSpecList, scanList
 #
 #-------- Log Trx
-def LogTrx(antList, spwList, scanList, timeRef, Trx, logFile):
+def LogTrx(antList, spwList, freqList, scanList, timeRef, Trx, logFile):
     antNum, spwNum, scanNum = len(antList), len(spwList), Trx[0].shape[3]
     for scan_index in range(scanNum):
         text_sd =  'Scan %d : %s' % (scanList[scan_index], qa.time('%fs' % (timeRef[scan_index]), form='fits')[0]); logFile.write(text_sd + '\n'); print text_sd
         text_sd = 'Trx  : '
-        for spw_index in range(spwNum): text_sd = text_sd + '  SPW%02d X        Y |' % (spwList[spw_index])
+        for spw_index in range(spwNum): text_sd = text_sd + ' SPW%02d  %6.1f GHz |' % (spwList[spw_index], freqList[spw_index])
+        logFile.write(text_sd + '\n'); print text_sd
+        text_sd = ' Pol : '
+        for spw_index in range(spwNum): text_sd = text_sd + '     X        Y    |'
         logFile.write(text_sd + '\n'); print text_sd
         text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; logFile.write(text_sd + '\n'); print text_sd
         for ant_index in range(antNum):
@@ -279,10 +282,12 @@ for band_index in range(NumBands):
     for spw_index in range(spwNum):
         TrxList[spw_index] = (TrxList[spw_index].transpose(0,3,2,1) + TantN[spw_index]).transpose(0,3,2,1)
     #
-    LogTrx(antList[useAnt], atmspwLists[band_index], scanList, atmTimeRef, TrxList, tsysLog)
-    freqList = []
+    SPWfreqList, freqList = [], []
     for spw_index in range(spwNum):
-        chNum, chWid, freq = GetChNum(msfile, atmspwLists[band_index][spw_index]); freqList = freqList + [freq*1.0e-9]
+        chNum, chWid, freq = GetChNum(msfile, atmspwLists[band_index][spw_index]); freqList = freqList + [freq*1.0e-9]; SPWfreqList = SPWfreqList + [np.median(freq)*1.0e-9]
+    #
+    LogTrx(antList[useAnt], atmspwLists[band_index], SPWfreqList, scanList, atmTimeRef, TrxList, tsysLog)
+    for spw_index in range(spwNum):
         text_sd = 'SPW=%d : Tau(zenith) = %6.4f' % (atmspwLists[band_index][spw_index], np.median(Tau0[spw_index]))
         tsysLog.write(text_sd + '\n'); print text_sd
     #

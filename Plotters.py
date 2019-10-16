@@ -79,6 +79,69 @@ def plotTsys(prefix, antList, spwList, freqList, atmTime, TrxList, TskyList):
     del(figAnt)
     return
 #
+#-------- Plot autocorrelation power spectra
+def plotAC(prefix, antList, spwList, freqList, AC):
+    pp = PdfPages('AC_' + prefix + '.pdf')
+    antNum, spwNum, polNum = len(antList), len(spwList), AC[0].shape[2]
+    polName = ['X', 'Y']
+    figAnt = plt.figure(figsize = (11, 8))
+    figAnt.suptitle(prefix + ' Power Spectra')
+    figAnt.text(0.45, 0.05, 'Frequency [GHz]')
+    figAnt.text(0.03, 0.5, 'Median amplitude and variation [dB]', rotation=90)
+    #-------- Plot AC
+    for ant_index in range(antNum):
+        if ant_index > 0:
+            for PL in ACList: figAnt.delaxes(PL)
+            for PL in SDList: figAnt.delaxes(PL)
+        #
+        ACList, SDList = [], []
+        ACMAX = 0.0
+        for spw_index in range(spwNum): ACMAX = max(ACMAX, np.max(AC[spw_index][ant_index]))
+        for spw_index in range(spwNum):
+            Freq = freqList[spw_index]
+            for pol_index in range(polNum):
+                ACPL = figAnt.add_subplot(4, spwNum, spwNum* pol_index + spw_index + 1)
+                SDPL = figAnt.add_subplot(4, spwNum, spwNum* (2+pol_index) + spw_index + 1)
+                ACList = ACList + [ACPL]; SDList = SDList + [SDPL]
+                plotAC = 10.0* np.log10(np.median(AC[spw_index][ant_index, :, pol_index], axis=0) / ACMAX)
+                maxAC, minAC, maxFreq = np.max(plotAC), np.min(plotAC), Freq[np.argmax(plotAC)]
+                text_sd = 'Peak = %.1f dB at %.2f GHz' % (maxAC, maxFreq)
+                plotMax, plotMin = max(5.0, maxAC), min(-5.0, minAC)
+                if spw_index == 0 and pol_index == 0: ACPL.text(1.2* np.min(Freq) - 0.2* np.max(Freq), 1.1*plotMax+0.5, antList[ant_index], fontsize='10')
+                ACPL.axis([np.min(Freq), np.max(Freq), plotMin, plotMax])
+                ACPL.tick_params(axis='both', labelsize=6)
+                ACPL.set_xticklabels([])
+                ACPL.text( np.min(Freq), 0.92*plotMax + 0.08*plotMin, 'AC SPW=' + `spwList[spw_index]` + ' Pol-' + polName[pol_index], fontsize=7)
+                ACPL.text( np.min(Freq), 0.85*plotMax + 0.15*plotMin, text_sd, fontsize=7)
+                ACPL.plot(Freq, plotAC, ls='steps-mid')
+                #
+                plotSD = 10.0* np.log10(np.std(AC[spw_index][ant_index, :, pol_index], axis=0) / np.median(AC[spw_index][ant_index, :, pol_index]))
+                maxSD, minSD, maxFreq = np.max(plotSD), np.min(plotSD), Freq[np.argmax(plotSD)]
+                text_sd = '%.1f at %.2f GHz' % (maxSD, maxFreq)
+                bgcolor = 'green'
+                if maxSD > -30.0: bgcolor = 'orange'
+                if maxSD > -20.0: bgcolor = 'red'
+                plotMax, plotMin = max(-20.0, maxSD), min(-40.0, minSD)
+                SDPL.axis([np.min(Freq), np.max(Freq), plotMin, plotMax])
+                SDPL.axhspan(ymin=-30.0, ymax=plotMax, color=bgcolor, alpha=0.1) 
+                SDPL.tick_params(axis='both', labelsize=6)
+                if pol_index == 0: SDPL.set_xticklabels([])
+                SDPL.text( np.min(Freq), 0.92*plotMax + 0.08*plotMin, 'SD SPW=' + `spwList[spw_index]` + ' Pol-' + polName[pol_index], fontsize=7)
+                SDPL.text( np.min(Freq), 0.85* plotMax + 0.15*plotMin, text_sd, fontsize=7)
+                SDPL.plot(Freq, plotSD, ls='steps-mid')
+            #
+        #
+        plt.show()
+        figAnt.savefig(pp, format='pdf')
+    #
+    plt.close('all')
+    pp.close()
+    del(ACList)
+    del(SDList)
+    del(ACPL)
+    del(SDPL)
+    return
+#
 #-------- Plot Bandpass
 def plotBP(pp, prefix, antList, spwList, BPscan, BPList):
     plotMax = 1.5
