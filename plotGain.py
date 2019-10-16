@@ -17,7 +17,8 @@ figAmp.suptitle(GainFile + ' Gain Amplitude'); figPhs.suptitle(GainFile + ' Gain
 figAmp.text(0.45, 0.05, 'UTC on %s' % (DT[0].strftime('%Y-%m-%d'))); figPhs.text(0.45, 0.05, 'UTC on %s' % (DT[0].strftime('%Y-%m-%d')))
 figAmp.text(0.03, 0.7, 'Gain Amplitude = sqrt(correlated flux / SEFD)', rotation=90); figPhs.text(0.03, 0.55, 'Gain Phase [deg]', rotation=90)
 #
-plotMax = 1.5* np.median(abs(Gain))
+#plotMax = 1.5* np.median(abs(Gain))
+plotMax = 1.1* np.max(abs(Gain))
 plotMin = 0.0
 #-------- Plot Gain
 for ant_index in range(antNum):

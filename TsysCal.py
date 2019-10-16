@@ -206,12 +206,14 @@ if 'antFlag' in locals():
 useAnt = np.where(flagAnt == 1.0)[0].tolist(); useAntNum = len(useAnt)
 #-------- Check SPWs
 print '---Checking spectral windows and scans with atmCal for ' + prefix
-atmSPWs = GetAtmSPWs(msfile)
+if 'atmSPWs' not in locals():
+    atmSPWs = GetAtmSPWs(msfile)
 atmBandNames = GetBandNames(msfile); UniqBands = unique(atmBandNames).tolist(); NumBands = len(UniqBands)
 msmd.open(msfile)
 atmspwLists, atmscanLists = [], []
 for band_index in range(NumBands):
-    bandAtmSPWs = np.array(atmSPWs)[indexList(np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()
+    #bandAtmSPWs = np.array(atmSPWs)[indexList(np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()
+    bandAtmSPWs = np.array(atmSPWs)
     atmspwLists = atmspwLists + [bandAtmSPWs]
     if 'spwFlag' in locals():
         flagIndex = indexList(np.array(spwFlag), np.array(atmspwLists[band_index]))
