@@ -11,12 +11,13 @@ def plotTau(prefix, spwList, freqList, Tau0spec):
     figTau.suptitle(prefix + ' Zenith Opacity')
     figTau.text(0.45, 0.05, 'Frequency [GHz]')
     figTau.text(0.03, 0.45, 'Optical Depth', rotation=90)
-    plotMax = 1.05* np.max(Tau0spec)
     spwNum = len(spwList)
+    plotMax = 0.01
+    for spw_index in range(spwNum): plotMax = max(plotMax, np.max(Tau0spec[spw_index]))
     for spw_index in range(spwNum):
         chNum = len(freqList[spw_index]); chRange = range(int(0.05*chNum), int(0.95*chNum))
         TauPL = figTau.add_subplot(1, spwNum, spw_index + 1 )
-        TauPL.axis([np.min(freqList[spw_index]), np.max(freqList[spw_index]), 0.0, plotMax])
+        TauPL.axis([np.min(freqList[spw_index]), np.max(freqList[spw_index]), 0.0, 1.05* plotMax])
         TauPL.tick_params(axis='both', labelsize=6)
         TauPL.plot(freqList[spw_index][chRange], Tau0spec[spw_index][chRange], ls='steps-mid')
         text_sd = 'SPW = %d' % (spwList[spw_index])
@@ -42,8 +43,9 @@ def plotTsys(prefix, antList, spwList, freqList, atmTime, TrxList, TskyList):
         if ant_index > 0:
             for PL in TsysPL: figAnt.delaxes(PL)
         #
-        TsysPL = []
-        plotMax = 1.7* np.percentile(TrxList, 75, axis=(0,1,2,4))[ant_index] + 1.5* np.median(TskyList)
+        TsysPL, TsysMax = [], []
+        for spw_index in range(spwNum): TsysMax = TsysMax + [1.7* np.percentile(TrxList[spw_index], 75, axis=(0,1,3))[ant_index] + 1.5* np.median(TskyList[spw_index])]
+        plotMax = max(TsysMax)
         for spw_index in range(spwNum):
             #AntSpwIndex = ant_index* spwNum + spw_index
             chNum = len(freqList[spw_index]); chRange = range(int(0.05*chNum), int(0.95*chNum))

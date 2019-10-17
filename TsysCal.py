@@ -153,7 +153,7 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList):
             for ch_index in range(chNum):
                 param = [0.05]
                 #-------- Fit for Tau0 (fixed TantN)
-                fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, np.median(TskyList[spw_index], axis=1)[ch_index], np.ones(scanNum)))
+                fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, np.nanmedian(TskyList[spw_index][ch_index], axis=0), np.ones(scanNum)))
                 Tau0Med[ch_index]  = fit[0][0]
             #
             Tau0List  = Tau0List  + [Tau0Med]
@@ -294,12 +294,13 @@ for band_index in range(NumBands):
     tsysLog.close()
     #-------- Save to npy files
     np.save(prefix +  '-' + UniqBands[band_index] + '.TrxAnt.npy', antList[useAnt])    # antList[ant]
-    np.save(prefix +  '-' + UniqBands[band_index] + '.TrxFreq.npy', freqList)    # freqList[spw]
-    np.save(prefix +  '-' + UniqBands[band_index] + '.Trx.npy', TrxList)    # [spw][ant, pol, ch]
-    np.save(prefix +  '-' + UniqBands[band_index] + '.Tau0.npy', Tau0)      # [spw][ch]
-    np.save(prefix +  '-' + UniqBands[band_index] + '.TauE.npy', Tau0Excess)# [spw][scan]
     np.save(prefix +  '-' + UniqBands[band_index] + '.atmTime.npy', atmTimeRef)# [scan]
-#
+    for spw_index in range(spwNum):
+        np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.TrxFreq.npy', freqList[spw_index])    # freqList[spw]
+        np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.Trx.npy', TrxList[spw_index])    # [spw][ant, pol, ch]
+        np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.Tau0.npy', Tau0[spw_index])      # [spw][ch]
+        np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.TauE.npy', Tau0Excess[spw_index])# [spw][scan]
+    #
     #---- Plots
     if not 'PLOTFMT' in locals():   PLOTFMT = 'pdf'
     if PLOTTAU: plotTau(prefix + '_' + UniqBands[band_index], atmspwLists[band_index], freqList, Tau0) 
