@@ -293,13 +293,13 @@ for band_index in range(NumBands):
     #
     tsysLog.close()
     #-------- Save to npy files
-    np.save(prefix +  '-' + UniqBands[band_index] + '.TrxAnt.npy', antList[useAnt])    # antList[ant]
-    np.save(prefix +  '-' + UniqBands[band_index] + '.atmTime.npy', atmTimeRef)# [scan]
+    np.save(prefix +  '-' + UniqBands[band_index] + '.TrxAnt.npy', antList[useAnt])     # antList[ant]
+    np.save(prefix +  '-' + UniqBands[band_index] + '.atmTime.npy', atmTimeRef)         # [scan]
+    np.save(prefix +  '-' + UniqBands[band_index] + '.TauE.npy', Tau0Excess)            # [spw][scan]
     for spw_index in range(spwNum):
         np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.TrxFreq.npy', freqList[spw_index])    # freqList[spw]
         np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.Trx.npy', TrxList[spw_index])    # [spw][ant, pol, ch]
         np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.Tau0.npy', Tau0[spw_index])      # [spw][ch]
-        np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.TauE.npy', Tau0Excess[spw_index])# [spw][scan]
     #
     #---- Plots
     if not 'PLOTFMT' in locals():   PLOTFMT = 'pdf'

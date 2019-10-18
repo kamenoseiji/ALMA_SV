@@ -167,7 +167,7 @@ def plotAC(prefix, antList, spwList, freqList, AC):
     return
 #
 #-------- Plot Bandpass
-def plotBP(pp, prefix, antList, spwList, BPscan, BPList, bunchNum):
+def plotBP(pp, prefix, antList, spwList, BPscan, BPList, bunchNum=1):
     plotMax = 1.5
     msfile = prefix + '.ms'
     antNum, spwNum = len(antList), len(spwList)

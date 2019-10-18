@@ -52,11 +52,13 @@ if noDantNum > 0:
     sys.exit(' Run DtermTransfer first!!')
 #
 #-------- Load Tsys table
-TrxList = []
-for spw in spwList: TrxList = TrxList + [np.median(np.load(prefix +  '-' + UniqBands[band_index] + '-SPW' + `spw` + '.Trx.npy'), axis=3)]  # TrxList[spw][pol, ch, ant]
+Tau0spec, TrxList = [], []
+for spw in spwList:
+    TrxList = TrxList + [np.median(np.load(prefix +  '-' + UniqBands[band_index] + '-SPW' + `spw` + '.Trx.npy'), axis=3)]  # TrxList[spw][pol, ch, ant]
+    Tau0spec = Tau0spec + [np.load(prefix +  '-' + UniqBands[band_index] + '-SPW' + `spw` + '.Tau0.npy')]  # Tau0spec[spw][ch]
+#
 TrxFreq  = np.load(prefix +  '-' + UniqBands[band_index] + '.TrxFreq.npy') # TrxFreq[spw][ch]
 TrxAnts  = np.load(prefix +  '-' + UniqBands[band_index] + '.TrxAnt.npy') # TrxAnts[ant]
-Tau0spec = np.load(prefix +  '-' + UniqBands[band_index] + '.Tau0.npy') # Tau0spec[spw][ch]
 Tau0E    = np.load(prefix +  '-' + UniqBands[band_index] + '.TauE.npy') # Tau0E[spw, atmScan]
 atmTimeRef = np.load(prefix +  '-' + UniqBands[band_index] + '.atmTime.npy') # atmTimeRef[atmScan]
 TrxMap = indexList(TrxAnts, antList); TrxFlag = np.zeros([antNum]); TrxFlag[TrxMap] = 1.0
@@ -82,7 +84,7 @@ if TrxFreq.shape[1] != chNum:
 for spw_index in range(spwNum):
     TrxMed = np.median(TrxList[spw_index], axis=1)  # TrxMed[pol, ant]
     for pol_index in range(2): TrxFlag[np.where(abs(TrxMed[pol_index] - np.median(TrxMed[pol_index])) > 0.8* np.median(TrxMed[pol_index]))[0].tolist()] *= 0.0
-if np.min(np.median(Tau0spec[:,chRange], axis=1)) < 0.0: TrxFlag *= 0.0    # Negative Tau(zenith) 
+    if np.median(Tau0spec[spw_index][chRange]) < 0.0: TrxFlag *= 0.0    # Negative Tau(zenith)
 #
 print 'Ant:',
 for ant_index in range(antNum): print antList[ant_index],
