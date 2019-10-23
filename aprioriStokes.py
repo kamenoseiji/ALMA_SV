@@ -52,12 +52,12 @@ if noDantNum > 0:
     sys.exit(' Run DtermTransfer first!!')
 #
 #-------- Load Tsys table
-Tau0spec, TrxList = [], []
+Tau0spec, TrxList, TrxFreqList = [], [], []
 for spw in spwList:
     TrxList = TrxList + [np.median(np.load(prefix +  '-' + UniqBands[band_index] + '-SPW' + `spw` + '.Trx.npy'), axis=3)]  # TrxList[spw][pol, ch, ant]
     Tau0spec = Tau0spec + [np.load(prefix +  '-' + UniqBands[band_index] + '-SPW' + `spw` + '.Tau0.npy')]  # Tau0spec[spw][ch]
+    TrxFreqList  = TrxFreqList + [np.load(prefix +  '-' + UniqBands[band_index] + '-SPW' + `spw` + '.TrxFreq.npy')] # TrxFreq[spw][ch]
 #
-TrxFreq  = np.load(prefix +  '-' + UniqBands[band_index] + '.TrxFreq.npy') # TrxFreq[spw][ch]
 TrxAnts  = np.load(prefix +  '-' + UniqBands[band_index] + '.TrxAnt.npy') # TrxAnts[ant]
 Tau0E    = np.load(prefix +  '-' + UniqBands[band_index] + '.TauE.npy') # Tau0E[spw, atmScan]
 atmTimeRef = np.load(prefix +  '-' + UniqBands[band_index] + '.atmTime.npy') # atmTimeRef[atmScan]
@@ -65,21 +65,21 @@ TrxMap = indexList(TrxAnts, antList); TrxFlag = np.zeros([antNum]); TrxFlag[TrxM
 Tau0E = np.nanmedian(Tau0E, axis=0); Tau0E[np.isnan(Tau0E)] = np.nanmedian(Tau0E); Tau0E[np.isnan(Tau0E)] = 0.0
 #-------- Tsys channel interpolation
 chNum, chWid, Freq = GetChNum(msfile, spwList[0])
-if TrxFreq.shape[1] != chNum: 
-    tmpTAU0 = np.zeros([spwNum, chNum])
-    for spw_index in range(spwNum):
+for spw_index in range(spwNum):
+    if len(TrxFreqList[spw_index]) != chNum: 
+        tmpTAU0 = np.zeros(chNum)
         tmpTRX = np.zeros([antNum, 2, chNum])
         chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index]); Freq *= 1.0e-9
         TAU0 = interpolate.interp1d(TrxFreq[spw_index], Tau0spec[spw_index])
-        tmpTAU0[spw_index] = TAU0(Freq)
+        tmpTAU0 = TAU0(Freq)
         for ant_index in range(len(TrxAnts)):
             for pol_index in range(2):
                 TRX = interpolate.interp1d(TrxFreq[spw_index], TrxList[spw_index][pol_index, :, ant_index])
                 tmpTRX[ant_index, pol_index] = TRX(Freq)
         #
         TrxList[spw_index]  = tmpTRX.transpose(1,2,0)
+        Tau0spec[spw_index] = tmpTAU0
     #
-    Tau0spec = tmpTAU0
 #
 for spw_index in range(spwNum):
     TrxMed = np.median(TrxList[spw_index], axis=1)  # TrxMed[pol, ant]
