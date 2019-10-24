@@ -311,7 +311,6 @@ if len(SSOUseList) > 0:
 else:
     fluxCalText = 'SEFD'
     print 'No available Solar System Objects!! Try a-priori calibration.'
-    del flagAnt, TrxFlag, gainFlag, Dflag, AntID, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, TrxList, TsysSPW, TsysBL, azelTime, azelTime_index, chAvgVis, W
     execfile(SCR_DIR + 'aprioriStokes.py')
 #
 msmd.close()
