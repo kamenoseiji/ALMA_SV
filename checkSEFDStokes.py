@@ -67,7 +67,10 @@ TrxMap = indexList(TrxAnts, antList); TrxFlag = np.zeros([antNum]); TrxFlag[TrxM
 Tau0E = np.nanmedian(Tau0E, axis=0); Tau0E[np.isnan(Tau0E)] = np.nanmedian(Tau0E); Tau0E[np.isnan(Tau0E)] = 0.0
 for spw_index in range(spwNum):
     TrxMed = np.median(TrxList[spw_index], axis=1)  # TrxMed[pol, ant]
-    for pol_index in range(2): TrxFlag[np.where(abs(TrxMed[pol_index] - np.median(TrxMed[pol_index])) > 0.8* np.median(TrxMed[pol_index]))[0].tolist()] *= 0.0
+    for pol_index in range(2):
+        Trx2MedianRatio = TrxMed[pol_index] / np.median(TrxMed[pol_index])
+        TrxFlag[ np.where(Trx2MedianRatio < 0.1)[0].tolist() ] *= 0.0   # Flagged by negative Trx
+        TrxFlag[ np.where(Trx2MedianRatio > 2.0)[0].tolist() ] *= 0.0   # Flagged by too-high Trx 
     if np.median(Tau0spec[spw_index][chRange]) < 0.0: TrxFlag *= 0.0    # Negative Tau(zenith) 
 #
 print 'Ant:',
@@ -309,7 +312,7 @@ else:
     fluxCalText = 'SEFD'
     print 'No available Solar System Objects!! Try a-priori calibration.'
     #del flagAnt, TrxFlag, gainFlag, Dflag, AntID, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, TrxList, TsysSPW, TsysBL, azelTime, azelTime_index, chAvgVis, W
-    execfile(SCR_DIR + 'aprioriStokes.py')
+    #execfile(SCR_DIR + 'aprioriStokes.py')
 #
 msmd.close()
 msmd.done()
