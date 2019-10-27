@@ -292,7 +292,8 @@ for scan_index in range(scanNum):
     else: flagIndex = range(timeNum)
     #-------- Parallactic Angle
     AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
-    PA = (AzEl2PA(AzScan, ElScan) + BandPA[band_index])[flagIndex]; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
+    PA = (AzEl2PA(AzScan, ElScan) + BandPA[band_index])[flagIndex]; PAnum = len(PA)
+    PS = InvPAVector(PA, np.ones(PAnum))
     BPCaledXspec, IList, PList = [], [], []
     text_time = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
     text_src  = ' %02d %010s EL=%4.1f deg PA=%6.1f deg' % (scanList[scan_index], sourceList[sourceIDscan[scan_index]], 180.0* np.median(ElScan)/pi, 180.0* np.median(AzEl2PA(AzScan, ElScan))/pi); logfile.write(text_src + ' ' + text_time + '\n'); print text_src + ' ' + text_time

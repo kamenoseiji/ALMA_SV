@@ -785,6 +785,7 @@ def clcomplex_solve(bl_vis, bl_error):
 	#
 	return solution[range(antnum)] + 1j* np.append(0, solution[range(antnum, 2*antnum-1)])
 #
+'''
 def clphase_solve(Vis, iterNum = 2):
     WeightBL = abs(Vis)
     Vis = Vis / WeightBL    # Normalization
@@ -824,7 +825,7 @@ def clphase_solve(Vis, iterNum = 2):
     #
     for iter_index in range(iterNum):
         resid = Vis - (antGain[ant0] * antGain[ant1].conjugate())
-        print 'Iter %d: resid = %f' % (iter_index, np.sum(abs(resid)**2))
+        # print 'Iter %d: resid = %f' % (iter_index, np.sum(abs(resid)**2))
         PTY = np.zeros(antNum - 1, dtype=complex)
         for ant_index in range(1,antNum):
             index0 = np.where(ant0 == ant_index)[0].tolist()
@@ -839,7 +840,6 @@ def clphase_solve(Vis, iterNum = 2):
     #
     return antGain
 #
-'''
 def dMdDVec(Dx1, Dy1, Unity):
     return np.array([
         [0.0*Unity, 0.0*Unity, Unity,  Dx1.conjugate()],
