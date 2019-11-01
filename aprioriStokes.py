@@ -222,7 +222,10 @@ QCpUS = (StokesEQ[1]* np.cos(2.0* PA) + StokesEQ[2]* np.sin(2.0* PA)) / StokesEQ
 #
 if len(atmTimeRef) > 5:
     #exTauSP  = UnivariateSpline(atmTimeRef, Tau0E, np.ones(len(atmTimeRef)), s=0.1*np.std(Tau0E))
-    exTauSP  = UnivariateSpline(np.append(np.append(atmTimeRef[0]-180.0,atmTimeRef), atmTimeRef[-1]+180.0), np.append(np.append(Tau0E[0], Tau0E), Tau0E[-1]), np.ones(len(atmTimeRef)+2), s=0.1*np.std(Tau0E))
+    SplineWeight = np.ones(len(atmTimeRef)+2)
+    atmFlagIndex = (np.where(abs(Tau0E)/np.std(Tau0E) > 3.0)[0] + 1).tolist()
+    SplineWeight[atmFlagIndex] = 0.001
+    exTauSP  = UnivariateSpline(np.append(np.append(atmTimeRef[0]-180.0,atmTimeRef), atmTimeRef[-1]+180.0), np.append(np.append(Tau0E[0], Tau0E), Tau0E[-1]), SplineWeight, s=0.001*np.std(Tau0E))
 else:
     tempTime = np.arange(np.min(atmTimeRef) - 3600.0,  np.max(atmTimeRef) + 3600.0, 300.0)
     tempTauE = np.repeat(np.median(Tau0E), len(tempTime))

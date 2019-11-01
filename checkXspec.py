@@ -43,8 +43,8 @@ for spw_index in range(spwNum):
     tempVis = np.mean(Xspec, axis=3)    # tempVis[pol, ch, bl]
     tempAC  = np.mean(Pspec, axis=3)    # tempVis[pol, ch, bl]
     if plotMax == 0.0:
-        # pMax = 2.0* np.median(abs(tempVis))
-        pMax = np.max(abs(tempVis))
+        pMax = 2.0* np.median(abs(tempVis))
+        #pMax = np.max(abs(tempVis))
     else:
         pMax = plotMax
     #
