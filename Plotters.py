@@ -145,7 +145,7 @@ def plotAC(prefix, antList, spwList, freqList, AC):
                 if maxSD > -30.0: bgcolor = 'orange'
                 if maxSD > -20.0: bgcolor = 'red'
                 plotMax, plotMin = max(-20.0, maxSD), min(-40.0, minSD)
-                SDPL.axis([np.min(Freq), np.max(Freq), plotMin, plotMax])
+                SDPL.axis([np.min(Freq), np.max(Freq), 1.05*plotMin - 0.05*plotMax, 1.05*plotMax - 0.05*plotMin])
                 SDPL.axhspan(ymin=-30.0, ymax=plotMax, color=bgcolor, alpha=0.1) 
                 SDPL.tick_params(axis='both', labelsize=6)
                 SDPL.get_xaxis().get_major_formatter().set_useOffset(False)

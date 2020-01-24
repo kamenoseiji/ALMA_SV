@@ -42,7 +42,8 @@ for scan in scanList:
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)
     Xspec = np.mean(Xspec, axis=3)                          # Time average
-    Xspec = np.apply_along_axis( bunchVecN, 1, Xspec )      # channel bunching     
+    if 'bunchNum' in locals():
+        Xspec = np.apply_along_axis( bunchVecN, 1, Xspec )      # channel bunching     
     polNum, chNum = Xspec.shape[0], Xspec.shape[1]
     if polNum == 4: polIndex = [0, 3]
     if polNum == 2: polIndex = [0, 1]
