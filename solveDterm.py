@@ -268,14 +268,21 @@ for spw_index in range(spwNum):
         #
     #
     #-------- D-term-corrected visibilities (invD dot Vis = PS)
-    #del StokesVis
+    del StokesVis
     print '  -- Applying D-term spectral correction'
     M  = InvMullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum/bunchNum])).transpose(0,3,1,2)
-    chAvgVis = np.zeros([4, PAnum], dtype=complex)
+    #chAvgVis = np.zeros([4, PAnum], dtype=complex)
+    StokesVis = np.zeros([4, chNum/bunchNum, PAnum], dtype=complex )
+    for time_index in range(PAnum):
+        StokesVis[:, :, time_index] = 4.0* np.mean(M* GainCaledVisSpec[:,:,:,time_index], axis=(2,3))
+    #
     for time_index in range(PAnum):
         progress = (time_index + 1.0) / PAnum
         sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
-        chAvgVis[:,time_index] = 4.0* np.mean(M[:,chRange]* GainCaledVisSpec[chRange,:,:,time_index], axis=(1,2,3))
+        chAvgVis[:,time_index] = np.mean(StokesVis[:,chRange], axis=1)
+    #
+    for ch_index in range(chNum/bunchNum):
+        StokesVis[:,ch_index] = np.sum(PS* StokesVis[:,ch_index], axis=1)
     #
     sys.stderr.write('\n'); sys.stderr.flush()
     maxP = 0.0
@@ -324,6 +331,39 @@ for spw_index in range(spwNum):
         np.save(prefixList[0] + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DSpec.npy', DtermFile)
     #
     plt.close('all')
+    #-------- Plot Stokes spectra
+    polLabel, Pcolor = ['I', 'Q', 'U', 'V'], ['black', 'blue', 'red', 'green']
+    for sourceName in sourceList:
+        pp = PdfPages('SP_' + prefixList[0] + '-REF' + refantName + '-' + sourceName + '-SPW' + `spw` + '.pdf')
+        figSP = plt.figure(figsize = (11, 8))
+        figSP.suptitle(prefixList[0] + ' ' + sourceName)
+        figSP.text(0.45, 0.05, 'Frequency [GHz]')
+        figSP.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90
+        #
+        StokesI_SP = figSP.add_subplot( 2, 1, 1 )
+        StokesP_SP = figSP.add_subplot( 2, 1, 2 )
+        timeIndex = timeDic[sourceName]
+        if len(timeIndex) < 1 : continue
+        StokesSpec, StokesErr =  np.mean(StokesVis[:,:,timeIndex], axis=2).real, abs(np.mean(StokesVis[:,:,timeIndex], axis=2).imag)
+        np.save(prefixList[0] + '-REF' + refantName + '-' + sourceName + '-SPW' + `spw` + '.StokesSpec.npy', StokesSpec)
+        np.save(prefixList[0] + '-REF' + refantName + '-' + sourceName + '-SPW' + `spw` + '.StokesErr.npy', StokesErr)
+        np.save(prefixList[0] + '-REF' + refantName + '-' + sourceName + '-SPW' + `spw` + '.Freq.npy', Freq)
+        #
+        IMax = np.max(StokesSpec[0]))
+        StokesI_SP.plot(Freq[chRange], StokesSpec[0][chRange], ls='steps-mid', label=polLabel[0], color=Pcolor[0])
+        StokesP_SP.plot(Freq[chRange], StokesSpec[1][chRange], ls='steps-mid', label=polLabel[1], color=Pcolor[1])
+        StokesP_SP.plot(Freq[chRange], StokesSpec[2][chRange], ls='steps-mid', label=polLabel[2], color=Pcolor[2])
+        StokesP_SP.plot(Freq[chRange], StokesSpec[3][chRange], ls='steps-mid', label=polLabel[3], color=Pcolor[3])
+        StokesI_SP.tick_params(axis='both', labelsize=6)
+        StokesP_SP.tick_params(axis='both', labelsize=6)
+        StokesI_SP.axis([np.min(Freq[chRange]), max(Freq[chRange]), 0.0, 1.25*IMax])
+        StokesP_SP.axis([np.min(Freq[chRante]), max(Freq[chRange]), -0.25*IMax, 0.25*IMax])
+        StokesI_SP.text(min(Freq[chRange]), IMax*1.35, sourceName)
+        StokesI_SP.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
+        StokesP_SP.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
+        plt.show()
+        figSP.savefig(pp, format='pdf')
+    #
     DxList, DyList = DxList + [DxSpec], DyList + [DySpec]
 #
 #-------- Plot D-term spectra
