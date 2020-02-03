@@ -338,7 +338,7 @@ for spw_index in range(spwNum):
         figSP = plt.figure(figsize = (11, 8))
         figSP.suptitle(prefixList[0] + ' ' + sourceName)
         figSP.text(0.45, 0.05, 'Frequency [GHz]')
-        figSP.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90
+        figSP.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90)
         #
         StokesI_SP = figSP.add_subplot( 2, 1, 1 )
         StokesP_SP = figSP.add_subplot( 2, 1, 2 )
@@ -349,7 +349,7 @@ for spw_index in range(spwNum):
         np.save(prefixList[0] + '-REF' + refantName + '-' + sourceName + '-SPW' + `spw` + '.StokesErr.npy', StokesErr)
         np.save(prefixList[0] + '-REF' + refantName + '-' + sourceName + '-SPW' + `spw` + '.Freq.npy', Freq)
         #
-        IMax = np.max(StokesSpec[0]))
+        IMax = np.max(StokesSpec[0])
         StokesI_SP.plot(Freq[chRange], StokesSpec[0][chRange], ls='steps-mid', label=polLabel[0], color=Pcolor[0])
         StokesP_SP.plot(Freq[chRange], StokesSpec[1][chRange], ls='steps-mid', label=polLabel[1], color=Pcolor[1])
         StokesP_SP.plot(Freq[chRange], StokesSpec[2][chRange], ls='steps-mid', label=polLabel[2], color=Pcolor[2])
