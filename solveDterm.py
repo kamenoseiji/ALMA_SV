@@ -85,8 +85,8 @@ print 'Total %d integration periods.' % (timeNum)
 DxList, DyList, FreqList = [], [], []
 for spw_index in range(spwNum):
     spw = spwList[spw_index]
-    chNum, chWid, Freq = GetChNum(msfile, spw); chRange = range(int(0.05*chNum/bunchNum), int(0.95*chNum/bunchNum)); FreqList = FreqList + [1.0e-9* Freq]
-    DxSpec, DySpec = np.zeros([antNum, chNum], dtype=complex), np.zeros([antNum, chNum], dtype=complex)
+    chNum, chWid, Freq = GetChNum(msfile, spw); chRange = range(int(0.05*chNum/bunchNum), int(0.95*chNum/bunchNum)); FreqList = FreqList + [1.0e-9* bunchVecCH(Freq) ]
+    DxSpec, DySpec = np.zeros([antNum, chNum/bunchNum], dtype=complex), np.zeros([antNum, chNum/bunchNum], dtype=complex)
     caledVis = np.ones([4,blNum, 0], dtype=complex)
     if 'FGprefix' in locals():  # Flag table
         FG = np.load(FGprefix + '-SPW' + `spw` + '.FG.npy'); FG = np.min(FG, axis=0)
@@ -113,11 +113,14 @@ for spw_index in range(spwNum):
         #-------- AZ, EL, PA
         azelTime, AntID, AZ, EL = GetAzEl(msfile)
         azelTime_index = np.where( AntID == refAntID )[0].tolist()
+        if len(azelTime_index) == 0: azelTime_index = np.where(AntID == 0)[0].tolist()
         timeThresh = np.median( np.diff( azelTime[azelTime_index]))
         for scan in scanList[file_index]:
             #-------- Load Visibilities
             print '-- Loading visibility data %s SPW=%d SCAN=%d...' % (prefix, spw, scan)
             timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan, -1, True)  # Xspec[POL, CH, BL, TIME]
+            del Pspec
+            if bunchNum > 1: Xspec = np.apply_along_axis(bunchVecCH, 1, Xspec)
             if 'FG' in locals():
                 flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
             else:
@@ -127,8 +130,10 @@ for spw_index in range(spwNum):
                 chAvgVis[:, :, timeIndex:timeIndex + len(timeStamp)] =  CrossPolBL(Xspec[:,:,blMap], blInv)[:,0]
             else:
                 print '  -- Apply bandpass cal'
-                tempSpec = CrossPolBL(np.apply_along_axis(bunchVecCH, 1, Xspec[:,:,blMap]), blInv).transpose(3, 2, 0, 1)[flagIndex]
+                tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)[flagIndex]
+                del Xspec
                 VisSpec[:,:,:,timeIndex:timeIndex + len(timeStamp)] = (tempSpec / BP_bl).transpose(2,3,1,0) 
+                del tempSpec
             #
             scanST = scanST + [timeIndex]
             timeIndex += len(timeStamp)
@@ -256,18 +261,16 @@ for spw_index in range(spwNum):
     sys.stderr.write('\n'); sys.stderr.flush()
     for ant_index in range(antNum):
         if 'Dsmooth' in locals():
-            if Dsmooth :
-                DX_real, DX_imag = UnivariateSpline(bunchVecCH(Freq), DxSpec[ant_index,range(int(chNum/bunchNum))].real), UnivariateSpline(bunchVecCH(Freq), DxSpec[ant_index,range(int(chNum/bunchNum))].imag)
-                DY_real, DY_imag = UnivariateSpline(bunchVecCH(Freq), DySpec[ant_index,range(int(chNum/bunchNum))].real), UnivariateSpline(bunchVecCH(Freq), DySpec[ant_index,range(int(chNum/bunchNum))].imag)
-                DxSpec[ant_index] = DX_real(Freq) + (0.0 + 1.0j)* DX_imag(Freq)
-                DySpec[ant_index] = DY_real(Freq) + (0.0 + 1.0j)* DY_imag(Freq)
-            #
+            DX_real, DX_imag = UnivariateSpline(Freq, DxSpec[ant_index].real), UnivariateSpline(Freq, DxSpec[ant_index].imag)
+            DY_real, DY_imag = UnivariateSpline(Freq, DySpec[ant_index].real), UnivariateSpline(Freq, DySpec[ant_index].imag)
+            DxSpec[ant_index] = DX_real(Freq) + (0.0 + 1.0j)* DX_imag(Freq)
+            DySpec[ant_index] = DY_real(Freq) + (0.0 + 1.0j)* DY_imag(Freq)
         #
     #
     #-------- D-term-corrected visibilities (invD dot Vis = PS)
     #del StokesVis
     print '  -- Applying D-term spectral correction'
-    M  = InvMullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum])).transpose(0,3,1,2)
+    M  = InvMullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum/bunchNum])).transpose(0,3,1,2)
     chAvgVis = np.zeros([4, PAnum], dtype=complex)
     for time_index in range(PAnum):
         progress = (time_index + 1.0) / PAnum
