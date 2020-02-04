@@ -274,6 +274,7 @@ for spw_index in range(spwNum):
     StokesVis = np.zeros([4, chNum/bunchNum, PAnum], dtype=complex )
     for time_index in range(PAnum): StokesVis[:, :, time_index] = 4.0* np.mean(M* GainCaledVisSpec[:,:,:,time_index], axis=(2,3))
     chAvgVis = np.mean(StokesVis[:,chRange], axis=1)
+    PS = InvPAVector(PA, np.ones(PAnum))
     for ch_index in range(chNum/bunchNum): StokesVis[:,ch_index] = np.sum(PS* StokesVis[:,ch_index], axis=1)
     maxP = 0.0
     for sourceName in sourceList:
@@ -322,6 +323,8 @@ for spw_index in range(spwNum):
     #-------- Plot Stokes spectra
     polLabel, Pcolor = ['I', 'Q', 'U', 'V'], ['black', 'blue', 'red', 'green']
     for sourceName in sourceList:
+        timeIndex = timeDic[sourceName]
+        if len(timeIndex) < 1 : continue
         pp = PdfPages('SP_' + prefixList[0] + '-REF' + refantName + '-' + sourceName + '-SPW' + `spw` + '.pdf')
         figSP = plt.figure(figsize = (11, 8))
         figSP.suptitle(prefixList[0] + ' ' + sourceName)
@@ -330,8 +333,6 @@ for spw_index in range(spwNum):
         #
         StokesI_SP = figSP.add_subplot( 2, 1, 1 )
         StokesP_SP = figSP.add_subplot( 2, 1, 2 )
-        timeIndex = timeDic[sourceName]
-        if len(timeIndex) < 1 : continue
         StokesSpec, StokesErr =  np.mean(StokesVis[:,:,timeIndex], axis=2).real, abs(np.mean(StokesVis[:,:,timeIndex], axis=2).imag)
         np.save(prefixList[0] + '-REF' + refantName + '-' + sourceName + '-SPW' + `spw` + '.StokesSpec.npy', StokesSpec)
         np.save(prefixList[0] + '-REF' + refantName + '-' + sourceName + '-SPW' + `spw` + '.StokesErr.npy', StokesErr)
@@ -351,6 +352,7 @@ for spw_index in range(spwNum):
         StokesP_SP.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
         plt.show()
         figSP.savefig(pp, format='pdf')
+        pp.close()
     #
     DxList, DyList = DxList + [DxSpec], DyList + [DySpec]
 #
