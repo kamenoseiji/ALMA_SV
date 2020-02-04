@@ -268,23 +268,13 @@ for spw_index in range(spwNum):
         #
     #
     #-------- D-term-corrected visibilities (invD dot Vis = PS)
-    del StokesVis
+    del chAvgVis, StokesVis
     print '  -- Applying D-term spectral correction'
     M  = InvMullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum/bunchNum])).transpose(0,3,1,2)
-    #chAvgVis = np.zeros([4, PAnum], dtype=complex)
     StokesVis = np.zeros([4, chNum/bunchNum, PAnum], dtype=complex )
-    for time_index in range(PAnum):
-        StokesVis[:, :, time_index] = 4.0* np.mean(M* GainCaledVisSpec[:,:,:,time_index], axis=(2,3))
-    #
-    for time_index in range(PAnum):
-        progress = (time_index + 1.0) / PAnum
-        sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
-        chAvgVis[:,time_index] = np.mean(StokesVis[:,chRange], axis=1)
-    #
-    for ch_index in range(chNum/bunchNum):
-        StokesVis[:,ch_index] = np.sum(PS* StokesVis[:,ch_index], axis=1)
-    #
-    sys.stderr.write('\n'); sys.stderr.flush()
+    for time_index in range(PAnum): StokesVis[:, :, time_index] = 4.0* np.mean(M* GainCaledVisSpec[:,:,:,time_index], axis=(2,3))
+    chAvgVis = np.mean(StokesVis[:,chRange], axis=1)
+    for ch_index in range(chNum/bunchNum): StokesVis[:,ch_index] = np.sum(PS* StokesVis[:,ch_index], axis=1)
     maxP = 0.0
     for sourceName in sourceList:
         colorIndex = lineCmap(sourceList.index(sourceName) / 8.0)
@@ -311,8 +301,6 @@ for spw_index in range(spwNum):
         plt.plot(RADDEG* ThetaPlot, chAvgVis[2][timeIndex].real, ',', color=colorIndex)
         plt.plot(RADDEG* ThetaPlot, chAvgVis[2][timeIndex].imag, ',', color=colorIndex)
         plt.plot(RADDEG* ThetaPlot, chAvgVis[3][timeIndex].real - StokesDic[sourceName][0], ',', color=colorIndex)
-        #text_sd = '%s: (Q, U)/I = (%7.4f+-%6.4f, %7.4f+-%6.4f) XY-phase=%6.2f deg (Ref:%s)' % (sourceName, QUsol[0], QUerr[0], QUsol[1], QUerr[1], np.angle(np.mean(XYtwiddle[chRange])*np.mean(np.exp((0.0 + 1.0j)* XYphase)))* 180.0/pi,  antList[refAntID])
-        #for scan_index in range(len(scanST)): plt.text(RADDEG* ThetaPlot[scanST[scan_index]], maxP, `scanList[file_index][scan_index]`, fontsize=6)
     #
     plt.xlabel('Linear polarization angle w.r.t. X-Feed [deg]'); plt.ylabel('Cross correlations [Jy]')
     plt.xlim([-90.0, 90.0])
@@ -357,7 +345,7 @@ for spw_index in range(spwNum):
         StokesI_SP.tick_params(axis='both', labelsize=6)
         StokesP_SP.tick_params(axis='both', labelsize=6)
         StokesI_SP.axis([np.min(Freq[chRange]), max(Freq[chRange]), 0.0, 1.25*IMax])
-        StokesP_SP.axis([np.min(Freq[chRante]), max(Freq[chRange]), -0.25*IMax, 0.25*IMax])
+        StokesP_SP.axis([np.min(Freq[chRange]), max(Freq[chRange]), -0.25*IMax, 0.25*IMax])
         StokesI_SP.text(min(Freq[chRange]), IMax*1.35, sourceName)
         StokesI_SP.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
         StokesP_SP.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
