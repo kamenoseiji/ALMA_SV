@@ -222,7 +222,7 @@ def AzElMatch( refTime, scanTime, AntID, targetAnt, Az, El ):
 #-------- Get SPW to DATA_DESC_ID
 def SPW2DATA_DESC_ID(msfile, spwID):
     tb.open(msfile + '/' + 'DATA_DESCRIPTION')
-    data_desc_id, spw_index = -1,0
+    data_desc_id, spw_index = -1,-1
     while( spw_index <  spwID ):
         data_desc_id += 1
         spw_index = tb.getcell('SPECTRAL_WINDOW_ID', data_desc_id)

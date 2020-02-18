@@ -59,7 +59,7 @@ for file_index in range(fileNum):
         sourceScan = sourceScan + [sourceName]
         scanDic[sourceName] = scanDic[sourceName] + [scanIndex]
         IQU = GetPolQuery(sourceName, timeStamp[0], BANDFQ[bandID], SCR_DIR, R_DIR)
-        if len(IQU[0]) == 1:
+        if len(IQU[0]) > 0:
             StokesDic[sourceName] = [IQU[0][sourceName], IQU[1][sourceName], IQU[2][sourceName], 0.0]
         else:
             StokesDic[sourceName] = [0.01, 0.0, 0.0, 0.0]
@@ -261,10 +261,11 @@ for spw_index in range(spwNum):
     sys.stderr.write('\n'); sys.stderr.flush()
     for ant_index in range(antNum):
         if 'Dsmooth' in locals():
-            DX_real, DX_imag = UnivariateSpline(Freq, DxSpec[ant_index].real), UnivariateSpline(Freq, DxSpec[ant_index].imag)
-            DY_real, DY_imag = UnivariateSpline(Freq, DySpec[ant_index].real), UnivariateSpline(Freq, DySpec[ant_index].imag)
-            DxSpec[ant_index] = DX_real(Freq) + (0.0 + 1.0j)* DX_imag(Freq)
-            DySpec[ant_index] = DY_real(Freq) + (0.0 + 1.0j)* DY_imag(Freq)
+            node_index = range(1, chNum/bunchNum, Dsmooth)
+            DX_real, DX_imag = scipy.interoplate.splrep(Freq, DxSpec[ant_index].real, k=3, t=Freq[node_index]), scipy.interoplate.splrep(Freq, DxSpec[ant_index].imag, k=3, t=Freq[node_index])
+            DY_real, DY_imag = scipy.interoplate.splrep(Freq, DySpec[ant_index].real, k=3, t=Freq[node_index]), scipy.interoplate.splrep(Freq, DySpec[ant_index].imag, k=3, t=Freq[node_index])
+            DxSpec[ant_index] =scipy.interpolate.splev(Freq, DX_real) + (0.0 + 1.0j)* scipy.interpolate.splev(Freq, DX_imag)
+            DySpec[ant_index] =scipy.interpolate.splev(Freq, DY_real) + (0.0 + 1.0j)* scipy.interpolate.splev(Freq, DY_imag)
         #
     #
     #-------- D-term-corrected visibilities (invD dot Vis = PS)
