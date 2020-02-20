@@ -58,11 +58,15 @@ for file_index in range(fileNum):
         sourceName = sourceList[msmd.sourceidforfield(msmd.fieldsforscan(scan)[0])]
         sourceScan = sourceScan + [sourceName]
         scanDic[sourceName] = scanDic[sourceName] + [scanIndex]
-        IQU = GetPolQuery(sourceName, timeStamp[0], BANDFQ[bandID], SCR_DIR, R_DIR)
-        if len(IQU[0]) > 0:
-            StokesDic[sourceName] = [IQU[0][sourceName], IQU[1][sourceName], IQU[2][sourceName], 0.0]
-        else:
-            StokesDic[sourceName] = [0.01, 0.0, 0.0, 0.0]
+        if AprioriDic[sourceName] :
+            StokesDic[sourceName] = AprioriDic[sourceName]
+        else: 
+            IQU = GetPolQuery(sourceName, timeStamp[0], BANDFQ[bandID], SCR_DIR, R_DIR)
+            if len(IQU[0]) > 0:
+                StokesDic[sourceName] = [IQU[0][sourceName], IQU[1][sourceName], IQU[2][sourceName], 0.0]
+            else:
+                StokesDic[sourceName] = [0.01, 0.0, 0.0, 0.0]
+            #
         print '---- Scan%3d : %d tracking antennas : %s, %d records, expected I=%.1f p=%.1f%%' % (scan, len(trkAnt), sourceName, len(timeStamp), StokesDic[sourceName][0], 100.0*sqrt(StokesDic[sourceName][1]**2 + StokesDic[sourceName][2]**2)/StokesDic[sourceName][0])
         scanIndex += 1
     #
@@ -220,8 +224,9 @@ for spw_index in range(spwNum):
     GainX, GainY = polariGain(caledVis[0], caledVis[3], QCpUS)
     Gain = np.array([Gain[0]* GainX, Gain[1]* GainY])
     caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
-    Vis    = np.mean(caledVis, axis=1)
+    # Vis    = np.mean(caledVis, axis=1)
     GainCaledVisSpec = VisSpec.transpose(1,0,2,3) / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
+    del VisSpec
     #-------- Antenna-based on-axis D-term (chAvg)
     StokesI = np.ones(PAnum)
     for sourceName in sourceList:
@@ -249,7 +254,7 @@ for spw_index in range(spwNum):
         StokesI[timeIndex] = Isol
         QCpUS[timeIndex] = Qsol* CS[timeIndex] + Usol* SN[timeIndex]
         UCmQS[timeIndex] = Usol* CS[timeIndex] - Qsol* SN[timeIndex]
-        GainCaledVisSpec[:,:,:,timeIndex] *= Isol
+        for index in timeIndex: GainCaledVisSpec[:,:,:,index] *= Isol
     #
     #-------- get D-term spectra
     print '  -- Determining D-term spectra'
@@ -259,11 +264,11 @@ for spw_index in range(spwNum):
         sys.stderr.write('\r\033[K' + get_progressbar_str(progress)); sys.stderr.flush()
     #
     sys.stderr.write('\n'); sys.stderr.flush()
-    for ant_index in range(antNum):
-        if 'Dsmooth' in locals():
+    if 'Dsmooth' in locals():
+        for ant_index in range(antNum):
             node_index = range(1, chNum/bunchNum, Dsmooth)
-            DX_real, DX_imag = scipy.interoplate.splrep(Freq, DxSpec[ant_index].real, k=3, t=Freq[node_index]), scipy.interoplate.splrep(Freq, DxSpec[ant_index].imag, k=3, t=Freq[node_index])
-            DY_real, DY_imag = scipy.interoplate.splrep(Freq, DySpec[ant_index].real, k=3, t=Freq[node_index]), scipy.interoplate.splrep(Freq, DySpec[ant_index].imag, k=3, t=Freq[node_index])
+            DX_real, DX_imag = scipy.interpolate.splrep(Freq, DxSpec[ant_index].real, k=3, t=Freq[node_index]), scipy.interpolate.splrep(Freq, DxSpec[ant_index].imag, k=3, t=Freq[node_index])
+            DY_real, DY_imag = scipy.interpolate.splrep(Freq, DySpec[ant_index].real, k=3, t=Freq[node_index]), scipy.interpolate.splrep(Freq, DySpec[ant_index].imag, k=3, t=Freq[node_index])
             DxSpec[ant_index] =scipy.interpolate.splev(Freq, DX_real) + (0.0 + 1.0j)* scipy.interpolate.splev(Freq, DX_imag)
             DySpec[ant_index] =scipy.interpolate.splev(Freq, DY_real) + (0.0 + 1.0j)* scipy.interpolate.splev(Freq, DY_imag)
         #
