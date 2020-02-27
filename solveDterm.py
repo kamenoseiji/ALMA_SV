@@ -58,8 +58,8 @@ for file_index in range(fileNum):
         sourceName = sourceList[msmd.sourceidforfield(msmd.fieldsforscan(scan)[0])]
         sourceScan = sourceScan + [sourceName]
         scanDic[sourceName] = scanDic[sourceName] + [scanIndex]
-        if AprioriDic[sourceName] :
-            StokesDic[sourceName] = AprioriDic[sourceName]
+        if 'AprioriDic' in locals(): 
+            if AprioriDic[sourceName] : StokesDic[sourceName] = AprioriDic[sourceName]
         else: 
             IQU = GetPolQuery(sourceName, timeStamp[0], BANDFQ[bandID], SCR_DIR, R_DIR)
             if len(IQU[0]) > 0:
@@ -205,8 +205,9 @@ for spw_index in range(spwNum):
     Gain = np.array([Gain[0]* GainX, Gain[1]* GainY])
     caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
     Vis    = np.mean(caledVis, axis=1)
+    XYvis = Vis[[1,2]] * np.sign(UCmQS)
     #-------- XY phase correction
-    XYphase, XYproduct = XY2PhaseVec(mjdSec - np.median(mjdSec), UCmQS, Vis[[1,2]])
+    XYphase = XY2PhaseVec(mjdSec - np.median(mjdSec), UCmQS, Vis[[1,2]], 200)
     twiddle = np.exp((1.0j)* XYphase)
     caledVis[1] /= twiddle
     caledVis[2] *= twiddle
@@ -222,6 +223,7 @@ for spw_index in range(spwNum):
         UCmQS[timeIndex] = Usol* CS[timeIndex] - Qsol* SN[timeIndex]
     #
     GainX, GainY = polariGain(caledVis[0], caledVis[3], QCpUS)
+    GainY *= twiddle
     Gain = np.array([Gain[0]* GainX, Gain[1]* GainY])
     caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
     # Vis    = np.mean(caledVis, axis=1)
@@ -265,8 +267,8 @@ for spw_index in range(spwNum):
     #
     sys.stderr.write('\n'); sys.stderr.flush()
     if 'Dsmooth' in locals():
+        node_index = range(3, chNum/bunchNum, Dsmooth)
         for ant_index in range(antNum):
-            node_index = range(1, chNum/bunchNum, Dsmooth)
             DX_real, DX_imag = scipy.interpolate.splrep(Freq, DxSpec[ant_index].real, k=3, t=Freq[node_index]), scipy.interpolate.splrep(Freq, DxSpec[ant_index].imag, k=3, t=Freq[node_index])
             DY_real, DY_imag = scipy.interpolate.splrep(Freq, DySpec[ant_index].real, k=3, t=Freq[node_index]), scipy.interpolate.splrep(Freq, DySpec[ant_index].imag, k=3, t=Freq[node_index])
             DxSpec[ant_index] =scipy.interpolate.splev(Freq, DX_real) + (0.0 + 1.0j)* scipy.interpolate.splev(Freq, DX_imag)
@@ -280,6 +282,7 @@ for spw_index in range(spwNum):
     StokesVis = np.zeros([4, chNum/bunchNum, PAnum], dtype=complex )
     for time_index in range(PAnum): StokesVis[:, :, time_index] = 4.0* np.mean(M* GainCaledVisSpec[:,:,:,time_index], axis=(2,3))
     chAvgVis = np.mean(StokesVis[:,chRange], axis=1)
+    XYC = chAvgVis[[1,2]]* np.sign(UCmQS)
     PS = InvPAVector(PA, np.ones(PAnum))
     for ch_index in range(chNum/bunchNum): StokesVis[:,ch_index] = np.sum(PS* StokesVis[:,ch_index], axis=1)
     maxP = 0.0
@@ -320,7 +323,8 @@ for spw_index in range(spwNum):
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.TS.npy', mjdSec )
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.GA.npy', Gain )
     np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.XYPH.npy', XYphase )
-    np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.XYC.npy', chAvgVis[[1,2]])
+    np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.XYV.npy', XYvis )
+    np.save(prefixList[0] + '-SPW' + `spw` + '-' + refantName + '.XYC.npy', XYC )
     for ant_index in range(antNum):
         DtermFile = np.array([FreqList[spw_index], DxSpec[ant_index].real, DxSpec[ant_index].imag, DySpec[ant_index].real, DySpec[ant_index].imag])
         np.save(prefixList[0] + '-SPW' + `spw` + '-' + antList[antMap[ant_index]] + '.DSpec.npy', DtermFile)

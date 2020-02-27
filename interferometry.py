@@ -1413,10 +1413,11 @@ def bandpassStability(bpCalXX, segNum):
 	return sd_spec, pp_spec, pe_spec, sd_phas, pp_phas, pe_phas
 #
 #-------- Smoothing complex vector
-def splineComplex( samplePoints, vector ):
-    SPL_real = UnivariateSpline(samplePoints, vector.real)
-    SPL_imag = UnivariateSpline(samplePoints, vector.imag)
-    return( SPL_real(samplePoints) + (0.0 + 1.0j)* SPL_imag(samplePoints) )
+def splineComplex( samplePoints, vector, smoothWidth=3, Weight=np.array([1.0,1.0]) ):
+    node_index = range(3, len(samplePoints)-2, smoothWidth)
+    if len(Weight) != len(samplePoints): Weight = np.median(Weight) * np.ones(len(samplePoints))
+    SP_real, SP_imag = scipy.interpolate.splrep(samplePoints, vector.real, k=3, w=Weight, t=samplePoints[node_index]), scipy.interpolate.splrep(samplePoints, vector.imag, k=3, w=Weight, t=samplePoints[node_index])
+    return( scipy.interpolate.splev(samplePoints, SP_real) + (0.0 + 1.0j)* scipy.interpolate.splev(samplePoints, SP_imag))
 #
 #-------- Van Vleck Correction
 def loadVanvQ4( File ):
@@ -1816,10 +1817,12 @@ def XY2Phase(UC_QS, Vis):       # XY*, YX* to determine XYphase
     correlation = np.dot(Vis[0], UC_QS) + np.dot(Vis[1].conjugate(), UC_QS)
     return np.angle(correlation)
 #
-def XY2PhaseVec(TS, UC_QS, Vis):    # XY*, YX* to measuere XYphase variation
-    product = (Vis[0] + Vis[1].conjugate())* UC_QS
-    SP_phas = UnivariateSpline(TS, np.arctan(product.imag/product.real), w=abs(product)**2, s=0.01* np.median(abs(product)**2))
-    return SP_phas(TS), product
+def XY2PhaseVec(TS, UC_QS, Vis, SmoothWindow):    # XY*, YX* to measuere XYphase variation
+    product = 0.5* (Vis[0] + Vis[1].conjugate())* np.sign(UC_QS)
+    vis_weight = abs(product)**2
+    vis_weight[np.where(abs(product.real) < 3.0* np.std(product.imag))[0].tolist()] *= 1.0e-6   # threshold = 3 sigma
+    SP_product = splineComplex(TS, np.exp((0.0 + 1.0j) * np.angle(product)), SmoothWindow, vis_weight)
+    return np.angle(SP_product)
 #
 def XY2Stokes(PA, Vis):            # XY*, YX* to determine Q, U
     UCmQS = 0.5* (Vis[0] + Vis[1]).real
