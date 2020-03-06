@@ -6,10 +6,10 @@ RADDEG = 180.0/ pi
 #-------- Load tables
 fileNum = len(DSpecList)
 DList = []
-pdfFileName = 'D_'
+pdfFileName = 'D_comp'
 for DSpecFile in DSpecList:
     DList = DList + [np.load(DSpecFile)]
-    pdfFileName = pdfFileName + DSpecFile
+    # pdfFileName = pdfFileName + DSpecFile
 #
 #-------- PDF file
 pdfFileName = pdfFileName + '.pdf'
@@ -56,7 +56,7 @@ if fileNum == 2:
     DcorrX = Dx1[chRange].dot(Dx0[chRange].conjugate()) / np.sqrt( Dx0[chRange].dot(Dx0[chRange].conjugate()) * Dx1[chRange].dot(Dx1[chRange].conjugate()) )
     DcorrY = Dy1[chRange].dot(Dy0[chRange].conjugate()) / np.sqrt( Dy0[chRange].dot(Dy0[chRange].conjugate()) * Dy1[chRange].dot(Dy1[chRange].conjugate()) )
     ampRatioDx, ampRatioDy = abs(np.mean(Dx1[chRange])/np.mean(Dx0[chRange])), abs(np.mean(Dy1[chRange])/np.mean(Dy0[chRange]))
-    text_sd = '%s %d AmpRatio/PhaseDiff/Corr:  %.2f  %.1f  %.2f  %.2f  %.1f  %.2f' % (antName, BB, ampRatioDx, RADDEG* np.angle(DcorrX), abs(DcorrX), ampRatioDy, RADDEG* np.angle(DcorrY), abs(DcorrY))
+    text_sd = '%s %d AmpRatio/PhaseDiff/Corr:  %.1f  %.2f  %.2f  %.1f  %.2f' % (antName, ampRatioDx, RADDEG* np.angle(DcorrX), abs(DcorrX), ampRatioDy, RADDEG* np.angle(DcorrY), abs(DcorrY))
     print text_sd
     # plot D-term ratio
     DampPL.grid()

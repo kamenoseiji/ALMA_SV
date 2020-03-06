@@ -268,11 +268,12 @@ for spw_index in range(spwNum):
     sys.stderr.write('\n'); sys.stderr.flush()
     if 'Dsmooth' in locals():
         node_index = range(3, chNum/bunchNum, Dsmooth)
+        bunchedFreq = bunchVecCH(Freq)
         for ant_index in range(antNum):
-            DX_real, DX_imag = scipy.interpolate.splrep(Freq, DxSpec[ant_index].real, k=3, t=Freq[node_index]), scipy.interpolate.splrep(Freq, DxSpec[ant_index].imag, k=3, t=Freq[node_index])
-            DY_real, DY_imag = scipy.interpolate.splrep(Freq, DySpec[ant_index].real, k=3, t=Freq[node_index]), scipy.interpolate.splrep(Freq, DySpec[ant_index].imag, k=3, t=Freq[node_index])
-            DxSpec[ant_index] =scipy.interpolate.splev(Freq, DX_real) + (0.0 + 1.0j)* scipy.interpolate.splev(Freq, DX_imag)
-            DySpec[ant_index] =scipy.interpolate.splev(Freq, DY_real) + (0.0 + 1.0j)* scipy.interpolate.splev(Freq, DY_imag)
+            DX_real, DX_imag = scipy.interpolate.splrep(bunchedFreq, DxSpec[ant_index].real, k=3, t=bunchedFreq[node_index]), scipy.interpolate.splrep(bunchedFreq, DxSpec[ant_index].imag, k=3, t=bunchedFreq[node_index])
+            DY_real, DY_imag = scipy.interpolate.splrep(bunchedFreq, DySpec[ant_index].real, k=3, t=bunchedFreq[node_index]), scipy.interpolate.splrep(bunchedFreq, DySpec[ant_index].imag, k=3, t=bunchedFreq[node_index])
+            DxSpec[ant_index] =scipy.interpolate.splev(bunchedFreq, DX_real) + (0.0 + 1.0j)* scipy.interpolate.splev(bunchedFreq, DX_imag)
+            DySpec[ant_index] =scipy.interpolate.splev(bunchedFreq, DY_real) + (0.0 + 1.0j)* scipy.interpolate.splev(bunchedFreq, DY_imag)
         #
     #
     #-------- D-term-corrected visibilities (invD dot Vis = PS)
