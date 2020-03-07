@@ -1414,7 +1414,7 @@ def bandpassStability(bpCalXX, segNum):
 #
 #-------- Smoothing complex vector
 def splineComplex( samplePoints, vector, smoothWidth=3, Weight=np.array([1.0,1.0]) ):
-    node_index = range(3, len(samplePoints)-2, smoothWidth)
+    node_index = range(smoothWidth/2, len(samplePoints)-2, smoothWidth)
     if len(Weight) != len(samplePoints): Weight = np.median(Weight) * np.ones(len(samplePoints))
     SP_real, SP_imag = scipy.interpolate.splrep(samplePoints, vector.real, k=3, w=Weight, t=samplePoints[node_index]), scipy.interpolate.splrep(samplePoints, vector.imag, k=3, w=Weight, t=samplePoints[node_index])
     return( scipy.interpolate.splev(samplePoints, SP_real) + (0.0 + 1.0j)* scipy.interpolate.splev(samplePoints, SP_imag))
@@ -1817,12 +1817,24 @@ def XY2Phase(UC_QS, Vis):       # XY*, YX* to determine XYphase
     correlation = np.dot(Vis[0], UC_QS) + np.dot(Vis[1].conjugate(), UC_QS)
     return np.angle(correlation)
 #
+def XY2PhaseVec(TS, VisXY, UC_QS, QC_US, SmoothWindow):    # XY*, YX* to measuere XYphase variation
+    PAnum = len(TS)
+    XYV = 0.5* (VisXY[0] + VisXY[1].conjugate())
+    PY  = np.array([np.sum(XYV), QC_US.dot(XYV), UC_QS.dot(XYV)])
+    PTP = np.array([ [PAnum, np.sum(QC_US), np.sum(UC_QS)], [np.sum(QC_US), QC_US.dot(QC_US), QC_US.dot(UC_QS)], [np.sum(UC_QS), UC_QS.dot(QC_US), UC_QS.dot(UC_QS)]])
+    solution = np.linalg.solve(PTP, PY)
+    residual = XYV - (solution[0] + solution[1]* QC_US)
+    vis_weight = abs(residual)
+    SP_residual = splineComplex(TS, np.exp((0.0 + 1.0j) * np.angle(residual* np.sign(UC_QS))), SmoothWindow, vis_weight)
+    return np.angle(SP_residual), solution[0], solution[1]
+'''
 def XY2PhaseVec(TS, UC_QS, Vis, SmoothWindow):    # XY*, YX* to measuere XYphase variation
     product = 0.5* (Vis[0] + Vis[1].conjugate())* np.sign(UC_QS)
-    vis_weight = abs(product)**2
-    vis_weight[np.where(abs(product.real) < 3.0* np.std(product.imag))[0].tolist()] *= 1.0e-6   # threshold = 3 sigma
+    vis_weight = abs(product)
+    # vis_weight[np.where(abs(product.real) < 3.0* np.std(product.imag))[0].tolist()] *= 1.0e-6   # threshold = 3 sigma
     SP_product = splineComplex(TS, np.exp((0.0 + 1.0j) * np.angle(product)), SmoothWindow, vis_weight)
     return np.angle(SP_product)
+'''
 #
 def XY2Stokes(PA, Vis):            # XY*, YX* to determine Q, U
     UCmQS = 0.5* (Vis[0] + Vis[1]).real

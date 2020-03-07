@@ -4,7 +4,7 @@ execfile(SCR_DIR + 'Plotters.py')
 from matplotlib.backends.backend_pdf import PdfPages
 ALMA_lat = -23.029/180.0*pi     # ALMA AOS Latitude
 #----------------------------------------- Procedures
-fileNum, spwNum = len(prefixList), len(spwList)
+spwNum = len(spwList)
 polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
 #
 trkAntSet = set(range(64))
@@ -12,68 +12,56 @@ scansFile = []
 pattern = r'RB_..'
 timeNum = 0
 sourceList = []
-for file_index in range(fileNum):
-    prefix = prefixList[file_index]
-    msfile = wd + prefix + '.ms'
-    sources, posList = GetSourceList(msfile); sourceList = sourceList + sourceRename(sources)
-#
+msfile = wd + prefix + '.ms'
+sources, posList = GetSourceList(msfile); sourceList = sourceList + sourceRename(sources)
 sourceList = unique(sourceList).tolist()
 sourceScan = []
 scanDic   = dict(zip(sourceList, [[]]*len(sourceList))) # Scan list index for each source
 timeDic   = dict(zip(sourceList, [[]]*len(sourceList))) # Time index list for each source
 StokesDic = dict(zip(sourceList, [[]]*len(sourceList))) # Stokes parameters for each source
 scanIndex = 0
-for file_index in range(fileNum):
-    prefix = prefixList[file_index]
-    msfile = wd + prefix + '.ms'
-    msmd.open(msfile)
-    print '-- Checking %s ' % (msfile)
-    sourceList, posList = GetSourceList(msfile); sourceList = sourceRename(sourceList)
-    antList = GetAntName(msfile)
-    refAntID  = indexList([refantName], antList)
-    flagAntID = indexList(antFlag, antList)
-    if len(refAntID) < 1:
-        print 'Antenna %s didn not participate in this file.' % refantName
-        continue
-    else:
-        refAntID = refAntID[0]
+msfile = wd + prefix + '.ms'
+msmd.open(msfile)
+print '-- Checking %s ' % (msfile)
+sourceList, posList = GetSourceList(msfile); sourceList = sourceRename(sourceList)
+antList = GetAntName(msfile)
+refAntID  = indexList([refantName], antList)
+flagAntID = indexList(antFlag, antList)
+if len(refAntID) < 1: print 'Antenna %s didn not participate in this file.' % refantName
+else: refAntID = refAntID[0]
+#
+if 'scanList' in locals(): scanLS = scanList
+else: scanLS = msmd.scannumbers().tolist()
+#
+spwName = msmd.namesforspws(spwList[0])[0]; BandName = re.findall(pattern, spwName)[0]; bandID = int(BandName[3:5])
+BandPA = (BANDPA[bandID] + 90.0)*pi/180.0
+for scan_index in range(len(scanLS)):
+    scan = scanLS[scan_index]
+    interval, timeStamp = GetTimerecord(msfile, 0, 1, spwList[0], scan)
+    timeNum += len(timeStamp)
+    trkAnt, scanAnt, Time, Offset = antRefScan( msfile, [timeStamp[0], timeStamp[-1]], antFlag )
+    trkAnt = list(set(trkAnt) - set(flagAntID))
+    if refAntID in trkAnt: trkAntSet = set(trkAnt) & trkAntSet
     #
-    if 'scanList' in locals():
-        scanLS = scanList[file_index]
-    else:
-        scanLS = msmd.scannumbers().tolist()
-    #
-    spwName = msmd.namesforspws(spwList[0])[0]; BandName = re.findall(pattern, spwName)[0]; bandID = int(BandName[3:5])
-    BandPA = (BANDPA[bandID] + 90.0)*pi/180.0
-    for scan in scanLS:
-        interval, timeStamp = GetTimerecord(msfile, 0, 1, spwList[0], scan)
-        timeNum += len(timeStamp)
-        trkAnt, scanAnt, Time, Offset = antRefScan( msfile, [timeStamp[0], timeStamp[-1]], antFlag )
-        trkAnt = list(set(trkAnt) - set(flagAntID))
-        if refAntID in trkAnt:
-            trkAntSet = set(trkAnt) & trkAntSet
+    sourceName = sourceList[msmd.sourceidforfield(msmd.fieldsforscan(scan)[0])]
+    sourceScan = sourceScan + [sourceName]
+    scanDic[sourceName] = scanDic[sourceName] + [scanIndex]
+    '''
+    if AprioriDic[sourceName] :
+        StokesDic[sourceName] = AprioriDic[sourceName]
+    else: 
+        IQU = GetPolQuery(sourceName, timeStamp[0], BANDFQ[bandID], SCR_DIR, R_DIR)
+        if len(IQU[0]) > 0:
+            StokesDic[sourceName] = [IQU[0][sourceName], IQU[1][sourceName], IQU[2][sourceName], 0.0]
         else:
-            scanLS = list( set(scanLS) - set([scan]) )
+            StokesDic[sourceName] = [0.01, 0.0, 0.0, 0.0]
         #
-        sourceName = sourceList[msmd.sourceidforfield(msmd.fieldsforscan(scan)[0])]
-        sourceScan = sourceScan + [sourceName]
-        scanDic[sourceName] = scanDic[sourceName] + [scanIndex]
-        '''
-        if AprioriDic[sourceName] :
-            StokesDic[sourceName] = AprioriDic[sourceName]
-        else: 
-            IQU = GetPolQuery(sourceName, timeStamp[0], BANDFQ[bandID], SCR_DIR, R_DIR)
-            if len(IQU[0]) > 0:
-                StokesDic[sourceName] = [IQU[0][sourceName], IQU[1][sourceName], IQU[2][sourceName], 0.0]
-            else:
-                StokesDic[sourceName] = [0.01, 0.0, 0.0, 0.0]
-            #
-        print '---- Scan%3d : %d tracking antennas : %s, %d records, expected I=%.1f p=%.1f%%' % (scan, len(trkAnt), sourceName, len(timeStamp), StokesDic[sourceName][0], 100.0*sqrt(StokesDic[sourceName][1]**2 + StokesDic[sourceName][2]**2)/StokesDic[sourceName][0])
-        '''
-        scanIndex += 1
-    #
-    scansFile.append(scanLS)
-    msmd.done()
+    print '---- Scan%3d : %d tracking antennas : %s, %d records, expected I=%.1f p=%.1f%%' % (scan, len(trkAnt), sourceName, len(timeStamp), StokesDic[sourceName][0], 100.0*sqrt(StokesDic[sourceName][1]**2 + StokesDic[sourceName][2]**2)/StokesDic[sourceName][0])
+    '''
+    scanIndex += 1
+#
+scansFile.append(scanLS)
+msmd.done()
 #
 if not 'scanList' in locals(): scanList = scansFile
 #-------- Check source list and Stokes Parameters
@@ -98,8 +86,16 @@ for spw_index in range(spwNum):
         Dfile = DPATH + '-SPW' + `spwList[0]` + '-' + antName + '.DSpec.npy'
         if os.path.exists(Dfile):
             Dterm = np.load(Dfile)
-            DxList = DxList + [Dterm[1] + (0.0 + 1.0j)* Dterm[2]]
-            DyList = DyList + [Dterm[3] + (0.0 + 1.0j)* Dterm[4]]
+            Dfreq = Dterm[0]
+            if len(Dfreq) != chNum/bunchNum:
+                DX_real, DX_imag = scipy.interpolate.splrep(Dfreq, Dterm[1], k=3), scipy.interpolate.splrep(Dfreq, Dterm[2], k=3)
+                DY_real, DY_imag = scipy.interpolate.splrep(Dfreq, Dterm[3], k=3), scipy.interpolate.splrep(Dfreq, Dterm[4], k=3)
+                DxList = DxList + [scipy.interpolate.splev(FreqList[0], DX_real)+ (0.0 + 1.0j)* scipy.interpolate.splev(FreqList[0], DX_imag)]
+                DyList = DyList + [scipy.interpolate.splev(FreqList[0], DY_real)+ (0.0 + 1.0j)* scipy.interpolate.splev(FreqList[0], DY_imag)]
+            else:
+                DxList = DxList + [Dterm[1] + (0.0 + 1.0j)* Dterm[2]]
+                DyList = DyList + [Dterm[3] + (0.0 + 1.0j)* Dterm[4]]
+            #
         else:
             print 'D-term file [%s] is not found.' % (Dfile)
             continue
@@ -122,7 +118,7 @@ for spw_index in range(spwNum):
                 etaY = etaY + [float(Aline.split()[2])]
                 AeX = AeX + [(0.0025* np.pi* float(Aline.split()[1]))* antDia[ant_index]**2]
                 AeY = AeY + [(0.0025* np.pi* float(Aline.split()[2]))* antDia[ant_index]**2]
-                print '%s  : etaX = %.2f  etaY = %.2f' % (antList[antMap[ant_index]], float(Aline.split()[1]), float(Aline.split()[2]))
+                # print '%s  : etaX = %.2f  etaY = %.2f' % (antList[antMap[ant_index]], float(Aline.split()[1]), float(Aline.split()[2]))
             #
         #
     #
@@ -145,81 +141,71 @@ for spw_index in range(spwNum):
     BP_ant = np.apply_along_axis(bunchVecCH, 2, BP_ant)
     BP_bl = BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate()    # Baseline-based bandpass table
     #
-    chAvgVis = np.zeros([4, blNum, timeNum], dtype=complex)
-    VisSpec  = np.zeros([4, chNum/bunchNum, blNum, timeNum], dtype=complex)
-    mjdSec, scanST, scanET, Az, El, PA = [], [], [], [], [], []
-    timeIndex, scanIndex  = 0, 0
     #-------- Load Tsys table
-    TrxList = []
-    TrxFreq  = np.load(prefix +  '-' + BandName + '-SPW' + `TsysSPW` + '.TrxFreq.npy') # TrxFreq[spw][ch]
+    TrxSpec  = np.ones([antNum, 2, chNum])
+    TrxFreq  = np.load(prefix +  '-' + BandName + '-SPW' + `TsysSPW[spw_index]` + '.TrxFreq.npy') # TrxFreq[ch]
     TrxAnts  = np.load(prefix +  '-' + BandName + '.TrxAnt.npy') # TrxAnts[ant]
-    Tau0spec = np.load(prefix +  '-' + BandName + '-SPW' + `TsysSPW` + '.Tau0.npy') # Tau0spec[spw][ch]
-    Trxspec  = np.load(prefix +  '-' + BandName + '-SPW' + `TsysSPW` + '.Trx.npy')  # Trxspec[spw, pol, ch, ant, scan]
-    Tau0E    = np.load(prefix +  '-' + BandName + '.TauE.npy') # Tau0E[spw, atmScan]
+    Tau0spec = np.load(prefix +  '-' + BandName + '-SPW' + `TsysSPW[spw_index]` + '.Tau0.npy') # Tau0spec[ch]
+    Trxspec  = np.load(prefix +  '-' + BandName + '-SPW' + `TsysSPW[spw_index]` + '.Trx.npy')  # Trxspec[spw, pol, ch, ant, scan]
+    Tau0E    = np.load(prefix +  '-' + BandName + '.TauE.npy')[spw_index] # Tau0E[atmScan]
     atmTimeRef = np.load(prefix +  '-' + BandName + '.atmTime.npy') # atmTimeRef[atmScan]
     TrxMap = indexList(TrxAnts, antList[antMap]); TrxFlag = np.zeros([antNum]); TrxFlag[TrxMap] = 1.0
-    Tau0E = np.nanmedian(Tau0E, axis=0); Tau0E[np.isnan(Tau0E)] = np.nanmedian(Tau0E); Tau0E[np.isnan(Tau0E)] = 0.0
-    TrxMed = np.median(Trxspec, axis=3)
+    TrxMed = np.median(Trxspec, axis=(1,3))
     #-------- Tsys channel interpolation
-    chNum, chWid, Freq = GetChNum(msfile, spwList[0])
-    #if TrxFreq.shape[1] != chNum:
-    tmpTAU0, tmpTRX = np.zeros([spwNum, chNum]), np.zeros([spwNum, antNum, 2, chNum])
-    for spw_index in range(spwNum):
-        chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index]); Freq *= 1.0e-9
-        TAU0 = interpolate.interp1d(TrxFreq[spw_index], Tau0spec[spw_index])
-        tmpTAU0[spw_index] = TAU0(Freq)
+    if len(TrxFreq) != chNum:
+        TAU0SP = scipy.interpolate.splrep(TrxFreq, Tau0spec, k=3)
+        Tau0Spec = scipy.interpolate.splev(Freq, TAU0SP)
         for ant_index in range(len(TrxAnts)):
             for pol_index in range(2):
-                TRX = interpolate.interp1d(TrxFreq[spw_index], np.median(Trxspec, axis=4)[spw_index, pol_index][:, ant_index])
-                tmpTRX[spw_index, ant_index, pol_index] = TRX(Freq)
+                TRXSP = scipy.interpolate.splrep(TrxFreq, np.median(Trxspec, axis=3)[pol_index, :, ant_index])
+                TrxSpec[ant_index, pol_index] = scipy.interpolate.splev(Freq, TRXSP)
             #
-        TrxList = TrxList + [tmpTRX[spw_index]]
-    #
-    Tau0spec = tmpTAU0
-    Trxspec  = tmpTRX
-    for spw_index in range(spwNum):
-        for pol_index in range(2): TrxFlag[np.where(TrxMed[spw_index][:,pol_index] - np.median(TrxMed[spw_index][:,pol_index]) > 1.5* np.median(TrxMed[spw_index][:,pol_index]))[0].tolist()] *= 0.0
-        for pol_index in range(2): TrxFlag[np.where(TrxMed[spw_index][:,pol_index] < 0.3* np.median(TrxMed[spw_index][:,pol_index]))[0].tolist()] *= 0.0
-    if np.min(np.median(Tau0spec[:,chRange], axis=1)) < 0.0: TrxFlag *= 0.0    # Negative Tau(zenith) 
-    #
-    #-------- Store visibilities into memory
-    for file_index in range(fileNum):
-        prefix = prefixList[file_index]
-        msfile = wd + prefix + '.ms'
-        #-------- AZ, EL, PA
-        azelTime, AntID, AZ, EL = GetAzEl(msfile)
-        azelTime_index = np.where( AntID == refAntID )[0].tolist()
-        if len(azelTime_index) == 0: azelTime_index = np.where(AntID == 0)[0].tolist()
-        timeThresh = np.median( np.diff( azelTime[azelTime_index]))
-        for scan in scanList[file_index]:
-            #-------- Load Visibilities
-            print '-- Loading visibility data %s SPW=%d SCAN=%d...' % (prefix, spw, scan)
-            timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan, -1, True)  # Xspec[POL, CH, BL, TIME]
-            del Pspec
-            if bunchNum > 1: Xspec = np.apply_along_axis(bunchVecCH, 1, Xspec)
-            if 'FG' in locals():
-                flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
-            else:
-                flagIndex = range(len(timeStamp))
-            if chNum == 1:
-                print '  -- Channel-averaged data: no BP and delay cal'
-                chAvgVis[:, :, timeIndex:timeIndex + len(timeStamp)] =  CrossPolBL(Xspec[:,:,blMap], blInv)[:,0]
-            else:
-                print '  -- Apply bandpass cal'
-                tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)[flagIndex]
-                del Xspec
-                VisSpec[:,:,:,timeIndex:timeIndex + len(timeStamp)] = (tempSpec / BP_bl).transpose(2,3,1,0) 
-                del tempSpec
-            #
-            scanST = scanST + [timeIndex]
-            timeIndex += len(timeStamp)
-            scanET = scanET + [timeIndex]
-            #-------- Expected polarization responses
-            scanAz, scanEl = AzElMatch(timeStamp[flagIndex], azelTime, AntID, refAntID, AZ, EL)
-            mjdSec, scanPA = mjdSec + timeStamp[flagIndex].tolist(), AzEl2PA(scanAz, scanEl, ALMA_lat) + BandPA
-            Az, El, PA = Az + scanAz.tolist(), El + scanEl.tolist(), PA + scanPA.tolist()
-            scanIndex += 1
         #
+    else:
+        TrxSpec, Tau0spec = np.median(Trxspec, axis=3), Tau0spec
+    #
+    #-------- Flagging Trx outliers
+    for pol_index in range(2):
+        TrxFlag[np.where(TrxMed[pol_index] - np.median(TrxMed[pol_index]) > 1.5* np.median(TrxMed[pol_index]))[0].tolist()] *= 0.0
+        TrxFlag[np.where(TrxMed[pol_index] < 0.25* np.median(TrxMed[pol_index]))[0].tolist()] *= 0.0
+    #
+    #-------- Store visilibities into memory
+    azelTime, AntID, AZ, EL = GetAzEl(msfile)
+    azelTime_index = np.where( AntID == refAntID )[0].tolist()
+    if len(azelTime_index) == 0: azelTime_index = np.where(AntID == 0)[0].tolist()
+    timeThresh = np.median( np.diff( azelTime[azelTime_index]))
+    VisSpec  = np.zeros([4, chNum/bunchNum, blNum, timeNum], dtype=complex)
+    chAvgVis = np.zeros([4, blNum, timeNum], dtype=complex)
+    mjdSec, scanST, scanET, Az, El, PA = [], [], [], [], [], []
+    timeIndex, scanIndex  = 0, 0
+    for scan in scanList:
+        #-------- Load Visibilities
+        print '-- Loading visibility data %s SPW=%d SCAN=%d...' % (prefix, spw, scan)
+        timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan, -1, True)  # Xspec[POL, CH, BL, TIME]
+        del Pspec
+        if bunchNum > 1: Xspec = np.apply_along_axis(bunchVecCH, 1, Xspec)
+        if 'FG' in locals():
+            flagIndex = np.where(FG[indexList(timeStamp, TS)] == 1.0)[0]
+        else:
+            flagIndex = range(len(timeStamp))
+        if chNum == 1:
+            print '  -- Channel-averaged data: no BP and delay cal'
+            chAvgVis[:, :, timeIndex:timeIndex + len(timeStamp)] =  CrossPolBL(Xspec[:,:,blMap], blInv)[:,0]
+        else:
+            print '  -- Apply bandpass cal'
+            tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)[flagIndex]
+            del Xspec
+            VisSpec[:,:,:,timeIndex:timeIndex + len(timeStamp)] = (tempSpec / BP_bl).transpose(2,3,1,0) 
+            del tempSpec
+        #
+        scanST = scanST + [timeIndex]
+        timeIndex += len(timeStamp)
+        scanET = scanET + [timeIndex]
+        #-------- Expected polarization responses
+        scanAz, scanEl = AzElMatch(timeStamp[flagIndex], azelTime, AntID, refAntID, AZ, EL)
+        mjdSec, scanPA = mjdSec + timeStamp[flagIndex].tolist(), AzEl2PA(scanAz, scanEl, ALMA_lat) + BandPA
+        Az, El, PA = Az + scanAz.tolist(), El + scanEl.tolist(), PA + scanPA.tolist()
+        scanIndex += 1
     #
     scanNum = scanIndex
     if chNum > 1: chAvgVis = np.mean(VisSpec[:,chRange], axis=1)
@@ -229,13 +215,13 @@ for spw_index in range(spwNum):
     Gamp = np.sqrt(np.mean(abs(Gain)**2, axis=0))
     Gain = Gamp* Gain/abs(Gain)
     #-------- Gain-calibrated visibilities
-    '''
     print '  -- Apply parallel-hand gain calibration'
     caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
     Vis    = np.mean(caledVis, axis=1)
     PAnum = len(PA); PA = np.array(PA)
     QCpUS, UCmQS =  np.zeros(PAnum), np.zeros(PAnum)
     print '  -- Solution for Q and U'
+    '''
     #-------- Coarse estimation of Q and U using XX and YY
     if 'QUmodel' not in locals(): QUmodel = False
     CS, SN = np.cos(2.0* PA), np.sin(2.0* PA)
