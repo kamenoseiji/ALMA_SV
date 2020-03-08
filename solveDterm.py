@@ -193,13 +193,32 @@ for spw_index in range(spwNum):
     Gain = np.array([Gain[0]* GainX, Gain[1]* GainY])
     caledVis = chAvgVis / (Gain[polYindex][:,ant0]* Gain[polXindex][:,ant1].conjugate())
     Vis    = np.mean(caledVis, axis=1)
-    #XYvis = Vis[[1,2]] * np.sign(UCmQS)
-    XYvis = Vis[[1,2]]
     #-------- XY phase correction
     XYphase, DtotP, DtotM = XY2PhaseVec(mjdSec - np.median(mjdSec), Vis[[1,2]], UCmQS, QCpUS, 1000)
     twiddle = np.exp((1.0j)* XYphase)
     caledVis[1] /= twiddle
     caledVis[2] *= twiddle
+    XYvis = Vis[[1,2]]; XYV = 0.5*(XYvis[0] + XYvis[1].conjugate())
+    #-------- Display XY cross correlation
+    plotMax = 1.2* max(abs(XYV))
+    ArrayDx, ArrayDy = 0.5* (DtotP - DtotM), 0.5* (DtotP + DtotM)
+    text_Dx, text_Dy = 'Array Dx = %+.4f %+.4fi' % (ArrayDx.real, ArrayDx.imag), 'Array Dy = %+.4f %+.4fi' % (ArrayDy.real, ArrayDy.imag)
+    print text_Dx + ' ' + text_Dy
+    pp = PdfPages('XY_' + prefix + '-REF' + refantName + '-SPW' + `spw` + '.pdf')
+    figXY = plt.figure(figsize = (8, 8))
+    XYP = figXY.add_subplot( 1, 1, 1 )
+    plotY = DtotP + DtotM* QCpUS + UCmQS* np.exp((0.0 + 1.0j)*XYphase)
+    XYP.plot( UCmQS, plotY.real, '-', label=text_Dx); XYP.plot( UCmQS, plotY.imag, '-', label=text_Dy)
+    XYP.plot( UCmQS, XYV.real, '.', label='Re <XY*>'); XYP.plot( UCmQS, XYV.imag, '.', label='Im <XY*>')
+    XYP.set_xlabel('U $\cos 2 \psi $ - Q $\sin 2 \psi$'); XYP.set_ylabel('<XY*>'); XYP.set_title(prefix + '-SPW' + `spw` + '-REF' + refantName)
+    XYP.axis([-plotMax, plotMax, -plotMax, plotMax]); XYP.grid()
+    XYP.legend(loc = 'best', prop={'size' :12}, numpoints = 1)
+    plt.show()
+    figXY.savefig(pp, format='pdf')
+    pp.close()
+    del figXY
+    plt.close('all')
+    XYvis[0] -= (DtotP + DtotM* QCpUS); XYvis[1] -= (DtotP + DtotM* QCpUS).conjugate()
     #-------- Fine estimation of Q and U using XY and YX
     print '  -- XY phase correction'
     Vis    = np.mean(caledVis, axis=1)
@@ -306,7 +325,7 @@ for spw_index in range(spwNum):
         for scan_index in scanLS:
             scanMJD = mjdSec[scanST[scan_index]]
             text_sd = 'Scan %d : %s' % (scanList[scan_index], qa.time('%fs' % (scanMJD), form='fits', prec=6)[0][11:21])
-            plt.text( RADDEG* ThetaPlot[scanST[scan_index]], -1.5* maxP, text_sd, verticalalignment='bottom', fontsize=7, rotation=90)
+            plt.text( RADDEG* ThetaPlot[scanST[scan_index]], -1.5* maxP, text_sd, verticalalignment='bottom', fontsize=6, rotation=90)
         #
     #
     plt.xlabel('Linear polarization angle w.r.t. X-Feed [deg]'); plt.ylabel('Cross correlations [Jy]')
