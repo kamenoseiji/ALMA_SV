@@ -325,7 +325,8 @@ for spw_index in range(spwNum):
         for scan_index in scanLS:
             scanMJD = mjdSec[scanST[scan_index]]
             text_sd = 'Scan %d : %s' % (scanList[scan_index], qa.time('%fs' % (scanMJD), form='fits', prec=6)[0][11:21])
-            plt.text( RADDEG* ThetaPlot[scanST[scan_index]], -1.5* maxP, text_sd, verticalalignment='bottom', fontsize=6, rotation=90)
+            plt.text( RADDEG* np.arctan(np.tan(PA[scanST[scan_index]] - EVPA)), -1.5* maxP, text_sd, verticalalignment='bottom', fontsize=6, rotation=90)
+            # plt.text( RADDEG* ThetaPlot[scanST[scan_index]], -1.5* maxP, text_sd, verticalalignment='bottom', fontsize=6, rotation=90)
         #
     #
     plt.xlabel('Linear polarization angle w.r.t. X-Feed [deg]'); plt.ylabel('Cross correlations [Jy]')
