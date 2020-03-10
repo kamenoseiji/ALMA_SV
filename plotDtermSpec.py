@@ -6,83 +6,109 @@ RADDEG = 180.0/ pi
 #-------- Load tables
 fileNum = len(DSpecList)
 DList = []
-pdfFileName = 'D_comp'
+pdfFileName = 'D_comp_' + antName
 for DSpecFile in DSpecList:
     DList = DList + [np.load(DSpecFile)]
     # pdfFileName = pdfFileName + DSpecFile
 #
+Freq = DList[0][0]; chNum = len(Freq); chRange = range(int(0.05*chNum), int(0.95*chNum))
 #-------- PDF file
 pdfFileName = pdfFileName + '.pdf'
 pp = PdfPages(pdfFileName)
 #-------- Prepare Plots
 #-------- Plot D-term
-figD = plt.figure(figsize = (11, 8))
-figD.suptitle('D-term spectra')
+figD = plt.figure(figsize = (8, 11))
+figD.suptitle('D-term spectra ' + antName)
+'''
 for file_index in range(fileNum):
-    DampPL = figD.add_subplot(2, fileNum, file_index + 1)
-    DphsPL = figD.add_subplot(2, fileNum, fileNum + file_index + 1)
+    DrePL = figD.add_subplot(4, fileNum, file_index + 1)
+    DimPL = figD.add_subplot(4, fileNum, fileNum + file_index + 1)
     Dspec = DList[file_index]
     Freq = Dspec[0]; chNum = len(Freq); chRange = range(int(0.05*chNum), int(0.95*chNum))
     Dx, Dy = Dspec[1] + (0.0 + 1.0j)* Dspec[2], Dspec[3] + (0.0 + 1.0j)* Dspec[4]
-    DampPL.grid()
-    DampPL.plot( Freq, abs(Dx), ls='steps-mid', label = 'Dx' )
-    DampPL.plot( Freq, abs(Dy), ls='steps-mid', label = 'Dy' )
-    DampPL.set_title(DSpecList[file_index])
-    DampPL.set_ylim(-0.15, 0.15)
-    DphsPL.grid()
-    DphsPL.plot( Freq, RADDEG* np.angle(Dx), '.', label = 'Dx' )
-    DphsPL.plot( Freq, RADDEG* np.angle(Dy), '.', label = 'Dy' )
-    DphsPL.set_xlabel('Frequency [GHz]')
-    DphsPL.set_ylim(-180.0, 180.0)
+    #---- Real part
+    DrePL.grid()
+    DrePL.plot( Freq, Dx.real, ls='steps-mid', label = 'Re(Dx)' )
+    DrePL.plot( Freq, Dy.real, ls='steps-mid', label = 'Re(Dy)' )
+    DrePL.set_title(DSpecList[file_index], fontsize=7)
+    DrePL.set_ylim(-0.05, 0.05)
+    #---- Imaginary part
+    DimPL.grid()
+    DimPL.plot( Freq, Dx.imag, ls='steps-mid', label = 'Im(Dx)' )
+    DimPL.plot( Freq, Dy.imag, ls='steps-mid', label = 'Im(Dy)' )
+    DimPL.set_ylim(-0.05, 0.05)
     if file_index == 0:
-        DampPL.set_ylabel('D-term amp')
-        DphsPL.set_ylabel('D-term Phase [deg]')
-        DampPL.legend(loc='best')
-        DphsPL.legend(loc='best')
+        DrePL.set_ylabel('D-term real part')
+        DimPL.set_ylabel('D-term imag parg')
+        DrePL.legend(loc='best', prop={"size":7})
+        DimPL.legend(loc='best', prop={"size":7})
+    #
+#
+'''
+#figD.savefig(pp, format='pdf')
+#-------- Plot D-term comparison
+#figD = plt.figure(figsize = (11, 8))
+#figD.suptitle('D-term comparison ' + DSpecList[1] + ' / ' + DSpecList[0])
+Dx0, Dy0 = DList[0][1] + (0.0 + 1.0j)* DList[0][2], DList[0][3] + (0.0 + 1.0j)* DList[0][4]
+Dx1, Dy1 = DList[1][1] + (0.0 + 1.0j)* DList[1][2], DList[1][3] + (0.0 + 1.0j)* DList[1][4]
+DxPL = figD.add_subplot(4, 2, 1)
+DyPL = figD.add_subplot(4, 2, 2)
+DxPL.grid()
+DxPL.plot( Freq, Dx0.real, ls='steps-mid', color='black', label = 'ReDx' + labelList[0] )
+DxPL.plot( Freq, Dx0.imag, linestyle=':', drawstyle='steps-mid', color='black', label = 'ImDx' + labelList[0] )
+DxPL.plot( Freq, Dx1.real, ls='steps-mid', color='red', label = 'ReDx' + labelList[1] )
+DxPL.plot( Freq, Dx1.imag, linestyle=':', drawstyle='steps-mid', color='red', label = 'ImDx' + labelList[1] )
+DxPL.legend(loc='best', prop={"size":7})
+DyPL.grid()
+DyPL.plot( Freq, Dy0.real, ls='steps-mid', color='black', label = 'ReDy' + labelList[0] )
+DyPL.plot( Freq, Dy0.imag, linestyle=':', drawstyle='steps-mid', color='black', label = 'ImDy' + labelList[0] )
+DyPL.plot( Freq, Dy1.real, ls='steps-mid', color='red', label = 'ReDy' + labelList[1] )
+DyPL.plot( Freq, Dy1.imag, linestyle=':', drawstyle='steps-mid', color='red', label = 'ImDy' + labelList[1] )
+DyPL.legend(loc='best', prop={"size":7})
+#-------- comparison
+CxPL = figD.add_subplot(4, 2, 3)
+CyPL = figD.add_subplot(4, 2, 4)
+CxPL.grid()
+CxPL.plot( Dx0.real, Dx1.real, '.', color='black', label = 'ReDx')
+CxPL.plot( Dx0.imag, Dx1.imag, '.', color='red', label = 'ImDx')
+CxPL.legend(loc='best', prop={"size":7})
+CyPL.grid()
+CyPL.plot( Dy0.real, Dy1.real, '.', color='black', label = 'ReDy')
+CyPL.plot( Dy0.imag, Dy1.imag, '.', color='red', label = 'ImDy')
+CyPL.legend(loc='best', prop={"size":7})
+#
+#---- Difference
+diffDx, diffDy = Dx1 - Dx0, Dy1 - Dy0
+# plot D-term diff spectra
+DrePL = figD.add_subplot(4, 2, 5)
+DimPL = figD.add_subplot(4, 2, 6)
+DrePL.grid()
+DrePL.plot( Freq, diffDx.real, ls='steps-mid', label = 'Re(diff Dx)' )
+DrePL.plot( Freq, diffDy.real, ls='steps-mid', label = 'Re(diff Dy)' )
+DrePL.set_ylabel('D-term diff.')
+DrePL.legend(loc='best', prop={"size":7})
+#
+DimPL.grid()
+DimPL.plot( Freq, diffDx.imag, ls='steps-mid', label = 'Im(diff Dx)' )
+DimPL.plot( Freq, diffDy.imag, ls='steps-mid', label = 'Im(diff Dy)' )
+DimPL.legend(loc='best', prop={"size":7})
+DimPL.set_xlabel('Frequency [GHz]', fontsize=9)
+#---- plot Histogram
+DreHS = figD.add_subplot(4, 2, 7)
+DimHS = figD.add_subplot(4, 2, 8)
+DreHS.hist( diffDx[chRange].real, bins=12, alpha=0.25, histtype='stepfilled', label='Re(diff Dx)')
+DreHS.hist( diffDy[chRange].real, bins=12, alpha=0.25, histtype='stepfilled', label='Re(diff Dy)')
+DreHS.set_ylabel('Number')
+DreHS.set_xlabel('Real-part diff')
+DreHS.set_xlim(-0.05, 0.05)
+DreHS.legend(loc='best', prop={"size":7})
+#
+DimHS.hist( diffDx[chRange].imag, bins=12, alpha=0.25, histtype='stepfilled', label='Im(diff Dx)')
+DimHS.hist( diffDy[chRange].imag, bins=12, alpha=0.25, histtype='stepfilled', label='Im(diff Dy)')
+DimHS.set_xlabel('Imag-part diff')
+DimHS.set_xlim(-0.05, 0.05)
+DimHS.legend(loc='best', prop={"size":7})
 #
 figD.savefig(pp, format='pdf')
-#-------- Plot D-term comparison
-if fileNum == 2:
-    figD = plt.figure(figsize = (11, 8))
-    figD.suptitle('D-term comparison ' + DSpecList[1] + ' / ' + DSpecList[0])
-    DampPL = figD.add_subplot(2, 2, 1)
-    DphsPL = figD.add_subplot(2, 2, 3)
-    DampHS = figD.add_subplot(2, 2, 2)
-    DphsHS = figD.add_subplot(2, 2, 4)
-    Dx0, Dy0 = DList[0][1] + (0.0 + 1.0j)* DList[0][2], DList[0][3] + (0.0 + 1.0j)* DList[0][4]
-    Dx1, Dy1 = DList[1][1] + (0.0 + 1.0j)* DList[1][2], DList[1][3] + (0.0 + 1.0j)* DList[1][4]
-    DxR, DyR = Dx1 / Dx0, Dy1 / Dy0
-    # Correlation between D-term spectra
-    DcorrX = Dx1[chRange].dot(Dx0[chRange].conjugate()) / np.sqrt( Dx0[chRange].dot(Dx0[chRange].conjugate()) * Dx1[chRange].dot(Dx1[chRange].conjugate()) )
-    DcorrY = Dy1[chRange].dot(Dy0[chRange].conjugate()) / np.sqrt( Dy0[chRange].dot(Dy0[chRange].conjugate()) * Dy1[chRange].dot(Dy1[chRange].conjugate()) )
-    ampRatioDx, ampRatioDy = abs(np.mean(Dx1[chRange])/np.mean(Dx0[chRange])), abs(np.mean(Dy1[chRange])/np.mean(Dy0[chRange]))
-    text_sd = '%s %d AmpRatio/PhaseDiff/Corr:  %.1f  %.2f  %.2f  %.1f  %.2f' % (antName, ampRatioDx, RADDEG* np.angle(DcorrX), abs(DcorrX), ampRatioDy, RADDEG* np.angle(DcorrY), abs(DcorrY))
-    print text_sd
-    # plot D-term ratio
-    DampPL.grid()
-    DampPL.plot( Freq, abs(DxR), ls='steps-mid', label = 'Dx ratio' )
-    DampPL.plot( Freq, abs(DyR), ls='steps-mid', label = 'Dy ratio' )
-    DampPL.set_ylabel('Amplitude ratio')
-    DampPL.legend(loc='best')
-    #
-    DphsPL.grid()
-    DphsPL.plot( Freq, RADDEG* np.angle(DxR), '.', label = 'Dx phase diff' )
-    DphsPL.plot( Freq, RADDEG* np.angle(DyR), '.', label = 'Dy phase diff' )
-    DphsPL.set_xlabel('Frequency [GHz]')
-    DphsPL.set_ylim(-180.0, 180.0)
-    DphsPL.set_ylabel('Phase diff [deg]')
-    DphsPL.legend(loc='best')
-    #
-    DampHS.hist( abs(DxR[chRange]), bins=12, alpha=0.25, histtype='stepfilled', label='Dx ratio')
-    DampHS.hist( abs(DyR[chRange]), bins=12, alpha=0.25, histtype='stepfilled', label='Dy ratio')
-    DampHS.set_xlabel('Amplitude ratio')
-    DampHS.legend(loc='best')
-    DphsHS.hist( RADDEG* np.angle(DxR[chRange]), bins=12, alpha=0.25, histtype='stepfilled', label='Dx phase diff')
-    DphsHS.hist( RADDEG* np.angle(DyR[chRange]), bins=12, alpha=0.25, histtype='stepfilled', label='Dy phase diff')
-    DphsHS.set_xlabel('Phase diff [deg]')
-    DphsHS.legend(loc='best')
-    #
-    figD.savefig(pp, format='pdf')
-#
 plt.close('all')
 pp.close()
