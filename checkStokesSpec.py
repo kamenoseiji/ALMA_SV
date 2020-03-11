@@ -1,6 +1,7 @@
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Grid.py')
 execfile(SCR_DIR + 'Plotters.py')
+import pickle
 from matplotlib.backends.backend_pdf import PdfPages
 ALMA_lat = -23.029/180.0*pi     # ALMA AOS Latitude
 #----------------------------------------- Procedures
@@ -8,6 +9,9 @@ spwNum = len(spwList)
 polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
 #
 trkAntSet = set(range(64))
+fileDic   = open(SourceDicFile, mode='rb')
+sourceDic = pickle.load(fileDic)
+fileDic.close()
 scansFile = []
 pattern = r'RB_..'
 timeNum = 0
@@ -16,9 +20,9 @@ msfile = wd + prefix + '.ms'
 sources, posList = GetSourceList(msfile); sourceList = sourceList + sourceRename(sources)
 sourceList = unique(sourceList).tolist()
 sourceScan = []
-scanDic   = dict(zip(sourceList, [[]]*len(sourceList))) # Scan list index for each source
-timeDic   = dict(zip(sourceList, [[]]*len(sourceList))) # Time index list for each source
-StokesDic = dict(zip(sourceList, [[]]*len(sourceList))) # Stokes parameters for each source
+#scanDic   = dict(zip(sourceList, [[]]*len(sourceList))) # Scan list index for each source
+#timeDic   = dict(zip(sourceList, [[]]*len(sourceList))) # Time index list for each source
+#StokesDic = dict(zip(sourceList, [[]]*len(sourceList))) # Stokes parameters for each source
 scanIndex = 0
 msfile = wd + prefix + '.ms'
 msmd.open(msfile)
@@ -43,10 +47,10 @@ for scan_index in range(len(scanLS)):
     trkAnt = list(set(trkAnt) - set(flagAntID))
     if refAntID in trkAnt: trkAntSet = set(trkAnt) & trkAntSet
     #
+'''
     sourceName = sourceList[msmd.sourceidforfield(msmd.fieldsforscan(scan)[0])]
     sourceScan = sourceScan + [sourceName]
-    scanDic[sourceName] = scanDic[sourceName] + [scanIndex]
-    '''
+    #scanDic[sourceName] = scanDic[sourceName] + [scanIndex]
     if AprioriDic[sourceName] :
         StokesDic[sourceName] = AprioriDic[sourceName]
     else: 
@@ -57,10 +61,11 @@ for scan_index in range(len(scanLS)):
             StokesDic[sourceName] = [0.01, 0.0, 0.0, 0.0]
         #
     print '---- Scan%3d : %d tracking antennas : %s, %d records, expected I=%.1f p=%.1f%%' % (scan, len(trkAnt), sourceName, len(timeStamp), StokesDic[sourceName][0], 100.0*sqrt(StokesDic[sourceName][1]**2 + StokesDic[sourceName][2]**2)/StokesDic[sourceName][0])
-    '''
     scanIndex += 1
 #
+'''
 scansFile.append(scanLS)
+BPsrc = sourceList[msmd.sourceidforfield(msmd.fieldsforscan(BPscan)[0])]
 msmd.done()
 #
 if not 'scanList' in locals(): scanList = scansFile
@@ -79,7 +84,7 @@ print 'Total %d integration periods.' % (timeNum)
 DxList, DyList, FreqList = [], [], []
 for spw_index in range(spwNum):
     spw = spwList[spw_index]
-    chNum, chWid, Freq = GetChNum(msfile, spw); chRange = range(int(0.05*chNum/bunchNum), int(0.95*chNum/bunchNum)); FreqList = FreqList + [1.0e-9* bunchVecCH(Freq) ]
+    chNum, chWid, Freq = GetChNum(msfile, spw); Freq *= 1.0e-9; chRange = range(int(0.05*chNum/bunchNum), int(0.95*chNum/bunchNum)); FreqList = FreqList + [bunchVecCH(Freq) ]
     #-------- Load D-term files
     DxSpec, DySpec = np.zeros([antNum, chNum/bunchNum], dtype=complex), np.zeros([antNum, chNum/bunchNum], dtype=complex)
     for antName in antList[antMap]:
@@ -102,6 +107,8 @@ for spw_index in range(spwNum):
         #
     #
     DxSpec, DySpec = np.array(DxList).reshape([antNum, chNum]), np.array(DyList).reshape([antNum, chNum])
+    M  = InvMullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum/bunchNum])).transpose(2,3,0,1)
+    D = MullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1],np.ones([blNum, chNum/bunchNum])).transpose(2,3,0,1)
     #-------- Load Aeff file
     msmd.open(msfile)
     antDia = np.ones(antNum)
@@ -164,16 +171,77 @@ for spw_index in range(spwNum):
     else:
         TrxSpec, Tau0spec = np.median(Trxspec, axis=3), Tau0spec
     #
+    tempAtm = GetTemp(msfile)       # atmosphere temperature
+    #-------- Tau0 time interoplation
+    TAU0ESP = scipy.interpolate.splrep(atmTimeRef, Tau0E, k=3, task=0, s=0.1*np.std(Tau0E))
     #-------- Flagging Trx outliers
     for pol_index in range(2):
         TrxFlag[np.where(TrxMed[pol_index] - np.median(TrxMed[pol_index]) > 1.5* np.median(TrxMed[pol_index]))[0].tolist()] *= 0.0
         TrxFlag[np.where(TrxMed[pol_index] < 0.25* np.median(TrxMed[pol_index]))[0].tolist()] *= 0.0
     #
-    #-------- Store visilibities into memory
+    #-------- AZ, EL, PA 
     azelTime, AntID, AZ, EL = GetAzEl(msfile)
     azelTime_index = np.where( AntID == refAntID )[0].tolist()
     if len(azelTime_index) == 0: azelTime_index = np.where(AntID == 0)[0].tolist()
     timeThresh = np.median( np.diff( azelTime[azelTime_index]))
+    #-------- Bandpass Scan
+    IQUV = np.array(sourceDic[BPsrc])
+    BPinterval, BPtimeStamp = GetTimerecord(msfile, 0, 1, spwList[spw_index], BPscan)
+    BPAz, BPEl = AzElMatch(BPtimeStamp, azelTime, AntID, refAntID, AZ, EL)
+    exp_Tau = np.exp(-(Tau0Spec + np.mean(scipy.interpolate.splev(BPtimeStamp, TAU0ESP))) / np.median(np.sin(BPEl)))
+    atmCorrect = 1.0 / exp_Tau
+    TsysBPScan = atmCorrect* (TrxSpec[TrxMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))    # [ant, pol, ch]
+    TsysBPShape = (TsysBPScan.transpose(2,0,1) / np.median(TsysBPScan, axis=2)).transpose(1,2,0)    # [ant, pol, ch]
+    SEFD_BP = 2.0* kb* (TsysBPScan.transpose(2,1,0) / Ae).transpose(2,1,0)  # [ant, pol, ch]
+    #-------- Equalization using BP scan
+    #IQUV = np.array([1.0, 0.1, -0.1, 0.0])
+    PA = AzEl2PA(BPAz, BPEl) + BandPA; PAnum = len(PA)
+    PS = PAVector(PA, np.ones(PAnum)).real.transpose(2,0,1).dot(IQUV)    # PS[time, pol] only real part, assuming Stokes V = 0
+    print '-- Loading visibility data %s SPW=%d SCAN=%d...' % (prefix, spw, BPscan)
+    timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan, -1, True)  # Xspec[POL, CH, BL, TIME]
+    del Pspec
+    tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)    # tempSpec[time, BL, pol, ch]
+    print '  -- Normalizing by source model'
+    for time_index in range(PAnum): tempSpec[time_index] /= D.dot(PS[time_index]).transpose(0,2,1)
+    print '  -- Apply bandpass cal'
+    VisSpec = (tempSpec[:,:,[0,3]] * (np.sqrt(SEFD_BP[ant0]* SEFD_BP[ant1])/BP_bl[:,[0,3]])).transpose(2,3,1,0) # VisSpec[pol, ch, BL, time]
+    print '  -- Dtermination of antenna gain'
+    chAvgVis = np.mean(VisSpec[:,chRange], axis=1) # chAvgVis[pol, bl, time]
+    Gain = np.array([ gainComplexVec(chAvgVis[0]), gainComplexVec(chAvgVis[1]) ])
+    Gamp = abs(np.mean(Gain, axis=2))
+    Ae *= (Gamp**2) # Equalized aperture area
+    #-------- For each scan
+    for scan in scanList:
+        StokexVis = np.zeros([4, chNum], dtyps=complex)
+        print '-- Loading visibility data %s SPW=%d SCAN=%d...' % (prefix, spw, scan)
+        timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan, -1, True)  # Xspec[POL, CH, BL, TIME]
+        del Pspec
+        print '  -- Apply bandpass cal'
+        tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)    # tempSpec[time, BL, pol, ch]
+        VisSpec = (tempSpec / BP_bl).transpose(2,3,1,0)     # VisSpec[pol, ch, BL, time]
+        print '  -- Apply parallel-pol phase cal'
+        chAvgVis = np.mean(VisSpec[[0,3]][:,chRange], axis=1) # chAvgVis[pol, bl, time]
+        GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[1])])
+        pCalVis = (VisSpec.transpose(1,0,2,3) / (GainP[polYindex][:,ant0]* GainP[polXindex][:,ant1].conjugate()))
+        print '  -- Apply amplitude cal'
+        AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refAntID, AZ, EL)
+        PA = AzEl2PA(AzScan, ElScan) + BandPA; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
+        exp_Tau = np.exp(-(Tau0Spec + np.mean(scipy.interpolate.splev(timeStamp, TAU0ESP))) / np.median(np.sin(ElScan)))
+        atmCorrect = 1.0 / exp_Tau
+        TsysScan = atmCorrect* (TrxSpec[TrxMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))    # [ant, pol, ch]
+        SEFD = 2.0* kb* (TsysBPScan.transpose(2,1,0) / Ae).transpose(2,1,0)  # [ant, pol, ch]
+        GainCaledVis = pCalVis.transpose(3,2,1,0)* np.sqrt(SEFD[ant0][:,polYindex]*SEFD[ant1][:,polXindex])
+        for time_index in range(PAnum):
+            for bl_index in range(blNum):
+                for ch_index in range(chNum):
+                    StokexVis[:,ch_index] += PS[:, :, time_index].dot(M[bl_index, ch_index].dot(GainCaledVis[time_index, bl_index, :, ch_index]))
+                #
+            #
+        #
+        StokexVis /= (PAnum* blNum)
+    #
+
+    """
     VisSpec  = np.zeros([4, chNum/bunchNum, blNum, timeNum], dtype=complex)
     chAvgVis = np.zeros([4, blNum, timeNum], dtype=complex)
     mjdSec, scanST, scanET, Az, El, PA = [], [], [], [], [], []
@@ -221,6 +289,8 @@ for spw_index in range(spwNum):
     PAnum = len(PA); PA = np.array(PA)
     QCpUS, UCmQS =  np.zeros(PAnum), np.zeros(PAnum)
     print '  -- Solution for Q and U'
+    """
+    # break point
     '''
     #-------- Coarse estimation of Q and U using XX and YY
     if 'QUmodel' not in locals(): QUmodel = False
@@ -335,8 +405,8 @@ for spw_index in range(spwNum):
     '''
     #-------- D-term-corrected visibilities (invD dot Vis = PS)
     #del chAvgVis, StokesVis
-    print '  -- Applying D-term spectral correction'
-    M  = InvMullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum/bunchNum])).transpose(0,3,1,2)
+    #print '  -- Applying D-term spectral correction'
+    #M  = InvMullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum/bunchNum])).transpose(0,3,1,2)
     '''
     StokesVis = np.zeros([4, chNum/bunchNum, PAnum], dtype=complex )
     for time_index in range(PAnum): StokesVis[:, :, time_index] = 4.0* np.mean(M* GainCaledVisSpec[:,:,:,time_index], axis=(2,3))

@@ -2,6 +2,7 @@ execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Grid.py')
 execfile(SCR_DIR + 'Plotters.py')
 from matplotlib.backends.backend_pdf import PdfPages
+import pickle
 ALMA_lat = -23.029/180.0*pi     # ALMA AOS Latitude
 #----------------------------------------- Procedures
 spwNum = len(spwList)
@@ -364,6 +365,7 @@ for spw_index in range(spwNum):
         np.save(prefix + '-REF' + refantName + '-' + sourceName + '-SPW' + `spw` + '.StokesSpec.npy', StokesSpec)
         np.save(prefix + '-REF' + refantName + '-' + sourceName + '-SPW' + `spw` + '.StokesErr.npy', StokesErr)
         np.save(prefix + '-REF' + refantName + '-' + sourceName + '-SPW' + `spw` + '.Freq.npy', Freq)
+        StokesDic[sourceName] = np.mean(StokesSpec, axis=1).tolist()
         #
         IMax = np.max(StokesSpec[0])
         StokesI_SP.plot(Freq[chRange], StokesSpec[0][chRange], ls='steps-mid', label=polLabel[0], color=Pcolor[0])
@@ -382,6 +384,10 @@ for spw_index in range(spwNum):
         pp.close()
     #
     DxList, DyList = DxList + [DxSpec], DyList + [DySpec]
+    #---- Save Stokes parameters of the calibraors
+    fileDic = open('Stokes.SPW' + `spw` + '.dic', mode='wb')
+    pickle.dump(StokesDic, fileDic)
+    fileDic.close()
 #
 #-------- Plot D-term spectra
 DxList, DyList = np.array(DxList).transpose(1,0,2), np.array(DyList).transpose(1,0,2)
