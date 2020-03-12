@@ -9,9 +9,6 @@ spwNum = len(spwList)
 polXindex, polYindex = (arange(4)//2).tolist(), (arange(4)%2).tolist()
 #
 trkAntSet = set(range(64))
-fileDic   = open(SourceDicFile, mode='rb')
-sourceDic = pickle.load(fileDic)
-fileDic.close()
 scansFile = []
 pattern = r'RB_..'
 timeNum = 0
@@ -20,9 +17,12 @@ msfile = wd + prefix + '.ms'
 sources, posList = GetSourceList(msfile); sourceList = sourceList + sourceRename(sources)
 sourceList = unique(sourceList).tolist()
 sourceScan = []
-#scanDic   = dict(zip(sourceList, [[]]*len(sourceList))) # Scan list index for each source
-#timeDic   = dict(zip(sourceList, [[]]*len(sourceList))) # Time index list for each source
+scanDic   = dict(zip(sourceList, [[]]*len(sourceList))) # Scan list index for each source
+timeDic   = dict(zip(sourceList, [[]]*len(sourceList))) # Time index list for each source
 #StokesDic = dict(zip(sourceList, [[]]*len(sourceList))) # Stokes parameters for each source
+fileDic   = open(SourceDicFile, mode='rb')
+StokesDic = pickle.load(fileDic)
+fileDic.close()
 scanIndex = 0
 msfile = wd + prefix + '.ms'
 msmd.open(msfile)
@@ -107,8 +107,8 @@ for spw_index in range(spwNum):
         #
     #
     DxSpec, DySpec = np.array(DxList).reshape([antNum, chNum]), np.array(DyList).reshape([antNum, chNum])
-    M  = InvMullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1], np.ones([blNum,chNum/bunchNum])).transpose(2,3,0,1)
-    D = MullerVector(DxSpec[ant0], DySpec[ant0], DxSpec[ant1], DySpec[ant1],np.ones([blNum, chNum/bunchNum])).transpose(2,3,0,1)
+    M = InvMullerVector(DxSpec[ant1], DySpec[ant1], DxSpec[ant0], DySpec[ant0], np.ones([blNum,chNum/bunchNum])).transpose(2,3,0,1)
+    D = MullerVector(DxSpec[ant1], DySpec[ant1], DxSpec[ant0], DySpec[ant0],np.ones([blNum, chNum/bunchNum])).transpose(2,3,0,1)
     #-------- Load Aeff file
     msmd.open(msfile)
     antDia = np.ones(antNum)
@@ -142,11 +142,14 @@ for spw_index in range(spwNum):
         BP_ant = BP_ant[indexList(antList[antMap], BPantList)]      # BP antenna mapping
     #-------- Load XY phase spectral table
     if 'XYprefix' in locals():
+    #-------- Load XY phase file
         XYspec = np.load(XYprefix + '-REF' + refantName + '-SC' + `BPscan` + '-SPW' + `spw` + '-XYspec.npy')
         print 'Apply XY phase into Y-pol Bandpass.'; BP_ant[:,1] *= XYspec  # XY phase cal
+        XYPH = np.load(XYprefix + '-SPW' + `spwList[0]` + '-' + refantName + '.XYPH.npy')
+        XYTS = np.load(XYprefix + '-SPW' + `spwList[0]` + '-' + refantName + '.TS.npy')
+        XYPHSP = scipy.interpolate.splrep(XYTS, XYPH, k=3, task=0, s=0.1)
     #
     BP_ant = np.apply_along_axis(bunchVecCH, 2, BP_ant)
-    BP_bl = BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate()    # Baseline-based bandpass table
     #
     #-------- Load Tsys table
     TrxSpec  = np.ones([antNum, 2, chNum])
@@ -185,7 +188,7 @@ for spw_index in range(spwNum):
     if len(azelTime_index) == 0: azelTime_index = np.where(AntID == 0)[0].tolist()
     timeThresh = np.median( np.diff( azelTime[azelTime_index]))
     #-------- Bandpass Scan
-    IQUV = np.array(sourceDic[BPsrc])
+    IQUV = np.array(StokesDic[BPsrc])
     BPinterval, BPtimeStamp = GetTimerecord(msfile, 0, 1, spwList[spw_index], BPscan)
     BPAz, BPEl = AzElMatch(BPtimeStamp, azelTime, AntID, refAntID, AZ, EL)
     exp_Tau = np.exp(-(Tau0Spec + np.mean(scipy.interpolate.splev(BPtimeStamp, TAU0ESP))) / np.median(np.sin(BPEl)))
@@ -194,9 +197,11 @@ for spw_index in range(spwNum):
     TsysBPShape = (TsysBPScan.transpose(2,0,1) / np.median(TsysBPScan, axis=2)).transpose(1,2,0)    # [ant, pol, ch]
     SEFD_BP = 2.0* kb* (TsysBPScan.transpose(2,1,0) / Ae).transpose(2,1,0)  # [ant, pol, ch]
     #-------- Equalization using BP scan
-    #IQUV = np.array([1.0, 0.1, -0.1, 0.0])
     PA = AzEl2PA(BPAz, BPEl) + BandPA; PAnum = len(PA)
     PS = PAVector(PA, np.ones(PAnum)).real.transpose(2,0,1).dot(IQUV)    # PS[time, pol] only real part, assuming Stokes V = 0
+    XYsign = np.sign(np.mean(PS[:,1]))
+    BP_ant[:,1] *= XYsign 
+    BP_bl = BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate()    # Baseline-based bandpass table
     print '-- Loading visibility data %s SPW=%d SCAN=%d...' % (prefix, spw, BPscan)
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan, -1, True)  # Xspec[POL, CH, BL, TIME]
     del Pspec
@@ -208,20 +213,27 @@ for spw_index in range(spwNum):
     print '  -- Dtermination of antenna gain'
     chAvgVis = np.mean(VisSpec[:,chRange], axis=1) # chAvgVis[pol, bl, time]
     Gain = np.array([ gainComplexVec(chAvgVis[0]), gainComplexVec(chAvgVis[1]) ])
+    gainCaledVis = chAvgVis / (Gain[:,ant0]* Gain[:,ant1].conjugate())
     Gamp = abs(np.mean(Gain, axis=2))
     Ae *= (Gamp**2) # Equalized aperture area
     #-------- For each scan
+    StokesVis = np.zeros([4, timeNum, chNum], dtype=complex)
+    mjdSec = np.zeros(timeNum)
+    timeIndex = 0
     for scan in scanList:
-        StokexVis = np.zeros([4, chNum], dtyps=complex)
         print '-- Loading visibility data %s SPW=%d SCAN=%d...' % (prefix, spw, scan)
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan, -1, True)  # Xspec[POL, CH, BL, TIME]
         del Pspec
+        timeIndexRange = range(timeIndex, timeIndex + len(timeStamp))
+        mjdSec[timeIndexRange] = timeStamp
         print '  -- Apply bandpass cal'
         tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)    # tempSpec[time, BL, pol, ch]
         VisSpec = (tempSpec / BP_bl).transpose(2,3,1,0)     # VisSpec[pol, ch, BL, time]
         print '  -- Apply parallel-pol phase cal'
         chAvgVis = np.mean(VisSpec[[0,3]][:,chRange], axis=1) # chAvgVis[pol, bl, time]
         GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[1])])
+        twiddle = np.exp((1.0j)* scipy.interpolate.splev(timeStamp, XYPHSP))
+        GainP[1] *= twiddle     # XY phase correction
         pCalVis = (VisSpec.transpose(1,0,2,3) / (GainP[polYindex][:,ant0]* GainP[polXindex][:,ant1].conjugate()))
         print '  -- Apply amplitude cal'
         AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refAntID, AZ, EL)
@@ -229,17 +241,29 @@ for spw_index in range(spwNum):
         exp_Tau = np.exp(-(Tau0Spec + np.mean(scipy.interpolate.splev(timeStamp, TAU0ESP))) / np.median(np.sin(ElScan)))
         atmCorrect = 1.0 / exp_Tau
         TsysScan = atmCorrect* (TrxSpec[TrxMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))    # [ant, pol, ch]
-        SEFD = 2.0* kb* (TsysBPScan.transpose(2,1,0) / Ae).transpose(2,1,0)  # [ant, pol, ch]
+        SEFD = 2.0* kb* ((TsysBPScan / TsysBPShape).transpose(2,1,0) / Ae).transpose(2,1,0)  # [ant, pol, ch]
         GainCaledVis = pCalVis.transpose(3,2,1,0)* np.sqrt(SEFD[ant0][:,polYindex]*SEFD[ant1][:,polXindex])
+        print '  -- Equalizing antenna-based gain variation'
+        chAvgVis = np.mean(GainCaledVis[:,:,[0,3]][:,:,:,chRange], axis=(0,3))  # [pol, bl]
+        indivRelGain = abs(gainComplexVec(chAvgVis))
+        indivRelGain /= np.median(indivRelGain, axis=0)
+        SEFD = (SEFD.transpose(2,0,1) / indivRelGain**2).transpose(1,2,0)
+        GainCaledVis = pCalVis.transpose(3,2,1,0)* np.sqrt(SEFD[ant0][:,polYindex]*SEFD[ant1][:,polXindex])
+        print '  -- Stokes spectra'
         for time_index in range(PAnum):
             for bl_index in range(blNum):
                 for ch_index in range(chNum):
-                    StokexVis[:,ch_index] += PS[:, :, time_index].dot(M[bl_index, ch_index].dot(GainCaledVis[time_index, bl_index, :, ch_index]))
+                    StokesVis[:,(time_index + timeIndex), ch_index] += PS[:, :, time_index].dot(M[bl_index, ch_index].dot(GainCaledVis[time_index, bl_index, :, ch_index]))
                 #
             #
         #
-        StokexVis /= (PAnum* blNum)
+        timeIndex += len(timeStamp)
     #
+    StokesVis /= blNum
+    text_sd = '(I,Q,U,V) = %.4f %.4f %.4f %.4f' % (np.mean(StokesVis[0]).real, np.mean(StokesVis[1]).real, np.mean(StokesVis[2]).real, np.mean(StokesVis[3]).real)
+    print text_sd
+    np.save(prefix + '.Stokes.npy', StokesVis)
+    np.save(prefix + '.TS.npy', mjdSec)
 
     """
     VisSpec  = np.zeros([4, chNum/bunchNum, blNum, timeNum], dtype=complex)
