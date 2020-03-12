@@ -93,8 +93,9 @@ for spw_index in range(spwNum):
             Dterm = np.load(Dfile)
             Dfreq = Dterm[0]
             if len(Dfreq) != chNum/bunchNum:
-                DX_real, DX_imag = scipy.interpolate.splrep(Dfreq, Dterm[1], k=3), scipy.interpolate.splrep(Dfreq, Dterm[2], k=3)
-                DY_real, DY_imag = scipy.interpolate.splrep(Dfreq, Dterm[3], k=3), scipy.interpolate.splrep(Dfreq, Dterm[4], k=3)
+                SB = int(np.sign( np.median(np.diff(Dfreq))))   # LSB -> -1, UWB -> +1
+                DX_real, DX_imag = scipy.interpolate.splrep(Dfreq[::SB], Dterm[1][::SB], s=0.5), scipy.interpolate.splrep(Dfreq[::SB], Dterm[2][::SB], s=0.5)
+                DY_real, DY_imag = scipy.interpolate.splrep(Dfreq[::SB], Dterm[3][::SB], s=0.5), scipy.interpolate.splrep(Dfreq[::SB], Dterm[4][::SB], s=0.5)
                 DxList = DxList + [scipy.interpolate.splev(FreqList[0], DX_real)+ (0.0 + 1.0j)* scipy.interpolate.splev(FreqList[0], DX_imag)]
                 DyList = DyList + [scipy.interpolate.splev(FreqList[0], DY_real)+ (0.0 + 1.0j)* scipy.interpolate.splev(FreqList[0], DY_imag)]
             else:
@@ -163,11 +164,11 @@ for spw_index in range(spwNum):
     TrxMed = np.median(Trxspec, axis=(1,3))
     #-------- Tsys channel interpolation
     if len(TrxFreq) != chNum:
-        TAU0SP = scipy.interpolate.splrep(TrxFreq, Tau0spec, k=3)
+        TAU0SP = scipy.interpolate.splrep(TrxFreq[::SB], Tau0spec[::SB], k=3)
         Tau0Spec = scipy.interpolate.splev(Freq, TAU0SP)
         for ant_index in range(len(TrxAnts)):
             for pol_index in range(2):
-                TRXSP = scipy.interpolate.splrep(TrxFreq, np.median(Trxspec, axis=3)[pol_index, :, ant_index])
+                TRXSP = scipy.interpolate.splrep(TrxFreq[::SB], np.median(Trxspec, axis=3)[pol_index, :, ant_index][::SB])
                 TrxSpec[ant_index, pol_index] = scipy.interpolate.splev(Freq, TRXSP)
             #
         #
