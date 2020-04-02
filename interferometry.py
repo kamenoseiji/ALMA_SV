@@ -1116,10 +1116,13 @@ def blBp( blSpec ):					# Average in time
 	return np.mean(blSpec, 1)
 
 def bunchVec( spec, bunchNum ):
-	chNum = len(spec)/bunchNum
-	totalNum = chNum* bunchNum
-	return(np.mean( spec[0:totalNum].reshape(chNum, bunchNum), axis=1))
-
+    if bunchNum == 1:
+        return spec
+    else:
+	    chNum = len(spec)/bunchNum
+	    totalNum = chNum* bunchNum
+	    return(np.mean( spec[0:totalNum].reshape(chNum, bunchNum), axis=1))
+    #
 def specBunch( blSpec, chBunch, timeBunch ):
 	chNum, timeNum = blSpec.shape[0], blSpec.shape[1]
 	totalNum = chNum* timeNum

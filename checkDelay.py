@@ -11,6 +11,7 @@ antNum = len(antList)
 blNum = antNum* (antNum - 1) / 2
 spwName = msmd.namesforspws(spw)[0]
 BandName = re.findall(r'RB_..', spwName)[0]; BandID = int(BandName[3:5])
+chNum, chWid, Freq = GetChNum(msfile, spw); bandWidth = np.sum(chWid)
 #-------- Array Configuration
 print '---Checking array configuration'
 flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
@@ -30,73 +31,41 @@ antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
 for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 #-------- For channel bunching
-if 'bunchNum' in locals():
-    def bunchVecN(Spec):
-        return bunchVec(Spec, bunchNum)
+if 'bunchCH' in locals():
+    def bunchVecCH(Spec):
+        return bunchVec(Spec, bunchCH)
     #
+#-------- For time bunching
+if 'bunchTM' in locals():
+    def bunchVecTM(Spec):
+        return bunchVec(Spec, bunchTM)
+    #
+#-------- Polarization List
+polList = [[],[0],[0,1],[],[0,3]]
 #-------- Loop for Scan
-antDelay, scanTime = [], []
+if 'scanTime' in locals(): del scanTime
+if 'antDelay' in locals(): del antDelay
 for scan in scanList:
     field_names = msmd.fieldsforscan(scan, True)
     print 'Loading Visibilities: Scan ' + `scan` + ' : ' + field_names[0]
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)
-    Xspec = np.mean(Xspec, axis=3)                          # Time average
-    if 'bunchNum' in locals():
-        Xspec = np.apply_along_axis( bunchVecN, 1, Xspec )      # channel bunching     
-    polNum, chNum = Xspec.shape[0], Xspec.shape[1]
-    if polNum == 4: polIndex = [0, 3]
-    if polNum == 2: polIndex = [0, 1]
-    if polNum == 1: polIndex = [0]
-    polNum = len(polIndex)
-    Xspec = Xspec[polIndex]
-    if polNum == 2:
-        antGainSpec = np.array([np.apply_along_axis(clphase_solve, 1, Xspec[0]).T, np.apply_along_axis(clphase_solve, 1, Xspec[1]).T])
-        antDelay = antDelay + [np.mean(np.apply_along_axis(delay_search, 2, antGainSpec), axis=0)[:,0]]
-    else:
-        antGainSpec = np.apply_along_axis(clphase_solve, 1, Xspec[0]).T
-        antDelay = antDelay + [np.apply_along_axis(delay_search, 2, antGainSpec)[0][:,0]]
+    polNum, chNum, timeNum = Xspec.shape[0], Xspec.shape[1], Xspec.shape[3]
+    tempSpec = np.apply_along_axis(bunchVecTM, 3,  np.apply_along_axis(bunchVecCH, 1, Xspec[polList[polNum]][:,:,blMap]))  # tempSpec[pol, ch, bl, time]
+    tempTime = bunchVecTM(timeStamp)
+    antGainSpec = np.apply_along_axis(clphase_solve, 2, tempSpec)   # [pol, ch, ant, time]
+    antDelayAmp = np.apply_along_axis(delay_search, 1, antGainSpec)    # [pol, delay-amp, ant, time]
+    if 'antDelay' not in locals():
+        antDelay = antDelayAmp[:,0].transpose(1,0,2) / (2.0* bandWidth)
+    else: 
+        antDelay = np.append(antDelay, antDelayAmp[:,0].transpose(1,0,2) / (2.0* bandWidth), axis=2)
     #
-    scanTime = scanTime + [np.median(timeStamp)]
+    if 'scanTime' not in locals():
+        scanTime = tempTime
+    else:
+        scanTime = np.append(scanTime, tempTime)
 #
 msmd.done(); msmd.close()
-np.save(prefix + '.Ant.npy', antList) 
-np.save(prefix + '-SPW' + `spw` + '.TS.npy', np.array(scanTime)) 
-np.save(prefix + '-SPW' + `spw` + '.DL.npy', np.array(antDelay).T) 
-"""
-#-------- Plot
-fig = plt.figure(figsize = (8,11))
-#-- pol loop
-for pol_index in range(2):
-    plt.subplot(2, 1, pol_index + 1 )
-    plt.pcolormesh(antSNR[:,pol_index], cmap='gray', vmin=0.0, vmax=SNR_THRESH)
-    #plt.pcolormesh(antFlag)
-    plt.colorbar()
-    plt.xlim(1, timeNum); plt.ylim(0, UseAntNum)
-    #plt.xticks(arange(timeNum), timeStamp)
-    plt.yticks(arange(UseAntNum)+0.5, antList[antMap])
-#
-mjdTick = range(int(min(timeStamp+59.9))/60*60, int(max(timeStamp))/60*60+1, 60)
-tickPos = (max(timeStamp) - min(timeStamp)) / timeNum
-timeLabel = []
-for tickTime in mjdTick: timeLabel = timeLabel + [qa.time('%fs' % (tickTime), form='hm')[0]]
-
-
-fig = plt.figure(figsize = (11,8))
-ax = fig.add_subplot(2, 1, 1 )
-ax.imshow(antSNR[:,0], cmap='gray', extent=[min(timeStamp), max(timeStamp), -0.5, UseAntNum-0.5], interpolation='none', clim=(0.0, 10.0), aspect=(max(timeStamp)-min(timeStamp))/(2.0* UseAntNum))
-Xticks = ax.set_xticks(labelTime); labels = ax.set_xticklabels(timeLabel, rotation=90, fontsize='small')
-Yticks = ax.set_yticks(range(UseAntNum)); labels = ax.set_yticklabels(antList[antMap], fontsize='small')
-#
-ax = fig.add_subplot(2, 1, 2)
-ax.imshow(antSNR[:,1], cmap='gray', extent=[min(timeStamp), max(timeStamp), -0.5, UseAntNum-0.5], interpolation='none', clim=(0.0, 10.0), aspect=(max(timeStamp)-min(timeStamp))/(2.0* UseAntNum))
-#
-Xticks = ax.set_xticks(labelTime); labels = ax.set_xticklabels(timeLabel, rotation=90, fontsize='small')
-Yticks = ax.set_yticks(range(UseAntNum)); labels = ax.set_yticklabels(antList[antMap], fontsize='small')
-
-#plt.subplot(2, 1, 2 ); plt.imshow(antSNR[:,1], cmap='gray', extent=[min(timeStamp), max(timeStamp), 0, antNum], interpolation='none', clim=(0.0, 10.0), aspect=(max(timeStamp)-min(timeStamp))/(2.0* antNum))
-#xi, yi = np.mgrid[0:antNum:1, min(timeStamp):max(timeStamp):(1.0j* timeNum)]
-#plt.contourf(xi, yi, antSNR[:,0])
-#plt.contourf(antSNR[:,0], xi, yi, np.linspace(0.0, 10.0))
-#SNRmap = GridData(antSNR[:,0].real, ,timeStamp, xi.reshape(xi.size), yi.reshape(xi.size), 1.0).reshape(len(xi), len(xi))
-"""
+np.save(prefix + '.Ant.npy', antList[antMap]) 
+np.save(prefix + '-SPW' + `spw` + '.TS.npy', scanTime) 
+np.save(prefix + '-SPW' + `spw` + '.DL.npy',  antDelay)
