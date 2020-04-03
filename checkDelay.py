@@ -12,6 +12,13 @@ blNum = antNum* (antNum - 1) / 2
 spwName = msmd.namesforspws(spw)[0]
 BandName = re.findall(r'RB_..', spwName)[0]; BandID = int(BandName[3:5])
 chNum, chWid, Freq = GetChNum(msfile, spw); bandWidth = np.sum(chWid)
+chRange = range(chNum)
+if 'bandEdge' in locals():
+    if bandEdge:
+        chRange = range(int(0.05*chNum), int(0.95*chNum))
+        bandWidth *= (len(chRange) + 0.0)/(chNum + 0.0)
+    #
+#
 #-------- Array Configuration
 print '---Checking array configuration'
 flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
@@ -31,15 +38,13 @@ antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
 for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 #-------- For channel bunching
-if 'bunchCH' in locals():
-    def bunchVecCH(Spec):
-        return bunchVec(Spec, bunchCH)
-    #
+if 'bunchCH' in locals(): bunchCH = 1
+def bunchVecCH(Spec):
+    return bunchVec(Spec, bunchCH)
 #-------- For time bunching
-if 'bunchTM' in locals():
-    def bunchVecTM(Spec):
-        return bunchVec(Spec, bunchTM)
-    #
+if 'bunchTM' in locals(): bunchTM = 1
+def bunchVecTM(Spec):
+    return bunchVec(Spec, bunchTM)
 #-------- Polarization List
 polList = [[],[0],[0,1],[],[0,3]]
 #-------- Loop for Scan
@@ -51,9 +56,9 @@ for scan in scanList:
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)
     polNum, chNum, timeNum = Xspec.shape[0], Xspec.shape[1], Xspec.shape[3]
-    tempSpec = np.apply_along_axis(bunchVecTM, 3,  np.apply_along_axis(bunchVecCH, 1, Xspec[polList[polNum]][:,:,blMap]))  # tempSpec[pol, ch, bl, time]
+    tempSpec = np.apply_along_axis(bunchVecTM, 3,  np.apply_along_axis(bunchVecCH, 1, Xspec[polList[polNum]][:,chRange][:,:,blMap]))  # tempSpec[pol, ch, bl, time]
     tempTime = bunchVecTM(timeStamp)
-    antGainSpec = np.apply_along_axis(clphase_solve, 2, tempSpec)   # [pol, ch, ant, time]
+    antGainSpec = np.apply_along_axis(gainComplex, 2, tempSpec)   # [pol, ch, ant, time]
     antDelayAmp = np.apply_along_axis(delay_search, 1, antGainSpec)    # [pol, delay-amp, ant, time]
     if 'antDelay' not in locals():
         antDelay = antDelayAmp[:,0].transpose(1,0,2) / (2.0* bandWidth)

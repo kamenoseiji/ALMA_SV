@@ -786,7 +786,6 @@ def clcomplex_solve(bl_vis, bl_error):
 	#
 	return solution[range(antnum)] + 1j* np.append(0, solution[range(antnum, 2*antnum-1)])
 #
-'''
 def clphase_solve(Vis, iterNum = 2):
     WeightBL = abs(Vis)
     Vis = Vis / WeightBL    # Normalization
@@ -841,6 +840,7 @@ def clphase_solve(Vis, iterNum = 2):
     #
     return antGain
 #
+'''
 def dMdDVec(Dx1, Dy1, Unity):
     return np.array([
         [0.0*Unity, 0.0*Unity, Unity,  Dx1.conjugate()],
@@ -1721,7 +1721,8 @@ def gainComplex( bl_vis, niter=2 ):
     ant0, ant1, kernelBL = ANT0[0:blNum], ANT1[0:blNum], KERNEL_BL[range(antNum-1)].tolist()
     CompSol = np.zeros(antNum, dtype=complex)
     #---- Initial solution
-    CompSol[0] = sqrt(abs(bl_vis[0])) + 0j
+    CompSol[0] = sqrt(abs(bl_vis[0])) + 1.52e-5 + 0.0j
+    #CompSol[0] = sqrt(np.median(abs(bl_vis.real))) + 0j
     CompSol[1:antNum] = bl_vis[kernelBL] / CompSol[0]
     #----  Iteration
     for iter_index in range(niter):
