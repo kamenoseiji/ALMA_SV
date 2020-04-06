@@ -38,11 +38,11 @@ antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
 for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 #-------- For channel bunching
-if 'bunchCH' in locals(): bunchCH = 1
+if 'bunchCH' not in locals(): bunchCH = 1
 def bunchVecCH(Spec):
     return bunchVec(Spec, bunchCH)
 #-------- For time bunching
-if 'bunchTM' in locals(): bunchTM = 1
+if 'bunchTM' not in locals(): bunchTM = 1
 def bunchVecTM(Spec):
     return bunchVec(Spec, bunchTM)
 #-------- Polarization List
