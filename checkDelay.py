@@ -56,14 +56,16 @@ for scan in scanList:
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)
     polNum, chNum, timeNum = Xspec.shape[0], Xspec.shape[1], Xspec.shape[3]
-    tempSpec = np.apply_along_axis(bunchVecTM, 3,  np.apply_along_axis(bunchVecCH, 1, Xspec[polList[polNum]][:,chRange][:,:,blMap]))  # tempSpec[pol, ch, bl, time]
-    tempTime = bunchVecTM(timeStamp)
+    tempSpec = np.apply_along_axis(bunchVecCH, 1, Xspec[polList[polNum]][:,chRange][:,:,blMap])  # tempSpec[pol, ch, bl, time]
     #-------- phase cal using channel-averaged visibiliiies
     chAvgVis = np.mean(tempSpec, axis=1)
     antGain = np.apply_along_axis(gainComplex, 1, chAvgVis)
     antGain /= abs(antGain)**2  # Weighting by antenna-based gain
-    #-------- apply phase cal
-    tempSpec = (tempSpec.transpose(1,0,2,3) / (antGain[:,ant0]* antGain[:,ant1].conjugate())).transpose(1,0,2,3)
+    #-------- apply phase cal and time integration
+    #tempSpec = (tempSpec.transpose(1,0,2,3) / (antGain[:,ant0]* antGain[:,ant1].conjugate())).transpose(1,0,2,3)
+    tempSpec = np.apply_along_axis(bunchVecTM, 3,  (tempSpec.transpose(1,0,2,3) / (antGain[:,ant0]* antGain[:,ant1].conjugate())).transpose(1,0,2,3))
+    #tempSpec = np.apply_along_axis(bunchVecTM, 3,  np.apply_along_axis(bunchVecCH, 1, Xspec[polList[polNum]][:,chRange][:,:,blMap]))  # tempSpec[pol, ch, bl, time]
+    tempTime = bunchVecTM(timeStamp)
     antGainSpec = np.apply_along_axis(gainComplex, 2, tempSpec)   # [pol, ch, ant, time]
     antDelayAmp = np.apply_along_axis(delay_search, 1, antGainSpec)    # [pol, delay-amp, ant, time]
     if 'antDelay' not in locals():
