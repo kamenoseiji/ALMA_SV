@@ -53,10 +53,10 @@ if 'scanTime' in locals(): del scanTime
 if 'antDelay' in locals(): del antDelay
 for scan in scanList:
     field_names = msmd.fieldsforscan(scan, True)
-    print 'Loading Visibilities: Scan ' + `scan` + ' : ' + field_names[0]
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan)
     polNum, chNum, timeNum = Xspec.shape[0], Xspec.shape[1], Xspec.shape[3]
+    print 'Loading Visibilities: Scan ' + `scan` + ' : ' + field_names[0] + ' ' + `timeNum` + ' records'
     tempSpec = np.apply_along_axis(bunchVecCH, 1, Xspec[polList[polNum]][:,chRange][:,:,blMap])  # tempSpec[pol, ch, bl, time]
     #-------- phase cal using channel-averaged visibiliiies
     chAvgVis = np.mean(tempSpec, axis=1)
@@ -73,6 +73,7 @@ for scan in scanList:
     scanDelay = np.zeros([UseAntNum, len(polList[polNum]), len(tempTime)])
     if 'FineDelay' not in locals(): FineDelay = False
     if FineDelay:
+        print '--- fine delay ---'
         for pol_index in range(len(polList[polNum])):
             for time_index in range(len(tempTime)):
                 scanDelay[:, pol_index, time_index] = GFS_delay(tempSpec[pol_index][:,:,time_index],antDelayAmp[pol_index,0][:,time_index])
