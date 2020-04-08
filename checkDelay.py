@@ -118,7 +118,7 @@ for scan in scanList:
     if 'antDelay' not in locals():
         antDelay = scanDelay
     else: 
-        antDelay = np.append(antDelay, scanDelay)
+        antDelay = np.append(antDelay, scanDelay, axis=2)
     #
     if 'scanTime' not in locals():
         scanTime = tempTime
