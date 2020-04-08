@@ -19,6 +19,7 @@ if 'bandEdge' in locals():
         bandWidth *= (len(chRange) + 0.0)/(chNum + 0.0)
     #
 #
+UseChNum = len(chRange)
 #-------- Array Configuration
 print '---Checking array configuration'
 flagAnt = np.ones([antNum]); flagAnt[indexList(antFlag, antList)] = 0.0
@@ -68,16 +69,63 @@ for scan in scanList:
     tempTime = bunchVecTM(timeStamp)
     antGainSpec = np.apply_along_axis(gainComplex, 2, tempSpec)   # [pol, ch, ant, time]
     antDelayAmp = np.apply_along_axis(delay_search, 1, antGainSpec)    # [pol, delay-amp, ant, time]
+    #
+    scanDelay = np.zeros([UseAntNum, len(polList[polNum]), len(tempTime)])
+    if 'FineDelay' not in locals(): FineDelay = False
+    if FineDelay:
+        for pol_index in range(len(polList[polNum])):
+            for time_index in range(len(tempTime)):
+                scanDelay[:, pol_index, time_index] = GFS_delay(tempSpec[pol_index][:,:,time_index],antDelayAmp[pol_index,0][:,time_index])
+            #
+        #
+    else:
+        scanDelay = antDelayAmp[:,0].transpose(1,0,2)
+    #
+    '''
+    #-------- Fine Delay
+    spec = np.mean(tempSpec, axis=3)[0]
+    omega = pi* np.arange(UseChNum, dtype=float64); omega -= np.mean(omega); omega /= UseChNum
+    resid_delay = np.median(antDelayAmp[0,0], axis=1)[range(1,UseAntNum)]
+    BlAntMatrix = -BlDelayMatrix(UseAntNum)
+    bl_delay = BlAntMatrix.dot(resid_delay)
+    twiddle = exp( (0.0 + 1.0j) * np.outer(omega, bl_delay))
+    trial_spec = abs(spec)* twiddle
+    PY = np.zeros(UseAntNum-1, dtype=complex)
+    PTP = np.zeros([UseAntNum-1, UseAntNum-1])
+    for ch_index in range(UseChNum):
+        P = (0.0 + 1.0j)* omega[ch_index]* BlAntMatrix.T* trial_spec[ch_index] 
+        PY += P.conjugate().dot(spec[ch_index])
+        PTP += P.dot(P.conjugate().T).real
+    #
+    correction = np.linalg.solve(PTP, PY).real
+    resid_delay += correction
+
+    #-------- Coarse Delay-corrected visibilities
+    #antCoarseDelay = np.median(antDelayAmp[:,0], axis=2)
+    #for
+    #delayCaledSpec = np.apply_along_axis(delay_cal, 
+    #-------- Fine Delay
+    resid_delay = 0.0
+    omega = pi* np.arange(UseChNum, dtype=float64); omega -= np.mean(omega); omega /= UseChNum
+    twiddle = np.exp( (0.0 + 1.0j) * omega* resid_delay)
+    trial_spec = abs(spec)* twiddle
+    resid_spec = spec - trial_spec
+    P = (0.0 + 1.0j)* omega* trial_spec
+    correction = (P.conjugate().dot(resid_spec) /  (P.dot(P.conjugate()))).real
+    resid_delay += correction
+    #
+    '''
     if 'antDelay' not in locals():
-        antDelay = antDelayAmp[:,0].transpose(1,0,2) / (2.0* bandWidth)
+        antDelay = scanDelay
     else: 
-        antDelay = np.append(antDelay, antDelayAmp[:,0].transpose(1,0,2) / (2.0* bandWidth), axis=2)
+        antDelay = np.append(antDelay, scanDelay)
     #
     if 'scanTime' not in locals():
         scanTime = tempTime
     else:
         scanTime = np.append(scanTime, tempTime)
 #
+antDelay /= (2.0* bandWidth)
 msmd.done(); msmd.close()
 np.save(prefix + '.Ant.npy', antList[antMap]) 
 np.save(prefix + '-SPW' + `spw` + '.TS.npy', scanTime) 

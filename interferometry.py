@@ -565,6 +565,16 @@ def GetChNum(msfile, spwID):
 	return chNum, chWid, freq
 
 #
+def BlDelayMatrix(antNum):
+    blNum = antNum* (antNum - 1) / 2
+    blDL_matrix = np.zeros([blNum, antNum])
+    for bl_index in range(blNum):
+        ants = Bl2Ant(bl_index)
+        blDL_matrix[bl_index, ants[0]] = 1
+        blDL_matrix[bl_index, ants[1]] = -1
+    return blDL_matrix[:,range(1,antNum)]
+#
+
 def BlAmpMatrix(antNum):
     blNum = antNum* (antNum - 1) / 2
     blamp_matrix = np.zeros([blNum, antNum])
@@ -710,13 +720,29 @@ def cldelay_solve(bl_delay):    # see http://qiita.com/kamenoseiji/items/782031a
     #
     return PTY / antNum
 #
-def GFS_delay(Vis, Freq, niter=2):             # Vis[ch, bl]
-    blNum = Vis.shape[1]
-    antNum = Bl2Ant(blNum)[0]
-    antDelay = np.zeros(antNum)
-    BBFreq = Freq - np.mean(Freq)
-    PM = GFSmatrix(antDelay, BBFreq)
-    antDelay = antDelay + np.sum(PM * Vis.T, axis=(1,2))
+def GFS_delay(spec, init_delay, niter=2):             # spec[ch, bl]
+    chNum, blNum, antNum = spec.shape[0], spec.shape[1], len(init_delay)
+    #---- Frequency scalsed by bandwidth
+    omega = pi* np.arange(chNum, dtype=float64); omega -= np.mean(omega); omega /= chNum
+    resid_delay = init_delay[1:antNum] - init_delay[0]
+    BlAntMatrix = -BlDelayMatrix(antNum)
+    #---- Iteration
+    for iter_index in range(niter):
+        bl_delay = BlAntMatrix.dot(resid_delay)
+        twiddle = exp( (0.0 + 1.0j) * np.outer(omega, bl_delay))
+        trial_spec = abs(spec)* twiddle
+        PY = np.zeros(UseAntNum-1, dtype=complex)
+        PTP = np.zeros([UseAntNum-1, UseAntNum-1])
+        for ch_index in range(chNum):
+            P = (0.0 + 1.0j)* omega[ch_index]* BlAntMatrix.T* trial_spec[ch_index] 
+            PY += P.conjugate().dot(spec[ch_index])
+            PTP += P.dot(P.conjugate().T).real
+        #
+        correction = np.linalg.solve(PTP, PY).real
+        resid_delay += correction
+    #
+    return np.array([0.0] + resid_delay.tolist())
+#
 '''
 def cldelay_solve(bl_delay):    # see http://qiita.com/kamenoseiji/items/782031a0ce8bbc1dc99c
     blNum = len(bl_delay); antNum = Bl2Ant(blNum)[0]
