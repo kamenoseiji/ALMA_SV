@@ -107,7 +107,7 @@ for spw_index in range(spwNum):
             continue
         #
     #
-    DxSpec, DySpec = np.array(DxList).reshape([antNum, chNum]), np.array(DyList).reshape([antNum, chNum])
+    DxSpec, DySpec = np.array(DxList).reshape([antNum, chNum/bunchNum]), np.array(DyList).reshape([antNum, chNum/bunchNum])
     M = InvMullerVector(DxSpec[ant1], DySpec[ant1], DxSpec[ant0], DySpec[ant0], np.ones([blNum,chNum/bunchNum])).transpose(2,3,0,1)
     D = MullerVector(DxSpec[ant1], DySpec[ant1], DxSpec[ant0], DySpec[ant0],np.ones([blNum, chNum/bunchNum])).transpose(2,3,0,1)
     #-------- Load Aeff file
@@ -153,7 +153,7 @@ for spw_index in range(spwNum):
     BP_ant = np.apply_along_axis(bunchVecCH, 2, BP_ant)
     #
     #-------- Load Tsys table
-    TrxSpec  = np.ones([antNum, 2, chNum])
+    TrxSpec  = np.ones([antNum, 2, chNum/bunchNum])
     TrxFreq  = np.load(prefix +  '-' + BandName + '-SPW' + `TsysSPW[spw_index]` + '.TrxFreq.npy') # TrxFreq[ch]
     TrxAnts  = np.load(prefix +  '-' + BandName + '.TrxAnt.npy') # TrxAnts[ant]
     Tau0spec = np.load(prefix +  '-' + BandName + '-SPW' + `TsysSPW[spw_index]` + '.Tau0.npy') # Tau0spec[ch]
@@ -163,13 +163,14 @@ for spw_index in range(spwNum):
     TrxMap = indexList(TrxAnts, antList[antMap]); TrxFlag = np.zeros([antNum]); TrxFlag[TrxMap] = 1.0
     TrxMed = np.median(Trxspec, axis=(1,3))
     #-------- Tsys channel interpolation
-    if len(TrxFreq) != chNum:
+    if len(TrxFreq) != chNum/bunchNum:
+        SB = int(np.sign( np.median(np.diff(TrxFreq))))   # LSB -> -1, UWB -> +1
         TAU0SP = scipy.interpolate.splrep(TrxFreq[::SB], Tau0spec[::SB], k=3)
-        Tau0Spec = scipy.interpolate.splev(Freq, TAU0SP)
+        Tau0Spec = scipy.interpolate.splev(FreqList[0], TAU0SP)
         for ant_index in range(len(TrxAnts)):
             for pol_index in range(2):
                 TRXSP = scipy.interpolate.splrep(TrxFreq[::SB], np.median(Trxspec, axis=3)[pol_index, :, ant_index][::SB])
-                TrxSpec[ant_index, pol_index] = scipy.interpolate.splev(Freq, TRXSP)
+                TrxSpec[ant_index, pol_index] = scipy.interpolate.splev(FreqList[0], TRXSP)
             #
         #
     else:
@@ -206,6 +207,7 @@ for spw_index in range(spwNum):
     print '-- Loading visibility data %s SPW=%d SCAN=%d...' % (prefix, spw, BPscan)
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan, -1, True)  # Xspec[POL, CH, BL, TIME]
     del Pspec
+    if bunchNum > 1: Xspec = np.apply_along_axis(bunchVecCH, 1, Xspec)
     tempSpec = CrossPolBL(Xspec[:,:,blMap], blInv).transpose(3, 2, 0, 1)    # tempSpec[time, BL, pol, ch]
     print '  -- Normalizing by source model'
     for time_index in range(PAnum): tempSpec[time_index] /= D.dot(PS[time_index]).transpose(0,2,1)
@@ -218,13 +220,14 @@ for spw_index in range(spwNum):
     Gamp = abs(np.mean(Gain, axis=2))
     Ae *= (Gamp**2) # Equalized aperture area
     #-------- For each scan
-    StokesVis = np.zeros([4, timeNum, chNum], dtype=complex)
+    StokesVis = np.zeros([4, timeNum, chNum/bunchNum], dtype=complex)
     mjdSec = np.zeros(timeNum)
     timeIndex = 0
     for scan in scanList:
         print '-- Loading visibility data %s SPW=%d SCAN=%d...' % (prefix, spw, scan)
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, scan, -1, True)  # Xspec[POL, CH, BL, TIME]
         del Pspec
+        if bunchNum > 1: Xspec = np.apply_along_axis(bunchVecCH, 1, Xspec)
         timeIndexRange = range(timeIndex, timeIndex + len(timeStamp))
         mjdSec[timeIndexRange] = timeStamp
         print '  -- Apply bandpass cal'
@@ -253,7 +256,7 @@ for spw_index in range(spwNum):
         print '  -- Stokes spectra'
         for time_index in range(PAnum):
             for bl_index in range(blNum):
-                for ch_index in range(chNum):
+                for ch_index in range(chNum/bunchNum):
                     StokesVis[:,(time_index + timeIndex), ch_index] += PS[:, :, time_index].dot(M[bl_index, ch_index].dot(GainCaledVis[time_index, bl_index, :, ch_index]))
                 #
             #
