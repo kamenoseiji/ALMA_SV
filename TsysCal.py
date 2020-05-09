@@ -215,8 +215,8 @@ atmBandNames = GetBandNames(msfile); UniqBands = unique(atmBandNames).tolist(); 
 msmd.open(msfile)
 atmspwLists, atmscanLists = [], []
 for band_index in range(NumBands):
-    #bandAtmSPWs = np.array(atmSPWs)[indexList(np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()
-    bandAtmSPWs = np.array(atmSPWs)
+    bandAtmSPWs = np.array(atmSPWs)[indexList(np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()
+    #bandAtmSPWs = np.array(atmSPWs)
     atmspwLists = atmspwLists + [bandAtmSPWs]
     if 'spwFlag' in locals():
         flagIndex = indexList(np.array(spwFlag), np.array(atmspwLists[band_index]))
