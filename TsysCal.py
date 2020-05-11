@@ -210,8 +210,9 @@ useAnt = np.where(flagAnt == 1.0)[0].tolist(); useAntNum = len(useAnt)
 #-------- Check SPWs
 print '---Checking spectral windows and scans with atmCal for ' + prefix
 if 'atmSPWs' not in locals():
-    atmSPWs = GetAtmSPWs(msfile)
-atmBandNames = GetBandNames(msfile); UniqBands = unique(atmBandNames).tolist(); NumBands = len(UniqBands)
+    #atmSPWs = GetAtmSPWs(msfile)
+    atmSPWs = list( set(GetBPcalSPWs(msfile)) & set(GetAtmSPWs(msfile)) ); atmSPWs.sort()
+atmBandNames = GetBandNames(msfile, atmSPWs); UniqBands = unique(atmBandNames).tolist(); NumBands = len(UniqBands)
 msmd.open(msfile)
 atmspwLists, atmscanLists = [], []
 for band_index in range(NumBands):

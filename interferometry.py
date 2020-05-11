@@ -232,7 +232,7 @@ def SPW2DATA_DESC_ID(msfile, spwID):
 #-------- Get atmCal SPWs
 def GetAtmSPWs(msfile):
     msmd.open(msfile)
-    atmSPWs = list( (set(msmd.tdmspws()) | set(msmd.fdmspws())) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*"))); atmSPWs.sort()
+    atmSPWs = list( (set(msmd.tdmspws()) | set(msmd.fdmspws())) & set(msmd.spwsforintent("CALIBRATE_ATMOSPHERE*")) ); atmSPWs.sort()
     if len(atmSPWs) == 0:
         atmSPWList = msmd.spwsforintent("CALIBRATE_ATMOSPHERE*").tolist()
         tb.open(msfile + '/' + 'SPECTRAL_WINDOW')
