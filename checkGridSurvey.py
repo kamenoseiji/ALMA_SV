@@ -19,6 +19,7 @@ bpspwLists, bpscanLists, BandPA = [], [], []
 msmd.open(msfile)
 for band_index in range(NumBands):
     bpspwLists  = bpspwLists  + [np.array(atmSPWs)[indexList( np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()]
+    #bpspwLists  = bpspwLists  + [np.array(atmspwLists[band_index])[indexList( np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()]
     if 'spwFlag' in locals():
         flagIndex = indexList(np.array(spwFlag), np.array(bpspwLists[band_index]))
         for index in flagIndex: del bpspwLists[band_index][index]
@@ -157,7 +158,7 @@ for band_index in range(NumBands):
             execfile(SCR_DIR + 'aprioriFlux.py')
     #
 #
-del msfile, UniqBands, useAnt, atmspwLists
+del msfile, UniqBands, useAnt, atmspwLists, atmSPWs
 if 'spwFlag' in locals(): del spwFlag
 if 'flagAnt' in locals(): del flagAnt
 if 'BPScans' in locals(): del BPScans

@@ -234,16 +234,19 @@ for band_index in range(NumBands):
 print '---Checking time for ambient and hot load'
 timeOFF, timeON, timeAMB, timeHOT = msmd.timesforintent("CALIBRATE_ATMOSPHERE#OFF_SOURCE"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#ON_SOURCE"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#AMBIENT"), msmd.timesforintent("CALIBRATE_ATMOSPHERE#HOT")
 if len(timeAMB) == 0:
-    timeXY, Pspec = GetPSpec(msfile, 0, atmSPWs[0])
-    timeNum, chNum = Pspec.shape[2], Pspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
-    chAvgPower = np.mean(Pspec[0][chRange], axis=0)
-    onTimeIndex  = indexList(timeON, timeXY)
-    onTime, onPower = timeXY[onTimeIndex], chAvgPower[onTimeIndex]
-    hot_index, amb_index = np.where(onPower >  np.median(onPower))[0].tolist(), np.where(onPower <  np.median(onPower))[0].tolist()
-    hotStart = [hot_index[0]] + np.array(hot_index)[np.where(np.diff(onTime[hot_index]) > 60.0)[0] + 1].tolist()
-    ambStart = [amb_index[0]] + np.array(amb_index)[np.where(np.diff(onTime[amb_index]) > 60.0)[0] + 1].tolist()
-    hotTimeIndex, ambTimeIndex = np.array(onTimeIndex)[list(set(hot_index) - set(hotStart))], np.array(onTimeIndex)[list(set(amb_index) - set(ambStart))]
-    timeAMB, timeHOT = timeXY[ambTimeIndex], timeXY[hotTimeIndex]
+    for band_index in range(NumBands):
+        atmSPW = atmspwLists[band_index]
+        timeXY, Pspec = GetPSpec(msfile, 0, atmSPW[0])
+        timeNum, chNum = Pspec.shape[2], Pspec.shape[1]; chRange = range(int(0.05*chNum), int(0.95*chNum))
+        chAvgPower = np.mean(Pspec[0][chRange], axis=0)
+        onTimeIndex  = indexList(timeON, timeXY)
+        onTime, onPower = timeXY[onTimeIndex], chAvgPower[onTimeIndex]
+        hot_index, amb_index = np.where(onPower >  np.median(onPower))[0].tolist(), np.where(onPower <  np.median(onPower))[0].tolist()
+        hotStart = [hot_index[0]] + np.array(hot_index)[np.where(np.diff(onTime[hot_index]) > 60.0)[0] + 1].tolist()
+        ambStart = [amb_index[0]] + np.array(amb_index)[np.where(np.diff(onTime[amb_index]) > 60.0)[0] + 1].tolist()
+        hotTimeIndex, ambTimeIndex = np.array(onTimeIndex)[list(set(hot_index) - set(hotStart))], np.array(onTimeIndex)[list(set(amb_index) - set(ambStart))]
+        timeAMB = np.append(timeAMB, timeXY[ambTimeIndex])
+        timeHOT = np.append(timeHOT, timeXY[hotTimeIndex])
 #
 azelTime, AntID, AZ, EL = GetAzEl(msfile)
 # timeOFF : mjd of CALIBRATE_ATMOSPHERE#OFF_SOURCE
