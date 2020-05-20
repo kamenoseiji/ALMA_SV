@@ -223,7 +223,9 @@ for band_index in range(NumBands):
         flagIndex = indexList(np.array(spwFlag), np.array(atmspwLists[band_index]))
         for index in flagIndex: del atmspwLists[band_index][index]
     #
-    atmscanList = list(set(msmd.scansforspw(atmspwLists[band_index][0]))& set(msmd.scansforintent("CALIBRATE_ATMOSPHERE*"))); atmscanList.sort(); atmscanLists = atmscanLists + [atmscanList]
+    atmscanList = list(set(msmd.scansforspw(atmspwLists[band_index][0]))& set(msmd.scansforintent("CALIBRATE_ATMOSPHERE*")))
+    atmscanList.sort()
+    atmscanLists = atmscanLists + [atmscanList]
     print ' ',
     print UniqBands[band_index] + ': atmSPW=' + `atmspwLists[band_index]`
 #

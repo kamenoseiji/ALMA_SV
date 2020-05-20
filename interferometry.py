@@ -812,6 +812,7 @@ def clcomplex_solve(bl_vis, bl_error):
 	#
 	return solution[range(antnum)] + 1j* np.append(0, solution[range(antnum, 2*antnum-1)])
 #
+'''
 def clphase_solve(Vis, iterNum = 2):
     WeightBL = abs(Vis)
     Vis = Vis / WeightBL    # Normalization
@@ -866,7 +867,6 @@ def clphase_solve(Vis, iterNum = 2):
     #
     return antGain
 #
-'''
 def dMdDVec(Dx1, Dy1, Unity):
     return np.array([
         [0.0*Unity, 0.0*Unity, Unity,  Dx1.conjugate()],
