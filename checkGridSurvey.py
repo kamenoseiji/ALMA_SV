@@ -1,4 +1,5 @@
 import sys
+import pickle
 import analysisUtils as au
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Grid.py')
