@@ -47,6 +47,7 @@ AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
 PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), np.cos(PA))
 XYphase, caledVis = [], []
 DtermDic = {'mjdSec': np.median(timeStamp)}
+StokesDic['mjdSec'] = np.median(timeStamp)
 scan_index = onsourceScans.index(BPScan)
 Trx2antMap = indexList( antList[antMap], antList[TrxMap] )
 for spw_index in range(spwNum):
@@ -97,7 +98,7 @@ AmpCalChAvg = np.zeros([spwNum, 4, UseBlNum, timeSum], dtype=complex)
 timePointer = 0
 for scan_index in range(scanNum):
     sourceName = sourceList[sourceIDscan[scan_index]]
-    scanDic[sourceName] = scanDic[sourceName] + [scan_index]
+    scanDic[sourceName] = scanDic[sourceName] + [scan_index, 1]
     if scan_index > 0:
         for PL in IList: figFL.delaxes(PL)
         for PL in PList: figFL.delaxes(PL)
@@ -185,7 +186,10 @@ for scan_index in range(scanNum):
             SEFD /= (indivRelGain**2).T
         #
         AmpCalVis = (pCalVis[spw_index].transpose(3,0,1,2)* np.sqrt(SEFD[chRange][:,polYindex][:,:,ant0[0:SAblNum]]* SEFD[chRange][:,polXindex][:,:,ant1[0:SAblNum]])).transpose(3,2,1,0)
-        AmpCalChAvg[spw_index][:,:,timePointer:timePointer+timeNum] = np.mean(AmpCalVis, axis=2).transpose(1,0,2)
+        if SAantNum == UseAntNum:
+            AmpCalChAvg[spw_index][:,:,timePointer:timePointer+timeNum] = np.mean(AmpCalVis, axis=2).transpose(1,0,2)
+        else:
+            scanDic[sourceName][1] *= 0
         text_sd = ' SPW%02d %5.1f GHz ' % (spwList[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
         Stokes = np.zeros([4,SAblNum], dtype=complex)
         for bl_index in range(SAblNum):
@@ -272,8 +276,13 @@ for scan_index in range(scanNum):
         au.searchFlux(sourcename='%s' % (sourceList[sourceIDscan[scan_index]]), band=int(UniqBands[band_index][3:5]), date=timeLabel[0:10], maxrows=3)
         print '\n'
     #
-    timePointer += timeNum
+    if SAantNum == UseAntNum:
+        timePointer += timeNum
+    else:
+        timeSum -= timeNum
+    #
 #
+AmpCalChAvg = AmpCalChAvg[:,:,:,range(timeSum)]
 for PL in IList: figFL.delaxes(PL)
 for PL in PList: figFL.delaxes(PL)
 #
@@ -290,44 +299,39 @@ np.save(prefix + '-' + UniqBands[band_index] + '.XYD.npy', np.array(XYD).reshape
 StokesI, QCpUS, UCmQS = np.zeros(timeSum), np.zeros(timeSum), np.zeros(timeSum)
 Dterm = np.zeros([UseAntNum, spwNum, 2], dtype=complex)
 DtermDic['Freq'] = centerFreqList
+StokesDic['Freq'] = np.mean(np.array(centerFreqList))
+for sourceName in sourceList:
+    if len(scanDic[sourceName]) == 0: del StokesDic[sourceName]
 for spw_index in range(spwNum):
-    chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index]); Freq = Freq * 1.0e-9
     for sourceName in sourceList:
-        scanList = scanDic[sourceName]
+        if len(scanDic[sourceName]) == 0: continue
+        if scanDic[sourceName][1] != 1: continue
+        chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index]); Freq = Freq * 1.0e-9
         timeIndex = timeDic[sourceName]
-        if len(scanList) < 1 : continue
         PA = np.array(PADic[sourceName]); timeNum = len(PA)
         CS, SN = np.cos(2.0* PA), np.sin(2.0* PA)
-        if len(spwStokesDic[sourceName]) == 4* spwNum:
-            Isol, Qsol, Usol = spwStokesDic[sourceName][spw_index], spwStokesDic[sourceName][spwNum + spw_index], spwStokesDic[sourceName][2*spwNum + spw_index]
-            QCpUS[timeIndex] = Qsol* CS + Usol* SN
-            UCmQS[timeIndex] = Usol* CS - Qsol* SN
-            StokesI[timeIndex] = Isol
-        else:   # Flagged source
-            QCpUS[timeIndex] = 0.0
-            UCmQS[timeIndex] = 0.0
-            StokesI[timeIndex] = 0.0
-            VisSpec[:,:,:,:,timeIndex] = 0.0
-        #
+        Isol, Qsol, Usol = spwStokesDic[sourceName][spw_index], spwStokesDic[sourceName][spwNum + spw_index], spwStokesDic[sourceName][2*spwNum + spw_index]
+        QCpUS[timeIndex] = Qsol* CS + Usol* SN
+        UCmQS[timeIndex] = Usol* CS - Qsol* SN
+        StokesI[timeIndex] = Isol
     #
     Dterm[:,spw_index, 0], Dterm[:,spw_index,1] = VisMuiti_solveD(AmpCalChAvg[spw_index], QCpUS, UCmQS, [], [], StokesI)
 #
 for ant_index in range(UseAntNum):
     DtermDic[antList[antMap[ant_index]]] = Dterm[ant_index]
 #
-fileDic = open(prefix + '-B' + `int(UniqBands[band_index][3:5])` + '.D.dic', mode='wb')
-pickle.dump(DtermDic, fileDic)
-fileDic.close()
+fileDic = open(prefix + '-B' + `int(UniqBands[band_index][3:5])` + '.D.dic', mode='wb'); pickle.dump(DtermDic, fileDic); fileDic.close()
+fileDic = open(prefix + '-B' + `int(UniqBands[band_index][3:5])` + '.S.dic', mode='wb'); pickle.dump(StokesDic, fileDic); fileDic.close()
 text_sd = 'D-term        '; logfile.write(text_sd); print text_sd,
 for spw_index in range(spwNum):
     text_sd = '  SPW%02d                    ' % (spwList[spw_index]);  logfile.write(text_sd); print text_sd,
-print ''
-text_sd = 'Ant  :'; logfile.write(text_sd); print text_sd,
+logfile.write('\n'); print ''
+text_sd = 'Ant   '; logfile.write(text_sd); print text_sd,
 for spw_index in range(spwNum):
     text_sd = '      Dx            Dy     ';  logfile.write(text_sd); print text_sd,
-print ''
+logfile.write('\n'); print ''
 for ant_index in range(UseAntNum):
-    text_sd = '%s :' % (antList[antMap[ant_index]]); logfile.write(text_sd); print text_sd,
+    text_sd = '%s  ' % (antList[antMap[ant_index]]); logfile.write(text_sd); print text_sd,
     for spw_index in range(spwNum):
         text_sd = '%+.3f%+.3fi %+.3f%+.3fi' % (Dterm[ant_index,spw_index,0].real, Dterm[ant_index,spw_index,0].imag, Dterm[ant_index, spw_index,1].real, Dterm[ant_index, spw_index,1].imag); logfile.write(text_sd); print text_sd,
     #
