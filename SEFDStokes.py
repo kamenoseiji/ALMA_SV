@@ -136,6 +136,7 @@ for scan_index in range(scanNum):
     bpAntMap = indexList(antList[SAantMap],antList[antMap])
     Trx2antMap = indexList( antList[SAantMap], antList[TrxMap] )
     SAantNum = len(SAantMap); SAblNum = len(SAblMap)
+    DcalFlag = (SAantNum == UseAntNum)
     if SAblNum < 6:
         text_sd = ' Only %d baselines for short enough sub-array. Skip!' % (SAblNum) ; logfile.write(text_sd + '\n'); print text_sd
         continue
@@ -178,7 +179,6 @@ for scan_index in range(scanNum):
             TsysSPW = (TsysSPW.transpose(2,0,1) + Ta).transpose(1,2,0)
         #
         SEFD = 2.0* kb* (TsysSPW * atmCorrect).transpose(2,1,0) / Ae[bpAntMap][:,:,spw_index].T   # SEFD[ch,pol,antMap]
-        SAantNum = len(SAantMap); SAblNum = len(SAblMap)
         #-------- Additional equalizaiton
         if not SSO_flag:        # Additional equalization for point sources
             AmpCalVis = np.mean(np.mean(pCalVis[spw_index], axis=3)[:,[0,3]] * np.sqrt(SEFD[chRange][:,:,ant0[0:SAblNum]]* SEFD[chRange][:,:,ant1[0:SAblNum]]), axis=0)
@@ -186,7 +186,7 @@ for scan_index in range(scanNum):
             SEFD /= (indivRelGain**2).T
         #
         AmpCalVis = (pCalVis[spw_index].transpose(3,0,1,2)* np.sqrt(SEFD[chRange][:,polYindex][:,:,ant0[0:SAblNum]]* SEFD[chRange][:,polXindex][:,:,ant1[0:SAblNum]])).transpose(3,2,1,0)
-        if SAantNum == UseAntNum:
+        if DcalFlag :
             AmpCalChAvg[spw_index][:,:,timePointer:timePointer+timeNum] = np.mean(AmpCalVis, axis=2).transpose(1,0,2)
         else:
             scanDic[sourceName][1] *= 0
@@ -228,6 +228,7 @@ for scan_index in range(scanNum):
         if(SSO_flag):
             text_sd = '| %6.3f ' % (SSOflux0[SSO_ID, spw_index]); logfile.write(text_sd); print text_sd,
             logfile.write('\n'); print ''
+            if abs(ScanFlux[scan_index, spw_index, 0] - SSOflux0[SSO_ID, spw_index]) > 0.15*SSOflux0[SSO_ID, spw_index]: DcalFlag = False
         else: 
             text_sd = '%6.3f   %6.1f ' % (100.0* np.sqrt(ScanFlux[scan_index, spw_index, 1]**2 + ScanFlux[scan_index, spw_index, 2]**2)/ScanFlux[scan_index, spw_index, 0], np.arctan2(ScanFlux[scan_index, spw_index, 2],ScanFlux[scan_index, spw_index, 1])*90.0/pi); logfile.write(text_sd); print text_sd,
             logfile.write('\n'); print ''
@@ -276,7 +277,7 @@ for scan_index in range(scanNum):
         au.searchFlux(sourcename='%s' % (sourceList[sourceIDscan[scan_index]]), band=int(UniqBands[band_index][3:5]), date=timeLabel[0:10], maxrows=3)
         print '\n'
     #
-    if SAantNum == UseAntNum:
+    if DcalFlag :
         timePointer += timeNum
     else:
         timeSum -= timeNum
