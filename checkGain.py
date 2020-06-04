@@ -32,7 +32,7 @@ for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(ant
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 #-------- Bandpass Table
 if 'BPprefix' in locals():
-    BPfileName = BPprefix + '-REF' + antList[UseAnt[refantID]] +'-SPW' + `spw` + '-BPant.npy'
+    BPfileName = BPprefix + '-REF' + antList[UseAnt[refantID]] + '-SC' + `BPscan` + '-SPW' + `spw` + '-BPant.npy'
     print '---Loading bandpass table : ' + BPfileName
     BP_ant = np.load(BPfileName)
 #

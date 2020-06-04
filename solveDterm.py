@@ -375,7 +375,7 @@ for spw_index in range(spwNum):
         StokesI_SP.tick_params(axis='both', labelsize=6)
         StokesP_SP.tick_params(axis='both', labelsize=6)
         StokesI_SP.axis([np.min(Freq[chRange]), max(Freq[chRange]), 0.0, 1.25*IMax])
-        StokesP_SP.axis([np.min(Freq[chRange]), max(Freq[chRange]), -0.1*IMax, 0.1*IMax])
+        StokesP_SP.axis([np.min(Freq[chRange]), max(Freq[chRange]), -0.15*IMax, 0.15*IMax])
         StokesI_SP.text(min(Freq[chRange]), IMax*1.35, sourceName)
         StokesI_SP.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
         StokesP_SP.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
