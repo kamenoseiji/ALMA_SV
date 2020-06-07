@@ -1,5 +1,5 @@
 Arguments <- commandArgs(trailingOnly = T)
-timeWindow <- 360	# Days
+timeWindow <- 120	# Days
 #-------- Function to return residuals in RM fit
 residEVPA <- function(x, y, w){	# Optimization function for RM fit
 	return(function(para){
