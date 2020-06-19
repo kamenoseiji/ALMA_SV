@@ -10,6 +10,7 @@ from scipy.interpolate import UnivariateSpline
 from scipy.interpolate import LSQUnivariateSpline
 from scipy.interpolate import griddata
 from scipy.sparse import lil_matrix
+import urllib2
 import scipy.optimize
 import time
 import datetime
@@ -84,6 +85,14 @@ def linearRegression( x, y, err):
     sol    = np.array([Swxx* Swy - Swx* Swxy, Sw* Swxy - Swx* Swy]) / det
     solerr = np.sqrt(np.array([Swxx, Sw]) / det)
     return sol, solerr
+#
+def quadratic_interpol(x, y, t):    # quadratic interpolation 
+    # x[3]  : periodic arguments
+    # y[3]  : values at x
+    # t     : to output y[t] 
+    moment = y[0] - 2.0*y[1] + y[2]
+    refPhase  = (t - x[1]) / np.mean(np.diff(x))
+    return 0.5* refPhase* (refPhase* moment + y[2] - y[0]) + y[1]
 #
 #-------- Muller Matrix
 def MullerMatrix(Dx0, Dy0, Dx1, Dy1):
@@ -274,6 +283,41 @@ def GetFWHM(msfile, spw, antD ):    # antD is the antenna diameter [m]
     Num, chWid, Freq = GetChNum(msfile, spw)
     wavelength = constants.c / np.median(Freq)
     return 1.13* 180.0* 3600.0* wavelength / (antD* pi) # Gaussian beam, in unit of arcsec
+#
+def GetAeff(antMap, band, refMJD):
+    if band == 4 : band = 3
+    antNum = len(antMap)
+    Aeff  = np.ones([antNum, 2])
+    URI = 'http://www.alma.cl/~skameno/AMAPOLA/Table/AeB' + `band` + '.table'
+    request =  urllib2.Request(URI)
+    response = urllib2.urlopen(request)
+    fileLines = response.readlines()
+    lineLength = len(fileLines)
+    antPolList = fileLines[0].split()[1:]
+    polList = ['X', 'Y']
+    #-------- reference timing
+    mjdSec = np.ones(lineLength - 3)
+    for line_index in range(3, lineLength): mjdSec[line_index - 3] = qa.convert(fileLines[line_index].split()[0], 's')['value']
+    refpointer = np.argmin(abs(mjdSec - refMJD))
+    if (refpointer == 0) | (refpointer == len(mjdSec) - 1) :
+        for ant_index in range(antNum):
+            ant = antMap[ant_index]
+            for pol_index in range(2):
+                keyhead = ant + '-' + polList[pol_index]
+                pointer = antPolList.index(keyhead) + 1
+                Aeff[ant_index, pol_index] = float(fileLines[refpointer + 3].split()[pointer])
+        return Aeff
+    #
+    tmpMJD  = np.array([mjdSec[refpointer+2], mjdSec[refpointer+3], mjdSec[refpointer+4]])
+    for ant_index in range(antNum):
+        ant = antMap[ant_index]
+        for pol_index in range(2):
+            keyhead = ant + '-' + polList[pol_index]
+            pointer = antPolList.index(keyhead) + 1
+            tmpAeff = np.array([float(fileLines[refpointer+2].split()[pointer]), float(fileLines[refpointer+3].split()[pointer]), float(fileLines[refpointer+4].split()[pointer])])
+            Aeff[ant_index, pol_index] = quadratic_interpol(tmpMJD, tmpAeff, refMJD)
+    #
+    return Aeff
 #
 def GetSourceList(msfile):              # Source List
     #tb.open( msfile + '/SOURCE')

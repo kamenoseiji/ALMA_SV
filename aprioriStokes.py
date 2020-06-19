@@ -33,6 +33,7 @@ for spw_index in range(spwNum):
     #
 #
 #-------- Check D-term files
+# complex(lines[1].split()[1].translate(str.maketrans('i','j')))
 Dloaded = False
 if not 'DPATH' in locals(): DPATH = SCR_DIR
 print '---Checking D-term files in ' + DPATH
@@ -154,25 +155,9 @@ if 'gainRef' in locals(): flagRef = np.zeros([UseAntNum]); refIndex = indexList(
 if 'refIndex' not in locals(): refIndex = range(UseAntNum)
 if len(refIndex) == 0: refIndex = range(UseAntNum)
 #-------- Load Aeff file
-Afile = open(SCR_DIR + 'AeB' + `int(UniqBands[band_index][3:5])` + '.data')
-Alines = Afile.readlines()
-Afile.close()
-#AeX, AeY = 0.25* np.pi* antDia**2, 0.25* np.pi* antDia**2       # antenna collecting area (100% efficiency)
-AeX, AeY, etaX, etaY = [], [], [], []
-for ant_index in antMap:
-    for Aline in Alines:
-        if antList[ant_index] in Aline:
-            etaX = etaX + [float(Aline.split()[1])]
-            etaY = etaY + [float(Aline.split()[2])]
-            AeX = AeX + [(0.0025* np.pi* float(Aline.split()[1]))* antDia[ant_index]**2]
-            AeY = AeY + [(0.0025* np.pi* float(Aline.split()[2]))* antDia[ant_index]**2]
-            #print '%s  : etaX = %.2f  etaY = %.2f' % (antList[ant_index], float(Aline.split()[1]), float(Aline.split()[2]))
-        #
-    #
-#
-Ae = np.array([AeX, AeY])
+etaA = GetAeff(antList[antMap], int(UniqBands[band_index][3:5]), np.mean(timeStamp)).T
+Ae = 0.0025* np.pi* etaA* antDia**2
 if BLCORR: Ae = 1.15* Ae         # BL Correlator correction factor
-#AeX, AeY = np.array(AeX), np.array(AeY) # in antMap order 
 #
 #-------- Flag table
 if 'FGprefix' in locals():
@@ -255,7 +240,7 @@ for spw_index in range(spwNum):
 print '---Equalized aperture efficiencies (Pol-X, Pol-Y) in %'
 antRelGain = np.median(relGain, axis=0)
 for ant_index in range(UseAntNum):
-    text_sd = '%s  %.2f  %.2f' % (antList[antMap[ant_index]], etaX[ant_index]* antRelGain[0,ant_index]**2, etaY[ant_index]* antRelGain[1,ant_index]**2)
+    text_sd = '%s  %.2f  %.2f' % (antList[antMap[ant_index]], etaA[0,ant_index]* antRelGain[0,ant_index]**2, etaA[1,ant_index]* antRelGain[1,ant_index]**2)
     logfile.write(text_sd + '\n'); print text_sd
 #
 ##-------- Iteration for Equalization using EQ scan
@@ -284,7 +269,7 @@ for spw_index in range(spwNum):
     BPCaledXspec = (tempSpec * TsysBL/ (BPList[spw_index][ant0][:,polYindex]* BPList[spw_index][ant1][:,polXindex].conjugate())).transpose(2,3,1,0) # Bandpass Cal ; BPCaledXspec[pol, ch, bl, time]
     chAvgVis = np.mean(BPCaledXspec[:, chRange], axis=1)
     GainP = GainP + [np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])]
-    SEFD = 2.0* kb / (np.array([AeX, AeY]) * (relGain[spw_index]**2))
+    SEFD = 2.0* kb / (Ae * (relGain[spw_index]**2))
     caledVis.append(np.mean((chAvgVis / (GainP[spw_index][polYindex][:,ant0]* GainP[spw_index][polXindex][:,ant1].conjugate())).transpose(2, 0, 1)* np.sqrt(SEFD[polYindex][:,ant0]* SEFD[polXindex][:,ant1]), axis=2).T)
 #
 caledVis = np.array(caledVis)
