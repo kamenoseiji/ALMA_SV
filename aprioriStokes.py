@@ -156,7 +156,7 @@ if 'refIndex' not in locals(): refIndex = range(UseAntNum)
 if len(refIndex) == 0: refIndex = range(UseAntNum)
 #-------- Load Aeff file
 etaA = GetAeff(antList[antMap], int(UniqBands[band_index][3:5]), np.mean(timeStamp)).T
-Ae = 0.0025* np.pi* etaA* antDia**2
+Ae = 0.0025* np.pi* etaA* antDia[antMap]**2
 if BLCORR: Ae = 1.15* Ae         # BL Correlator correction factor
 #
 #-------- Flag table
