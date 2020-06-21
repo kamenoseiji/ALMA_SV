@@ -204,21 +204,11 @@ else:
     StokesEQ = np.array([1.0, 0.0, 0.0, 0.0])
 #
 QCpUS = (StokesEQ[1]* np.cos(2.0* PA) + StokesEQ[2]* np.sin(2.0* PA)) / StokesEQ[0]
-#
-if len(atmTimeRef) > 5:
-    #exTauSP  = UnivariateSpline(atmTimeRef, Tau0E, np.ones(len(atmTimeRef)), s=0.1*np.std(Tau0E))
-    SplineWeight = np.ones(len(atmTimeRef)+2)
-    atmFlagIndex = (np.where(abs(Tau0E)/np.std(Tau0E) > 3.0)[0] + 1).tolist()
-    SplineWeight[atmFlagIndex] = 0.001
-    exTauSP  = UnivariateSpline(np.append(np.append(atmTimeRef[0]-180.0,atmTimeRef), atmTimeRef[-1]+180.0), np.append(np.append(Tau0E[0], Tau0E), Tau0E[-1]), SplineWeight, s=0.001*np.std(Tau0E))
-else:
-    tempTime = np.arange(np.min(atmTimeRef) - 3600.0,  np.max(atmTimeRef) + 3600.0, 300.0)
-    tempTauE = np.repeat(np.median(Tau0E), len(tempTime))
-    exTauSP = UnivariateSpline(tempTime, tempTauE, np.ones(len(tempTime)), s=0.1)
-#
-#
+##-------- Smooth excess Tau 
+exTauSP = tauSMTH(atmTimeRef, Tau0E)
+##-------- Equalize aperture efficiency
 for spw_index in range(spwNum):
-    exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
+    exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) ) / np.mean(np.sin(ElScan)))
     TsysEQScan = np.mean(TrxList[spw_index].transpose(2,0,1)[:,:,chRange] + Tcmb*exp_Tau[chRange] + tempAtm* (1.0 - exp_Tau[chRange]), axis=2)[Trx2antMap] # [antMap, pol]
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], EQScan)
@@ -256,7 +246,7 @@ GainP, XYphase, caledVis = [], [], []
 Trx2antMap = indexList( antList[antMap], antList[TrxMap] )
 scan_index = scanList.index(BPScan)
 for spw_index in range(spwNum):
-    exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
+    exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) ) / np.mean(np.sin(ElScan)))
     atmCorrect = 1.0 / exp_Tau
     TsysSPW = (TrxList[spw_index].transpose(2,0,1) + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap] # [antMap, pol, ch]
     TsysBL  = np.sqrt( TsysSPW[ant0][:,polYindex]* TsysSPW[ant1][:,polXindex])
@@ -394,7 +384,7 @@ for scan_index in range(scanNum):
         StokesP_PL = figFL.add_subplot( 2, spwNum, spwNum + spw_index + 1 )
         IList = IList + [StokesI_PL]
         PList = PList + [StokesP_PL]
-        exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
+        exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) ) / np.mean(np.sin(ElScan)))
         atmCorrect = 1.0 / exp_Tau
         TsysSPW = (TrxList[spw_index].transpose(2,0,1) + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap]    # [ant, pol, ch]
         #if SSO_flag:

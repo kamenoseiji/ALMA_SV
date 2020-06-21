@@ -191,20 +191,11 @@ else:
 #
 QCpUS = (StokesEQ[1]* np.cos(2.0* PA) + StokesEQ[2]* np.sin(2.0* PA)) / StokesEQ[0]
 #
-if len(atmTimeRef) > 5:
-    #exTauSP  = UnivariateSpline(atmTimeRef, Tau0E, np.ones(len(atmTimeRef)), s=0.1*np.std(Tau0E), ext=3)
-    SplineWeight = np.ones(len(atmTimeRef)+2)
-    atmFlagIndex = (np.where(abs(Tau0E)/np.std(Tau0E) > 3.0)[0] + 1).tolist()
-    SplineWeight[atmFlagIndex] = 0.001
-    #exTauSP  = UnivariateSpline(np.append(np.append(atmTimeRef[0]-180.0,atmTimeRef), atmTimeRef[-1]+180.0), np.append(np.append(Tau0E[0], Tau0E), Tau0E[-1]), SplineWeight, s=0.001*np.std(Tau0E))
-    exTauSP  = UnivariateSpline(np.append(np.append(atmTimeRef[0]-180.0,atmTimeRef), atmTimeRef[-1]+180.0), np.append(np.append(Tau0E[0], Tau0E), Tau0E[-1]), SplineWeight, s=0.01*np.std(Tau0E))
-else:
-    tempTime = np.arange(np.min(atmTimeRef) - 3600.0,  np.max(atmTimeRef) + 3600.0, 300.0)
-    tempTauE = np.repeat(np.median(Tau0E[spw_index]), len(tempTime))
-    exTauSP = UnivariateSpline(tempTime, tempTauE, np.ones(len(tempTime)), s=0.01, ext=3)
-#
+##-------- Smooth excess Tau 
+exTauSP = tauSMTH(atmTimeRef, Tau0E)
+##-------- Scale aperture efficiency
 for spw_index in range(spwNum):
-    exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
+    exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP)) / np.mean(np.sin(ElScan)))
     TsysEQScan = np.mean(TrxList[spw_index].transpose(2,0,1)[:,:,chRange] + Tcmb*exp_Tau[chRange] + tempAtm* (1.0 - exp_Tau[chRange]), axis=2)[Trx2antMap] # [antMap, pol]
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], EQScan)
@@ -276,7 +267,7 @@ for sso_index in range(SSONum):
         GainX, GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[0]), np.apply_along_axis( gainComplex, 0, chAvgVis[1])
         #-------- Tsys
         Ta = SSOflux[sso_index, spw_index]* AeNominal[SAantMap] / (2.0* kb)
-        exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
+        exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) ) / np.mean(np.sin(ElScan)))
         TsysSPW = np.mean(TrxList[spw_index].transpose(2,0,1)[:,:,chRange] + Tcmb*exp_Tau[chRange] + tempAtm* (1.0 - exp_Tau[chRange]), axis=2)[Trx2antMap] # [antMap, pol]
         #-------- Aperture efficiency
         AeX[bpAntMap, spw_index, sso_index] = 2.0* kb* np.percentile(abs(GainX), 75, axis=1)**2 * (Ta + TsysSPW[:, 0]) / SSOflux[sso_index, spw_index]

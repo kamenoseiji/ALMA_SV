@@ -140,6 +140,22 @@ def TrxTskySpec(useAnt, tempAmb, tempHot, spwList, scanList, ambSpec, hotSpec, o
     #
     return  TrxList, TskyList, outLierFlag
 #
+#-------- Smooth time-variable Tau
+def tauSMTH( timeSample, TauE ):
+    if len(timeSample) > 5:
+        SplineWeight = np.ones(len(timeSample) + 4)
+        flagIndex = (np.where(abs(TauE)/np.std(TauE) > 3.0)[0] + 2).tolist()
+        SplineWeight[flagIndex] = 0.001
+        tempTime = np.append([timeSample[0]-500.0, timeSample[0]-300.0], np.append(timeSample, [timeSample[-1]+300.0, timeSample[-1]+500.0]))
+        tempTauE = np.append([TauE[0], TauE[0]], np.append(TauE, [TauE[-1], TauE[-1]]))
+        smthTau = scipy.interpolate.splrep(tempTime, tempTauE, k=3, w=SplineWeight, t=tempTime[range(2, len(tempTime)-2, 3)] - 60.0 )
+    else:
+        tempTime = np.arange(np.min(timeSample) - 3600.0,  np.max(timeSample) + 3600.0, 300.0)
+        tempTauE = np.repeat(np.median(TauE), len(tempTime))
+        smthTau = scipy.interpolate.splrep(tempTime, tempTauE, k=3, w=SplineWeight)
+    #
+    return smthTau
+#
 #-------- Zenith opacity fitting
 def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList):
     Tau0List, TantNList = [], []

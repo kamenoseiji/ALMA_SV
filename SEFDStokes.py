@@ -51,7 +51,7 @@ StokesDic['mjdSec'] = np.median(timeStamp)
 scan_index = onsourceScans.index(BPScan)
 Trx2antMap = indexList( antList[antMap], antList[TrxMap] )
 for spw_index in range(spwNum):
-    exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
+    exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) ) / np.mean(np.sin(ElScan)))
     atmCorrect = 1.0 / exp_Tau
     TsysSPW = (TrxList[spw_index].transpose(2,0,1) + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap] # [antMap, pol, ch]
     TsysBL  = np.sqrt( TsysSPW[ant0][:,polYindex]* TsysSPW[ant1][:,polXindex])
@@ -171,7 +171,7 @@ for scan_index in range(scanNum):
         StokesP_PL = figFL.add_subplot( 2, spwNum, spwNum + spw_index + 1 )
         IList = IList + [StokesI_PL]
         PList = PList + [StokesP_PL]
-        exp_Tau = np.exp(-(Tau0spec[spw_index] + exTauSP(np.median(timeStamp))) / np.mean(np.sin(ElScan)))
+        exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) ) / np.mean(np.sin(ElScan)))
         atmCorrect = 1.0 / exp_Tau
         TsysSPW = (TrxList[spw_index].transpose(2,0,1) + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap]    # [ant, pol, ch]
         if SSO_flag:
