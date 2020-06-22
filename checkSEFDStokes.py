@@ -70,7 +70,7 @@ for spw_index in range(spwNum):
     for pol_index in range(2):
         Trx2MedianRatio = TrxMed[pol_index] / np.median(TrxMed[pol_index])
         TrxFlag[ np.where(Trx2MedianRatio < 0.1)[0].tolist() ] *= 0.0   # Flagged by negative Trx
-        TrxFlag[ np.where(Trx2MedianRatio > 2.0)[0].tolist() ] *= 0.0   # Flagged by too-high Trx 
+        TrxFlag[ np.where(Trx2MedianRatio > 4.0)[0].tolist() ] *= 0.0   # Flagged by too-high Trx 
     if np.median(Tau0spec[spw_index][chRange]) < 0.0: TrxFlag *= 0.0    # Negative Tau(zenith) 
 #
 print 'Ant:',
