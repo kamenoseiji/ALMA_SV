@@ -152,7 +152,7 @@ def tauSMTH( timeSample, TauE ):
     else:
         tempTime = np.arange(np.min(timeSample) - 3600.0,  np.max(timeSample) + 3600.0, 300.0)
         tempTauE = np.repeat(np.median(TauE), len(tempTime))
-        smthTau = scipy.interpolate.splrep(tempTime, tempTauE, k=3, w=SplineWeight)
+        smthTau = scipy.interpolate.splrep(tempTime, tempTauE, k=3)
     #
     return smthTau
 #

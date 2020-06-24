@@ -288,8 +288,7 @@ def GetAeff(URI, antMap, band, refMJD):
     if band == 4 : band = 3
     antNum = len(antMap)
     Aeff  = np.ones([antNum, 2])
-    URI = URI + 'AeB' + `band` + '.table'
-    request =  urllib2.Request(URI)
+    request =  urllib2.Request(URI + 'AeB' + `band` + '.table')
     response = urllib2.urlopen(request)
     fileLines = response.readlines()
     lineLength = len(fileLines)
@@ -325,9 +324,13 @@ def GetDterm(URI, antMap, band, refMJD):
     Dterm  = np.zeros([antNum, 2, 4], dtype=complex)    # Dterm[ant, pol, spw]
     for ant_index in range(antNum):
         ant = antMap[ant_index]
-        URI = TBL_DIR + 'DtermB' + `band` + '.' + ant + '.table'
-        request =  urllib2.Request(URI)
-        response = urllib2.urlopen(request)
+        try:
+            request =  urllib2.Request(URI + 'DtermB' + `band` + '.' + ant + '.table')
+            response = urllib2.urlopen(request)
+        except:
+            request =  urllib2.Request(URI + 'DtermB' + `band` + '.' + ant[0:2] + '00.table')
+            response = urllib2.urlopen(request)
+        #
         fileLines = response.readlines()
         lineLength = len(fileLines)
         #---- Date
