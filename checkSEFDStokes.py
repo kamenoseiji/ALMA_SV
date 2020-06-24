@@ -34,26 +34,8 @@ for spw_index in range(spwNum):
         gainFlag[np.where(errCount > 2.5 )[0].tolist()] *= 0.0
     #
 #
-#-------- Check D-term files
-Dloaded = False
-if not 'DPATH' in locals(): DPATH = SCR_DIR
-print '---Checking D-term files in ' + DPATH
-DantList, noDlist, Dflag = [], [], np.ones([antNum])
-Dpath = DPATH + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
-for ant_index in range(antNum):
-    Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW0-' + antList[ant_index] + '.DSpec.npy'
-    if os.path.exists(Dfile): DantList += [ant_index]
-    else: noDlist += [ant_index]; Dflag[ant_index] *= 0.0
-#
-DantNum, noDantNum = len(DantList), len(noDlist)
-print 'Antennas with D-term file (%d):' % (DantNum),
-for ant_index in DantList: print '%s ' % antList[ant_index],
-print ''
-if noDantNum > 0:
-    print 'Antennas without D-term file (%d) : ' % (noDantNum),
-    for ant_index in noDlist: print '%s ' % antList[ant_index],
-    sys.exit(' Run DtermTransfer first!!')
-#
+#-------- Load D-term file
+Dcat = GetDterm(TBL_DIR, antList,int(UniqBands[band_index][3:5]), np.mean(timeStamp))
 #-------- Load Tsys table
 Tau0spec, TrxList = [], []
 for spw in spwList:
@@ -81,10 +63,8 @@ print; print 'Trx ',
 for ant_index in range(antNum): print '   %.0f' % (TrxFlag[ant_index]),
 print; print 'gain',
 for ant_index in range(antNum): print '   %.0f' % (gainFlag[ant_index]),
-print; print 'Dtrm',
-for ant_index in range(antNum): print '   %.0f' % (Dflag[ant_index]),
 print
-flagAnt = flagAnt* TrxFlag* gainFlag* Dflag
+flagAnt = flagAnt* TrxFlag* gainFlag
 UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
 if len(UseAnt) < 4: sys.exit('Too few usable antennas. Reduction failed.')
 #-------- Check Scans for atmCal
@@ -122,29 +102,6 @@ ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
 for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 AeNominal = 0.7* 0.25* np.pi* antDia**2      # Nominal Collecting Area
-#-------- Load D-term file
-DxList, DyList = [], []
-for ant_index in range(antNum):
-    Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
-    for spw_index in range(spwNum):
-        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[ant_index] + '.DSpec.npy'
-        # print 'Loading %s' % (Dfile)
-        Dterm = np.load(Dfile)
-        if Dterm.shape[1] == chNum:
-            DxList = DxList + [Dterm[1] + (0.0 + 1.0j)* Dterm[2]]
-            DyList = DyList + [Dterm[3] + (0.0 + 1.0j)* Dterm[4]]
-        else:
-            chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index]); Freq = Freq * 1.0e-9
-            chIndex = range(int(Dterm.shape[1]*0.05), int(Dterm.shape[1]*0.95))
-            DXSPL_real, DXSPL_imag = UnivariateSpline(Dterm[0,chIndex], Dterm[1,chIndex]), UnivariateSpline(Dterm[0,chIndex], Dterm[2,chIndex])
-            DYSPL_real, DYSPL_imag = UnivariateSpline(Dterm[0,chIndex], Dterm[3,chIndex]), UnivariateSpline(Dterm[0,chIndex], Dterm[4,chIndex])
-            DxList = DxList + [DXSPL_real(Freq) + (0.0 + 1.0j)* DXSPL_imag(Freq)]
-            DyList = DyList + [DYSPL_real(Freq) + (0.0 + 1.0j)* DYSPL_imag(Freq)]
-        #
-    #
-#
-DxSpec, DySpec = np.array(DxList).reshape([antNum, spwNum, chNum]), np.array(DyList).reshape([antNum, spwNum, chNum])
-Dloaded = True
 #-------- Flag table
 if 'FGprefix' in locals():
     print '---Checking Flag File'

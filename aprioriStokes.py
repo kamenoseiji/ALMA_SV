@@ -32,27 +32,8 @@ for spw_index in range(spwNum):
         gainFlag[np.where(errCount > 2.5 )[0].tolist()] *= 0.0
     #
 #
-#-------- Check D-term files
-# complex(lines[1].split()[1].translate(str.maketrans('i','j')))
-Dloaded = False
-if not 'DPATH' in locals(): DPATH = SCR_DIR
-print '---Checking D-term files in ' + DPATH
-DantList, noDlist, Dflag = [], [], np.ones([antNum])
-Dpath = DPATH + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
-for ant_index in range(antNum):
-    Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW0-' + antList[ant_index] + '.DSpec.npy'
-    if os.path.exists(Dfile): DantList += [ant_index]
-    else: noDlist += [ant_index]; Dflag[ant_index] *= 0.0
-#
-DantNum, noDantNum = len(DantList), len(noDlist)
-print 'Antennas with D-term file (%d):' % (DantNum),
-for ant_index in DantList: print '%s ' % antList[ant_index],
-print ''
-if noDantNum > 0:
-    print 'Antennas without D-term file (%d) : ' % (noDantNum),
-    for ant_index in noDlist: print '%s ' % antList[ant_index],
-    sys.exit(' Run DtermTransfer first!!')
-#
+#-------- Load D-term file
+Dcat = GetDterm(TBL_DIR, antList,int(UniqBands[band_index][3:5]), np.mean(timeStamp))
 #-------- Load Tsys table
 Tau0spec, TrxList, TrxFreqList = [], [], []
 for spw in spwList:
@@ -88,7 +69,7 @@ for spw_index in range(spwNum):
     for pol_index in range(2):
         Trx2MedianRatio = TrxMed[pol_index] / np.median(TrxMed[pol_index])
         TrxFlag[ np.where(Trx2MedianRatio < 0.1)[0].tolist() ] *= 0.0   # Flagged by negative Trx
-        TrxFlag[ np.where(Trx2MedianRatio > 2.0)[0].tolist() ] *= 0.0   # Flagged by too-high Trx 
+        TrxFlag[ np.where(Trx2MedianRatio > 4.0)[0].tolist() ] *= 0.0   # Flagged by too-high Trx 
     if np.median(Tau0spec[spw_index][chRange]) < 0.0: TrxFlag *= 0.0    # Negative Tau(zenith)
 #
 print 'Ant:',
@@ -99,10 +80,8 @@ print; print 'Trx ',
 for ant_index in range(antNum): print '   %.0f' % (TrxFlag[ant_index]),
 print; print 'gain',
 for ant_index in range(antNum): print '   %.0f' % (gainFlag[ant_index]),
-print; print 'Dtrm',
-for ant_index in range(antNum): print '   %.0f' % (Dflag[ant_index]),
 print
-flagAnt = flagAnt* TrxFlag* gainFlag* Dflag
+flagAnt = flagAnt* TrxFlag* gainFlag
 UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
 if len(UseAnt) < 4:
     sys.exit('Too few usable antennas. Reduction failed.')
@@ -128,34 +107,11 @@ blMap, blInv= range(UseBlNum), [False]* UseBlNum
 ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
 for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
-#-------- Load D-term file
-DxList, DyList = [], []
-for ant_index in range(antNum):
-    Dpath = SCR_DIR + 'DtermB' + `int(UniqBands[band_index][3:5])` + '/'
-    for spw_index in range(spwNum):
-        Dfile = Dpath + 'B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[ant_index] + '.DSpec.npy'
-        # print 'Loading %s' % (Dfile)
-        Dterm = np.load(Dfile)
-        if Dterm.shape[1] == chNum:
-            DxList = DxList + [Dterm[1] + (0.0 + 1.0j)* Dterm[2]]
-            DyList = DyList + [Dterm[3] + (0.0 + 1.0j)* Dterm[4]]
-        else:
-            chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index]); Freq = Freq * 1.0e-9
-            chIndex = range(int(Dterm.shape[1]*0.05), int(Dterm.shape[1]*0.95))
-            DXSPL_real, DXSPL_imag = UnivariateSpline(Dterm[0,chIndex], Dterm[1,chIndex]), UnivariateSpline(Dterm[0,chIndex], Dterm[2,chIndex])
-            DYSPL_real, DYSPL_imag = UnivariateSpline(Dterm[0,chIndex], Dterm[3,chIndex]), UnivariateSpline(Dterm[0,chIndex], Dterm[4,chIndex])
-            DxList = DxList + [DXSPL_real(Freq) + (0.0 + 1.0j)* DXSPL_imag(Freq)]
-            DyList = DyList + [DYSPL_real(Freq) + (0.0 + 1.0j)* DYSPL_imag(Freq)]
-        #
-    #
-#
-DxSpec, DySpec = np.array(DxList).reshape([antNum, spwNum, chNum]), np.array(DyList).reshape([antNum, spwNum, chNum])
-Dloaded = True
 if 'gainRef' in locals(): flagRef = np.zeros([UseAntNum]); refIndex = indexList(gainRef, antList[antMap]); flagRef[refIndex] = 1.0; del(gainRef)
 if 'refIndex' not in locals(): refIndex = range(UseAntNum)
 if len(refIndex) == 0: refIndex = range(UseAntNum)
 #-------- Load Aeff file
-etaA = GetAeff(antList[antMap], int(UniqBands[band_index][3:5]), np.mean(timeStamp)).T
+etaA = GetAeff(TBL_DIR, antList[antMap], int(UniqBands[band_index][3:5]), np.mean(timeStamp)).T
 Ae = 0.0025* np.pi* etaA* antDia[antMap]**2
 if BLCORR: Ae = 1.15* Ae         # BL Correlator correction factor
 #
@@ -243,6 +199,8 @@ else: flagIndex = range(timeNum)
 AzScan, ElScan = AzElMatch(timeStamp[flagIndex], azelTime, AntID, refantID, AZ, EL)
 PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PA = np.arctan2( np.sin(PA), np.cos(PA))
 GainP, XYphase, caledVis = [], [], []
+DtermDic = {'mjdSec': np.median(timeStamp)}
+StokesDic['mjdSec'] = np.median(timeStamp)
 Trx2antMap = indexList( antList[antMap], antList[TrxMap] )
 scan_index = scanList.index(BPScan)
 for spw_index in range(spwNum):
@@ -309,11 +267,11 @@ figFL = plt.figure(figsize = (11, 8))
 figFL.suptitle(prefix + ' ' + UniqBands[band_index])
 figFL.text(0.45, 0.05, 'Projected baseline [m]')
 figFL.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90)
-VisSpec = np.zeros([spwNum, 4, chNum, UseBlNum, timeSum], dtype=complex)
+AmpCalChAvg = np.zeros([spwNum, 4, UseBlNum, timeSum], dtype=complex)
 timePointer = 0
 for scan_index in range(scanNum):
     sourceName = sourceList[sourceIDscan[scan_index]]
-    scanDic[sourceName] = scanDic[sourceName] + [scan_index]
+    scanDic[sourceName] = scanDic[sourceName] + [scan_index, 1]
     if scan_index > 0:
         for PL in IList: figFL.delaxes(PL)
         for PL in PList: figFL.delaxes(PL)
@@ -403,15 +361,14 @@ for scan_index in range(scanNum):
         indivRelGain = abs(gainComplexVec(AmpCalVis.T)); indivRelGain /= np.percentile(indivRelGain, 75, axis=0)
         SEFD /= (indivRelGain**2).T
         AmpCalVis = (pCalVis[spw_index].transpose(3,0,1,2)* np.sqrt(SEFD[chRange][:,polYindex][:,:,SAant0]* SEFD[chRange][:,polXindex][:,:,SAant1])).transpose(3,2,1,0)
-        VisSpec[spw_index][:,chRange,:,timePointer:timePointer+timeNum] = AmpCalVis.transpose(1,2,0,3)
+        AmpCalChAvg[spw_index][:,:,timePointer:timePointer+timeNum] = np.mean(AmpCalVis, axis=2).transpose(1,0,2)
         text_sd = ' SPW%02d %5.1f GHz' % (spwList[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
         Stokes = np.zeros([4,SAblNum], dtype=complex)
         for bl_index in range(SAblNum):
-            Minv = InvMullerVector(DxSpec[SAant1[bl_index], spw_index][chRange], DySpec[SAant1[bl_index], spw_index][chRange], DxSpec[SAant0[bl_index], spw_index][chRange], DySpec[SAant0[bl_index], spw_index][chRange], np.ones(UseChNum))
-            Stokes[:,bl_index] = PS.reshape(4, 4*PAnum).dot(Minv.reshape(4, 4*UseChNum).dot(AmpCalVis[bl_index].reshape(4*UseChNum, PAnum)).reshape(4*PAnum)) / (PAnum* UseChNum)
+            Minv = InvMullerMatrix(Dcat[SAant1[bl_index], 0, spw_index], Dcat[SAant1[bl_index], 1, spw_index], Dcat[SAant0[bl_index], 0, spw_index], Dcat[SAant0[bl_index], 1, spw_index])
+            Stokes[:,bl_index] = PS.reshape(4, 4*PAnum).dot(Minv.dot(np.mean(AmpCalVis[bl_index], axis=1)).reshape(4*PAnum)) / PAnum
         #
         StokesVis, StokesErr = Stokes.real, Stokes.imag
-        # StokesVis[0] = 180.0* np.angle(Stokes[0]) / pi
         #-------- Visibility slope vs uvdist using Stokes I
         percent75 = np.percentile(StokesVis[0], 75); sdvis = np.std(StokesVis[0])
         visFlag = np.where(abs(StokesVis[0] - percent75) < 2.0* sdvis )[0].tolist()
@@ -457,6 +414,7 @@ for scan_index in range(scanNum):
     if spwNum > 1:
         text_sd = ' mean  %5.1f GHz' % (meanFreq); logfile.write(text_sd); print text_sd,
         pflux, pfluxerr = np.zeros(4), np.zeros(4)
+        spwStokesDic[sourceName] = []
         for pol_index in range(4):
             sol, solerr = linearRegression(relFreq, ScanFlux[scan_index, :, pol_index], ErrFlux[scan_index, :, pol_index] ); pflux[pol_index], pfluxerr[pol_index] = sol[0], solerr[0]
             text_sd = '%7.4f (%.4f) ' % (pflux[pol_index], pfluxerr[pol_index]) ; logfile.write(text_sd); print text_sd,
@@ -477,8 +435,8 @@ for scan_index in range(scanNum):
     #
     print '\n'; logfile.write('')
 #
+AmpCalChAvg = AmpCalChAvg[:,:,:,range(timeSum)]
 ingestFile.close()
-logfile.close()
 plt.close('all')
 pp.close()
 np.save(prefix + '-' + UniqBands[band_index] + '.Flux.npy', ScanFlux)
@@ -489,13 +447,17 @@ np.save(prefix + '-' + UniqBands[band_index] + '.XYC.npy', np.array(XYC).reshape
 np.save(prefix + '-' + UniqBands[band_index] + '.XYD.npy', np.array(XYD).reshape([len(XYC)/spwNum/2, spwNum, 2]))
 #---- D-term solution
 StokesI, QCpUS, UCmQS = np.zeros(timeSum), np.zeros(timeSum), np.zeros(timeSum)
-DxNew, DyNew = np.zeros([UseAntNum, spwNum, UseChNum], dtype=complex), np.zeros([UseAntNum, spwNum, UseChNum], dtype=complex)
+Dterm = np.zeros([UseAntNum, spwNum, 2], dtype=complex)
+DtermDic['Freq'] = centerFreqList
+StokesDic['Freq'] = np.mean(np.array(centerFreqList))
+for sourceName in sourceList:
+    if len(scanDic[sourceName]) == 0: del StokesDic[sourceName]
 for spw_index in range(spwNum):
-    chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index]); Freq = Freq * 1.0e-9
     for sourceName in sourceList:
-        scanList = scanDic[sourceName]
+        if len(scanDic[sourceName]) == 0: continue
+        if scanDic[sourceName][1] != 1: continue
+        chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index]); Freq = Freq * 1.0e-9
         timeIndex = timeDic[sourceName]
-        if len(scanList) < 1 : continue
         PA = np.array(PADic[sourceName]); timeNum = len(PA)
         CS, SN = np.cos(2.0* PA), np.sin(2.0* PA)
         Isol, Qsol, Usol = spwStokesDic[sourceName][spw_index], spwStokesDic[sourceName][spwNum + spw_index], spwStokesDic[sourceName][2*spwNum + spw_index]
@@ -503,19 +465,29 @@ for spw_index in range(spwNum):
         UCmQS[timeIndex] = Usol* CS - Qsol* SN
         StokesI[timeIndex] = Isol
     #
-    #print '  -- Determining D-term spectra for spw ' + `spwList[spw_index]`
-    for ch_index in range(UseChNum):
-        DxNew[:,spw_index, ch_index], DyNew[:,spw_index, ch_index] = VisMuiti_solveD(VisSpec[spw_index][:,chRange[ch_index]], QCpUS, UCmQS, [],[], StokesI)
-    #
-    DxSpec[antMap][:,:,chRange], DySpec[antMap][:,:,chRange] = DxNew, DyNew
-    #
-    for ant_index in range(UseAntNum):
-        Dfile = prefix + '-B' + `int(UniqBands[band_index][3:5])` + '-SPW' + `spw_index` + '-' + antList[antMap[ant_index]] + '.DSpec.npy'
-        Dterm = np.array([Freq, DxSpec[ant_index, spw_index].real, DxSpec[ant_index, spw_index].imag, DySpec[ant_index, spw_index].real, DySpec[ant_index, spw_index].imag])
-        np.save(Dfile, Dterm)
-    #
+    Dterm[:,spw_index, 0], Dterm[:,spw_index,1] = VisMuiti_solveD(AmpCalChAvg[spw_index], QCpUS, UCmQS, [], [], StokesI)
 #
+for ant_index in range(UseAntNum):
+    DtermDic[antList[antMap[ant_index]]] = Dterm[ant_index]
+#
+fileDic = open(prefix + '-B' + `int(UniqBands[band_index][3:5])` + '.D.dic', mode='wb'); pickle.dump(DtermDic, fileDic); fileDic.close()
+fileDic = open(prefix + '-B' + `int(UniqBands[band_index][3:5])` + '.S.dic', mode='wb'); pickle.dump(StokesDic, fileDic); fileDic.close()
+text_sd = 'D-term        '; logfile.write(text_sd); print text_sd,
+for spw_index in range(spwNum):
+    text_sd = '  SPW%02d                    ' % (spwList[spw_index]);  logfile.write(text_sd); print text_sd,
+logfile.write('\n'); print ''
+text_sd = 'Ant   '; logfile.write(text_sd); print text_sd,
+for spw_index in range(spwNum):
+    text_sd = '      Dx            Dy     ';  logfile.write(text_sd); print text_sd,
+logfile.write('\n'); print ''
+for ant_index in range(UseAntNum):
+    text_sd = '%s  ' % (antList[antMap[ant_index]]); logfile.write(text_sd); print text_sd,
+    for spw_index in range(spwNum):
+        text_sd = '%+.3f%+.3fi %+.3f%+.3fi' % (Dterm[ant_index,spw_index,0].real, Dterm[ant_index,spw_index,0].imag, Dterm[ant_index, spw_index,1].real, Dterm[ant_index, spw_index,1].imag); logfile.write(text_sd); print text_sd,
+    #
+    logfile.write('\n'); print ''
+logfile.close()
 #----
 msmd.close()
 msmd.done()
-del flagAnt, TrxFlag, gainFlag, Dflag, AntID, Xspec, tempSpec, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, TrxList, TsysSPW, azelTime, azelTime_index, chAvgVis, W, refIndex
+del flagAnt, TrxFlag, gainFlag, AntID, Xspec, tempSpec, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, TrxList, TsysSPW, azelTime, azelTime_index, chAvgVis, W, refIndex

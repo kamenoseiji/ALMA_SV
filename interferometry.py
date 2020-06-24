@@ -284,11 +284,11 @@ def GetFWHM(msfile, spw, antD ):    # antD is the antenna diameter [m]
     wavelength = constants.c / np.median(Freq)
     return 1.13* 180.0* 3600.0* wavelength / (antD* pi) # Gaussian beam, in unit of arcsec
 #
-def GetAeff(antMap, band, refMJD):
+def GetAeff(URI, antMap, band, refMJD):
     if band == 4 : band = 3
     antNum = len(antMap)
     Aeff  = np.ones([antNum, 2])
-    URI = 'http://www.alma.cl/~skameno/AMAPOLA/Table/AeB' + `band` + '.table'
+    URI = URI + 'AeB' + `band` + '.table'
     request =  urllib2.Request(URI)
     response = urllib2.urlopen(request)
     fileLines = response.readlines()
@@ -318,6 +318,39 @@ def GetAeff(antMap, band, refMJD):
             Aeff[ant_index, pol_index] = quadratic_interpol(tmpMJD, tmpAeff, refMJD)
     #
     return Aeff
+#
+def GetDterm(URI, antMap, band, refMJD):
+    if band == 4 : band = 3
+    antNum = len(antMap)
+    Dterm  = np.zeros([antNum, 2, 4], dtype=complex)    # Dterm[ant, pol, spw]
+    for ant_index in range(antNum):
+        ant = antMap[ant_index]
+        URI = TBL_DIR + 'DtermB' + `band` + '.' + ant + '.table'
+        request =  urllib2.Request(URI)
+        response = urllib2.urlopen(request)
+        fileLines = response.readlines()
+        lineLength = len(fileLines)
+        #---- Date
+        mjdSec = np.ones(lineLength - 1)
+        for line_index in range(1, lineLength): mjdSec[line_index - 1] = qa.convert(fileLines[line_index].split()[0], 's')['value']
+        refpointer = np.argmin(abs(mjdSec - refMJD))
+        if (refpointer == 0) | (refpointer == len(mjdSec) - 1) :
+            for spwpol_index in range(8):
+                pol_index = spwpol_index % 2
+                spw_index = spwpol_index // 2
+                Dterm[ant_index, pol_index, spw_index] = complex(fileLines[refpointer + 1].split()[spwpol_index + 1])
+            #
+            return Dterm
+        #
+        tmpMJD  = np.array([mjdSec[refpointer-1], mjdSec[refpointer], mjdSec[refpointer+1]])
+        for spwpol_index in range(8):
+            pol_index = spwpol_index % 2
+            spw_index = spwpol_index // 2
+            tmpD = np.array([ complex(fileLines[refpointer].replace('i', 'j').split()[spwpol_index + 1]), complex(fileLines[refpointer+1].replace('i', 'j').split()[spwpol_index + 1]), complex(fileLines[refpointer+2].replace('i', 'j').split()[spwpol_index + 1])])
+            Dterm[ant_index, pol_index, spw_index] = quadratic_interpol(tmpMJD, tmpD.real, refMJD) + (0.0 + 1.0j)*quadratic_interpol(tmpMJD, tmpD.imag, refMJD)
+        #
+    #
+    return Dterm
 #
 def GetSourceList(msfile):              # Source List
     #tb.open( msfile + '/SOURCE')
