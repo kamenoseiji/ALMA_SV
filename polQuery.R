@@ -45,18 +45,18 @@ for(sourceName in srcList){
     if(freqNum > 1){
 	    for(freq_index in 1:freqNum){
 	    	srcFreqDF <- srcDF[srcDF$Freq == freqList[freq_index],]
-	    	if(nrow(srcFreqDF) < 3){
-			    estI[freq_index] <- median(srcFreqDF$I); errI[freq_index] <- median(srcFreqDF$eI) * 10.0
-			    estQ[freq_index] <- median(srcFreqDF$Q); errQ[freq_index] <- median(srcFreqDF$eQ) * 10.0
-			    estU[freq_index] <- median(srcFreqDF$U); errU[freq_index] <- median(srcFreqDF$eU) * 10.0
-		    } else {
+	    	if(((nrow(srcFreqDF) >= 3) & (diff(range(srcFreqDF$timeDiff)) > min(srcFreqDF$timeDiff)))){
 			    fit <- lm(data=srcFreqDF, formula=I ~ timeDiff, weights=1.0 / eI^2 / abs(timeDiff + 1))
 			    estI[freq_index] <- summary(fit)$coefficients[1,'Estimate'];  errI[freq_index] <- summary(fit)$coefficients[1,'Std. Error']
 			    fit <- lm(data=srcFreqDF, formula=Q ~ timeDiff, weights=1.0 / eQ^2 / abs(timeDiff + 1))
 			    estQ[freq_index] <- summary(fit)$coefficients[1,'Estimate'];  errQ[freq_index] <- summary(fit)$coefficients[1,'Std. Error']
 			    fit <- lm(data=srcFreqDF, formula=U ~ timeDiff, weights=1.0 / eU^2 / abs(timeDiff + 1))
 			    estU[freq_index] <- summary(fit)$coefficients[1,'Estimate'];  errU[freq_index] <- summary(fit)$coefficients[1,'Std. Error']
-		    }
+		    } else {
+			    estI[freq_index] <- median(srcFreqDF$I); errI[freq_index] <- median(srcFreqDF$eI) * 10.0
+			    estQ[freq_index] <- median(srcFreqDF$Q); errQ[freq_index] <- median(srcFreqDF$eQ) * 10.0
+			    estU[freq_index] <- median(srcFreqDF$U); errU[freq_index] <- median(srcFreqDF$eU) * 10.0
+            }
 	    }
 	    lambdaSQ <- (0.299792458 / freqList)^2; lambdasqSpan <- diff(range(lambdaSQ))
 	    estP <- sqrt(estQ^2 + estU^2); errP <- 0.01*estI + sqrt(errQ^2 + errU^2); estEVPA <- 0.5*atan2(estU, estQ)
