@@ -41,6 +41,23 @@ for ant_index in range(UseAntNum):
 ##
 logfile.write('\n'); print ''
 logjy.write('\n'); logjy.close()
+#-------- SSO-specific correction
+EQflux = np.ones([2*spwNum])
+AeC    =  GetSSOAeC(TBL_DIR, int(UniqBands[band_index][3:5]))
+for spw_index in range(spwNum):
+    FLX, FLY = [], []
+    for sso_index in SSOUseList:
+        AeCorr = AeC[sourceList[SSOList[sso_index]]]
+        index = np.where(AeX[:, spw_index, sso_index] > 1.0)[0].tolist()
+        FLX = FLX + (AeSeqX[spw_index, index] / (AeX[index, spw_index, sso_index]* AeCorr)).tolist()
+        FLY = FLY + (AeSeqY[spw_index, index] / (AeY[index, spw_index, sso_index]* AeCorr)).tolist()
+    #
+    EQflux[spw_index], EQflux[spw_index + spwNum] = np.median(np.array(FLX)), np.median(np.array(FLY))
+#
+P = np.c_[ np.r_[np.log(centerFreqList),np.log(centerFreqList)], np.r_[np.ones(spwNum), np.zeros(spwNum)], np.r_[np.zeros(spwNum), np.ones(spwNum)]]
+EQmodel = scipy.linalg.solve(np.dot(P.T, P), np.dot(P.T, np.log(EQflux)))   # alpha, logSx, logSy
+EQflux = np.c_[np.exp(EQmodel[0]* np.log(centerFreqList) + EQmodel[1]), np.exp(EQmodel[0]* np.log(centerFreqList) + EQmodel[2])]
+Ae     = np.c_[AeSeqX.T / EQflux[:,0], AeSeqY.T / EQflux[:,1]].reshape(UseAntNum, ppolNum, spwNum)
 #-------- XY phase using BP scan
 interval, timeStamp = GetTimerecord(msfile, 0, 0, spwList[0], BPScan); timeNum = len(timeStamp)
 AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)

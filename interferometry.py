@@ -284,6 +284,19 @@ def GetFWHM(msfile, spw, antD ):    # antD is the antenna diameter [m]
     wavelength = constants.c / np.median(Freq)
     return 1.13* 180.0* 3600.0* wavelength / (antD* pi) # Gaussian beam, in unit of arcsec
 #
+def GetSSOAeC(URI, band):
+    if band == 4 : band = 3
+    request =  urllib2.Request(URI + 'SSO.B' + `band` + '.table')
+    response = urllib2.urlopen(request)
+    fileLines = response.readlines()
+    lineLength = len(fileLines)
+    SSOList, AeC = [], []
+    for line_index in range(lineLength):
+        SSOList = SSOList + [fileLines[line_index].split(',')[0]]
+        AeC     = AeC + [float(fileLines[line_index].split(',')[1])]
+    #
+    return dict(zip(SSOList, AeC))
+#
 def GetAeff(URI, antMap, band, refMJD):
     if band == 4 : band = 3
     antNum = len(antMap)
