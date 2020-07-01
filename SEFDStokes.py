@@ -156,6 +156,8 @@ for scan_index in range(scanNum):
     DcalFlag = (SAantNum == UseAntNum)
     if SAblNum < 6:
         text_sd = ' Only %d baselines for short enough sub-array. Skip!' % (SAblNum) ; logfile.write(text_sd + '\n'); print text_sd
+        DcalFlag = False
+        scanDic[sourceName][1] *= 0
         continue
     #
     #-------- Baseline-based cross power spectra
