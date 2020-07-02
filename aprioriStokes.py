@@ -385,6 +385,7 @@ for scan_index in range(scanNum):
             ScanFlux[scan_index, spw_index, pol_index] = solution[0]
             resid = StokesVis[pol_index] - ScanSlope[scan_index, spw_index, pol_index]* uvDist[SAblMap] - solution[0]; ErrFlux[scan_index, spw_index, pol_index] = np.sqrt(weight.dot(resid**2)/np.sum(weight))
         #
+        if ScanFlux[scan_index, spw_index, 0] < 0.3: scanDic[sourceName][1] *= 0.0      # Too weak to determine D-term
         for pol_index in range(4): text_sd = '%7.4f (%.4f) ' % (ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index]); logfile.write(text_sd); print text_sd,
         StokesI_PL.plot( uvDist[SAblMap], StokesVis[0], '.', label=polLabel[0], color=Pcolor[0])
         StokesP_PL.plot( uvDist[SAblMap], StokesVis[1], '.', label=polLabel[1], color=Pcolor[1])
