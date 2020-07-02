@@ -14,6 +14,8 @@
 #
 #  They include all of antennas (even if flagged) in MS order
 #
+if 'PLOTTAU'  not in locals(): PLOTTAU  = False
+if 'PLOTTSYS' not in locals(): PLOTTSYS = False
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Plotters.py')
 #-------- Get atmCal scans
@@ -82,21 +84,20 @@ def LogTrx(antList, spwList, freqList, scanList, timeRef, Trx, logFile):
     for scan_index in range(scanNum):
         text_sd =  'Scan %d : %s' % (scanList[scan_index], qa.time('%fs' % (timeRef[scan_index]), form='fits')[0]); logFile.write(text_sd + '\n'); print text_sd
         text_sd = 'Trx  : '
-        for spw_index in range(spwNum): text_sd = text_sd + ' SPW%02d  %6.1f GHz |' % (spwList[spw_index], freqList[spw_index])
+        for spw_index in range(spwNum): text_sd = text_sd + ' SPW%03d  %6.1f GHz |' % (spwList[spw_index], freqList[spw_index])
         logFile.write(text_sd + '\n'); print text_sd
         text_sd = ' Pol : '
-        for spw_index in range(spwNum): text_sd = text_sd + '     X        Y    |'
+        for spw_index in range(spwNum): text_sd = text_sd + '     X        Y     |'
         logFile.write(text_sd + '\n'); print text_sd
-        text_sd =  ' ----:--------------------+-------------------+-------------------+-------------------+'; logFile.write(text_sd + '\n'); print text_sd
+        text_sd =  ' ----:---------------------+--------------------+--------------------+--------------------+'; logFile.write(text_sd + '\n'); print text_sd
         for ant_index in range(antNum):
-            text_sd =  antList[ant_index] + ' : '; logFile.write(text_sd); print text_sd,
+            text_sd =  antList[ant_index] + ' : '
             for spw_index in range(spwNum):
                 for pol_index in range(2):
-                    text_sd = '%6.1f K' % (np.median(Trx[spw_index], axis=1)[pol_index, ant_index, scan_index])
-                    logFile.write(text_sd); print text_sd,
-                text_sd = '|'; logFile.write(text_sd); print text_sd,
-            logFile.write('\n'); print ' '
-        print ' '
+                    text_sd = text_sd + '%7.1f K ' % (np.median(Trx[spw_index], axis=1)[pol_index, ant_index, scan_index])
+                text_sd = text_sd + '|'
+            logFile.write(text_sd + '\n'); print text_sd
+        #
     return
 #
 #-------- Trx and Tsky
@@ -121,7 +122,6 @@ def TrxTskySpec(useAnt, tempAmb, tempHot, spwList, scanList, ambSpec, hotSpec, o
                 #
             #
         #
-        # TrxSpec = np.median(TrxSpec, axis=3).transpose(2,0,1)   # Trx[ant, pol, ch] : Trx is time independent
         chAvgTrx = np.median(TrxSpec[:, chRange], axis=(1, 3)).T    # chAvgTrx[ant, pol]
         #-------- Trx transfer to outlier antennas
         for pol_index in range(2):
@@ -129,7 +129,6 @@ def TrxTskySpec(useAnt, tempAmb, tempHot, spwList, scanList, ambSpec, hotSpec, o
             flagIndex = np.where(abs(chAvgTrx[:,pol_index] - medTrx) > 0.8* medTrx )[0].tolist()
             if len(flagIndex) > 0:
                 outLierFlag[spw_index, pol_index, flagIndex] = 1.0
-                #TrxSpec[flagIndex, pol_index] = np.median(TrxSpec[:,pol_index], axis=0)
                 for scan_index in range(scanNum):
                     TskySpec[pol_index, :, flagIndex, scan_index] = np.median(TskySpec[pol_index, :, :, scan_index], axis=1)
                 #
@@ -308,11 +307,11 @@ for band_index in range(NumBands):
     for spw_index in range(spwNum):
         chNum, chWid, freq = GetChNum(msfile, atmspwLists[band_index][spw_index]); freqList = freqList + [freq*1.0e-9]; SPWfreqList = SPWfreqList + [np.median(freq)*1.0e-9]
     #
+    #-------- Log Tau0 (mean opacity at zenith)
     LogTrx(antList[useAnt], atmspwLists[band_index], SPWfreqList, scanList, atmTimeRef, TrxList, tsysLog)
-    for spw_index in range(spwNum):
-        text_sd = 'SPW=%d : Tau(zenith) = %6.4f' % (atmspwLists[band_index][spw_index], np.median(Tau0[spw_index]))
-        tsysLog.write(text_sd + '\n'); print text_sd
-    #
+    text_sd = 'Tau0 :  '
+    for spw_index in range(spwNum): text_sd = text_sd + '        %8.6f   | ' % (np.median(Tau0[spw_index]))
+    tsysLog.write(text_sd + '\n'); print text_sd
     tsysLog.close()
     #-------- Save to npy files
     np.save(prefix +  '-' + UniqBands[band_index] + '.TrxAnt.npy', antList[useAnt])     # antList[ant]

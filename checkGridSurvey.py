@@ -13,14 +13,10 @@ antList = GetAntName(msfile)
 antNum = len(antList)
 blNum = antNum* (antNum - 1) / 2
 #-------- Check SPWs of atmCal
-#print '---Checking spectral windows with atmCal for ' + prefix
-#atmSPWs = GetAtmSPWs(msfile)
-#bpSPWs  = GetBPcalSPWs(msfile)
 bpspwLists, bpscanLists, BandPA = [], [], []
 msmd.open(msfile)
 for band_index in range(NumBands):
     bpspwLists  = bpspwLists  + [np.array(atmSPWs)[indexList( np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()]
-    #bpspwLists  = bpspwLists  + [np.array(atmspwLists[band_index])[indexList( np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()]
     if 'spwFlag' in locals():
         flagIndex = indexList(np.array(spwFlag), np.array(bpspwLists[band_index]))
         for index in flagIndex: del bpspwLists[band_index][index]

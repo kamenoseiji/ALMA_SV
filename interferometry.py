@@ -320,7 +320,7 @@ def GetAeff(URI, antMap, band, refMJD):
                 Aeff[ant_index, pol_index] = float(fileLines[refpointer + 3].split()[pointer])
         return Aeff
     #
-    tmpMJD  = np.array([mjdSec[refpointer+2], mjdSec[refpointer+3], mjdSec[refpointer+4]])
+    tmpMJD  = np.array([mjdSec[refpointer-1], mjdSec[refpointer], mjdSec[refpointer+1]])
     for ant_index in range(antNum):
         ant = antMap[ant_index]
         for pol_index in range(2):
