@@ -345,18 +345,26 @@ fileDic = open(prefix + '-B' + `int(UniqBands[band_index][3:5])` + '.D.dic', mod
 fileDic = open(prefix + '-B' + `int(UniqBands[band_index][3:5])` + '.S.dic', mode='wb'); pickle.dump(StokesDic, fileDic); fileDic.close()
 text_sd = 'D-term        '; logfile.write(text_sd); print text_sd,
 for spw_index in range(spwNum):
-    text_sd = '  SPW%02d                    ' % (spwList[spw_index]);  logfile.write(text_sd); print text_sd,
+    text_sd = '    SPW%02d                    ' % (spwList[spw_index]);  logfile.write(text_sd); print text_sd,
 logfile.write('\n'); print ''
-text_sd = 'Ant   '; logfile.write(text_sd); print text_sd,
+text_sd = 'Ant  '; logfile.write(text_sd); print text_sd,
 for spw_index in range(spwNum):
-    text_sd = '      Dx            Dy     ';  logfile.write(text_sd); print text_sd,
+    text_sd = '       Dx             Dy     ';  logfile.write(text_sd); print text_sd,
 logfile.write('\n'); print ''
 for ant_index in range(UseAntNum):
-    text_sd = '%s  ' % (antList[antMap[ant_index]]); logfile.write(text_sd); print text_sd,
+    text_sd = '%s  ' % (antList[antMap[ant_index]])
+    text_fd = text_sd
     for spw_index in range(spwNum):
-        text_sd = '%+.3f%+.3fi %+.3f%+.3fi' % (Dterm[ant_index,spw_index,0].real, Dterm[ant_index,spw_index,0].imag, Dterm[ant_index, spw_index,1].real, Dterm[ant_index, spw_index,1].imag); logfile.write(text_sd); print text_sd,
+        for pol_index in range(2):
+            if abs(Dterm[ant_index,spw_index,pol_index]) > 0.1:
+                text_sd = text_sd + '\033[91m %+.3f%+.3fi \033[0m' % (Dterm[ant_index,spw_index,pol_index].real, Dterm[ant_index,spw_index,pol_index].imag)
+            else:
+                text_sd = text_sd + ' %+.3f%+.3fi ' % (Dterm[ant_index,spw_index,pol_index].real, Dterm[ant_index,spw_index,pol_index].imag)
+            #
+            text_fd = text_fd + ' %+.3f%+.3fi ' % (Dterm[ant_index,spw_index,pol_index].real, Dterm[ant_index,spw_index,pol_index].imag)
+        #
     #
-    logfile.write('\n'); print ''
+    logfile.write(text_fd + '\n'); print text_sd
 #----
 logfile.close()
 msmd.close()

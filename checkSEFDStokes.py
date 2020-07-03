@@ -78,18 +78,6 @@ msmd.close()
 msmd.done()
 #-------- Array Configuration
 print '---Determining refant'
-#flagList = np.where(np.median(chAvgTrx.reshape(UseAntNum, 2* spwNum), axis=1) > 2.0* np.percentile(chAvgTrx, 75))[0].tolist()  # Avoid too-high Trx
-#flagList = unique(flagList + np.where(np.min(chAvgTrx.reshape(UseAntNum, 2* spwNum), axis=1) < 1.0 )[0].tolist()).tolist()     # Avoid too-low Trx
-#if len(flagList) >0 :
-#    for index in flagList: del UseAnt[index]
-#
-#text_sd = '  Usable antennas: '
-#for ants in antList[UseAnt].tolist(): text_sd = text_sd + ants + ' '
-#logfile.write(text_sd + '\n'); print text_sd
-#text_sd = '  Flagged by Trx:  '
-#for ants in antList[flagList].tolist(): text_sd = text_sd + ants + ' '
-#logfile.write(text_sd + '\n'); print text_sd
-#for bl_index in range(UseBlNum): blMap[bl_index] = Ant2Bl(UseAnt[ant0[bl_index]], UseAnt[ant1[bl_index]])
 msmd.open(msfile)
 timeStamp, UVW = GetUVW(msfile, spwList[0], msmd.scansforspw(spwList[0])[0])
 uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)

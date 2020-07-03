@@ -68,7 +68,4 @@ for ssoIndex in range(SSONum):
     #
 #
 SSOmodelVis = np.array(SSOmodelVis).reshape(SSONum, spwNum, blNum)
-#FCSmodelVis = SSOmodelVis[FCS_ID]
-#FCSFlag     = uvFlag[FCS_ID]
-#
 msmd.done()
