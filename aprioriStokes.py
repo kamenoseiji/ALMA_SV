@@ -270,13 +270,14 @@ figFL.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90)
 AmpCalChAvg = np.zeros([spwNum, 4, UseBlNum, timeSum], dtype=complex)
 timePointer = 0
 for scan_index in range(scanNum):
+    DcalFlag = True
     sourceName = sourceList[sourceIDscan[scan_index]]
     scanDic[sourceName] = scanDic[sourceName] + [scan_index, 1]
     if scan_index > 0:
         for PL in IList: figFL.delaxes(PL)
         for PL in PList: figFL.delaxes(PL)
     SSO_flag = False
-    if sourceName in SSOCatalog: SSO_flag = True
+    if sourceName in SSOCatalog: SSO_flag = True; scanDic[sourceName][1] *= 0; DcalFlag = False
     #-------- UV distance
     timeStamp, UVW = GetUVW(msfile, spwList[0], scanList[scan_index]);  timeNum = len(timeStamp)
     scanTime = scanTime + [np.median(timeStamp)]
@@ -361,7 +362,10 @@ for scan_index in range(scanNum):
         indivRelGain = abs(gainComplexVec(AmpCalVis.T)); indivRelGain /= np.percentile(indivRelGain, 75, axis=0)
         SEFD /= (indivRelGain**2).T
         AmpCalVis = (pCalVis[spw_index].transpose(3,0,1,2)* np.sqrt(SEFD[chRange][:,polYindex][:,:,SAant0]* SEFD[chRange][:,polXindex][:,:,SAant1])).transpose(3,2,1,0)
-        AmpCalChAvg[spw_index][:,:,timePointer:timePointer+timeNum] = np.mean(AmpCalVis, axis=2).transpose(1,0,2)
+        if DcalFlag :
+            AmpCalChAvg[spw_index][:,:,timePointer:timePointer+timeNum] = np.mean(AmpCalVis, axis=2).transpose(1,0,2)
+        else:
+            scanDic[sourceName][1] *= 0
         text_sd = ' SPW%02d %5.1f GHz' % (spwList[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
         Stokes = np.zeros([4,SAblNum], dtype=complex)
         for bl_index in range(SAblNum):
@@ -429,10 +433,14 @@ for scan_index in range(scanNum):
         #text_sd = '%10s, NE, NE, NE, NE, %.2fE+09, %6.3f, %5.3f, %6.3f, %5.3f, %6.2f, %6.2f, %6.2f, %6.2f, %s, %s\n' % (sourceName, meanFreq, pflux[0], pfluxerr[0], np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi, np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/np.sqrt(pflux[1]**2 + pflux[2]**2)*90.0/pi, uvMin/waveLength, uvMax/waveLength, timeLabel.replace('/','-'), '-')
         ingestFile.write(text_sd)
     #
-    timePointer += timeNum
     if COMPDB: 
         print ' -------- Comparison with ALMA Calibrator Catalog --------'
         au.searchFlux(sourcename='%s' % (sourceName), band=int(UniqBands[band_index][3:5]), date=timeText[0:10], maxrows=3)
+    #
+    if DcalFlag :
+        timePointer += timeNum
+    else:
+        timeSum -= timeNum
     #
     print '\n'; logfile.write('')
 #

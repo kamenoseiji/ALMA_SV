@@ -114,6 +114,7 @@ figFL.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90)
 AmpCalChAvg = np.zeros([spwNum, 4, UseBlNum, timeSum], dtype=complex)
 timePointer = 0
 for scan_index in range(scanNum):
+    DcalFlag = True
     sourceName = sourceList[sourceIDscan[scan_index]]
     scanDic[sourceName] = scanDic[sourceName] + [scan_index, 1]
     if scan_index > 0:
@@ -149,15 +150,14 @@ for scan_index in range(scanNum):
         SAantMap, SAblMap, SAblInv = subArrayIndex(uvFlag[SSO_ID], refantID) # antList[SAantMap] lists usable antennas
         SAblIndex = indexList(np.array(SAblMap), np.array(blMap))
         SAant0, SAant1 = np.array(ant0)[SAblIndex].tolist(), np.array(ant1)[SAblIndex].tolist()
+        scanDic[sourceName][1] *= 0
+        DcalFlag = False
     #
     bpAntMap = indexList(antList[SAantMap],antList[antMap])
     Trx2antMap = indexList( antList[SAantMap], antList[TrxMap] )
     SAantNum = len(SAantMap); SAblNum = len(SAblMap)
-    DcalFlag = (SAantNum == UseAntNum)
     if SAblNum < 6:
         text_sd = ' Only %d baselines for short enough sub-array. Skip!' % (SAblNum) ; logfile.write(text_sd + '\n'); print text_sd
-        DcalFlag = False
-        scanDic[sourceName][1] *= 0
         continue
     #
     #-------- Baseline-based cross power spectra
@@ -248,7 +248,6 @@ for scan_index in range(scanNum):
         if(SSO_flag):
             text_sd = '| %6.3f ' % (SSOflux0[SSO_ID, spw_index]); logfile.write(text_sd); print text_sd,
             logfile.write('\n'); print ''
-            if abs(ScanFlux[scan_index, spw_index, 0] - SSOflux0[SSO_ID, spw_index]) > 0.15*SSOflux0[SSO_ID, spw_index]: DcalFlag = False
         else: 
             text_sd = '%6.3f   %6.1f ' % (100.0* np.sqrt(ScanFlux[scan_index, spw_index, 1]**2 + ScanFlux[scan_index, spw_index, 2]**2)/ScanFlux[scan_index, spw_index, 0], np.arctan2(ScanFlux[scan_index, spw_index, 2],ScanFlux[scan_index, spw_index, 1])*90.0/pi); logfile.write(text_sd); print text_sd,
             logfile.write('\n'); print ''
