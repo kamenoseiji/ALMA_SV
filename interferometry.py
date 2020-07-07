@@ -354,7 +354,7 @@ def GetDterm(URI, antMap, band, refMJD):
             for spwpol_index in range(8):
                 pol_index = spwpol_index % 2
                 spw_index = spwpol_index // 2
-                Dterm[ant_index, pol_index, spw_index] = complex(fileLines[refpointer + 1].split()[spwpol_index + 1])
+                Dterm[ant_index, pol_index, spw_index] = complex(fileLines[refpointer + 1].split()[spwpol_index + 1].replace('i','j'))
             #
             return Dterm
         #

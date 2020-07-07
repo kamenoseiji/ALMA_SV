@@ -38,6 +38,7 @@ if 'BPprefix' in locals():
 #
 #-------- Loop for Scan
 GainAP0, GainAP1, timeList, SNRList, flagList, fieldList = [], [], [], [], [], []
+scan_index = 0
 for scan in scanList:
     field_names = msmd.fieldsforscan(scan, True); fieldList = fieldList + [field_names[0]]
     print 'Loading Visibilities: Scan ' + `scan` + ' : ' + field_names[0]
@@ -78,6 +79,7 @@ for scan in scanList:
         flagList = flagList + [gainFlag]
     #
     timeList.extend(timeStamp.tolist())
+    scan_index += 1
 #
 msmd.done(); msmd.close()
 timeNum = len(timeList)
