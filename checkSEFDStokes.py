@@ -81,10 +81,10 @@ print '---Determining refant'
 msmd.open(msfile)
 timeStamp, UVW = GetUVW(msfile, spwList[0], msmd.scansforspw(spwList[0])[0])
 uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
-refantID = bestRefant(uvDist, UseAnt)
+refantID = UseAnt[bestRefant(uvDist, UseAnt)]
 print '  Use ' + antList[refantID] + ' as the refant.'
 #
-antMap = [UseAnt[refantID]] + list(set(UseAnt) - set([UseAnt[refantID]]))
+antMap = [refantID] + list(set(UseAnt) - set([refantID]))
 blMap, blInv= range(UseBlNum), [False]* UseBlNum
 ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
 for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
@@ -194,7 +194,7 @@ for sso_index in range(SSONum):
     scan_index = indexList(np.array(SSOscanID), np.array(onsourceScans))[sso_index]
     interval, timeStamp = GetTimerecord(msfile, 0, 0, spwList[0], SSOscanID[sso_index]); timeNum = len(timeStamp)
     AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
-    if np.max(ElScan) < 35.0/180.0*pi : continue    # Too low Elevation
+    if (not BLCORR) and np.max(ElScan) < 35.0/180.0*pi : continue    # Too low Elevation
     SAantMap, SAblMap, SAblInv = subArrayIndex(uvFlag[sso_index], refantID) # in Canonical ordering
     if len(SAantMap) < 4: continue #  Too few antennas
     print 'Subarray : ',; print antList[SAantMap]
@@ -225,12 +225,12 @@ for sso_index in range(SSONum):
         index = np.where(AeX[:, spw_index, sso_index] > 1.0)[0].tolist()
         if len(index) < 4: SSO_flag[sso_index] = 0.0; continue
         FLX_stat, FLY_stat = AeX[index, spw_index, sso_index]/AeNominal[np.array(antMap)[index].tolist()], AeY[index, spw_index, sso_index]/AeNominal[np.array(antMap)[index].tolist()]
-        if np.median(FLX_stat) < 0.4: SSO_flag[sso_index] = 0.0 
-        if np.median(FLY_stat) < 0.4: SSO_flag[sso_index] = 0.0 
-        if np.median(FLX_stat) > 2.0: SSO_flag[sso_index] = 0.0 
-        if np.median(FLY_stat) > 2.0: SSO_flag[sso_index] = 0.0 
-        if np.percentile(FLX_stat, 75) / np.median(FLX_stat) > 1.5: SSO_flag[sso_index] = 0.0
-        if np.percentile(FLY_stat, 75) / np.median(FLY_stat) > 1.5: SSO_flag[sso_index] = 0.0
+        if np.median(FLX_stat) < 0.4: SSO_flag[sso_index] = 0.0 ; print 'FLX < 0.4'
+        if np.median(FLY_stat) < 0.4: SSO_flag[sso_index] = 0.0 ; print 'FLY < 0.4'
+        if np.median(FLX_stat) > 2.0: SSO_flag[sso_index] = 0.0 ; print 'FLX > 2.0'
+        if np.median(FLY_stat) > 2.0: SSO_flag[sso_index] = 0.0 ; print 'FLY < 2.0'
+        if np.percentile(FLX_stat, 75) / np.median(FLX_stat) > 1.5: SSO_flag[sso_index] = 0.0   ; print 'FLX 75%-percentile / median > 1.5'
+        if np.percentile(FLY_stat, 75) / np.median(FLY_stat) > 1.5: SSO_flag[sso_index] = 0.0   ; print 'FLY 75%-percentile / median > 1.5'
     #
     try:
         if SSO_flag[sso_index] == 0.0: raise END
