@@ -262,7 +262,10 @@ if len(timeAMB) == 0:
         hot_index, amb_index = np.where(onPower >  np.median(onPower))[0].tolist(), np.where(onPower <  np.median(onPower))[0].tolist()
         hotStart = [hot_index[0]] + np.array(hot_index)[np.where(np.diff(onTime[hot_index]) > 60.0)[0] + 1].tolist()
         ambStart = [amb_index[0]] + np.array(amb_index)[np.where(np.diff(onTime[amb_index]) > 60.0)[0] + 1].tolist()
-        hotTimeIndex, ambTimeIndex = np.array(onTimeIndex)[list(set(hot_index) - set(hotStart))], np.array(onTimeIndex)[list(set(amb_index) - set(ambStart))]
+        if len(hot_index) > len(hotStart):
+            hotTimeIndex, ambTimeIndex = np.array(onTimeIndex)[list(set(hot_index) - set(hotStart))], np.array(onTimeIndex)[list(set(amb_index) - set(ambStart))]
+        else:
+            hotTimeIndex, ambTimeIndex = np.array(onTimeIndex)[hot_index], np.array(onTimeIndex)[amb_index]
         timeAMB = np.append(timeAMB, timeXY[ambTimeIndex])
         timeHOT = np.append(timeHOT, timeXY[hotTimeIndex])
 #
@@ -284,6 +287,7 @@ for ant_index in range(useAntNum):
 for band_index in range(NumBands):
     tsysLog = open(prefix + '-' + UniqBands[band_index] + '-Tsys.log', 'w')
     #-------- Trx
+    print atmscanLists[band_index]
     atmTimeRef, offSpec, ambSpec, hotSpec, scanList = scanAtmSpec(msfile, useAnt, atmscanLists[band_index], atmspwLists[band_index], timeOFF, timeON, timeAMB, timeHOT)
     atmscanLists[band_index] = scanList
     atmscanNum, spwNum = len(atmscanLists[band_index]), len(atmspwLists[band_index])
