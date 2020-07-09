@@ -5,7 +5,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 import datetime
 #-------- Load tables
 DT = []
-timeStamp, XYC, XYV, XYPH, AZEL = np.load(timeFile), np.load(xycFile), np.load(xyvFile), np.load(xypFile), np.load(azelFile)
+timeStamp, XYC, XYV, XYPH, AZEL = np.load(wd + timeFile), np.load(wd + xycFile), np.load(wd + xyvFile), np.load(wd + xypFile), np.load(wd + azelFile)
 for mjdSec in timeStamp.tolist(): DT.append(datetime.datetime.strptime(qa.time('%fs' % (mjdSec), form='fits', prec=9)[0], '%Y-%m-%dT%H:%M:%S.%f'))
 DT = np.array(DT)
 PA = np.angle(np.exp((0.0 + 1.0j)* AZEL[3]))
