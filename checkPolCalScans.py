@@ -85,7 +85,7 @@ for band_index in range(NumBands):
         OnAZ.append(np.median(AzScan)); OnEL.append(np.median(ElScan)); OnPA.append(np.median(PA))
         refTime = refTime + [np.median(timeStamp)]
         sourceName = sourceList[sourceIDscan[scan_index]]
-        if catalogIQUV[0] > 0.1:
+        if len(StokesDic[sourceName]) == 4:
             CS, SN = np.cos(2.0* OnPA[scan_index]), np.sin(2.0* OnPA[scan_index])
             QCpUS = StokesDic[sourceName][1]*CS + StokesDic[sourceName][2]*SN   # Qcos + Usin
             UCmQS = StokesDic[sourceName][2]*CS - StokesDic[sourceName][1]*SN   # Ucos - Qsin
