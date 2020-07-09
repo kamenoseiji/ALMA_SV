@@ -64,6 +64,8 @@ sourceDic = {
 
 def sourceRename(sourceList):
     renameList = []
-    for srcname in sourceList: renameList = renameList + [sourceDic.get(srcname, srcname)]
+    for srcname in sourceList:
+        srcname = srcname.replace('*','')
+        renameList = renameList + [sourceDic.get(srcname, srcname)]
     return renameList
 #
