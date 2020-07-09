@@ -227,12 +227,14 @@ print '---Checking spectral windows and scans with atmCal for ' + prefix
 if 'atmSPWs' not in locals():
     #atmSPWs = GetAtmSPWs(msfile)
     atmSPWs = list( set(GetBPcalSPWs(msfile)) & set(GetAtmSPWs(msfile)) ); atmSPWs.sort()
-atmBandNames = GetBandNames(msfile, atmSPWs); UniqBands = unique(atmBandNames).tolist(); NumBands = len(UniqBands)
+atmBandNames = GetBandNames(msfile, atmSPWs); UniqBands = unique(atmBandNames).tolist()
+if UniqBands == []: UniqBands = BandList
+NumBands = len(UniqBands)
 msmd.open(msfile)
 atmspwLists, atmscanLists = [], []
 for band_index in range(NumBands):
     bandAtmSPWs = np.array(atmSPWs)[indexList(np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()
-    #bandAtmSPWs = np.array(atmSPWs)
+    if atmBandNames == []: bandAtmSPWs = np.array(atmSPWs)
     atmspwLists = atmspwLists + [bandAtmSPWs]
     if 'spwFlag' in locals():
         flagIndex = indexList(np.array(spwFlag), np.array(atmspwLists[band_index]))

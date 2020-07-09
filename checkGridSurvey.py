@@ -1,10 +1,28 @@
 import sys
 import pickle
 import analysisUtils as au
+import xml.etree.ElementTree as ET
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Grid.py')
 msfile = wd + prefix + '.ms'
 #
+#-------- Check Correlator Type
+BLCORR = True
+tree = ET.parse(prefix + '/CorrelatorMode.xml')
+root = tree.getroot()
+correlatorName = root.find("row").find("correlatorName").text
+if 'ACA' in correlatorName: BLCORR = False
+#-------- Check Receivers
+tree = ET.parse(prefix + '/Receiver.xml')
+root = tree.getroot()
+rowList = root.findall(".//row[frequencyBand]")
+BandLists, BandList = [], []
+for row in rowList:
+    BandName = row.find("frequencyBand").text
+    if 'ALMA' in BandName: BandLists = BandLists + [BandName.replace('ALMA_', '')]
+#
+BandList = unique(BandLists).tolist()
+#-------- Tsys measurement
 execfile(SCR_DIR + 'TsysCal.py')
 class END(Exception):
     pass
@@ -16,7 +34,10 @@ blNum = antNum* (antNum - 1) / 2
 bpspwLists, bpscanLists, BandPA = [], [], []
 msmd.open(msfile)
 for band_index in range(NumBands):
-    bpspwLists  = bpspwLists  + [np.array(atmSPWs)[indexList( np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()]
+    if atmBandNames == []:
+        bpspwLists = bpspwLists + [np.array(atmSPWs)]
+    else:
+        bpspwLists  = bpspwLists  + [np.array(atmSPWs)[indexList( np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()]
     if 'spwFlag' in locals():
         flagIndex = indexList(np.array(spwFlag), np.array(bpspwLists[band_index]))
         for index in flagIndex: del bpspwLists[band_index][index]
