@@ -161,6 +161,7 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
     Tau0List, TantNList = [], []
     scanNum, useAntNum, spwNum = len(secZ), len(useAnt), len(spwList)
     Tau0Excess = np.zeros([spwNum, scanNum])
+    scanWeight = np.mean(scanFlag, axis=0)
     if (np.max(secZ) - np.min(secZ)) < 0.5:
         for spw_index in range(spwNum):
             chNum = TskyList[spw_index].shape[0]
