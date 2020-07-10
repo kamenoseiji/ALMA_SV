@@ -104,7 +104,7 @@ def LogTrx(antList, spwList, freqList, scanList, timeRef, Trx, logFile):
 def TrxTskySpec(useAnt, tempAmb, tempHot, spwList, scanList, ambSpec, hotSpec, offSpec):
     TrxList, TskyList = [], []
     useAntNum, spwNum, scanNum =  len(useAnt), len(spwList), len(scanList)
-    outLierFlag = np.zeros([spwNum, 2, useAntNum]) 
+    outLierFlag, scanFlag = np.ones([spwNum, 2, useAntNum]), np.ones([useAntNum, scanNum]) 
     for spw_index in range(len(spwList)):
         chNum = ambSpec[spw_index* scanNum].shape[1]
         chRange = range(int(0.02*chNum), int(0.99*chNum)); chOut = sort(list(set(range(chNum)) - set(chRange))).tolist()
@@ -116,6 +116,7 @@ def TrxTskySpec(useAnt, tempAmb, tempHot, spwList, scanList, ambSpec, hotSpec, o
                     index = (ant_index* spwNum + spw_index)* scanNum + scan_index
                     Psamb, Pshot, Psoff = ambSpec[index][pol_index], hotSpec[index][pol_index], offSpec[index][pol_index]
                     TrxSpec[pol_index, :, ant_index, scan_index] = (tempHot[ant_index]* Psamb - Pshot* tempAmb[ant_index]) / (Pshot - Psamb)
+                    if np.mean(TrxSpec, axis=(0,1))[ant_index, scan_index] < 10.0:  scanFlag[ant_index, scan_index] = 0.0
                     TskySpec[pol_index, :, ant_index, scan_index] = (Psoff* (tempHot[ant_index] - tempAmb[ant_index]) + tempAmb[ant_index]* Pshot - tempHot[ant_index]* Psamb) / (Pshot - Psamb)
                     TrxSpec[pol_index, chOut, ant_index, scan_index] = np.median(TrxSpec[pol_index, chRange, ant_index, scan_index])       # extraporate band-edge
                     TskySpec[pol_index, chOut, ant_index, scan_index] = np.median(TskySpec[pol_index, chRange, ant_index, scan_index])     # extraporate band-edge
@@ -126,9 +127,9 @@ def TrxTskySpec(useAnt, tempAmb, tempHot, spwList, scanList, ambSpec, hotSpec, o
         #-------- Trx transfer to outlier antennas
         for pol_index in range(2):
             medTrx = np.median(chAvgTrx[:,pol_index])
-            flagIndex = np.where(abs(chAvgTrx[:,pol_index] - medTrx) > 0.8* medTrx )[0].tolist()
+            flagIndex = np.where( (abs(chAvgTrx[:,pol_index] - medTrx) > 0.8* medTrx) )[0].tolist()
             if len(flagIndex) > 0:
-                outLierFlag[spw_index, pol_index, flagIndex] = 1.0
+                outLierFlag[spw_index, pol_index, flagIndex] = 0.0
                 for scan_index in range(scanNum):
                     TskySpec[pol_index, :, flagIndex, scan_index] = np.median(TskySpec[pol_index, :, :, scan_index], axis=1)
                 #
@@ -137,7 +138,7 @@ def TrxTskySpec(useAnt, tempAmb, tempHot, spwList, scanList, ambSpec, hotSpec, o
         TrxList = TrxList + [TrxSpec]
         TskyList = TskyList + [np.mean(TskySpec, axis=0)]
     #
-    return  TrxList, TskyList, outLierFlag
+    return  TrxList, TskyList, scanFlag, outLierFlag
 #
 #-------- Smooth time-variable Tau
 def tauSMTH( timeSample, TauE ):
@@ -156,7 +157,7 @@ def tauSMTH( timeSample, TauE ):
     return smthTau
 #
 #-------- Zenith opacity fitting
-def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList):
+def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
     Tau0List, TantNList = [], []
     scanNum, useAntNum, spwNum = len(secZ), len(useAnt), len(spwList)
     Tau0Excess = np.zeros([spwNum, scanNum])
@@ -168,11 +169,11 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList):
             for ch_index in range(chNum):
                 param = [0.05]
                 #-------- Fit for Tau0 (fixed TantN)
-                fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, np.nanmedian(TskyList[spw_index][ch_index], axis=0), np.ones(scanNum)))
+                fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, np.nanmedian(TskyList[spw_index][ch_index][:,unFlag], axis=0), scanWeight))
                 Tau0Med[ch_index]  = fit[0][0]
             #
             Tau0List  = Tau0List  + [Tau0Med]
-            Tau0Excess[spw_index] = residTskyTransfer0([np.median(Tau0Med)], tempAtm, secZ, np.median(TskyList[spw_index], axis=(0,1)), np.ones(scanNum) ) / (tempAtm - Tcmb)* np.exp(-np.median(Tau0Med)* secZ) / secZ
+            Tau0Excess[spw_index] = residTskyTransfer0([np.median(Tau0Med)], tempAtm, secZ, np.median(TskyList[spw_index], axis=(0,1)), scanWeight ) / (tempAtm - Tcmb)* np.exp(-np.median(Tau0Med)* secZ) / secZ
         #
         return Tau0List, Tau0Excess, TantNList
     #
@@ -183,7 +184,7 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList):
         for ant_index in range(useAntNum):
             for ch_index in range(chNum):
                 #-------- Fit for Tau0 (without TantN)
-                fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, TskyList[spw_index][ch_index, ant_index], np.ones(scanNum)))
+                fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, TskyList[spw_index][ch_index, ant_index], scanWeight))
                 Tau0[ant_index, ch_index]  = fit[0][0]
             #
         #
@@ -192,7 +193,7 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList):
         for ant_index in range(useAntNum):
             for ch_index in range(chNum):
                 #-------- Fit for TantN (fixed Tau0)
-                fit = scipy.optimize.leastsq(residTskyTransfer2, param, args=(tempAtm, Tau0Med[ch_index], secZ, TskyList[spw_index][ch_index, ant_index], np.ones(scanNum)))
+                fit = scipy.optimize.leastsq(residTskyTransfer2, param, args=(tempAtm, Tau0Med[ch_index], secZ, TskyList[spw_index][ch_index, ant_index], scanWeight))
                 TantN[ant_index, ch_index]  = fit[0][0]
             #
         #
@@ -200,10 +201,10 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList):
         for ch_index in range(chNum):
             param = [Tau0Med[ch_index]]
             #-------- Fit for Tau0 (fixed TantN)
-            fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, TskyResid[:,ch_index], np.ones(scanNum)))
+            fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, TskyResid[:,ch_index], scanWeight))
             Tau0Med[ch_index]  = fit[0][0]
         #
-        Tau0Excess[spw_index] = residTskyTransfer0([np.median(Tau0Med)], tempAtm, secZ, np.median(TskyResid, axis=1), np.ones(scanNum) ) / (tempAtm - Tcmb)* np.exp(-np.median(Tau0Med)* secZ) / secZ
+        Tau0Excess[spw_index] = residTskyTransfer0([np.median(Tau0Med)], tempAtm, secZ, np.median(TskyResid, axis=1), scanWeight ) / (tempAtm - Tcmb)* np.exp(-np.median(Tau0Med)* secZ) / secZ
         Tau0List  = Tau0List  + [Tau0Med]
         TantNList = TantNList + [TantN]
         #
@@ -293,7 +294,7 @@ for band_index in range(NumBands):
     atmTimeRef, offSpec, ambSpec, hotSpec, scanList = scanAtmSpec(msfile, useAnt, atmscanLists[band_index], atmspwLists[band_index], timeOFF, timeON, timeAMB, timeHOT)
     atmscanLists[band_index] = scanList
     atmscanNum, spwNum = len(atmscanLists[band_index]), len(atmspwLists[band_index])
-    TrxList, TskyList, outLierFlag = TrxTskySpec(useAnt, tempAmb, tempHot, atmspwLists[band_index], atmscanLists[band_index], ambSpec, hotSpec, offSpec)
+    TrxList, TskyList, scanFlag, outLierFlag = TrxTskySpec(useAnt, tempAmb, tempHot, atmspwLists[band_index], atmscanLists[band_index], ambSpec, hotSpec, offSpec)
     for spw_index in range(spwNum):
         np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.Trx.npy', TrxList[spw_index])    # TxList[spw][pol,ch,ant,scan]
     #-------- Az and El position at atmCal and onsource scans
@@ -305,9 +306,15 @@ for band_index in range(NumBands):
     #
     atmsecZ  = 1.0 / np.sin( np.median(AtmEL, axis=0) )
     #-------- Tsky and TantN
-    Tau0, Tau0Excess, TantN = tau0SpecFit(tempAtm - 5.0, atmsecZ, useAnt, atmspwLists[band_index], TskyList)
+    Tau0, Tau0Excess, TantN = tau0SpecFit(tempAtm - 5.0, atmsecZ, useAnt, atmspwLists[band_index], TskyList, scanFlag)
     for spw_index in range(spwNum):
         TrxList[spw_index] = (TrxList[spw_index].transpose(0,3,2,1) + TantN[spw_index]).transpose(0,3,2,1)
+        for ant_index in range(useAntNum):
+            flagList = np.where(scanFlag[ant_index] < 1.0)[0].tolist()
+            unFlagList = np.where(scanFlag[ant_index] == 1.0)[0].tolist()
+            for flag_index in flagList:
+                TrxList[spw_index][:,:,ant_index, flag_index] = np.median( TrxList[spw_index][:,:,ant_index, unFlagList], axis=2 )
+        #
     #
     SPWfreqList, freqList = [], []
     for spw_index in range(spwNum):

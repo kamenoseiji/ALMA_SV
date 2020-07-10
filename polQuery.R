@@ -36,8 +36,11 @@ for(sourceName in srcList){
 	if(nrow(srcDF) < 6){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
 	if(min(abs(srcDF$timeDiff)) > timeWindow){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
 	freqList <- as.numeric(unique(srcDF$Freq))
-	freqNum <- length(freqList)
-	if(freqNum < 3){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
+    freqNum <- 0
+    for( freq in freqList ){
+        if( nrow(srcDF[srcDF$Freq == freq,]) > 2 ){ freqNum <- freqNum + 1 }
+    }
+	if(freqNum < 4){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
 	# if(diff(range(freqList)) < 100.0){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
 	freqList <- freqList[order(freqList)]
 	estI <- errI <- estQ <- errQ <- estU <- errU <- numeric(freqNum)

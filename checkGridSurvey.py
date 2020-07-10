@@ -24,6 +24,7 @@ for row in rowList:
 BandList = unique(BandLists).tolist()
 #-------- Tsys measurement
 execfile(SCR_DIR + 'TsysCal.py')
+'''
 class END(Exception):
     pass
 #-------- Check Antenna List
@@ -181,3 +182,4 @@ if 'spwFlag' in locals(): del spwFlag
 if 'flagAnt' in locals(): del flagAnt
 if 'BPScans' in locals(): del BPScans
 if 'EQScans' in locals(): del EQScans
+'''
