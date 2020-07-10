@@ -1,4 +1,5 @@
 Arguments <- commandArgs(trailingOnly = T)
+# Arguments <- c('-D2012/11/15/09:30:20', '-F97.500000', 'Vesta', 'J1037-2934', 'J1058+0133', 'J1107-4449', 'J1229+0203', 'J1256-0547', 'J0854+2006', 'J0635-7516') # for debug
 timeWindow <- 120	# Days
 #-------- Function to return residuals in RM fit
 residEVPA <- function(x, y, w){	# Optimization function for RM fit
@@ -36,12 +37,12 @@ for(sourceName in srcList){
 	if(nrow(srcDF) < 6){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
 	if(min(abs(srcDF$timeDiff)) > timeWindow){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
 	freqList <- as.numeric(unique(srcDF$Freq))
-    freqNum <- 0
     for( freq in freqList ){
-        if( nrow(srcDF[srcDF$Freq == freq,]) > 2 ){ freqNum <- freqNum + 1 }
+        if( nrow(srcDF[srcDF$Freq == freq,]) < 3 ){ srcDF <- srcDF[srcDF$Freq != freq,]}
     }
+	freqList <- as.numeric(unique(srcDF$Freq))
+    freqNum <- length(freqList)
 	if(freqNum < 4){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
-	# if(diff(range(freqList)) < 100.0){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
 	freqList <- freqList[order(freqList)]
 	estI <- errI <- estQ <- errQ <- estU <- errU <- numeric(freqNum)
 	#-------- For each frequency
