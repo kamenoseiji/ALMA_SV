@@ -288,6 +288,7 @@ for ant_index in range(useAntNum):
 #
 
 #-------- Trx, TantN, and Tau0
+Tau0Max = np.zeros(NumBands)
 for band_index in range(NumBands):
     tsysLog = open(prefix + '-' + UniqBands[band_index] + '-Tsys.log', 'w')
     #-------- Trx
@@ -319,13 +320,16 @@ for band_index in range(NumBands):
         #
     #
     SPWfreqList, freqList = [], []
+    Tau0med = np.zeros(spwNum)
     for spw_index in range(spwNum):
         chNum, chWid, freq = GetChNum(msfile, atmspwLists[band_index][spw_index]); freqList = freqList + [freq*1.0e-9]; SPWfreqList = SPWfreqList + [np.median(freq)*1.0e-9]
+        Tau0med[spw_index] = np.median(Tau0[spw_index])
     #
+    Tau0Max[band_index] = np.max(Tau0med)
     #-------- Log Tau0 (mean opacity at zenith)
     LogTrx(antList[useAnt], atmspwLists[band_index], SPWfreqList, scanList, atmTimeRef, TrxList, tsysLog)
     text_sd = 'Tau0 :  '
-    for spw_index in range(spwNum): text_sd = text_sd + '        %8.6f   | ' % (np.median(Tau0[spw_index]))
+    for spw_index in range(spwNum): text_sd = text_sd + '        %8.6f   | ' % (Tau0med[spw_index])
     tsysLog.write(text_sd + '\n'); print text_sd
     tsysLog.close()
     #-------- Save to npy files

@@ -32,7 +32,6 @@ for ant_index in range(UseAntNum):
     text_sd = '%s :' % (antList[antMap[ant_index]]); logfile.write(text_sd); print text_sd,
     for spw_index in range(spwNum):
         for pol_index in range(2):
-            #logjy.write( '%s %s %d %' % (prefix, antList[antMap[ant_index]], spwList[spw_index])
             text_sd = '  %4.1f%% ' % (100.0* AEFF[ant_index, pol_index, spw_index]); logfile.write(text_sd); print text_sd,
             text_jy = '%s %s %d %s %f %s %s %fe+9 %e %5.1f' % (prefix, antList[antMap[ant_index]], spwList[spw_index], PolList[pol_index], 2.0* kb / (0.25* AEFF[ant_index, pol_index, spw_index]* pi*antDia[antMap[ant_index]]**2), timeLabel, UniqBands[band_index], centerFreqList[spw_index], len(chRange)* chWid[0], tempAtm); logjy.write(text_jy + '\n')
         #
@@ -114,7 +113,7 @@ figFL.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90)
 AmpCalChAvg = np.zeros([spwNum, 4, UseBlNum, timeSum], dtype=complex)
 timePointer = 0
 for scan_index in range(scanNum):
-    DcalFlag = True
+    scanFlag, DcalFlag = True, True
     sourceName = sourceList[sourceIDscan[scan_index]]
     scanDic[sourceName] = scanDic[sourceName] + [scan_index, 1]
     if scan_index > 0:
@@ -134,15 +133,9 @@ for scan_index in range(scanNum):
     #-------- Prepare plots
     IList, PList = [], []      # XY delay and correlation
     text_time = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
-    text_src  = ' %02d %010s EL=%4.1f deg' % (scanList[scan_index], sourceName, 180.0* OnEL[scan_index]/pi); logfile.write(text_src + ' ' + text_time + '\n'); print text_src + ' ' + text_time
-    if(onsourceScans[scan_index] in SSOscanID):
-        SSO_flag = True
-        SSO_ID = SSOscanID.index(onsourceScans[scan_index])
-        text_sd = ' SPW  Frequency    I               Q               U               V             | Model I'; logfile.write(text_sd + '\n'); print text_sd
-    else:
-        SSO_flag = False
-        text_sd = ' SPW  Frequency    I                 Q                 U                 V                 %Pol     EVPA '; logfile.write(text_sd + '\n'); print text_sd
-    text_sd = ' --------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
+    text_src  = ' %02d %010s EL=%4.1f deg' % (scanList[scan_index], sourceName, 180.0* OnEL[scan_index]/pi) 
+    SSO_flag = (onsourceScans[scan_index] in SSOscanID)
+    if SSO_flag : SSO_ID = SSOscanID.index(onsourceScans[scan_index])
     BPCaledXspec = []
     #-------- Sub-array formation
     SAantMap, SAblMap, SAblInv, SAant0, SAant1 = antMap, blMap, blInv, ant0, ant1
@@ -156,10 +149,6 @@ for scan_index in range(scanNum):
     bpAntMap = indexList(antList[SAantMap],antList[antMap])
     Trx2antMap = indexList( antList[SAantMap], antList[TrxMap] )
     SAantNum = len(SAantMap); SAblNum = len(SAblMap)
-    if SAblNum < 6:
-        text_sd = ' Only %d baselines for short enough sub-array. Skip!' % (SAblNum) ; logfile.write(text_sd + '\n'); print text_sd
-        continue
-    #
     #-------- Baseline-based cross power spectra
     for spw_index in range(spwNum):
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], onsourceScans[scan_index])
@@ -171,7 +160,7 @@ for scan_index in range(scanNum):
     #-------- Antenna-based Gain
     BPCaledXspec = np.array(BPCaledXspec)   # BPCaledXspec[spw, pol, ch, bl, time]
     chAvgVis = np.mean(BPCaledXspec[:, :, chRange], axis=(0,2))
-    if(SSO_flag): chAvgVis =(np.mean(BPCaledXspec[:,:, chRange], axis=(0,2)).transpose(0,2,1) / SSOmodelVis[SSO_ID, spw_index, SAblMap]).transpose(0,2,1)
+    if SSO_flag: chAvgVis =(np.mean(BPCaledXspec[:,:, chRange], axis=(0,2)).transpose(0,2,1) / SSOmodelVis[SSO_ID, spw_index, SAblMap]).transpose(0,2,1)
     GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
     pCalVis = (BPCaledXspec.transpose(0,2,1,3,4) / (GainP[polYindex][:,ant0[0:SAblNum]]* GainP[polXindex][:,ant1[0:SAblNum]].conjugate()))[:,chRange]
     #-------- XY phase spectra
@@ -185,6 +174,8 @@ for scan_index in range(scanNum):
         #text_sd = ' spw%d : Delay (samples) XY= %.3f YX=%.3f  phase (deg) XY= %.2f YX=%.2f' % (spwList[spw_index], XYdelay* delayFact, YXdelay* delayFact, 90.0* np.angle(np.exp((0.0 + 2.0j)* np.angle(xyc))) / pi, 90.0* np.angle(np.exp((0.0 + 2.0j)* np.angle(yxc))) / pi)
         #print text_sd
     #
+    #-------- Full-Stokes parameters
+    text_Stokes = np.repeat('',spwNum).tolist()
     for spw_index in range(spwNum):
         StokesI_PL = figFL.add_subplot( 2, spwNum, spw_index + 1 )
         StokesP_PL = figFL.add_subplot( 2, spwNum, spwNum + spw_index + 1 )
@@ -205,11 +196,7 @@ for scan_index in range(scanNum):
             SEFD /= (indivRelGain**2).T
         #
         AmpCalVis = (pCalVis[spw_index].transpose(3,0,1,2)* np.sqrt(SEFD[chRange][:,polYindex][:,:,ant0[0:SAblNum]]* SEFD[chRange][:,polXindex][:,:,ant1[0:SAblNum]])).transpose(3,2,1,0)
-        if DcalFlag :
-            AmpCalChAvg[spw_index][:,:,timePointer:timePointer+timeNum] = np.mean(AmpCalVis, axis=2).transpose(1,0,2)
-        else:
-            scanDic[sourceName][1] *= 0
-        text_sd = ' SPW%02d %5.1f GHz ' % (spwList[spw_index], centerFreqList[spw_index]); logfile.write(text_sd); print text_sd,
+        text_Stokes[spw_index] = ' SPW%02d %5.1f GHz ' % (spwList[spw_index], centerFreqList[spw_index])
         Stokes = np.zeros([4,SAblNum], dtype=complex)
         for bl_index in range(SAblNum):
             Minv = InvMullerMatrix(Dcat[SAant1[bl_index], 0, spw_index], Dcat[SAant1[bl_index], 1, spw_index], Dcat[SAant0[bl_index], 0, spw_index], Dcat[SAant0[bl_index], 1, spw_index])
@@ -234,24 +221,31 @@ for scan_index in range(scanNum):
             ScanFlux[scan_index, spw_index, pol_index] = solution[0]
             resid = StokesVis[pol_index] - ScanSlope[scan_index, spw_index, pol_index]* uvDist[SAblMap] - solution[0]; ErrFlux[scan_index, spw_index, pol_index] = np.sqrt(weight.dot(resid**2)/np.sum(weight))
         #
+        #-------- Print Stoke parameters
         for pol_index in range(4):
             if len(visFlag) < 6:
-                text_sd = 'Only %d vis.    ' % (len(visFlag)) ; logfile.write(text_sd + '\n'); print text_sd,
-                continue
+                DcalFlag = False; scanFlag = False
+                text_Stokes[spw_index] = text_Stokes[spw_index] + ' Only %d vis.    ' % (len(visFlag))
+            else:
+                text_Stokes[spw_index] = text_Stokes[spw_index] + ' %7.4f (%.4f) ' % (ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index])
             #
-            text_sd = '%7.4f (%.4f) ' % (ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index]); logfile.write(text_sd); print text_sd,
         #
+        #-------- Check SNR of Stokes I
+        if ScanFlux[scan_index, spw_index, 0] < 3.0* ErrFlux[scan_index, spw_index, 0]: DcalFlag = False; scanFlag = False
+        if DcalFlag :
+            AmpCalChAvg[spw_index][:,:,timePointer:timePointer+timeNum] = np.mean(AmpCalVis, axis=2).transpose(1,0,2)
+        else:
+            scanDic[sourceName][1] *= 0
+        #
+        #-------- Plot Stokes visibilities
         StokesI_PL.plot( uvDist[SAblMap], StokesVis[0], '.', label=polLabel[0], color=Pcolor[0])
         StokesP_PL.plot( uvDist[SAblMap], StokesVis[1], '.', label=polLabel[1], color=Pcolor[1])
         StokesP_PL.plot( uvDist[SAblMap], StokesVis[2], '.', label=polLabel[2], color=Pcolor[2])
         StokesP_PL.plot( uvDist[SAblMap], StokesVis[3], '.', label=polLabel[3], color=Pcolor[3])
         if(SSO_flag):
-            text_sd = '| %6.3f ' % (SSOflux0[SSO_ID, spw_index]); logfile.write(text_sd); print text_sd,
-            logfile.write('\n'); print ''
+            text_Stokes[spw_index] = text_Stokes[spw_index] + ' | %6.3f ' % (SSOflux0[SSO_ID, spw_index])
         else: 
-            text_sd = '%6.3f   %6.1f ' % (100.0* np.sqrt(ScanFlux[scan_index, spw_index, 1]**2 + ScanFlux[scan_index, spw_index, 2]**2)/ScanFlux[scan_index, spw_index, 0], np.arctan2(ScanFlux[scan_index, spw_index, 2],ScanFlux[scan_index, spw_index, 1])*90.0/pi); logfile.write(text_sd); print text_sd,
-            logfile.write('\n'); print ''
-        #
+            text_Stokes[spw_index] = text_Stokes[spw_index] + '%6.3f   %6.1f ' % (100.0* np.sqrt(ScanFlux[scan_index, spw_index, 1]**2 + ScanFlux[scan_index, spw_index, 2]**2)/ScanFlux[scan_index, spw_index, 0], np.arctan2(ScanFlux[scan_index, spw_index, 2],ScanFlux[scan_index, spw_index, 1])*90.0/pi)
         #
     #
     uvMin, uvMax, IMax = min(uvDist[blMap]), max(uvDist[blMap]), max(ScanFlux[scan_index,:,0])
@@ -272,40 +266,60 @@ for scan_index in range(scanNum):
     figFL.savefig(pp, format='pdf')
     #
     freqArray = np.array(centerFreqList)[range(spwNum)]; meanFreq = np.mean(freqArray); relFreq = freqArray - meanFreq
-    text_sd = ' --------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
-    pflux, pfluxerr = np.zeros(4), np.zeros(4)
-    text_sd = ' mean  %5.1f GHz' % (meanFreq); logfile.write(text_sd); print text_sd,
-    spwStokesDic[sourceName] = []
-    for pol_index in range(4):
-        sol, solerr = linearRegression(relFreq, ScanFlux[scan_index, :, pol_index], ErrFlux[scan_index, :, pol_index] ); pflux[pol_index], pfluxerr[pol_index] = sol[0], solerr[0]
-        text_sd = '%7.4f (%.4f) ' % (pflux[pol_index], pfluxerr[pol_index]) ; logfile.write(text_sd); print text_sd,
-        if SSO_flag and (pol_index > 0):  sol = np.zeros(2)
-        spwStokesDic[sourceName] = spwStokesDic[sourceName] + (sol[0] + sol[1]* relFreq).tolist()
+    if spwNum > 1:
+        text_mean = ' mean  %5.1f GHz ' % (meanFreq) 
+        pflux, pfluxerr = np.zeros(4), np.zeros(4)
+        spwStokesDic[sourceName] = []
+        for pol_index in range(4):
+            sol, solerr = linearRegression(relFreq, ScanFlux[scan_index, :, pol_index], ErrFlux[scan_index, :, pol_index] ); pflux[pol_index], pfluxerr[pol_index] = sol[0], solerr[0]
+            text_mean = text_mean + ' %7.4f (%.4f) ' % (pflux[pol_index], pfluxerr[pol_index])
+            if SSO_flag and (pol_index > 0):  sol = np.zeros(2)
+            spwStokesDic[sourceName] = spwStokesDic[sourceName] + (sol[0] + sol[1]* relFreq).tolist()
+        #
+        text_mean = text_mean + '%6.3f   %6.1f' % (100.0* np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi)
     #
-    text_sd = '%6.3f   %6.1f ' % (100.0* np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi); logfile.write(text_sd); print text_sd,
-    logfile.write('\n')
-    text_sd = 'UV_min_max  %6.1f  %6.1f ' % (uvMin, uvMax); logfile.write(text_sd); print text_sd,
-    logfile.write('\n \n'); print '\n'
     if SSO_flag: StokesDic[sourceName] = [pflux[0], 0.0, 0.0, 0.0]
     else: StokesDic[sourceName] = pflux.tolist()
     waveLength = 299.792458/meanFreq    # wavelength in mm
-    text_sd = '%10s, NE, NE, NE, NE, %.2fE+09, %6.3f, %6.4f, %6.3f, %6.4f, %5.1f, %5.1f, NE, NE, %s, %s, %s\n' % (sourceName, meanFreq, pflux[0], np.sqrt(0.0004*pflux[0]**2 + pfluxerr[0]**2), np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi, np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/np.sqrt(pflux[1]**2 + pflux[2]**2)*90.0/pi, timeLabel.replace('/','-'), fluxCalText, prefix)
-    ingestFile.write(text_sd)
-    if COMPDB & (not SSO_flag):
+    text_ingest = '%10s, NE, NE, NE, NE, %.2fE+09, %6.3f, %6.4f, %6.3f, %6.4f, %5.1f, %5.1f, NE, NE, %s, %s, %s\n' % (sourceName, meanFreq, pflux[0], np.sqrt(0.0004*pflux[0]**2 + pfluxerr[0]**2), np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi, np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/np.sqrt(pflux[1]**2 + pflux[2]**2)*90.0/pi, timeLabel.replace('/','-'), fluxCalText, prefix)
+    if scanFlag:
+        logfile.write(text_src + ' ' + timeLabel + '\n'); print text_src + ' ' + timeLabel
+        if SSO_flag:
+            text_sd = ' SPW  Frequency     I                 Q                 U                 V             | Model I'; logfile.write(text_sd + '\n'); print text_sd
+        else:
+            text_sd = ' SPW  Frequency     I                 Q                 U                 V             |  %Pol     EVPA '; logfile.write(text_sd + '\n'); print text_sd
+        text_sd = ' --------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
+        for spw_index in range(spwNum): logfile.write(text_Stokes[spw_index] + '\n'); print text_Stokes[spw_index]
+        text_sd = ' --------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd
+        if spwNum > 1: logfile.write(text_mean + '\n'); print text_mean; ingestFile.write(text_ingest)
+        text_sd = 'UV_min_max  %6.1f  %6.1f ' % (uvMin, uvMax); logfile.write(text_sd + '\n'); print text_sd
+    else:
+        '\033[91m %+.3f%+.3fi \033[0m'
+        print '\033[91m' + text_src + ' ' + timeLabel + '\033[0m'
+        if SSO_flag:
+            text_sd = ' SPW  Frequency     I                 Q                 U                 V             | Model I'; logfile.write(text_sd + '\n'); print text_sd
+        else:
+            text_sd = ' SPW  Frequency     I                 Q                 U                 V                %Pol     EVPA '; print '\033[91m' + text_sd + '\033[0m'
+        text_sd = ' --------------------------------------------------------------------------------------------------------'; print '\033[91m' + text_sd + '\033[0m'
+        for spw_index in range(spwNum): print '\033[91m' + text_Stokes[spw_index] + '\033[0m'
+        text_sd = ' --------------------------------------------------------------------------------------------------------'; print '\033[91m' + text_sd + '\033[0m'
+        if spwNum > 1: print '\033[91m' + text_mean + '\033[0m'
+        text_sd = 'UV_min_max  %6.1f  %6.1f ' % (uvMin, uvMax); print '\033[91m' + text_sd + '\033[0m'
+    #
+    if COMPDB:
         print ' -------- Comparison with ALMA Calibrator Catalog --------'
-        au.searchFlux(sourcename='%s' % (sourceList[sourceIDscan[scan_index]]), band=int(UniqBands[band_index][3:5]), date=timeLabel[0:10], maxrows=3)
-        print '\n'
+        au.searchFlux(sourcename='%s' % (sourceName), band=int(UniqBands[band_index][3:5]), date=timeText[0:10], maxrows=3)
     #
     if DcalFlag :
         timePointer += timeNum
     else:
         timeSum -= timeNum
     #
+    logfile.write('\n'); print ''
 #
 AmpCalChAvg = AmpCalChAvg[:,:,:,range(timeSum)]
 for PL in IList: figFL.delaxes(PL)
 for PL in PList: figFL.delaxes(PL)
-#
 ingestFile.close()
 plt.close('all')
 pp.close()

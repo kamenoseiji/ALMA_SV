@@ -182,7 +182,6 @@ flaggedBlList = list(set(range(blNum)) - set(blMap)); uvFlag[:,:,flaggedBlList] 
 atmCorrect = []
 for spw_index in range(spwNum): atmCorrect = atmCorrect + [np.median(Tau0spec[spw_index])]
 atmCorrect = np.exp(-outer( np.array(atmCorrect),  1.0/np.sin( np.array(OnEL)[indexList(np.array(SSOscanID), np.array(onsourceScans))]))).T
-#atmCorrect = np.exp(-outer( np.mean(Tau0spec, axis=1),  1.0/np.sin( np.array(OnEL)[indexList(np.array(SSOscanID), np.array(onsourceScans))]))).T
 
 SSOflux = SSOflux0* atmCorrect  # SSOflux[SSO, spw] : attenuated SSO flux
 uvFlag = np.min(uvFlag, axis=1) # all-SPW uv flag

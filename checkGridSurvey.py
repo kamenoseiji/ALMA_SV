@@ -26,6 +26,7 @@ BandList = unique(BandLists).tolist()
 execfile(SCR_DIR + 'TsysCal.py')
 class END(Exception):
     pass
+#
 #-------- Check Antenna List
 antList = GetAntName(msfile)
 antNum = len(antList)
@@ -57,6 +58,7 @@ for band_index in range(NumBands):
     msmd.open(msfile)
     timeSum = 0
     bandName = UniqBands[band_index]; bandID = int(UniqBands[band_index][3:5])
+    if Tau0Max[band_index] > TauLimit[bandID]: print 'Too high optical depth...'; os.system('touch ' + prefix + '-' + UniqBands[band_index] + '-Flux.log'); continue
     ONScan = np.array(bpscanLists[band_index])[indexList( ONScans, np.array(bpscanLists[band_index]))]
     ATMScan= np.array(atmscanLists[band_index])[indexList( ONScans, np.array(atmscanLists[band_index]))]
     onsourceScans, atmScans = ONScan.tolist(), ATMScan.tolist()
