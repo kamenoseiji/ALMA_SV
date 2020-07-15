@@ -83,6 +83,7 @@ for ant_index in range(antNum): print '   %.0f' % (gainFlag[ant_index]),
 print
 flagAnt = flagAnt* TrxFlag* gainFlag
 UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
+print `UseAntNum` + ' / ' + `antNum` + ' usable antennas'
 if len(UseAnt) < 4:
     sys.exit('Too few usable antennas. Reduction failed.')
 #-------- Check Scans for atmCal
@@ -389,7 +390,7 @@ for scan_index in range(scanNum):
         StokesP_PL.plot( uvDist[SAblMap], StokesVis[3], '.', label=polLabel[3], color=Pcolor[3])
         text_Stokes[spw_index] = text_Stokes[spw_index] + '%6.3f   %6.1f ' % (100.0* np.sqrt(ScanFlux[scan_index, spw_index, 1]**2 + ScanFlux[scan_index, spw_index, 2]**2)/ScanFlux[scan_index, spw_index, 0], np.arctan2(ScanFlux[scan_index, spw_index, 2],ScanFlux[scan_index, spw_index, 1])*90.0/pi)
     #
-    uvMin, uvMax, IMax = min(uvDist), max(uvDist), max(ScanFlux[scan_index,:,0])
+    uvMin, uvMax, IMax = min(uvDist[SAblMap]), max(uvDist[SAblMap]), max(ScanFlux[scan_index,:,0])
     for spw_index in range(spwNum):
         StokesI_PL, StokesP_PL = IList[spw_index], PList[spw_index]
         if spw_index == 0: StokesI_PL.text(0.0, IMax*1.35, text_src)

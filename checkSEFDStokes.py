@@ -66,6 +66,7 @@ for ant_index in range(antNum): print '   %.0f' % (gainFlag[ant_index]),
 print
 flagAnt = flagAnt* TrxFlag* gainFlag
 UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
+print `UseAntNum` + ' / ' + `antNum` + ' usable antennas'
 if len(UseAnt) < 4: sys.exit('Too few usable antennas. Reduction failed.')
 #-------- Check Scans for atmCal
 ingestFile = open(prefix + '-' + UniqBands[band_index] + '-Ingest.log', 'w') 
