@@ -65,7 +65,7 @@ print; print 'gain',
 for ant_index in range(antNum): print '   %.0f' % (gainFlag[ant_index]),
 print
 flagAnt = flagAnt* TrxFlag* gainFlag
-UseAnt = np.where(flagAnt > 0.0)[0].tolist(); UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
+UseAnt = np.where(flagAnt > 0.0)[0]; UseAntNum = len(UseAnt); UseBlNum  = UseAntNum* (UseAntNum - 1) / 2
 print `UseAntNum` + ' / ' + `antNum` + ' usable antennas'
 if len(UseAnt) < 4: sys.exit('Too few usable antennas. Reduction failed.')
 #-------- Check Scans for atmCal
@@ -85,7 +85,7 @@ uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
 refantID = UseAnt[bestRefant(uvDist, UseAnt)]
 print '  Use ' + antList[refantID] + ' as the refant.'
 #
-antMap = [refantID] + list(set(UseAnt) - set([refantID]))
+antMap = [refantID] + UseAnt[np.where(UseAnt != refantID)].tolist()
 blMap, blInv= range(UseBlNum), [False]* UseBlNum
 ant0, ant1 = ANT0[0:UseBlNum], ANT1[0:UseBlNum]
 for bl_index in range(UseBlNum): blMap[bl_index], blInv[bl_index]  = Ant2BlD(antMap[ant0[bl_index]], antMap[ant1[bl_index]])
