@@ -137,17 +137,7 @@ for band_index in range(NumBands):
     BPcalText = 'Use %s [Scan%d EL=%4.1f deg] %s as Bandpass Calibrator' % (BPcal, BPScan, 180.0* OnEL[onsourceScans.index(BPScan)]/np.pi, timeLabelBP); print BPcalText
     EQcalText = 'Use %s [Scan%d EL=%4.1f deg] %s as Gain Equalizer' % (EQcal, EQScan, 180.0* OnEL[onsourceScans.index(EQScan)]/np.pi, timeLabelEQ); print EQcalText
     #-------- Check Baseline Limit
-    if 'uvLimit' in locals():
-        print '---- Checking uv distance limit'
-        timeStamp, UVW = GetUVW(msfile, bpspwLists[band_index][0], BPScan)
-        UVW = np.mean(UVW, axis=2)
-        BLlength = np.sqrt( np.diag(UVW.T.dot(UVW)) )
-        tempRefAntID = bestRefant(BLlength)
-        refBLList = np.where(np.array(ANT0)[range(blNum)] == tempRefAntID)[0].tolist() + np.where(np.array(ANT1)[range(blNum)] == tempRefAntID)[0].tolist()
-        useAntIndex = np.where(BLlength[refBLList] <  uvLimit)[0]
-        useAntList = [tempRefAntID] + useAntIndex[np.where(useAntIndex < tempRefAntID)[0]].tolist() + (useAntIndex[np.where(useAntIndex >= tempRefAntID)[0]] + 1).tolist()
-        antFlag = list(set(antFlag) | (set(antList) - set(antList[useAntList])))
-    #
+    if 'uvLimit' in locals(): antFlag = angFlagBL(msfile, uvLimit, bpspwLists[band_index][0], BPScan, antFlag)
     #-------- SSO in observed source list
     BandSSOList = list( set(SSOList) & set(sourceIDscan) )
     if len(BandSSOList) == 0: Apriori = True
@@ -192,6 +182,7 @@ for band_index in range(NumBands):
 #
 del msfile, UniqBands, useAnt, atmspwLists, atmSPWs
 if 'spwFlag' in locals(): del spwFlag
+if 'antFlag' in locals(): del antFlag
 if 'flagAnt' in locals(): del flagAnt
 if 'BPScans' in locals(): del BPScans
 if 'EQScans' in locals(): del EQScans

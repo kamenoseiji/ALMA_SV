@@ -78,6 +78,16 @@ def subArrayIndex(Flag, refant):          #-------- SubArray Indexing
     for bl_index in range(SAblNum): SAblMap[bl_index], SAblInv[bl_index] = Ant2BlD(SAantMap[ant0[bl_index]], SAantMap[ant1[bl_index]])
     return SAantMap, SAblMap, SAblInv
 #
+def angFlagBL(msfile, BLlimit, spw, scan, antFlag = []):    # Flag distant antennas out
+    timeStamp, UVW = GetUVW(msfile, spw, scan)
+    UVW = np.mean(UVW, axis=2); BLlength = np.sqrt(np.diag(UVW.T.dot(UVW)))
+    blNum = len(BLlength)
+    tempRefAntID = bestRefant(BLlength)
+    refBLList = np.where(np.array(ANT0)[range(blNum)] == tempRefAntID)[0].tolist() + np.where(np.array(ANT1)[range(blNum)] == tempRefAntID)[0].tolist()
+    useAntIndex = np.where(BLlength[refBLList] <  BLlimit)[0]
+    useAntList = [tempRefAntID] + useAntIndex[np.where(useAntIndex < tempRefAntID)[0]].tolist() + (useAntIndex[np.where(useAntIndex >= tempRefAntID)[0]] + 1).tolist()
+    return list(set(antFlag) | (set(antList) - set(antList[useAntList])))
+#
 def linearRegression( x, y, err):
     weight = 1.0 / err**2
     Sw, Swxx, Swx, Swy, Swxy = np.sum(weight), np.sum( weight* x**2), weight.dot(x), weight.dot(y), np.sum(weight* x* y)
