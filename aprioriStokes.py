@@ -376,6 +376,7 @@ for scan_index in range(scanNum):
             resid = StokesVis[pol_index] - ScanSlope[scan_index, spw_index, pol_index]* uvDist[SAblMap] - solution[0]; ErrFlux[scan_index, spw_index, pol_index] = np.sqrt(weight.dot(resid**2)/np.sum(weight))
         #
         #-------- Check SNR of Stokes I
+        if np.max(ErrFlux[scan_index, spw_index]) > 0.1: DcalFlag = False; scanFlag = False
         if ScanFlux[scan_index, spw_index, 0] < 3.0* ErrFlux[scan_index, spw_index, 0]: DcalFlag = False; scanFlag = False
         if DcalFlag :
             AmpCalChAvg[spw_index][:,:,timePointer:timePointer+timeNum] = np.mean(AmpCalVis, axis=2).transpose(1,0,2)
