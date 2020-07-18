@@ -290,6 +290,7 @@ for scan_index in range(scanNum):
     else: flagIndex = range(timeNum)
     #-------- Parallactic Angle
     AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
+    if np.max(ElScan) == 0.0: AzScan, ElScan = AzElMatch(timeStamp, azelTime, 0, refantID, AZ, EL)
     PA = (AzEl2PA(AzScan, ElScan) + BandPA[band_index])[flagIndex]; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
     PADic[sourceName] = PA.tolist()
     #-------- Plot Frame

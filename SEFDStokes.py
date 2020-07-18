@@ -127,7 +127,7 @@ for scan_index in range(scanNum):
     timeDic[sourceName] = range(timePointer, timePointer + timeNum)
     uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
     AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
-    if min(ElScan) < 20.0 / 180.0* pi: continue
+    if np.max(ElScan) == 0.0: AzScan, ElScan = AzElMatch(timeStamp, azelTime, 0, refantID, AZ, EL)
     PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
     PADic[sourceName] = PA.tolist()
     #-------- Prepare plots
