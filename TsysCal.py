@@ -101,14 +101,14 @@ def LogTrx(antList, spwList, freqList, scanList, timeRef, Trx, logFile):
     return
 #
 #-------- Trx and Tsky
-#    TrxList, TskyList, scanFlag, outLierFlag = TrxTskySpec(useAnt, tempAmb, tempHot, atmspwLists[band_index], atmscanLists[band_index], ambSpec, hotSpec, offSpec)
 def TrxTskySpec(useAnt, tempAmb, tempHot, spwList, scanList, ambSpec, hotSpec, offSpec):
     TrxList, TskyList = [], []
     useAntNum, spwNum, scanNum =  len(useAnt), len(spwList), len(scanList)
     outLierFlag, scanFlag = np.ones([spwNum, 2, useAntNum]), np.ones([useAntNum, scanNum]) 
     for spw_index in range(len(spwList)):
         chNum = ambSpec[spw_index* scanNum].shape[1]
-        chRange = range(int(0.02*chNum), int(0.99*chNum)); chOut = sort(list(set(range(chNum)) - set(chRange))).tolist()
+        chRange = range(int(0.05*chNum), int(0.95*chNum)); chOut = sort(list(set(range(chNum)) - set(chRange))).tolist()
+        #chRange = range(int(0.02*chNum), int(0.99*chNum)); chOut = sort(list(set(range(chNum)) - set(chRange))).tolist()
         TrxSpec = np.zeros([2, chNum, useAntNum, scanNum])
         TskySpec = np.zeros([2, chNum, useAntNum, scanNum])
         for pol_index in range(2):

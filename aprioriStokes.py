@@ -47,6 +47,7 @@ atmTimeRef = np.load(prefix +  '-' + UniqBands[band_index] + '.atmTime.npy') # a
 TrxMap = indexList(TrxAnts, antList); TrxFlag = np.zeros([antNum]); TrxFlag[TrxMap] = 1.0
 Tau0E = np.nanmedian(Tau0E, axis=0); Tau0E[np.isnan(Tau0E)] = np.nanmedian(Tau0E); Tau0E[np.isnan(Tau0E)] = 0.0
 #-------- Tsys channel interpolation
+'''
 chNum, chWid, Freq = GetChNum(msfile, spwList[0])
 for spw_index in range(spwNum):
     if len(TrxFreqList[spw_index]) != chNum: 
@@ -64,6 +65,7 @@ for spw_index in range(spwNum):
         Tau0spec[spw_index] = tmpTAU0
     #
 #
+'''
 for spw_index in range(spwNum):
     TrxMed = np.median(TrxList[spw_index], axis=1)  # TrxMed[pol, ant]
     for pol_index in range(2):
@@ -97,10 +99,12 @@ msmd.close()
 msmd.done()
 #-------- Array Configuration
 print '---Determining refant'
-msmd.open(msfile)
-timeStamp, UVW = GetUVW(msfile, spwList[0], msmd.scansforspw(spwList[0])[0])
-uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
-refantID = UseAnt[bestRefant(uvDist, UseAnt)]
+if 'refant' in locals(): refantID = np.where(antList == refant)[0][0]
+if 'refantID' not in locals():
+    msmd.open(msfile)
+    timeStamp, UVW = GetUVW(msfile, spwList[0], msmd.scansforspw(spwList[0])[0])
+    uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
+    refantID = UseAnt[bestRefant(uvDist, UseAnt)]
 print '  Use ' + antList[refantID] + ' as the refant.'
 #
 antMap = [refantID] + UseAnt[np.where(UseAnt != refantID)].tolist()
@@ -517,4 +521,5 @@ for ant_index in range(UseAntNum):
 logfile.close()
 msmd.close()
 msmd.done()
-del flagAnt, TrxFlag, gainFlag, AntID, Xspec, tempSpec, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, TrxList, TsysSPW, azelTime, azelTime_index, chAvgVis, W, refIndex
+del flagAnt, TrxFlag, gainFlag, refantID, AntID, Xspec, tempSpec, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, TrxList, TsysSPW, azelTime, azelTime_index, chAvgVis, W, refIndex
+if 'refant' in locals(): del refant

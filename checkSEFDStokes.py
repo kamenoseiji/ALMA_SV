@@ -79,10 +79,13 @@ msmd.close()
 msmd.done()
 #-------- Array Configuration
 print '---Determining refant'
-msmd.open(msfile)
-timeStamp, UVW = GetUVW(msfile, spwList[0], msmd.scansforspw(spwList[0])[0])
-uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
-refantID = UseAnt[bestRefant(uvDist, UseAnt)]
+print '---Determining refant'
+if 'refant' in locals(): refantID = np.where(antList == refant)[0][0]
+if 'refantID' not in locals():
+    msmd.open(msfile)
+    timeStamp, UVW = GetUVW(msfile, spwList[0], msmd.scansforspw(spwList[0])[0])
+    uvw = np.mean(UVW, axis=2); uvDist = np.sqrt(uvw[0]**2 + uvw[1]**2)
+    refantID = UseAnt[bestRefant(uvDist, UseAnt)]
 print '  Use ' + antList[refantID] + ' as the refant.'
 #
 antMap = [refantID] + UseAnt[np.where(UseAnt != refantID)].tolist()
@@ -115,7 +118,7 @@ for spw_index in range(spwNum):
     exp_Tau = np.exp(-Tau0spec[spw_index] / np.sin(BPEL))
     atmCorrect = 1.0 / exp_Tau
     TsysBPScan = atmCorrect* (TrxList[spw_index].transpose(2,0,1)[Trx2antMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau)) # [antMap, pol, ch]
-    TsysBPShape = (TsysBPScan.transpose(2,0,1) / np.median(TsysBPScan, axis=2)).transpose(1,2,0)
+    TsysBPShape = abs((TsysBPScan.transpose(2,0,1) / np.median(TsysBPScan, axis=2))).transpose(1,2,0)
     BPList = BPList + [BP_ant* np.sqrt(TsysBPShape)]
 #
 if PLOTBP:

@@ -383,4 +383,5 @@ for ant_index in range(UseAntNum):
 logfile.close()
 msmd.close()
 msmd.done()
-del flagAnt, TrxFlag, gainFlag, AntID, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, TrxList, TsysSPW, TsysBL, azelTime, azelTime_index, chAvgVis, W
+del flagAnt, TrxFlag, gainFlag, refantID, AntID, BPCaledXspec, BP_ant, Gain, GainP, Minv, SEFD, TrxList, TsysSPW, TsysBL, azelTime, azelTime_index, chAvgVis, W
+if 'refant' in locals(): del refant
