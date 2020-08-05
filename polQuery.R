@@ -1,5 +1,5 @@
 Arguments <- commandArgs(trailingOnly = T)
-# Arguments <- c('-D2012/11/15/09:30:20', '-F97.500000', 'Vesta', 'J1037-2934', 'J1058+0133', 'J1107-4449', 'J1229+0203', 'J1256-0547', 'J0854+2006', 'J0635-7516') # for debug
+#Arguments <- c('-D2014/01/13/18:04:06', '-F97.500000', 'J2056-4714')
 timeWindow <- 120	# Days
 #-------- Function to return residuals in RM fit
 residEVPA <- function(x, y, w){	# Optimization function for RM fit
