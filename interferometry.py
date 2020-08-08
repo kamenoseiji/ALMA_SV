@@ -379,21 +379,18 @@ def GetDterm(URI, antMap, band, refMJD):
     return Dterm
 #
 def GetSourceList(msfile):              # Source List
-    #tb.open( msfile + '/SOURCE')
     tb.open( msfile + '/FIELD')
-    SourceID = tb.getcol('SOURCE_ID')
+    SourceID   = tb.getcol('SOURCE_ID')
     SourceName = tb.getcol('NAME')
-    #SourcePos  = tb.getcol('DIRECTION')
-    SourcePos  = tb.getcol('PHASE_DIR')
+    SourcePos  = tb.getcol('PHASE_DIR')[:,0].T
     tb.close()
     IDNum = np.max(SourceID) + 1
-    sourceList, posList = ['']*IDNum, np.zeros([IDNum, 2])
+    sourceList, posList = ['']*IDNum, np.zeros([IDNum,2])
     IDList = np.unique(SourceID).tolist()
     for ID in IDList:
-        IDindex = SourceID.tolist().index(ID) 
+        IDindex = SourceID.tolist().index(ID)
         sourceList[ID] = SourceName[IDindex]
-        #posList[ID] = SourcePos[:,IDindex]
-        posList[ID] = SourcePos[:,0,IDindex]
+        posList[ID]    = SourcePos[IDindex]
     #
     return sourceList, posList
 #

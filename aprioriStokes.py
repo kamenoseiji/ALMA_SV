@@ -474,6 +474,7 @@ Dterm = np.zeros([UseAntNum, spwNum, 2], dtype=complex)
 DtermDic['Freq'] = centerFreqList
 StokesDic['Freq'] = np.mean(np.array(centerFreqList))
 for sourceName in sourceList:
+    if sourceName == '': continue
     if len(scanDic[sourceName]) == 0: del StokesDic[sourceName]
 for spw_index in range(spwNum):
     for sourceName in sourceList:
