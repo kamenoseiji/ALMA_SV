@@ -188,4 +188,3 @@ if 'antFlag' in locals(): del antFlag
 if 'flagAnt' in locals(): del flagAnt
 if 'BPScans' in locals(): del BPScans
 if 'EQScans' in locals(): del EQScans
-del msfile, UniqBands, useAnt, atmspwLists, atmSPWs
