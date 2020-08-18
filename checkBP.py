@@ -73,4 +73,6 @@ for spw_index in range(spwNum):
 if BPPLOT:
     pp = PdfPages('BP_' + prefix + '_REF' + antList[UseAnt[refantID]] + '_Scan' + `BPscan` + '.pdf')
     plotBP(pp, prefix, antList[antMap], spwList, BPscan, BPList, bunchNum) 
+    pp = PdfPages('XYP_' + prefix + '_REF' + antList[UseAnt[refantID]] + '_Scan' + `BPscan` + '.pdf')
+    plotXYP(pp, prefix, spwList, XYspec, bunchNum) 
 #

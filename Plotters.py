@@ -215,6 +215,29 @@ def plotBP(pp, prefix, antList, spwList, BPscan, BPList, bunchNum=1):
     del(figAnt)
     return
 #
+#-------- Plot XY-phase spectra
+def plotXYP(pp, prefix, spwList, XYspec, bunchNum=1):
+    spwNum = len(spwList)
+    figXYP = plt.figure(figsize = (11, 8))
+    figXYP.suptitle(prefix + ' XY Phase')
+    figXYP.text(0.45, 0.05, 'Frequency [GHz]')
+    figXYP.text(0.03, 0.45, 'XY Phase [deg]', rotation=90)
+    for spw_index in range(spwNum):
+        spw = spwList[spw_index]
+        chNum, chWid, Freq = GetChNum(prefix + '.ms', spw); Freq = 1.0e-9* bunchVec(Freq, bunchNum)  # GHz
+        PhsPL = figXYP.add_subplot(1, spwNum, spw_index + 1)
+        XYP  = XYspec[spw_index]
+        PhsPL.plot( Freq, np.angle(XYP)*180.0/pi, '.', label = 'SPW ' + `spw`)
+        PhsPL.axis([np.min(Freq), np.max(Freq), -180.0, 180.0])
+        PhsPL.tick_params(axis='both', labelsize=6)
+        PhsPL.legend(loc = 'lower left', prop={'size' :7}, numpoints = 1)
+    #
+    plt.show()
+    figXYP.savefig(pp, format='pdf')
+    plt.close('all')
+    pp.close()
+    return
+#
 #-------- Plot D-term spectra
 def plotDSpec(pp, prefix, antList, spwList, DxList, DyList):
     plotMax = 0.12
