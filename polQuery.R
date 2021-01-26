@@ -1,6 +1,6 @@
 Arguments <- commandArgs(trailingOnly = T)
 #Arguments <- c('-D2014/01/13/18:04:06', '-F97.500000', 'J2056-4714')
-timeWindow <- 120	# Days
+timeWindow <- 1200	# Days
 #-------- Function to return residuals in RM fit
 residEVPA <- function(x, y, w){	# Optimization function for RM fit
 	return(function(para){
@@ -61,6 +61,7 @@ for(sourceName in srcList){
 			    estQ[freq_index] <- median(srcFreqDF$Q); errQ[freq_index] <- median(srcFreqDF$eQ) * 10.0
 			    estU[freq_index] <- median(srcFreqDF$U); errU[freq_index] <- median(srcFreqDF$eU) * 10.0
             }
+            if(estI[freq_index] < 0.0){ estI[freq_index] <- 1.0e-6; estQ[freq_index] <- estU[freq_index] <- 1.0e-8 }
 	    }
 	    lambdaSQ <- (0.299792458 / freqList)^2; lambdasqSpan <- diff(range(lambdaSQ))
 	    estP <- sqrt(estQ^2 + estU^2); errP <- 0.01*estI + sqrt(errQ^2 + errU^2); estEVPA <- 0.5*atan2(estU, estQ)

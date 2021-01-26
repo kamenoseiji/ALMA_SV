@@ -385,7 +385,7 @@ for spw_index in range(spwNum):
     #
     DxList, DyList = DxList + [DxSpec], DyList + [DySpec]
     #---- Save Stokes parameters of the calibraors
-    fileDic = open('Stokes.SPW' + `spw` + '.dic', mode='wb')
+    fileDic = open('Stokes.' + prefix + '-SPW' + `spw` + '.dic', mode='wb')
     pickle.dump(StokesDic, fileDic)
     fileDic.close()
 #

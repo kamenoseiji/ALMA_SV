@@ -34,6 +34,7 @@ flagAntID = indexList(antFlag, antList)
 if len(refAntID) < 1: print 'Antenna %s didn not participate in this file.' % refantName
 else: refAntID = refAntID[0]
 #
+#
 if 'scanList' in locals(): scanLS = scanList
 else: scanLS = msmd.scannumbers().tolist()
 #
@@ -66,12 +67,19 @@ for scan_index in range(len(scanLS)):
 '''
 scansFile.append(scanLS)
 BPsrc = sourceList[msmd.sourceidforfield(msmd.fieldsforscan(BPscan)[0])]
-msmd.done()
 #
 if not 'scanList' in locals(): scanList = scansFile
 #-------- Check source list and Stokes Parameters
 antMap = [refAntID] + list(trkAntSet - set([refAntID]))
 antNum = len(antMap); blNum = antNum * (antNum - 1)/2
+#-------- Load Aeff file
+antDia = np.ones(antNum)
+for ant_index in range(antNum): antDia[ant_index] = msmd.antennadiameter(antList[antMap[ant_index]])['value']
+etaA = GetAeff(TBL_DIR, antList[antMap], bandID, np.mean(timeStamp)).T
+Ae = 0.0025* np.pi* etaA* antDia[antMap]**2
+if 'BLCORR' in locals():
+    if BLCORR: Ae = 1.15* Ae         # BL Correlator correction factor
+#-------- Antenna-Baseline mapping
 ant0 = ANT0[0:blNum]; ant1 = ANT1[0:blNum]
 blMap, blInv= range(blNum), [False]* blNum
 for bl_index in range(blNum):
@@ -80,6 +88,7 @@ for bl_index in range(blNum):
 if not 'bunchNum' in locals(): bunchNum = 1
 def bunchVecCH(spec): return bunchVec(spec, bunchNum)
 print 'Total %d integration periods.' % (timeNum)
+msmd.done()
 #-------- Loop for SPW
 DxList, DyList, FreqList = [], [], []
 for spw_index in range(spwNum):
@@ -111,6 +120,7 @@ for spw_index in range(spwNum):
     M = InvMullerVector(DxSpec[ant1], DySpec[ant1], DxSpec[ant0], DySpec[ant0], np.ones([blNum,chNum/bunchNum])).transpose(2,3,0,1)
     D = MullerVector(DxSpec[ant1], DySpec[ant1], DxSpec[ant0], DySpec[ant0],np.ones([blNum, chNum/bunchNum])).transpose(2,3,0,1)
     #-------- Load Aeff file
+    '''
     msmd.open(msfile)
     antDia = np.ones(antNum)
     AeX, AeY, etaX, etaY = [], [], [], []
@@ -131,6 +141,7 @@ for spw_index in range(spwNum):
         #
     #
     Ae = np.array([AeX, AeY])
+    '''
     #-------- Load Flag Table
     caledVis = np.ones([4,blNum, 0], dtype=complex)
     if 'FGprefix' in locals():  # Flag table
@@ -174,7 +185,7 @@ for spw_index in range(spwNum):
             #
         #
     else:
-        TrxSpec, Tau0spec = np.median(Trxspec, axis=3), Tau0spec
+        TrxSpec, Tau0Spec = np.median(Trxspec, axis=3), Tau0spec
     #
     tempAtm = GetTemp(msfile)       # atmosphere temperature
     #-------- Tau0 time interoplation
@@ -195,7 +206,7 @@ for spw_index in range(spwNum):
     BPAz, BPEl = AzElMatch(BPtimeStamp, azelTime, AntID, refAntID, AZ, EL)
     exp_Tau = np.exp(-(Tau0Spec + np.mean(scipy.interpolate.splev(BPtimeStamp, TAU0ESP))) / np.median(np.sin(BPEl)))
     atmCorrect = 1.0 / exp_Tau
-    TsysBPScan = atmCorrect* (TrxSpec[TrxMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))    # [ant, pol, ch]
+    TsysBPScan = atmCorrect* (TrxSpec.transpose(2,0,1)[TrxMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))    # [ant, pol, ch]
     TsysBPShape = (TsysBPScan.transpose(2,0,1) / np.median(TsysBPScan, axis=2)).transpose(1,2,0)    # [ant, pol, ch]
     SEFD_BP = 2.0* kb* (TsysBPScan.transpose(2,1,0) / Ae).transpose(2,1,0)  # [ant, pol, ch]
     #-------- Equalization using BP scan
@@ -244,7 +255,7 @@ for spw_index in range(spwNum):
         PA = AzEl2PA(AzScan, ElScan) + BandPA; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
         exp_Tau = np.exp(-(Tau0Spec + np.mean(scipy.interpolate.splev(timeStamp, TAU0ESP))) / np.median(np.sin(ElScan)))
         atmCorrect = 1.0 / exp_Tau
-        TsysScan = atmCorrect* (TrxSpec[TrxMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))    # [ant, pol, ch]
+        TsysScan = atmCorrect* (TrxSpec.transpose(2,0,1)[TrxMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))    # [ant, pol, ch]
         SEFD = 2.0* kb* ((TsysBPScan / TsysBPShape).transpose(2,1,0) / Ae).transpose(2,1,0)  # [ant, pol, ch]
         GainCaledVis = pCalVis.transpose(3,2,1,0)* np.sqrt(SEFD[ant0][:,polYindex]*SEFD[ant1][:,polXindex])
         print '  -- Equalizing antenna-based gain variation'

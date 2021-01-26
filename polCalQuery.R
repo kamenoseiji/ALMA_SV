@@ -160,6 +160,7 @@ if( argList$load ){
 	cat('--- Loading Flux.Rdata from the web\n')
 	FluxDataURL <- "http://www.alma.cl/~skameno/Grid/Stokes/"
 	load(url(paste(FluxDataURL, "Flux.Rdata", sep='')))     # Data frame of FLDF
+    save(FLDF, file='Flux.Rdata')
 } else {
 	load('Flux.Rdata')
 }
