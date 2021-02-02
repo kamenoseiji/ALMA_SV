@@ -79,7 +79,7 @@ def scanAtmSpec(msfile, useAnt, scanList, spwList, timeOFF=0, timeON=0, timeAMB=
     return np.array(timeList), offSpecList, ambSpecList, hotSpecList, scanList
 #
 #-------- Log Trx
-def LogTrx(antList, spwList, freqList, scanList, timeRef, Trx, logFile):
+def LogTrx(antList, spwList, freqList, scanList, timeRef, Trx, TantN, logFile):
     antNum, spwNum, scanNum = len(antList), len(spwList), Trx[0].shape[3]
     for scan_index in range(scanNum):
         text_sd =  'Scan %d : %s' % (scanList[scan_index], qa.time('%fs' % (timeRef[scan_index]), form='fits')[0]); logFile.write(text_sd + '\n'); print text_sd
@@ -98,6 +98,20 @@ def LogTrx(antList, spwList, freqList, scanList, timeRef, Trx, logFile):
                 text_sd = text_sd + '|'
             logFile.write(text_sd + '\n'); print text_sd
         #
+    #
+    #-------- Log TantN
+    text_sd = 'TantN: '
+    for spw_index in range(spwNum): text_sd = text_sd + ' SPW%03d   |' % (spwList[spw_index])
+    logFile.write(text_sd + '\n'); print text_sd
+    text_sd =  ' ----:-----------+----------+----------+----------+'; logFile.write(text_sd + '\n'); print text_sd
+    for ant_index in range(antNum):
+        text_sd =  antList[ant_index] + ' : '
+        for spw_index in range(spwNum):
+            text_sd = text_sd + '%7.1f K ' % (np.median(TantN[spw_index][ant_index]))
+            text_sd = text_sd + '|'
+        logFile.write(text_sd + '\n'); print text_sd
+    #
+    text_sd =  ' ----:-----------+----------+----------+----------+'; logFile.write(text_sd + '\n'); print text_sd
     return
 #
 #-------- Trx and Tsky
@@ -309,16 +323,9 @@ for band_index in range(NumBands):
     atmsecZ  = 1.0 / np.sin( np.median(AtmEL, axis=0) )
     #-------- Tsky and TantN
     Tau0, Tau0Excess, TantN = tau0SpecFit(tempAtm - 5.0, atmsecZ, useAnt, atmspwLists[band_index], TskyList, scanFlag)
-    for spw_index in range(spwNum):
-        TrxList[spw_index] = (TrxList[spw_index].transpose(0,3,2,1) + TantN[spw_index]).transpose(0,3,2,1)
-        #for ant_index in range(useAntNum):
-        #    #flagList = np.where(scanFlag[ant_index] < 1.0)[0].tolist()
-        #    #unFlagList = np.where(scanFlag[ant_index] == 1.0)[0].tolist()
-        #    for flag_index in flagList:
-        #        #TrxList[spw_index][:,:,ant_index, flag_index] = np.median( TrxList[spw_index][:,:,ant_index, unFlagList], axis=2 )
-        #        TrxList[spw_index][:,:,ant_index, flag_index] = np.median( TrxList[spw_index][:,:,ant_index, unFlagList], axis=2 )
-        #
-    #
+    #for spw_index in range(spwNum):
+    #    TrxList[spw_index] = (TrxList[spw_index].transpose(0,3,2,1) + TantN[spw_index]).transpose(0,3,2,1)
+    ##
     SPWfreqList, freqList = [], []
     Tau0med = np.zeros(spwNum)
     for spw_index in range(spwNum):
@@ -327,9 +334,9 @@ for band_index in range(NumBands):
     #
     Tau0Max[band_index] = np.max(Tau0med)
     #-------- Log Tau0 (mean opacity at zenith)
-    LogTrx(antList[useAnt], atmspwLists[band_index], SPWfreqList, scanList, atmTimeRef, TrxList, tsysLog)
+    LogTrx(antList[useAnt], atmspwLists[band_index], SPWfreqList, scanList, atmTimeRef, TrxList, TantN, tsysLog)
     text_sd = 'Tau0 :  '
-    for spw_index in range(spwNum): text_sd = text_sd + '        %8.6f   | ' % (Tau0med[spw_index])
+    for spw_index in range(spwNum): text_sd = text_sd + ' %7.5f | ' % (Tau0med[spw_index])
     tsysLog.write(text_sd + '\n'); print text_sd
     tsysLog.close()
     #-------- Save to npy files
@@ -339,6 +346,7 @@ for band_index in range(NumBands):
     for spw_index in range(spwNum):
         np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.TrxFreq.npy', freqList[spw_index])    # freqList[spw]
         np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.Trx.npy', TrxList[spw_index])    # [spw][ant, pol, ch]
+        np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.TantN.npy', TantN[spw_index])    # [spw][ant, ch]
         np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.Tau0.npy', Tau0[spw_index])      # [spw][ch]
     #
     #---- Plots

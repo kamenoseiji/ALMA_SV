@@ -35,11 +35,10 @@ for spw_index in range(spwNum):
 #-------- Load D-term file
 Dcat = GetDterm(TBL_DIR, antList,int(UniqBands[band_index][3:5]), np.mean(timeStamp))
 #-------- Load Tsys table
-Tau0spec, TrxList, TrxFreqList = [], [], []
+Tau0spec, TrxList = [], []
 for spw in spwList:
-    TrxList = TrxList + [np.median(np.load(prefix +  '-' + UniqBands[band_index] + '-SPW' + `spw` + '.Trx.npy'), axis=3)]  # TrxList[spw][pol, ch, ant]
+    TrxList = TrxList + [np.median(np.load(prefix +  '-' + UniqBands[band_index] + '-SPW' + `spw` + '.Trx.npy'), axis=3) + np.median(np.load(prefix +  '-' + UniqBands[band_index] + '-SPW' + `spw` + '.TantN.npy'), axis=1)]   # TrxList[spw][pol, ch, ant]
     Tau0spec = Tau0spec + [np.load(prefix +  '-' + UniqBands[band_index] + '-SPW' + `spw` + '.Tau0.npy')]  # Tau0spec[spw][ch]
-    TrxFreqList  = TrxFreqList + [np.load(prefix +  '-' + UniqBands[band_index] + '-SPW' + `spw` + '.TrxFreq.npy')] # TrxFreq[spw][ch]
 #
 TrxAnts  = np.load(prefix +  '-' + UniqBands[band_index] + '.TrxAnt.npy') # TrxAnts[ant]
 Tau0E    = np.load(prefix +  '-' + UniqBands[band_index] + '.TauE.npy') # Tau0E[spw, atmScan]
