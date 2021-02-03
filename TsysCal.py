@@ -193,7 +193,7 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
         Tau0, TantN = param[0]* np.ones([useAntNum, chNum]), np.zeros([useAntNum, chNum])
         #-------- Fit for Tau0 (without TantN)
         for ant_index in range(useAntNum):
-            scanWeight = scanFlag[spw_index, ant_index]
+            scanWeight = scanFlag[spw_index, 0, ant_index] * scanFlag[spw_index, 1, ant_index]
             if len(np.where(scanWeight > 0)[0]) > 1:
                 for ch_index in range(chNum):
                     fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, TskyList[spw_index][ch_index, ant_index], scanWeight))
