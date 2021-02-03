@@ -139,7 +139,7 @@ def TrxTskySpec(useAnt, tempAmb, tempHot, spwList, scanList, ambSpec, hotSpec, o
         #
         #-------- Flag negative Trx
         chAvgTrx = np.mean(TrxSpec[:,chRange], axis=1)
-        scanFlag = 0.25*( np.sign(chAvgTrx - 10.0) + 1.0 )* (np.sign( 4.0* np.median(chAvgTrx) - chAvgTrx ) + 1.0)       # Flag (Trx < 10.0 K) or (Trx > 4* median) out
+        scanFlag = 0.25*( np.sign(chAvgTrx - 10.0) + 1.0 )* (np.sign( 4.0* np.median(chAvgTrx) - chAvgTrx ) + 1.0)  # Flag (Trx < 10.0 K) or (Trx > 4* median) out
         chAvgTrx = (np.sum(scanFlag* chAvgTrx, axis=2) / np.sum(scanFlag+1.0e-9, axis=2)).T # chAvgTrx[ant, pol]
         TskySpec = np.sum(TskySpec.transpose(1,0,2,3)* scanFlag, axis=1) / np.sum(scanFlag+1.0e-9, axis=0)
         TrxList = TrxList + [TrxSpec]
@@ -177,7 +177,7 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
             for ch_index in range(chNum):
                 param = [0.05]
                 #-------- Fit for Tau0 (fixed TantN)
-                fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, np.nanmedian(TskyList[spw_index][ch_index], axis=0), scanWeight))
+                fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, np.nanmedian(TskyList[spw_index][ch_index], axis=0), scanWeight / np.var(TskyList[0][32], axis=0) ))
                 Tau0Med[ch_index]  = fit[0][0]
             #
             Tau0List  = Tau0List  + [Tau0Med]
@@ -206,7 +206,7 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
             scanWeight = scanFlag[0,ant_index]* scanFlag[1,ant_index]
             if len(np.where(scanWeight > 0)[0]) > 1:
                 for ch_index in range(chNum):
-                    fit = scipy.optimize.leastsq(residTskyTransfer2, param, args=(tempAtm, Tau0Med[ch_index], secZ, TskyList[spw_index][ch_index, ant_index], scanWeight))
+                    fit = scipy.optimize.leastsq(residTskyTransfer2, param, args=(tempAtm, Tau0Med[ch_index], secZ, TskyList[spw_index][ch_index, ant_index], scanWeight / np.var(TskyList[0][32], axis=0)))
                     TantN[ant_index, ch_index]  = fit[0][0]
                 #
             #
@@ -216,7 +216,7 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
         scanWeight = np.mean(scanFlag[0]* scanFlag[1], axis=0)
         for ch_index in range(chNum):
             param = [Tau0Med[ch_index]]
-            fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, TskyResid[:,ch_index], scanWeight))
+            fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, TskyResid[:,ch_index], scanWeight / np.var(TskyList[0][32], axis=0)))
             Tau0Med[ch_index]  = fit[0][0]
         #
         Tau0Excess[spw_index] = residTskyTransfer0([np.median(Tau0Med)], tempAtm, secZ, np.median(TskyResid, axis=1), scanWeight ) / (tempAtm - Tcmb)* np.exp(-np.median(Tau0Med)* secZ) / secZ
@@ -351,7 +351,9 @@ for band_index in range(NumBands):
     #
     #---- Plots
     if not 'PLOTFMT' in locals():   PLOTFMT = 'pdf'
-    if PLOTTAU: plotTau(prefix + '_' + UniqBands[band_index], atmspwLists[band_index], freqList, Tau0) 
+    if PLOTTAU:
+        plotTau(prefix + '_' + UniqBands[band_index], atmspwLists[band_index], freqList, Tau0) 
+        plotTauFit(prefix + '_' + UniqBands[band_index], antList[useAnt], atmspwLists[band_index], atmsecZ, tempAmb, Tau0, TantN, TskyList) 
     if PLOTTSYS: plotTsys(prefix + '_' + UniqBands[band_index], antList[useAnt], atmspwLists[band_index], freqList, atmTimeRef, TrxList, TskyList)
 #
 #-------- Plot optical depth

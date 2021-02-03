@@ -27,6 +27,35 @@ def plotTau(prefix, spwList, freqList, Tau0spec):
     plt.close('all')
     return
 #
+#-------- Plot Tau fit
+def plotTauFit(prefix, antList, spwList, secZ, tempAmb, Tau0, TantN, TskyList):
+    antNum = len(antList)
+    airmass = np.arange( 1.0, 1.25*np.max(secZ), 0.01)
+    figTau = plt.figure(0, figsize = (11,8))
+    figTau.suptitle(prefix + ' Optical Depth')
+    figTau.text(0.45, 0.05, 'Airmass')
+    figTau.text(0.03, 0.45, 'Sky Temperature [K]', rotation=90)
+    for spw_index in range(spwNum):
+        chAvgTsky = np.median(TskyList[spw_index], axis=0)  # chAvgTsky[ant, scan]
+        chAvgTantN= np.median(TantN[spw_index], axis=1)
+        chAvgTau0 = np.median(Tau0[spw_index])
+        plotMax = 1.2 * np.max(chAvgTsky)
+        TskyPL = figTau.add_subplot(2, spwNum/2, spw_index + 1 )
+        TskyPL.axis([1.0, 2.5, 0.0, plotMax])
+        for ant_index in range(antNum):
+            TskyPL.plot( airmass, 2.713* np.exp(-chAvgTau0* airmass) + tempAmb[ant_index]* (1.0 - np.exp(-chAvgTau0* airmass)) + chAvgTantN[ant_index], '-', color=cm.gist_ncar( float(ant_index) / antNum ), alpha=0.25)
+            plotTsky = chAvgTsky[ant_index]
+            TskyPL.scatter( secZ, plotTsky, color=cm.gist_ncar( float(ant_index) / antNum ), alpha=0.25, label = antList[ant_index])
+            text_sd = 'Tau(zenith)=%6.4f' % (chAvgTau0)
+            TskyPL.text(1.01, 0.95* plotMax, text_sd, fontsize='9')
+            TskyPL.set_title('SPW ' + `spwList[spw_index]`)
+        #
+    #
+    TskyPL.legend(loc = 'lower right', prop={'size' :7}, numpoints = 1)
+    figTau.savefig('TAUfit_' + prefix + '.pdf')
+    plt.close('all')
+    return
+#
 #-------- Plot Tsys and Trx Spectrum
 def plotTsys(prefix, antList, spwList, freqList, atmTime, TrxList, TskyList):
     pp = PdfPages('TSYS_' + prefix + '.pdf')
