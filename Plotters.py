@@ -6,41 +6,42 @@ from matplotlib.backends.backend_pdf import PdfPages
 #-------- Set Color Map
 lineCmap = plt.get_cmap('Set1')
 #-------- Plot optical depth
-def plotTau(prefix, spwList, freqList, Tau0spec):
-    figTau = plt.figure(0, figsize = (11,8))
-    figTau.suptitle(prefix + ' Zenith Opacity')
-    figTau.text(0.45, 0.05, 'Frequency [GHz]')
-    figTau.text(0.03, 0.45, 'Optical Depth', rotation=90)
+def plotTauSpec(prefix, spwList, freqList, Tau0spec):
+    figTauSP = plt.figure(0, figsize = (11,8))
+    figTauSP.suptitle(prefix + ' Zenith Opacity')
+    figTauSP.text(0.45, 0.05, 'Frequency [GHz]')
+    figTauSP.text(0.03, 0.45, 'Optical Depth', rotation=90)
     spwNum = len(spwList)
     plotMax = 0.01
     for spw_index in range(spwNum): plotMax = max(plotMax, np.max(Tau0spec[spw_index]))
     for spw_index in range(spwNum):
         chNum = len(freqList[spw_index]); chRange = range(int(0.05*chNum), int(0.95*chNum))
-        TauPL = figTau.add_subplot(1, spwNum, spw_index + 1 )
+        TauPL = figTauSP.add_subplot(1, spwNum, spw_index + 1 )
         TauPL.axis([np.min(freqList[spw_index]), np.max(freqList[spw_index]), 0.0, 1.05* plotMax])
         TauPL.tick_params(axis='both', labelsize=6)
         TauPL.plot(freqList[spw_index][chRange], Tau0spec[spw_index][chRange], ls='steps-mid')
         text_sd = 'SPW = %d' % (spwList[spw_index])
         TauPL.text(np.min(freqList[spw_index]), 1.01* plotMax, text_sd, fontsize='8')
     #
-    figTau.savefig('TAU_' + prefix + '.pdf')
+    figTauSP.savefig('TAUS_' + prefix + '.pdf')
     plt.close('all')
     return
 #
 #-------- Plot Tau fit
 def plotTauFit(prefix, antList, spwList, secZ, tempAmb, Tau0, TantN, TskyList):
     antNum = len(antList)
+    spwNum = len(spwList)
     airmass = np.arange( 1.0, 1.25*np.max(secZ), 0.01)
-    figTau = plt.figure(0, figsize = (11,8))
-    figTau.suptitle(prefix + ' Optical Depth')
-    figTau.text(0.45, 0.05, 'Airmass')
-    figTau.text(0.03, 0.45, 'Sky Temperature [K]', rotation=90)
+    figTauFit = plt.figure(0, figsize = (11,8))
+    figTauFit.suptitle(prefix + ' Optical Depth')
+    figTauFit.text(0.45, 0.05, 'Airmass')
+    figTauFit.text(0.03, 0.45, 'Sky Temperature [K]', rotation=90)
     for spw_index in range(spwNum):
         chAvgTsky = np.median(TskyList[spw_index], axis=0)  # chAvgTsky[ant, scan]
         chAvgTantN= np.median(TantN[spw_index], axis=1)
         chAvgTau0 = np.median(Tau0[spw_index])
         plotMax = 1.2 * np.max(chAvgTsky)
-        TskyPL = figTau.add_subplot(2, spwNum/2, spw_index + 1 )
+        TskyPL = figTauFit.add_subplot(2, spwNum/2, spw_index + 1 )
         TskyPL.axis([1.0, 2.5, 0.0, plotMax])
         for ant_index in range(antNum):
             TskyPL.plot( airmass, 2.713* np.exp(-chAvgTau0* airmass) + tempAmb[ant_index]* (1.0 - np.exp(-chAvgTau0* airmass)) + chAvgTantN[ant_index], '-', color=cm.gist_ncar( float(ant_index) / antNum ), alpha=0.25)
@@ -52,10 +53,33 @@ def plotTauFit(prefix, antList, spwList, secZ, tempAmb, Tau0, TantN, TskyList):
         #
     #
     TskyPL.legend(loc = 'lower right', prop={'size' :7}, numpoints = 1)
-    figTau.savefig('TAUfit_' + prefix + '.pdf')
+    figTauFit.savefig('TAUF_' + prefix + '.pdf')
     plt.close('all')
     return
 #
+#-------- Plot Tau0-Excess
+def plotTau0E(prefix, atmTime, spwList, Tau0, Tau0Excess):
+    spwNum = len(spwList)
+    figTauE = plt.figure(0, figsize = (11,8))
+    figTauE.suptitle(prefix + ' Zenith Optical Depth')
+    DT, DTSpl = [], []
+    for mjdSec in atmTime.tolist(): DT.append(datetime.datetime.strptime(qa.time('%fs' % (mjdSec), form='fits', prec=9)[0], '%Y-%m-%dT%H:%M:%S.%f'))
+    mjdSpl = np.arange(atmTime[0], atmTime[-1], 1)
+    for mjdSec in mjdSpl.tolist(): DTSpl.append(datetime.datetime.strptime(qa.time('%fs' % (mjdSec), form='fits', prec=9)[0], '%Y-%m-%dT%H:%M:%S.%f'))
+    figTauE.text(0.45, 0.05, 'UTC on %s' % (DT[0].strftime('%Y-%m-%d')));
+    figTauE.text(0.03, 0.45, 'Zenith Optical Depth', rotation=90)
+    for spw_index in range(spwNum):
+        Tau0E = np.median(Tau0[spw_index]) + Tau0Excess[spw_index]
+        SP = tauSMTH( atmTime-atmTime[0], Tau0E )
+        Tau0ESpl = scipy.interpolate.splev(mjdSpl-atmTime[0], SP)
+        TauEPL = figTauE.add_subplot(2, spwNum/2, spw_index + 1 )
+        TauEPL.plot( DTSpl, Tau0ESpl, '-')
+        TauEPL.plot( DT, Tau0E, 'o')
+        #TauEPL.axis([DT[0], DT[-1], 0.0, 1.2* max(Tau0E)])
+        TauEPL.set_title('SPW ' + `spwList[spw_index]`)
+    figTauE.savefig('TAUE_' + prefix + '.pdf')
+    plt.close('all')
+    return
 #-------- Plot Tsys and Trx Spectrum
 def plotTsys(prefix, antList, spwList, freqList, atmTime, TrxList, TskyList):
     pp = PdfPages('TSYS_' + prefix + '.pdf')

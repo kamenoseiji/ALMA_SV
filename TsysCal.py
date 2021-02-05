@@ -153,8 +153,8 @@ def TrxTskySpec(useAnt, tempAmb, tempHot, spwList, scanList, ambSpec, hotSpec, o
 def tauSMTH( timeSample, TauE ):
     if len(timeSample) > 5:
         SplineWeight = np.ones(len(timeSample) + 4)
-        flagIndex = (np.where(abs(TauE)/np.std(TauE) > 3.0)[0] + 2).tolist()
-        SplineWeight[flagIndex] = 0.001
+        flagIndex = (np.where(abs(TauE - np.median(TauE))/np.std(TauE) > 3.0)[0] + 2).tolist()
+        SplineWeight[flagIndex] = 0.01
         tempTime = np.append([timeSample[0]-500.0, timeSample[0]-300.0], np.append(timeSample, [timeSample[-1]+300.0, timeSample[-1]+500.0]))
         tempTauE = np.append([TauE[0], TauE[0]], np.append(TauE, [TauE[-1], TauE[-1]]))
         smthTau = scipy.interpolate.splrep(tempTime, tempTauE, k=3, w=SplineWeight, t=tempTime[range(2, len(tempTime)-2, 3)] - 60.0 )
@@ -185,6 +185,12 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
             Tau0List  = Tau0List  + [Tau0Med]
             Tau0Excess[spw_index] = residTskyTransfer0([np.median(Tau0Med)], tempAtm, secZ, np.median(TskyList[spw_index], axis=(0,1)), scanWeight ) / (tempAtm - Tcmb)* np.exp(-np.median(Tau0Med)* secZ) / secZ
         #
+        medTau0E = np.median(Tau0Excess, axis=0)
+        for spw_index in range(spwNum):
+            tauSum, tauVar, tauRes = np.sum(Tau0Excess[spw_index]),  Tau0Excess[spw_index].dot(Tau0Excess[spw_index]), medTau0E.dot(Tau0Excess[spw_index])
+            detTau = len(Tau0Excess[spw_index])* tauVar - tauSum**2
+            coef = np.array([[tauVar, -tauSum],[-tauSum, len(Tau0Excess[spw_index])]]).dot( np.array([np.sum(medTau0E), tauRes])) / detTau
+            Tau0Excess[spw_index] = coef[0] + coef[1]* medTau0E
         return Tau0List, Tau0Excess, TantNList
     #
     for spw_index in range(spwNum):
@@ -226,6 +232,12 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
         TantNList = TantNList + [TantN]
         #
     #
+    medTau0E = np.median(Tau0Excess, axis=0)
+    for spw_index in range(spwNum):
+        tauSum, tauVar, tauRes = np.sum(Tau0Excess[spw_index]),  Tau0Excess[spw_index].dot(Tau0Excess[spw_index]), medTau0E.dot(Tau0Excess[spw_index])
+        detTau = len(Tau0Excess[spw_index])* tauVar - tauSum**2
+        coef = np.array([[tauVar, -tauSum],[-tauSum, len(Tau0Excess[spw_index])]]).dot( np.array([np.sum(medTau0E), tauRes])) / detTau
+        Tau0Excess[spw_index] = coef[0] + coef[1]* medTau0E
     #
     return Tau0List, Tau0Excess, TantNList
 #
@@ -351,8 +363,9 @@ for band_index in range(NumBands):
     #---- Plots
     if not 'PLOTFMT' in locals():   PLOTFMT = 'pdf'
     if PLOTTAU:
-        plotTau(prefix + '_' + UniqBands[band_index], atmspwLists[band_index], freqList, Tau0) 
+        plotTauSpec(prefix + '_' + UniqBands[band_index], atmspwLists[band_index], freqList, Tau0) 
         plotTauFit(prefix + '_' + UniqBands[band_index], antList[useAnt], atmspwLists[band_index], atmsecZ, tempAmb - 5.0, Tau0, TantN, TskyList) 
+        plotTau0E(prefix + '_' + UniqBands[band_index], atmTimeRef, atmspwLists[band_index], Tau0, Tau0Excess) 
     if PLOTTSYS: plotTsys(prefix + '_' + UniqBands[band_index], antList[useAnt], atmspwLists[band_index], freqList, atmTimeRef, TrxList, TskyList)
 #
 #-------- Plot optical depth
