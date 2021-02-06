@@ -44,13 +44,14 @@ def plotTauFit(prefix, antList, spwList, secZ, tempAmb, Tau0, TantN, TskyList):
         TskyPL = figTauFit.add_subplot(2, spwNum/2, spw_index + 1 )
         TskyPL.axis([1.0, 2.5, 0.0, plotMax])
         for ant_index in range(antNum):
-            TskyPL.plot( airmass, 2.713* np.exp(-chAvgTau0* airmass) + tempAmb[ant_index]* (1.0 - np.exp(-chAvgTau0* airmass)) + chAvgTantN[ant_index], '-', color=cm.gist_ncar( float(ant_index) / antNum ), alpha=0.25)
+            rgb = lineCmap(float(ant_index) / antNum )
+            TskyPL.plot( airmass, 2.713* np.exp(-chAvgTau0* airmass) + tempAmb[ant_index]* (1.0 - np.exp(-chAvgTau0* airmass)) + chAvgTantN[ant_index], '-', color=rgb, alpha=0.5)
             plotTsky = chAvgTsky[ant_index]
-            TskyPL.scatter( secZ, plotTsky, color=cm.gist_ncar( float(ant_index) / antNum ), alpha=0.25, label = antList[ant_index])
-            text_sd = 'Tau(zenith)=%6.4f' % (chAvgTau0)
-            TskyPL.text(1.01, 0.95* plotMax, text_sd, fontsize='9')
-            TskyPL.set_title('SPW ' + `spwList[spw_index]`)
+            TskyPL.plot( secZ, plotTsky, 'o', color=rgb, alpha=0.5, label = antList[ant_index])
         #
+        text_sd = 'Tau(zenith)=%6.4f' % (chAvgTau0)
+        TskyPL.text(1.01, 0.95* plotMax, text_sd, fontsize='9')
+        TskyPL.set_title('SPW ' + `spwList[spw_index]`)
     #
     TskyPL.legend(loc = 'lower right', prop={'size' :7}, numpoints = 1)
     figTauFit.savefig('TAUF_' + prefix + '.pdf')

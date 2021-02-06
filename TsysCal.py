@@ -170,6 +170,13 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
     Tau0List, TantNList = [], []
     scanNum, useAntNum, spwNum = len(secZ), len(useAnt), len(spwList)
     Tau0Excess = np.zeros([spwNum, scanNum])
+    if scanNum < 2:
+        for spw_index in range(spwNum):
+            chNum = TskyList[spw_index].shape[0]
+            TantNList = TantNList + [np.zeros([useAntNum, chNum])]
+            Tau0List  = Tau0List  + [ -np.log( (np.median(TskyList[spw_index], axis=(1,2)) - tempAtm) / (Tcmb - tempAtm) ) / secZ ]
+        return Tau0List, Tau0Excess, TantNList
+    #    
     if (np.max(secZ) - np.min(secZ)) < 0.5:
         for spw_index in range(spwNum):
             scanWeight = np.sum(scanFlag[spw_index], axis=(0,1))
@@ -314,7 +321,6 @@ for ant_index in range(useAntNum):
     if tempAmb[ant_index] < 240: tempAmb[ant_index] += 273.15       # Old MS describes the load temperature in Celsius
     if tempHot[ant_index] < 240: tempHot[ant_index] += 273.15       #
 #
-
 #-------- Trx, TantN, and Tau0
 Tau0Max = np.zeros(NumBands)
 for band_index in range(NumBands):
