@@ -224,7 +224,7 @@ for scan_index in range(scanNum):
         #
         #-------- Print Stoke parameters
         for pol_index in range(4):
-            if len(visFlag) < 6:
+            if len(visFlag) < 5:
                 DcalFlag = False; scanFlag = False
                 text_Stokes[spw_index] = text_Stokes[spw_index] + ' Only %d vis.    ' % (len(visFlag))
             else:
@@ -232,7 +232,7 @@ for scan_index in range(scanNum):
             #
         #
         #-------- Check SNR of Stokes I
-        if np.max(ErrFlux[scan_index, spw_index]) > 0.2: DcalFlag = False; scanFlag = False
+        #if np.max(ErrFlux[scan_index, spw_index]) > 0.2: DcalFlag = False; scanFlag = False
         if ScanFlux[scan_index, spw_index, 0] < 3.0* ErrFlux[scan_index, spw_index, 0]: DcalFlag = False; scanFlag = False
         if DcalFlag :
             AmpCalChAvg[spw_index][:,:,timePointer:timePointer+timeNum] = np.mean(AmpCalVis, axis=2).transpose(1,0,2)
