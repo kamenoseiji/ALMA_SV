@@ -122,6 +122,7 @@ for scan_index in range(scanNum):
     #
     #-------- UV distance
     timeStamp, UVW = GetUVW(msfile, spwList[0], onsourceScans[scan_index])
+    timeLabel = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
     scanTime = scanTime + [np.median(timeStamp)]
     timeNum = len(timeStamp)
     timeDic[sourceName] = range(timePointer, timePointer + timeNum)
