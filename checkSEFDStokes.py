@@ -153,7 +153,6 @@ secZ = 1.0 / np.mean(np.sin(ElScan))
 ##-------- Scale aperture efficiency
 for spw_index in range(spwNum):
     zenithTau = Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) + Tau0Coef[spw_index][0] + Tau0Coef[spw_index][1]*secZ
-    print np.median(zenithTau)
     exp_Tau = np.exp(-zenithTau * secZ )
     TsysEQScan = np.mean(TrxList[spw_index].transpose(2,0,1)[:,:,chRange] + Tcmb*exp_Tau[chRange] + tempAtm* (1.0 - exp_Tau[chRange]), axis=2)[Trx2antMap] # [antMap, pol]
     #-------- Baseline-based cross power spectra
