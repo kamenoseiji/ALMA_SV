@@ -169,17 +169,21 @@ def tauSMTH( timeSample, TauE ):
 #-------- Zenith opacity fitting
 #Tau0, Tau0Excess, TantN = tau0SpecFit(tempAtm - 5.0, atmsecZ, useAnt, atmspwLists[band_index], TskyList, scanFlag)
 def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
-    Tau0List, TantNList = [], []
+    Tau0List, TantNList, Tau0Coef = [], [], []
     scanNum, useAntNum, spwNum = len(secZ), len(useAnt), len(spwList)
     Tau0Excess = np.zeros([spwNum, scanNum])
+    #-------- Case1: Single atmCal scan
     if scanNum < 2:
         for spw_index in range(spwNum):
             chNum = TskyList[spw_index].shape[0]
             TantNList = TantNList + [np.zeros([useAntNum, chNum])]
             Tau0List  = Tau0List  + [ -np.log( (np.median(TskyList[spw_index], axis=(1,2)) - tempAtm) / (Tcmb - tempAtm) ) / secZ ]
-        return Tau0List, Tau0Excess, TantNList
+            Tau0Coef = Tau0Coef + [np.zeros(2)]
+        return Tau0List, Tau0Excess, Tau0Coef, TantNList
     #    
+    #-------- Case2: Multiple atmCal scans, but insuffcient SecZ coverage
     if (np.max(secZ) - np.min(secZ)) < 0.5:
+    #if (np.max(secZ) - np.min(secZ)) < 5.5:
         for spw_index in range(spwNum):
             scanWeight = np.sum(scanFlag[spw_index], axis=(0,1))
             chNum = TskyList[spw_index].shape[0]
@@ -191,17 +195,21 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
                 fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, np.nanmedian(TskyList[spw_index][ch_index], axis=0), scanWeight / np.var(TskyList[spw_index][ch_index], axis=0) ))
                 Tau0Med[ch_index]  = fit[0][0]
             #
+            #Tau0Excess[spw_index] = -np.log( (tempAtm - np.median(TskyResid, axis=1)) / (tempAtm - Tcmb) ) / secZ - np.median(Tau0Med)
             Tau0List  = Tau0List  + [Tau0Med]
             Tau0Excess[spw_index] = residTskyTransfer0([np.median(Tau0Med)], tempAtm, secZ, np.median(TskyList[spw_index], axis=(0,1)), scanWeight ) / (tempAtm - Tcmb)* np.exp(-np.median(Tau0Med)* secZ) / secZ / scanWeight
         #
-        medTau0E = np.median(Tau0Excess, axis=0)
+        #-------- Tau0Excess dependent on secZ 
         for spw_index in range(spwNum):
-            tauSum, tauVar, tauRes = np.sum(Tau0Excess[spw_index]),  Tau0Excess[spw_index].dot(Tau0Excess[spw_index]), medTau0E.dot(Tau0Excess[spw_index])
-            detTau = len(Tau0Excess[spw_index])* tauVar - tauSum**2
-            coef = np.array([[tauVar, -tauSum],[-tauSum, len(Tau0Excess[spw_index])]]).dot( np.array([np.sum(medTau0E), tauRes])) / detTau
-            Tau0Excess[spw_index] = coef[0] + coef[1]* medTau0E
-        return Tau0List, Tau0Excess, TantNList
+            seczSum, seczVar, tauRes = np.sum(secZ),  secZ.dot(secZ), secZ.dot(Tau0Excess[spw_index])
+            detTau = scanNum* seczVar - seczSum**2
+            coef = np.array([[seczVar, -seczSum],[-seczSum, scanNum]]).dot( np.array([np.sum(Tau0Excess[spw_index]), secZ.dot(Tau0Excess[spw_index])])) / detTau
+            Tau0Excess[spw_index] = Tau0Excess[spw_index] - coef[0] - coef[1]* secZ
+            Tau0Coef = Tau0Coef + [coef]
+        #
+        return Tau0List, Tau0Excess, Tau0Coef, TantNList
     #
+    #-------- Case3: Suffcient SecZ coverage
     for spw_index in range(spwNum):
         param = [0.05] # Initial parameter [Tau0]
         chNum = TskyList[spw_index].shape[0]
@@ -209,7 +217,7 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
         #-------- Fit for Tau0 (without TantN)
         for ant_index in range(useAntNum):
             scanWeight = scanFlag[spw_index, 0, ant_index] * scanFlag[spw_index, 1, ant_index]
-            if len(np.where(scanWeight > 0)[0]) > 1:
+            if len(np.where(scanWeight > 0)[0]) > 6:    # at least 6 points to fit
                 for ch_index in range(chNum):
                     fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, TskyList[spw_index][ch_index, ant_index], scanWeight))
                     Tau0[ant_index, ch_index]  = fit[0][0]
@@ -237,18 +245,20 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
             Tau0Med[ch_index]  = fit[0][0]
         #
         Tau0Excess[spw_index] = residTskyTransfer0([np.median(Tau0Med)], tempAtm, secZ, np.median(TskyResid, axis=1), scanWeight ) / (tempAtm - Tcmb)* np.exp(-np.median(Tau0Med)* secZ) / secZ / scanWeight
+        #Tau0Excess[spw_index] = -np.log( (tempAtm - np.median(TskyResid, axis=1)) / (tempAtm - Tcmb) ) / secZ - np.median(Tau0Med)
         Tau0List  = Tau0List  + [Tau0Med]
         TantNList = TantNList + [TantN]
         #
     #
-    medTau0E = np.median(Tau0Excess, axis=0)
+    #-------- Tau0Excess dependent on secZ 
     for spw_index in range(spwNum):
-        tauSum, tauVar, tauRes = np.sum(Tau0Excess[spw_index]),  Tau0Excess[spw_index].dot(Tau0Excess[spw_index]), medTau0E.dot(Tau0Excess[spw_index])
-        detTau = len(Tau0Excess[spw_index])* tauVar - tauSum**2
-        coef = np.array([[tauVar, -tauSum],[-tauSum, len(Tau0Excess[spw_index])]]).dot( np.array([np.sum(medTau0E), tauRes])) / detTau
-        Tau0Excess[spw_index] = coef[0] + coef[1]* medTau0E
+        seczSum, seczVar, tauRes = np.sum(secZ),  secZ.dot(secZ), secZ.dot(Tau0Excess[spw_index])
+        detTau = scanNum* seczVar - seczSum**2
+        coef = np.array([[seczVar, -seczSum],[-seczSum, scanNum]]).dot( np.array([np.sum(Tau0Excess[spw_index]), secZ.dot(Tau0Excess[spw_index])])) / detTau
+        Tau0Excess[spw_index] = Tau0Excess[spw_index] - coef[0] - coef[1]* secZ
+        Tau0Coef = Tau0Coef + [coef]
     #
-    return Tau0List, Tau0Excess, TantNList
+    return Tau0List, Tau0Excess, Tau0Coef, TantNList
 #
 #-------- Check MS file
 msfile = wd + prefix + '.ms'
@@ -344,7 +354,7 @@ for band_index in range(NumBands):
     #
     atmsecZ  = 1.0 / np.sin( np.median(AtmEL, axis=0) )
     #-------- Tsky and TantN
-    Tau0, Tau0Excess, TantN = tau0SpecFit(tempAtm, atmsecZ, useAnt, atmspwLists[band_index], TskyList, scanFlag)
+    Tau0, Tau0Excess, Tau0Coef, TantN = tau0SpecFit(tempAtm, atmsecZ, useAnt, atmspwLists[band_index], TskyList, scanFlag)
     SPWfreqList, freqList = [], []
     Tau0med = np.zeros(spwNum)
     for spw_index in range(spwNum):
@@ -364,9 +374,10 @@ for band_index in range(NumBands):
     np.save(prefix +  '-' + UniqBands[band_index] + '.TauE.npy', Tau0Excess)            # [spw][scan]
     for spw_index in range(spwNum):
         np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.TrxFreq.npy', freqList[spw_index])    # freqList[spw]
-        np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.Trx.npy', TrxList[spw_index])    # [spw][ant, pol, ch]
-        np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.TantN.npy', TantN[spw_index])    # [spw][ant, ch]
-        np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.Tau0.npy', Tau0[spw_index])      # [spw][ch]
+        np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.Trx.npy', TrxList[spw_index])         # [spw][ant, pol, ch]
+        np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.TantN.npy', TantN[spw_index])         # [spw][ant, ch]
+        np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.Tau0.npy', Tau0[spw_index])           # [spw][ch]
+        np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.Tau0C.npy', Tau0Coef[spw_index])      # [spw][2]
     #
     #---- Plots
     if not 'PLOTFMT' in locals():   PLOTFMT = 'pdf'

@@ -39,10 +39,11 @@ for spw_index in range(spwNum):
 #-------- Load D-term file
 Dcat = GetDterm(TBL_DIR, antList,int(UniqBands[band_index][3:5]), np.mean(timeStamp))
 #-------- Load Tsys table
-Tau0spec, TrxList = [], []
+Tau0spec, TrxList, Tau0Coef = [], [], []
 for spw in spwList:
     TrxList = TrxList + [np.median(np.load(prefix +  '-' + UniqBands[band_index] + '-SPW' + `spw` + '.Trx.npy'), axis=3) + np.median(np.load(prefix +  '-' + UniqBands[band_index] + '-SPW' + `spw` + '.TantN.npy'), axis=1)]   # TrxList[spw][pol, ch, ant]
     Tau0spec = Tau0spec + [np.load(prefix +  '-' + UniqBands[band_index] + '-SPW' + `spw` + '.Tau0.npy')]  # Tau0spec[spw][ch]
+    Tau0Coef = Tau0Coef + [np.load(prefix +  '-' + UniqBands[band_index] + '-SPW' + `spw` + '.Tau0C.npy')] # Tau0Coef[spw][2] --- intercept + slope
 #
 TrxAnts  = np.load(prefix +  '-' + UniqBands[band_index] + '.TrxAnt.npy') # TrxAnts[ant]
 Tau0E    = np.load(prefix +  '-' + UniqBands[band_index] + '.TauE.npy') # Tau0E[spw, atmScan]
@@ -115,10 +116,13 @@ Trx2antMap = indexList( antList[antMap], antList[TrxMap] )
 BPDone = False
 print '---Generating antenna-based bandpass table'
 BPList = []
+secZ = 1.0 / np.mean(np.sin(BPEL))
 for spw_index in range(spwNum):
     BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spwList[spw_index], BPScan, blMap, blInv)     # BP_ant[antMap, pol, ch]
     BP_ant[:,1] *= XY_BP
-    exp_Tau = np.exp(-Tau0spec[spw_index] / np.sin(BPEL))
+    #exp_Tau = np.exp(-Tau0spec[spw_index] / np.sin(BPEL))
+    zenithTau = Tau0spec[spw_index] + Tau0Coef[spw_index][0] + Tau0Coef[spw_index][1]*secZ
+    exp_Tau = np.exp(-zenithTau * secZ )
     atmCorrect = 1.0 / exp_Tau
     TsysBPScan = atmCorrect* (TrxList[spw_index].transpose(2,0,1)[Trx2antMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau)) # [antMap, pol, ch]
     TsysBPShape = abs((TsysBPScan.transpose(2,0,1) / np.median(TsysBPScan, axis=2))).transpose(1,2,0)
@@ -145,9 +149,12 @@ QCpUS = (StokesEQ[1]* np.cos(2.0* PA) + StokesEQ[2]* np.sin(2.0* PA)) / StokesEQ
 #
 ##-------- Smooth excess Tau 
 exTauSP = tauSMTH(atmTimeRef, Tau0E)
+secZ = 1.0 / np.mean(np.sin(ElScan))
 ##-------- Scale aperture efficiency
 for spw_index in range(spwNum):
-    exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP)) / np.mean(np.sin(ElScan)))
+    zenithTau = Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) + Tau0Coef[spw_index][0] + Tau0Coef[spw_index][1]*secZ
+    print np.median(zenithTau)
+    exp_Tau = np.exp(-zenithTau * secZ )
     TsysEQScan = np.mean(TrxList[spw_index].transpose(2,0,1)[:,:,chRange] + Tcmb*exp_Tau[chRange] + tempAtm* (1.0 - exp_Tau[chRange]), axis=2)[Trx2antMap] # [antMap, pol]
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], EQScan)
@@ -208,6 +215,7 @@ for sso_index in range(SSONum):
     SAant0, SAant1 = np.array(ant0)[SAblIndex].tolist(), np.array(ant1)[SAblIndex].tolist()
     bpAntMap = indexList(antList[SAantMap],antList[antMap])
     Trx2antMap = indexList( antList[SAantMap], antList[TrxMap] )
+    secZ = 1.0 / np.mean(np.sin(ElScan))
     for spw_index in range(spwNum):
         #-------- Baseline-based cross power spectra
         timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], SSOscanID[sso_index])
@@ -218,7 +226,9 @@ for sso_index in range(SSONum):
         GainX, GainY = np.apply_along_axis( gainComplex, 0, chAvgVis[0]), np.apply_along_axis( gainComplex, 0, chAvgVis[1])
         #-------- Tsys
         Ta = SSOflux[sso_index, spw_index]* AeNominal[SAantMap] / (2.0* kb)
-        exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) ) / np.mean(np.sin(ElScan)))
+        #exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) ) / np.mean(np.sin(ElScan)))
+        zenithTau = Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) + Tau0Coef[spw_index][0] + Tau0Coef[spw_index][1]*secZ
+        exp_Tau = np.exp(-zenithTau * secZ )
         TsysSPW = np.mean(TrxList[spw_index].transpose(2,0,1)[:,:,chRange] + Tcmb*exp_Tau[chRange] + tempAtm* (1.0 - exp_Tau[chRange]), axis=2)[Trx2antMap] # [antMap, pol]
         #-------- Aperture efficiency
         AeX[bpAntMap, spw_index, sso_index] = 2.0* kb* np.percentile(abs(GainX), 75, axis=1)**2 * (Ta + TsysSPW[:, 0]) / SSOflux[sso_index, spw_index]

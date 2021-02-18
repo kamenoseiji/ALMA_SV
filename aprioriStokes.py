@@ -35,10 +35,11 @@ for spw_index in range(spwNum):
 #-------- Load D-term file
 Dcat = GetDterm(TBL_DIR, antList,int(UniqBands[band_index][3:5]), np.mean(timeStamp))
 #-------- Load Tsys table
-Tau0spec, TrxList = [], []
+Tau0spec, TrxList, Tau0Coef = [], [], []
 for spw in spwList:
     TrxList = TrxList + [np.median(np.load(prefix +  '-' + UniqBands[band_index] + '-SPW' + `spw` + '.Trx.npy'), axis=3) + np.median(np.load(prefix +  '-' + UniqBands[band_index] + '-SPW' + `spw` + '.TantN.npy'), axis=1)]   # TrxList[spw][pol, ch, ant]
     Tau0spec = Tau0spec + [np.load(prefix +  '-' + UniqBands[band_index] + '-SPW' + `spw` + '.Tau0.npy')]  # Tau0spec[spw][ch]
+    Tau0Coef = Tau0Coef + [np.load(prefix +  '-' + UniqBands[band_index] + '-SPW' + `spw` + '.Tau0C.npy')] # Tau0Coef[spw][2] --- intercept + slope
 #
 TrxAnts  = np.load(prefix +  '-' + UniqBands[band_index] + '.TrxAnt.npy') # TrxAnts[ant]
 Tau0E    = np.load(prefix +  '-' + UniqBands[band_index] + '.TauE.npy') # Tau0E[spw, atmScan]
@@ -168,7 +169,10 @@ QCpUS = (StokesEQ[1]* np.cos(2.0* PA) + StokesEQ[2]* np.sin(2.0* PA)) / StokesEQ
 exTauSP = tauSMTH(atmTimeRef, Tau0E)
 ##-------- Equalize aperture efficiency
 for spw_index in range(spwNum):
-    exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) ) / np.mean(np.sin(ElScan)))
+    #exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) ) / np.mean(np.sin(ElScan)))
+    secZ = 1.0 / np.mean(np.sin(ElScan))
+    zenithTau = Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) + Tau0Coef[spw_index][0] + Tau0Coef[spw_index][1]*secZ
+    exp_Tau = np.exp(-zenithTau * secZ )
     TsysEQScan = np.mean(TrxList[spw_index].transpose(2,0,1)[:,:,chRange] + Tcmb*exp_Tau[chRange] + tempAtm* (1.0 - exp_Tau[chRange]), axis=2)[Trx2antMap] # [antMap, pol]
     #-------- Baseline-based cross power spectra
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spwList[spw_index], EQScan)
@@ -207,8 +211,11 @@ DtermDic = {'mjdSec': np.median(timeStamp)}
 StokesDic['mjdSec'] = np.median(timeStamp)
 Trx2antMap = indexList( antList[antMap], antList[TrxMap] )
 scan_index = scanList.index(BPScan)
+secZ = 1.0 / np.mean(np.sin(ElScan))
 for spw_index in range(spwNum):
-    exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) ) / np.mean(np.sin(ElScan)))
+    zenithTau = Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) + Tau0Coef[spw_index][0] + Tau0Coef[spw_index][1]*secZ
+    exp_Tau = np.exp(-zenithTau * secZ )
+    #exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) ) / np.mean(np.sin(ElScan)))
     atmCorrect = 1.0 / exp_Tau
     TsysSPW = (TrxList[spw_index].transpose(2,0,1) + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap] # [antMap, pol, ch]
     TsysBL  = np.sqrt( TsysSPW[ant0][:,polYindex]* TsysSPW[ant1][:,polXindex])
@@ -342,12 +349,15 @@ for scan_index in range(scanNum):
         XYC = XYC + [np.mean(delay_cal(XYspec[:,0], XYdelay)), np.mean(delay_cal(XYspec[:,1], YXdelay))]
     #-------- Full-Stokes parameters
     text_Stokes = np.repeat('',spwNum).tolist()
+    secZ = 1.0 / np.mean(np.sin(ElScan))
     for spw_index in range(spwNum):
         StokesI_PL = figFL.add_subplot( 2, spwNum, spw_index + 1 )
         StokesP_PL = figFL.add_subplot( 2, spwNum, spwNum + spw_index + 1 )
         IList = IList + [StokesI_PL]
         PList = PList + [StokesP_PL]
-        exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) ) / np.mean(np.sin(ElScan)))
+        #exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) ) / np.mean(np.sin(ElScan)))
+        zenithTau = Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) + Tau0Coef[spw_index][0] + Tau0Coef[spw_index][1]*secZ
+        exp_Tau = np.exp(-zenithTau * secZ )
         atmCorrect = 1.0 / exp_Tau
         TsysSPW = (TrxList[spw_index].transpose(2,0,1) + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap]    # [ant, pol, ch]
         SEFD = 2.0* kb* (TsysSPW * atmCorrect).transpose(2,1,0) / Ae[:,bpAntMap]   # SEFD[ch,pol,antMap]
