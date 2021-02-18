@@ -66,8 +66,11 @@ DtermDic = {'mjdSec': np.median(timeStamp)}
 StokesDic['mjdSec'] = np.median(timeStamp)
 scan_index = onsourceScans.index(BPScan)
 Trx2antMap = indexList( antList[antMap], antList[TrxMap] )
+secZ = 1.0 / np.mean(np.sin(ElScan))
 for spw_index in range(spwNum):
-    exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) ) / np.mean(np.sin(ElScan)))
+    #exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) ) / np.mean(np.sin(ElScan)))
+    zenithTau = Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) + Tau0Coef[spw_index][0] + Tau0Coef[spw_index][1]*secZ
+    exp_Tau = np.exp(-zenithTau * secZ )
     atmCorrect = 1.0 / exp_Tau
     TsysSPW = (TrxList[spw_index].transpose(2,0,1) + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap] # [antMap, pol, ch]
     TsysBL  = np.sqrt( TsysSPW[ant0][:,polYindex]* TsysSPW[ant1][:,polXindex])
@@ -177,12 +180,15 @@ for scan_index in range(scanNum):
     #
     #-------- Full-Stokes parameters
     text_Stokes = np.repeat('',spwNum).tolist()
+    secZ = 1.0 / np.mean(np.sin(ElScan))
     for spw_index in range(spwNum):
         StokesI_PL = figFL.add_subplot( 2, spwNum, spw_index + 1 )
         StokesP_PL = figFL.add_subplot( 2, spwNum, spwNum + spw_index + 1 )
         IList = IList + [StokesI_PL]
         PList = PList + [StokesP_PL]
-        exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) ) / np.mean(np.sin(ElScan)))
+        #exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) ) / np.mean(np.sin(ElScan)))
+        zenithTau = Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) + Tau0Coef[spw_index][0] + Tau0Coef[spw_index][1]*secZ
+        exp_Tau = np.exp(-zenithTau * secZ )
         atmCorrect = 1.0 / exp_Tau
         TsysSPW = (TrxList[spw_index].transpose(2,0,1) + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau))[Trx2antMap]    # [ant, pol, ch]
         if SSO_flag:
