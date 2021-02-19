@@ -77,6 +77,7 @@ def plotTau0E(prefix, atmTime, spwList, Tau0, Tau0Excess):
         TauEPL.plot( DTSpl, Tau0ESpl, '-')
         TauEPL.plot( DT, Tau0E, 'o')
         #TauEPL.axis([DT[0], DT[-1], 0.0, 1.2* max(Tau0E)])
+        TauEPL.tick_params(axis='x', labelsize=6)
         TauEPL.set_title('SPW ' + `spwList[spw_index]`)
     figTauE.savefig('TAUE_' + prefix + '.pdf')
     plt.close('all')
