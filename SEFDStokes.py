@@ -232,7 +232,7 @@ for scan_index in range(scanNum):
         #
         #-------- Print Stoke parameters
         for pol_index in range(4):
-            if len(visFlag) < 5:
+            if len(visFlag) < 4:
                 DcalFlag = False; scanFlag = False
                 text_Stokes[spw_index] = text_Stokes[spw_index] + ' Only %d vis.    ' % (len(visFlag))
             else:
@@ -262,7 +262,7 @@ for scan_index in range(scanNum):
     for spw_index in range(spwNum):
         StokesI_PL, StokesP_PL = IList[spw_index], PList[spw_index]
         if spw_index == 0: StokesI_PL.text(0.0, IMax*1.35, text_src)
-        if spw_index == spwNum - 1: StokesI_PL.text(0.0, IMax*1.35, text_time)
+        if spw_index == spwNum - 1: StokesI_PL.text(0.0, IMax*1.35, timeLabel)
         StokesI_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 0], ScanFlux[scan_index, spw_index, 0]+ uvMax* ScanSlope[scan_index, spw_index, 0]]), '-', color=Pcolor[0])
         StokesP_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 1], ScanFlux[scan_index, spw_index, 1]+ uvMax* ScanSlope[scan_index, spw_index, 1]]), '-', color=Pcolor[1])
         StokesP_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 2], ScanFlux[scan_index, spw_index, 2]+ uvMax* ScanSlope[scan_index, spw_index, 2]]), '-', color=Pcolor[2])
