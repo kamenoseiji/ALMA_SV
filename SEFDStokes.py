@@ -119,13 +119,15 @@ for scan_index in range(scanNum):
     scanFlag, DcalFlag = True, True
     sourceName = sourceList[sourceIDscan[scan_index]]
     scanDic[sourceName] = scanDic[sourceName] + [scan_index, 1]
+    SunAngle = SunAngleSourceList[sourceIDscan[scan_index]]
+    if SunAngle < SunAngleTsysLimit: scanFlag = False
     if scan_index > 0:
         for PL in IList: figFL.delaxes(PL)
         for PL in PList: figFL.delaxes(PL)
     #
     #-------- UV distance
     timeStamp, UVW = GetUVW(msfile, spwList[0], onsourceScans[scan_index])
-    timeLabel = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
+    timeLabel = qa.time('%fs' % np.median(timeStamp), form='ymd')[0] + ' SA=%.1f' % (SunAngle) + ' deg.'
     scanTime = scanTime + [np.median(timeStamp)]
     timeNum = len(timeStamp)
     timeDic[sourceName] = range(timePointer, timePointer + timeNum)
@@ -136,7 +138,7 @@ for scan_index in range(scanNum):
     PADic[sourceName] = PA.tolist()
     #-------- Prepare plots
     IList, PList = [], []      # XY delay and correlation
-    text_time = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
+    #text_time = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
     text_src  = ' %02d %010s EL=%4.1f deg' % (scanList[scan_index], sourceName, 180.0* OnEL[scan_index]/pi) 
     SSO_flag = (onsourceScans[scan_index] in SSOscanID)
     if SSO_flag : SSO_ID = SSOscanID.index(onsourceScans[scan_index])

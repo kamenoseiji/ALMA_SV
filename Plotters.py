@@ -28,7 +28,7 @@ def plotTauSpec(prefix, spwList, freqList, Tau0spec):
     return
 #
 #-------- Plot Tau fit
-def plotTauFit(prefix, antList, spwList, secZ, tempAmb, Tau0, TantN, TskyList):
+def plotTauFit(prefix, antList, spwList, secZ, tempAmb, Tau0, TantN, TskyList, scanFlag):
     antNum = len(antList)
     spwNum = len(spwList)
     airmass = np.arange( 1.0, 1.25*np.max(secZ), 0.01)
@@ -47,7 +47,7 @@ def plotTauFit(prefix, antList, spwList, secZ, tempAmb, Tau0, TantN, TskyList):
             rgb = lineCmap(float(ant_index) / antNum )
             TskyPL.plot( airmass, 2.713* np.exp(-chAvgTau0* airmass) + tempAmb[ant_index]* (1.0 - np.exp(-chAvgTau0* airmass)) + chAvgTantN[ant_index], '-', color=rgb, alpha=0.5)
             plotTsky = chAvgTsky[ant_index]
-            TskyPL.plot( secZ, plotTsky, 'o', color=rgb, alpha=0.5, label = antList[ant_index])
+            TskyPL.scatter( secZ, plotTsky, s=10.0* scanFlag[spw_index, ant_index], color=rgb, label = antList[ant_index])
         #
         text_sd = 'Tau(zenith)=%6.4f' % (chAvgTau0)
         TskyPL.text(1.01, 0.95* plotMax, text_sd, fontsize='9')
@@ -59,7 +59,7 @@ def plotTauFit(prefix, antList, spwList, secZ, tempAmb, Tau0, TantN, TskyList):
     return
 #
 #-------- Plot Tau0-Excess
-def plotTau0E(prefix, atmTime, spwList, Tau0, Tau0Excess):
+def plotTau0E(prefix, atmTime, spwList, Tau0, Tau0Excess, scanFlag):
     spwNum = len(spwList)
     figTauE = plt.figure(0, figsize = (11,8))
     figTauE.suptitle(prefix + ' Zenith Optical Depth')
@@ -75,8 +75,7 @@ def plotTau0E(prefix, atmTime, spwList, Tau0, Tau0Excess):
         Tau0ESpl = scipy.interpolate.splev(mjdSpl-atmTime[0], SP)
         TauEPL = figTauE.add_subplot(2, spwNum/2, spw_index + 1 )
         TauEPL.plot( DTSpl, Tau0ESpl, '-')
-        TauEPL.plot( DT, Tau0E, 'o')
-        #TauEPL.axis([DT[0], DT[-1], 0.0, 1.2* max(Tau0E)])
+        TauEPL.scatter( DT, Tau0E, s=10.0* scanFlag[spw_index])
         TauEPL.tick_params(axis='x', labelsize=6)
         TauEPL.set_title('SPW ' + `spwList[spw_index]`)
     figTauE.savefig('TAUE_' + prefix + '.pdf')

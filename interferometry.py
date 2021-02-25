@@ -88,6 +88,7 @@ def angFlagBL(msfile, BLlimit, spw, scan, antFlag = []):    # Flag distant anten
     useAntList = [tempRefAntID] + useAntIndex[np.where(useAntIndex < tempRefAntID)[0]].tolist() + (useAntIndex[np.where(useAntIndex >= tempRefAntID)[0]] + 1).tolist()
     return list(set(antFlag) | (set(antList) - set(antList[useAntList])))
 #
+#======== Statistical basics
 def linearRegression( x, y, err):
     weight = 1.0 / err**2
     Sw, Swxx, Swx, Swy, Swxy = np.sum(weight), np.sum( weight* x**2), weight.dot(x), weight.dot(y), np.sum(weight* x* y)
@@ -393,6 +394,14 @@ def GetSourceList(msfile):              # Source List
         posList[ID]    = SourcePos[IDindex]
     #
     return sourceList, posList
+#
+def GetSunAngle(msfile):
+    sunAngleList = []
+    sourceList, posList = GetSourceList(msfile)
+    for source_index in range(len(sourceList)):
+        sunAngleList = sunAngleList + [au.angleToSun(vis=msfile, field=source_index, verbose=False)]
+    #
+    return sunAngleList
 #
 def GetAzEl(msfile):
 	Out = msfile + '/' + 'POINTING'

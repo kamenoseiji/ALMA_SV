@@ -14,6 +14,7 @@
 #
 #  They include all of antennas (even if flagged) in MS order
 #
+SunAngleTsysLimit = 5.0 # [deg] 
 if 'PLOTTAU'  not in locals(): PLOTTAU  = False
 if 'PLOTTSYS' not in locals(): PLOTTSYS = False
 execfile(SCR_DIR + 'interferometry.py')
@@ -167,7 +168,6 @@ def tauSMTH( timeSample, TauE ):
     return smthTau
 #
 #-------- Zenith opacity fitting
-#Tau0, Tau0Excess, TantN = tau0SpecFit(tempAtm - 5.0, atmsecZ, useAnt, atmspwLists[band_index], TskyList, scanFlag)
 def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
     Tau0List, TantNList, Tau0Coef = [], [], []
     scanNum, useAntNum, spwNum = len(secZ), len(useAnt), len(spwList)
@@ -183,7 +183,6 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
     #    
     #-------- Case2: Multiple atmCal scans, but insuffcient SecZ coverage
     if (np.max(secZ) - np.min(secZ)) < 0.5:
-    #if (np.max(secZ) - np.min(secZ)) < 5.5:
         for spw_index in range(spwNum):
             scanWeight = np.sum(scanFlag[spw_index], axis=(0,1))
             chNum = TskyList[spw_index].shape[0]
@@ -195,7 +194,6 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
                 fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, np.nanmedian(TskyList[spw_index][ch_index], axis=0), scanWeight / np.var(TskyList[spw_index][ch_index], axis=0) ))
                 Tau0Med[ch_index]  = fit[0][0]
             #
-            #Tau0Excess[spw_index] = -np.log( (tempAtm - np.median(TskyResid, axis=1)) / (tempAtm - Tcmb) ) / secZ - np.median(Tau0Med)
             Tau0List  = Tau0List  + [Tau0Med]
             Tau0Excess[spw_index] = residTskyTransfer0([np.median(Tau0Med)], tempAtm, secZ, np.median(TskyList[spw_index], axis=(0,1)), scanWeight ) / (tempAtm - Tcmb)* np.exp(-np.median(Tau0Med)* secZ) / secZ / scanWeight
         #
@@ -245,7 +243,6 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
             Tau0Med[ch_index]  = fit[0][0]
         #
         Tau0Excess[spw_index] = residTskyTransfer0([np.median(Tau0Med)], tempAtm, secZ, np.median(TskyResid, axis=1), scanWeight ) / (tempAtm - Tcmb)* np.exp(-np.median(Tau0Med)* secZ) / secZ / scanWeight
-        #Tau0Excess[spw_index] = -np.log( (tempAtm - np.median(TskyResid, axis=1)) / (tempAtm - Tcmb) ) / secZ - np.median(Tau0Med)
         Tau0List  = Tau0List  + [Tau0Med]
         TantNList = TantNList + [TantN]
         #
@@ -274,7 +271,6 @@ useAnt = np.where(flagAnt == 1.0)[0].tolist(); useAntNum = len(useAnt)
 #-------- Check SPWs
 print '---Checking spectral windows and scans with atmCal for ' + prefix
 if 'atmSPWs' not in locals():
-    #atmSPWs = GetAtmSPWs(msfile)
     atmSPWs = list( set(GetBPcalSPWs(msfile)) & set(GetAtmSPWs(msfile)) ); atmSPWs.sort()
 atmBandNames = GetBandNames(msfile, atmSPWs); UniqBands = unique(atmBandNames).tolist()
 if UniqBands == []: UniqBands = BandList
@@ -335,6 +331,8 @@ for ant_index in range(useAntNum):
 #
 #-------- Trx, TantN, and Tau0
 Tau0Max = np.zeros(NumBands)
+sourceList, polList = GetSourceList(msfile)
+SunAngleSourceList = GetSunAngle(msfile)
 for band_index in range(NumBands):
     tsysLog = open(prefix + '-' + UniqBands[band_index] + '-Tsys.log', 'w')
     #-------- Trx
@@ -343,6 +341,12 @@ for band_index in range(NumBands):
     print 'atmCal scans = ' + `atmscanLists[band_index]`
     atmscanNum, spwNum = len(atmscanLists[band_index]), len(atmspwLists[band_index])
     TrxList, TskyList, scanFlag = TrxTskySpec(useAnt, tempAmb, tempHot, atmspwLists[band_index], atmscanLists[band_index], ambSpec, hotSpec, offSpec)
+    #-------- Check sun angle 
+    for scan_index in range(len(scanList)):
+        sourceID = msmd.sourceidforfield(msmd.fieldsforscan(scanList[scan_index])[0])
+        SunAngle = SunAngleSourceList[sourceID]
+        if SunAngle < SunAngleTsysLimit: scanFlag[:,:,:,scan_index] *= 0.01
+    #
     for spw_index in range(spwNum):
         np.save(prefix +  '-' + UniqBands[band_index] + '-SPW' + `atmspwLists[band_index][spw_index]` + '.Trx.npy', TrxList[spw_index])    # TxList[spw][pol,ch,ant,scan]
     #-------- Az and El position at atmCal and onsource scans
@@ -383,8 +387,8 @@ for band_index in range(NumBands):
     if not 'PLOTFMT' in locals():   PLOTFMT = 'pdf'
     if PLOTTAU:
         plotTauSpec(prefix + '_' + UniqBands[band_index], atmspwLists[band_index], freqList, Tau0) 
-        plotTauFit(prefix + '_' + UniqBands[band_index], antList[useAnt], atmspwLists[band_index], atmsecZ, tempAmb - 5.0, Tau0, TantN, TskyList) 
-        if len(atmscanLists[band_index]) > 5: plotTau0E(prefix + '_' + UniqBands[band_index], atmTimeRef, atmspwLists[band_index], Tau0, Tau0Excess) 
+        plotTauFit(prefix + '_' + UniqBands[band_index], antList[useAnt], atmspwLists[band_index], atmsecZ, tempAmb, Tau0, TantN, TskyList, np.min(scanFlag, axis=1)) 
+        if len(atmscanLists[band_index]) > 5: plotTau0E(prefix + '_' + UniqBands[band_index], atmTimeRef, atmspwLists[band_index], Tau0, Tau0Excess, np.min(scanFlag, axis=(1,2))) 
     if PLOTTSYS: plotTsys(prefix + '_' + UniqBands[band_index], antList[useAnt], atmspwLists[band_index], freqList, atmTimeRef, TrxList, TskyList)
 #
 #-------- Plot optical depth

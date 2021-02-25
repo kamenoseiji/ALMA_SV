@@ -47,25 +47,6 @@ atmTimeRef = np.load(prefix +  '-' + UniqBands[band_index] + '.atmTime.npy') # a
 TrxMap = indexList(TrxAnts, antList); TrxFlag = np.zeros([antNum]); TrxFlag[TrxMap] = 1.0
 Tau0E = np.nanmedian(Tau0E, axis=0); Tau0E[np.isnan(Tau0E)] = np.nanmedian(Tau0E); Tau0E[np.isnan(Tau0E)] = 0.0
 #-------- Tsys channel interpolation
-'''
-chNum, chWid, Freq = GetChNum(msfile, spwList[0])
-for spw_index in range(spwNum):
-    if len(TrxFreqList[spw_index]) != chNum: 
-        tmpTAU0 = np.zeros(chNum)
-        tmpTRX = np.zeros([antNum, 2, chNum])
-        chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index]); Freq *= 1.0e-9
-        TAU0 = interpolate.interp1d(TrxFreq[spw_index], Tau0spec[spw_index])
-        tmpTAU0 = TAU0(Freq)
-        for ant_index in range(len(TrxAnts)):
-            for pol_index in range(2):
-                TRX = interpolate.interp1d(TrxFreq[spw_index], TrxList[spw_index][pol_index, :, ant_index])
-                tmpTRX[ant_index, pol_index] = TRX(Freq)
-        #
-        TrxList[spw_index]  = tmpTRX.transpose(1,2,0)
-        Tau0spec[spw_index] = tmpTAU0
-    #
-#
-'''
 for spw_index in range(spwNum):
     TrxMed = np.median(TrxList[spw_index], axis=1)  # TrxMed[pol, ant]
     for pol_index in range(2):
@@ -284,6 +265,8 @@ for scan_index in range(scanNum):
     scanFlag, DcalFlag = True, True
     sourceName = sourceList[sourceIDscan[scan_index]]
     scanDic[sourceName] = scanDic[sourceName] + [scan_index, 1]
+    SunAngle = SunAngleSourceList[sourceIDscan[scan_index]]
+    if SunAngle < SunAngleTsysLimit: scanFlag = False
     if scan_index > 0:
         for PL in IList: figFL.delaxes(PL)
         for PL in PList: figFL.delaxes(PL)
@@ -305,7 +288,7 @@ for scan_index in range(scanNum):
     PADic[sourceName] = PA.tolist()
     #-------- Plot Frame
     IList, PList = [], []      # XY delay and correlation
-    timeLabel = qa.time('%fs' % np.median(timeStamp), form='ymd')[0]
+    timeLabel = qa.time('%fs' % np.median(timeStamp), form='ymd')[0] + ' SA=%.1f' % (SunAngle) + ' deg.'
     text_src  = ' %02d %010s EL=%4.1f deg' % (scanList[scan_index], sourceName, 180.0* OnEL[scan_index]/pi)
     BPCaledXspec = []
     #-------- Subarray formation
