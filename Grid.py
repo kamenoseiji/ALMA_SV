@@ -13,7 +13,7 @@ SSOscore   = [
 ELshadow = np.pi* 40.0 / 180.0
 SunAngleThresh = 5.0
 #-- Acceptable opacity       B3   B4    B5   B6   B7   B8,  B9, B10
-TauLimit = [0.0,  0.1, 0.1, 0.2, 0.2, 0.25, 0.4, 0.5, 0.5, 0.5, 0.6]
+TauLimit = [0.0,  0.1, 0.1, 0.2, 0.2, 0.25, 0.5, 0.5, 0.5, 0.5, 0.6]
 #-- Source name alias
 sourceDic = {
 'J0006-063':'J0006-0623',
