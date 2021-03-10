@@ -31,7 +31,8 @@ SSOflux0= np.array(SSOflux0).reshape(SSONum, spwNum)     # [SSO, spw]
 uvFlag = np.zeros([SSONum, spwNum, blNum])
 SSOmodelVis, SSOscanID = [], []
 for ssoIndex in range(SSONum):
-    UVlimit = 0.32 / SSOshape[ssoIndex][0]  # Maximum uv distane(lambda) available for the SSO size
+    #UVlimit = 0.32 / SSOshape[ssoIndex][0]  # Maximum uv distane(lambda) available for the SSO size
+    UVlimit = 0.50 / SSOshape[ssoIndex][0]  # Maximum uv distane(lambda) available for the SSO size
     try:
         scanID = list(set( msmd.scansforfield(sourceList[BandSSOList[ssoIndex]]).tolist()) & set(onsourceScans))[0]; SSOscanID.append(scanID)
     except:
