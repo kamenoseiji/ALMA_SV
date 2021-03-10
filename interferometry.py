@@ -1309,6 +1309,7 @@ def delayCalSpec2( Xspec, chRange, sigma ):  # chRange = [startCH:stopCH] specif
 	return delay_ant, delay_err, delayCalXspec
 #
 def BPtable(msfile, spw, BPScan, blMap, blInv, bunchNum=1, FG=np.array([]), TS=np.array([])): 
+    XYamp = 0.0
     blNum = len(blMap); antNum = Bl2Ant(blNum)[0]
     #timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan, -1, False)    # Xspec[pol, ch, bl, time]
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan, -1, True)    # Xspec[pol, ch, bl, time]
@@ -1355,7 +1356,7 @@ def BPtable(msfile, spw, BPScan, blMap, blInv, bunchNum=1, FG=np.array([]), TS=n
         BPCaledXspec = XPspec.transpose(2, 0, 1) /(BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate())
         del XPspec
         BPCaledXYSpec = np.mean(BPCaledXspec[:,1], axis=0) +  np.mean(BPCaledXspec[:,2], axis=0).conjugate()
-        XYdelay, amp = delay_search( BPCaledXYSpec[chRange] )
+        XYdelay, XYamp = delay_search( BPCaledXYSpec[chRange] )
         XYdelay = (float(chNum) / float(len(chRange)))* XYdelay
         BPCaledXYSpec = BPCaledXYSpec / abs(BPCaledXYSpec)
     elif polNum == 2:

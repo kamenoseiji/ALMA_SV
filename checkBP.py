@@ -36,25 +36,28 @@ for bl_index in range(UseBlNum):
 print '  ' + `len(np.where( blInv )[0])` + ' baselines are inverted.'
 #-------- Bandpass Table
 print '---Generating antenna-based bandpass table'
+SideBand = ['LSB', 'USB']
 BPList, XYList, XYdelayList = [], [], []
 spwNum = len(spwList)
 if 'bunchNum' not in locals(): bunchNum = 1
-for spw_index in spwList:
+for spw_index in range(spwNum):
     if 'FGprefix' in locals():  # Flag table
         try:
-            FG = np.load(FGprefix + '-SPW' + `spw_index` + '.FG.npy'); FG = np.min(FG, axis=0)
-            TS = np.load(FGprefix + '-SPW' + `spw_index` + '.TS.npy')
-            BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPscan, blMap, blInv, FG, TS)
+            FG = np.load(FGprefix + '-SPW' + `spwList[spw_index]` + '.FG.npy'); FG = np.min(FG, axis=0)
+            TS = np.load(FGprefix + '-SPW' + `spwList[spw_index]` + '.TS.npy')
+            BP_ant, XY_BP, XYD, Gain = BPtable(msfile, spwList[spw_index], BPscan, blMap, blInv, FG, TS)
         except:
-            BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPscan, blMap, blInv)
+            BP_ant, XY_BP, XYD, Gain = BPtable(msfile, spwList[spw_index], BPscan, blMap, blInv)
         #
     else:
-        BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPscan, blMap, blInv, bunchNum)
+        BP_ant, XY_BP, XYD, Gain = BPtable(msfile, spwList[spw_index], BPscan, blMap, blInv, bunchNum)
     #
     BPList = BPList + [BP_ant]
     XYList = XYList + [XY_BP]
-    XYdelayList = XYdelayList + [XYdelay]
-    print 'SPW%d: [unflagged %d records] XY delay = %f [sample]' % (spw_index, Gain.shape[2], XYdelay)
+    XYdelayList = XYdelayList + [XYD]
+    chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index])
+    BW = chNum* abs(np.median(chWid))    # Bandwidth
+    print 'SPW%2d: [%s] XY delay = %f [ns]' % (spwList[spw_index], SideBand[int(np.sign(np.median(chWid))+1)/2], 0.5* XYD / (BW * 1.0e-9))
 #
 BP_ant = np.array(BPList).transpose(1,0,2,3)
 XYspec = np.array(XYList)
