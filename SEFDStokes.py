@@ -266,10 +266,9 @@ for scan_index in range(scanNum):
     uvMin, uvMax, IMax = min(uvDist[blMap]), max(uvDist[blMap]), max(ScanFlux[scan_index,:,0])
     for spw_index in range(spwNum):
         StokesA_PL, StokesI_PL, StokesP_PL = AList[spw_index], IList[spw_index], PList[spw_index]
-        #if spw_index == 0: StokesI_PL.text(0.0, IMax*1.35, text_src)
-        #if spw_index == spwNum - 1: StokesI_PL.text(0.0, IMax*1.35, timeLabel)
-        if spw_index == 0: StokesA_PL.text(0.0, 1.12*180, text_src)
-        if spw_index == spwNum - 1: StokesA_PL.text(0.0, 1.12*180, timeLabel)
+        if spw_index == 0: StokesA_PL.text(0.0, 1.15*180, text_src)
+        if spw_index == spwNum - 1: StokesA_PL.text(0.0, 1.15*180, timeLabel)
+        StokesA_PL.plot( np.array([0.0, uvMax]), np.array([0.0, 0.0]), '-', color='grey')
         StokesI_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 0], ScanFlux[scan_index, spw_index, 0]+ uvMax* ScanSlope[scan_index, spw_index, 0]]), '-', color=Pcolor[0])
         StokesP_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 1], ScanFlux[scan_index, spw_index, 1]+ uvMax* ScanSlope[scan_index, spw_index, 1]]), '-', color=Pcolor[1])
         StokesP_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 2], ScanFlux[scan_index, spw_index, 2]+ uvMax* ScanSlope[scan_index, spw_index, 2]]), '-', color=Pcolor[2])

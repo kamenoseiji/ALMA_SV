@@ -268,6 +268,7 @@ for scan_index in range(scanNum):
     SunAngle = SunAngleSourceList[sourceIDscan[scan_index]]
     if SunAngle < SunAngleTsysLimit: scanFlag = False
     if scan_index > 0:
+        for PL in AList: figFL.delaxes(PL)
         for PL in IList: figFL.delaxes(PL)
         for PL in PList: figFL.delaxes(PL)
     SSO_flag = False
@@ -287,7 +288,7 @@ for scan_index in range(scanNum):
     PA = (AzEl2PA(AzScan, ElScan) + BandPA[band_index])[flagIndex]; PAnum = len(PA); PS = InvPAVector(PA, np.ones(PAnum))
     PADic[sourceName] = PA.tolist()
     #-------- Plot Frame
-    IList, PList = [], []      # XY delay and correlation
+    AList, IList, PList = [], [], []      # XY delay and correlation
     timeLabel = qa.time('%fs' % np.median(timeStamp), form='ymd')[0] + ' SA=%.1f' % (SunAngle) + ' deg.'
     text_src  = ' %02d %010s EL=%4.1f deg' % (scanList[scan_index], sourceName, 180.0* OnEL[scan_index]/pi)
     BPCaledXspec = []
@@ -334,8 +335,10 @@ for scan_index in range(scanNum):
     text_Stokes = np.repeat('',spwNum).tolist()
     secZ = 1.0 / np.mean(np.sin(ElScan))
     for spw_index in range(spwNum):
-        StokesI_PL = figFL.add_subplot( 2, spwNum, spw_index + 1 )
-        StokesP_PL = figFL.add_subplot( 2, spwNum, spwNum + spw_index + 1 )
+        StokesA_PL = figFL.add_subplot( 3, spwNum, spw_index + 1 )
+        StokesI_PL = figFL.add_subplot( 3, spwNum, spwNum + spw_index + 1 )
+        StokesP_PL = figFL.add_subplot( 3, spwNum, 2* spwNum + spw_index + 1 )
+        AList = AList + [StokesA_PL]
         IList = IList + [StokesI_PL]
         PList = PList + [StokesP_PL]
         #exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) ) / np.mean(np.sin(ElScan)))
@@ -382,6 +385,7 @@ for scan_index in range(scanNum):
         #
         #-------- Plot Stokes visibilities
         for pol_index in range(4): text_Stokes[spw_index] = text_Stokes[spw_index] + ' %7.4f (%.4f) ' % (ScanFlux[scan_index, spw_index, pol_index], ErrFlux[scan_index, spw_index, pol_index])
+        StokesA_PL.plot( uvDist[SAblMap], 180.0* np.angle(Stokes[0])/ pi, '.', label=polLabel[0], color=Pcolor[0])
         StokesI_PL.plot( uvDist[SAblMap], StokesVis[0], '.', label=polLabel[0], color=Pcolor[0])
         StokesP_PL.plot( uvDist[SAblMap], StokesVis[1], '.', label=polLabel[1], color=Pcolor[1])
         StokesP_PL.plot( uvDist[SAblMap], StokesVis[2], '.', label=polLabel[2], color=Pcolor[2])
@@ -390,15 +394,17 @@ for scan_index in range(scanNum):
     #
     uvMin, uvMax, IMax = min(uvDist[SAblMap]), max(uvDist[SAblMap]), max(ScanFlux[scan_index,:,0])
     for spw_index in range(spwNum):
-        StokesI_PL, StokesP_PL = IList[spw_index], PList[spw_index]
-        if spw_index == 0: StokesI_PL.text(0.0, IMax*1.35, text_src)
-        if spw_index == spwNum - 1: StokesI_PL.text(0.0, IMax*1.35, timeLabel)
+        StokesA_PL, StokesI_PL, StokesP_PL = AList[spw_index], IList[spw_index], PList[spw_index]
+        if spw_index == 0: StokesA_PL.text(0.0, 1.15*180, text_src)
+        if spw_index == spwNum - 1: StokesA_PL.text(0.0, 1.15*180, timeLabel)
+        StokesA_PL.plot( np.array([0.0, uvMax]), np.array([0.0, 0.0]), '-', color='grey')
         StokesI_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 0], ScanFlux[scan_index, spw_index, 0]+ uvMax* ScanSlope[scan_index, spw_index, 0]]), '-', color=Pcolor[0])
         StokesP_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 1], ScanFlux[scan_index, spw_index, 1]+ uvMax* ScanSlope[scan_index, spw_index, 1]]), '-', color=Pcolor[1])
         StokesP_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 2], ScanFlux[scan_index, spw_index, 2]+ uvMax* ScanSlope[scan_index, spw_index, 2]]), '-', color=Pcolor[2])
         StokesP_PL.plot( np.array([0.0, uvMax]), np.array([ScanFlux[scan_index, spw_index, 3], ScanFlux[scan_index, spw_index, 3]+ uvMax* ScanSlope[scan_index, spw_index, 3]]), '-', color=Pcolor[3])
+        StokesA_PL.axis([0.0, uvMax, -180, 180])
         StokesI_PL.axis([0.0, uvMax, 0.0, 1.25*IMax]); StokesP_PL.axis([0.0, uvMax, -0.25*IMax, 0.25*IMax])
-        StokesI_PL.text(0.0, 1.26*IMax, 'SPW%2d %5.1f GHz' % (spwList[spw_index], centerFreqList[spw_index]))
+        StokesA_PL.text(0.0, 1.02*180, 'SPW%2d %5.1f GHz' % (spwList[spw_index], centerFreqList[spw_index]))
     #
     StokesI_PL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
     StokesP_PL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
@@ -449,6 +455,7 @@ for scan_index in range(scanNum):
     logfile.write('\n'); print ''
 #
 AmpCalChAvg = AmpCalChAvg[:,:,:,range(timeSum)]
+for PL in AList: figFL.delaxes(PL)
 for PL in IList: figFL.delaxes(PL)
 for PL in PList: figFL.delaxes(PL)
 ingestFile.close()
