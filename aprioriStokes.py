@@ -367,7 +367,7 @@ for scan_index in range(scanNum):
         PtWP_inv = scipy.linalg.inv(P.T.dot(W.dot(P)))
         solution, solerr = PtWP_inv.dot(P.T.dot(weight* StokesVis[0])),  np.sqrt(np.diag(PtWP_inv)) # solution[0]:intercept, solution[1]:slope
         slopeSNR = abs(solution[1]) / abs(solerr[1]) # ; print 'Slope SNR = ' + `slopeSNR`
-        if slopeSNR < 3.0: solution[0], solution[1] = np.percentile(StokesVis[0][visFlag], 75),  0.0
+        if slopeSNR < 2.0: solution[0], solution[1] = np.percentile(StokesVis[0][visFlag], 75),  0.0
         ScanFlux[scan_index, spw_index, 0], ScanSlope[scan_index, spw_index, 0], ErrFlux[scan_index, spw_index, 0] = solution[0], solution[1], solerr[0]
         for pol_index in range(1,4):
             ScanSlope[scan_index, spw_index, pol_index] = ScanSlope[scan_index, spw_index, 0] * np.median(StokesVis[pol_index])/ScanFlux[scan_index, spw_index, 0]

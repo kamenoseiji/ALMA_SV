@@ -225,7 +225,7 @@ for scan_index in range(scanNum):
         P, W = np.c_[np.ones(len(weight)), uvDist[SAblMap]], np.diag(weight)
         PtWP_inv = scipy.linalg.inv(P.T.dot(W.dot(P)))
         solution, solerr = PtWP_inv.dot(P.T.dot(weight* StokesVis[0])),  np.sqrt(np.diag(PtWP_inv)) # solution[0]:intercept, solution[1]:slope
-        if abs(solution[1]) < 3.0* solerr[1]: solution[0], solution[1] = np.median(StokesVis[0][visFlag]), 0.0
+        if abs(solution[1]) < 2.0* solerr[1]: solution[0], solution[1] = np.median(StokesVis[0][visFlag]), 0.0
         ScanFlux[scan_index, spw_index, 0], ScanSlope[scan_index, spw_index, 0], ErrFlux[scan_index, spw_index, 0] = solution[0], solution[1], solerr[0]
         if ScanFlux[scan_index, spw_index, 0] < 0.3: scanDic[sourceName][1] *= 0.0      # Too weak to determine D-term
         for pol_index in range(1,4):
