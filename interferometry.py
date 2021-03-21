@@ -271,8 +271,12 @@ def GetBPcalSPWs(msfile):
     if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_FLUX*").tolist(); bpSPWs.sort()
     if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_BANDPASS*").tolist(); bpSPWs.sort()
     if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_DELAY*").tolist(); bpSPWs.sort()
+    BPspwList = []
+    for spw in bpSPWs:
+        chNum, chWid, freq = GetChNum(msfile, spw)
+        if chNum > 4:   BPspwList = BPspwList + [spw]   # Filter out WVR and CHAVG spectral windows
     msmd.close()
-    return bpSPWs
+    return BPspwList
 #
 def GetBandNames(msfile, atmSPWs=[]):
     if len(atmSPWs) < 1: atmSPWs = GetAtmSPWs(msfile)
