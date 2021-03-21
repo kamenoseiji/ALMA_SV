@@ -278,6 +278,13 @@ def GetBPcalSPWs(msfile):
     msmd.close()
     return BPspwList
 #
+#-------- Get Bandpass Scan
+def GetBPcalScans(msfile):
+    msmd.open(msfile)
+    BPScanList = msmd.scansforintent("CALIBRATE_BANDPASS*").tolist()
+    msmd.close()
+    return BPScanList
+#
 def GetBandNames(msfile, atmSPWs=[]):
     if len(atmSPWs) < 1: atmSPWs = GetAtmSPWs(msfile)
     msmd.open(msfile)
