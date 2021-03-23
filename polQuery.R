@@ -34,7 +34,7 @@ FLDF$timeDiff <- as.numeric(difftime(FLDF$Date, refDate, units='days'))
 IatRef <- QatRef <- UatRef <- numeric(0)
 for(sourceName in srcList){
 	srcDF <- FLDF[((FLDF$Src == sourceName) & (abs(FLDF$timeDiff) < timeWindow)),]
-	if(nrow(srcDF) < 6){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
+	if(nrow(srcDF) < 2){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
 	if(min(abs(srcDF$timeDiff)) > timeWindow){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
 	freqList <- as.numeric(unique(srcDF$Freq))
     for( freq in freqList ){
@@ -42,7 +42,7 @@ for(sourceName in srcList){
     }
 	freqList <- as.numeric(unique(srcDF$Freq))
     freqNum <- length(freqList)
-	if(freqNum < 4){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
+	if(freqNum < 2){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
 	freqList <- freqList[order(freqList)]
 	estI <- errI <- estQ <- errQ <- estU <- errU <- numeric(freqNum)
 	#-------- For each frequency
