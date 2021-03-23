@@ -77,6 +77,7 @@ for band_index in range(NumBands):
         os.system('rm -rf CalQU.data')
         text_sd = R_DIR + 'Rscript %spolQuery.R -D%s -F%f' % (SCR_DIR, qa.time('%fs' % (azelTime[0]), form='ymd')[0], BANDFQ[bandID])
         for source in sourceList: text_sd = text_sd + ' ' + source
+        print text_sd
         os.system(text_sd)
         fp = open('CalQU.data')
         lines = fp.readlines()
