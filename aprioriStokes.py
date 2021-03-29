@@ -55,6 +55,7 @@ for spw_index in range(spwNum):
         TrxFlag[ np.where(Trx2MedianRatio > 4.0)[0].tolist() ] *= 0.0   # Flagged by too-high Trx 
     if np.median(Tau0spec[spw_index][chRange]) < 0.0: TrxFlag *= 0.0    # Negative Tau(zenith)
 #
+TrxFlag[useAnt] *= np.median(np.min(scanFlag, axis=1), axis=(0,2))
 print 'Ant:',
 for ant_index in range(antNum): print antList[ant_index],
 print; print 'givn',
