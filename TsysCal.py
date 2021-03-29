@@ -191,11 +191,11 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
             for ch_index in range(chNum):
                 param = [0.05]
                 #-------- Fit for Tau0 (fixed TantN)
-                fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, np.nanmedian(TskyList[spw_index][ch_index], axis=0), scanWeight / np.var(TskyList[spw_index][ch_index], axis=0) ))
+                fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, np.nanmedian(TskyList[spw_index][ch_index], axis=0), scanWeight / (np.var(TskyList[spw_index][ch_index], axis=0) + 1e-3) ))
                 Tau0Med[ch_index]  = fit[0][0]
             #
             Tau0List  = Tau0List  + [Tau0Med]
-            Tau0Excess[spw_index] = residTskyTransfer0([np.median(Tau0Med)], tempAtm, secZ, np.median(TskyList[spw_index], axis=(0,1)), scanWeight ) / (tempAtm - Tcmb)* np.exp(-np.median(Tau0Med)* secZ) / secZ / scanWeight
+            Tau0Excess[spw_index] = residTskyTransfer0([np.median(Tau0Med)], tempAtm, secZ, np.median(TskyList[spw_index], axis=(0,1)), scanWeight ) / (tempAtm - Tcmb)* np.exp(-np.median(Tau0Med)* secZ) / secZ / (scanWeight + 1e-3)
         #
         #-------- Tau0Excess dependent on secZ 
         for spw_index in range(spwNum):
@@ -229,7 +229,7 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
             scanWeight = scanFlag[spw_index, 0, ant_index] * scanFlag[spw_index, 1, ant_index]
             if len(np.where(scanWeight > 0)[0]) > 1:
                 for ch_index in range(chNum):
-                    fit = scipy.optimize.leastsq(residTskyTransfer2, param, args=(tempAtm, Tau0Med[ch_index], secZ, TskyList[spw_index][ch_index, ant_index], scanWeight / np.var(TskyList[spw_index][ch_index], axis=0)))
+                    fit = scipy.optimize.leastsq(residTskyTransfer2, param, args=(tempAtm, Tau0Med[ch_index], secZ, TskyList[spw_index][ch_index, ant_index], scanWeight / (np.var(TskyList[spw_index][ch_index], axis=0) + 1e-3) ))
                     TantN[ant_index, ch_index]  = fit[0][0]
                 #
             #
@@ -239,10 +239,10 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
         scanWeight = np.sum(scanFlag[spw_index], axis=(0,1))
         for ch_index in range(chNum):
             param = [Tau0Med[ch_index]]
-            fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, TskyResid[:,ch_index], scanWeight / np.var(TskyList[spw_index][ch_index], axis=0)))
+            fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, TskyResid[:,ch_index], scanWeight / (np.var(TskyList[spw_index][ch_index], axis=0) + 1e-3)))
             Tau0Med[ch_index]  = fit[0][0]
         #
-        Tau0Excess[spw_index] = residTskyTransfer0([np.median(Tau0Med)], tempAtm, secZ, np.median(TskyResid, axis=1), scanWeight ) / (tempAtm - Tcmb)* np.exp(-np.median(Tau0Med)* secZ) / secZ / scanWeight
+        Tau0Excess[spw_index] = residTskyTransfer0([np.median(Tau0Med)], tempAtm, secZ, np.median(TskyResid, axis=1), scanWeight ) / (tempAtm - Tcmb)* np.exp(-np.median(Tau0Med)* secZ) / secZ / (scanWeight + 1e-3)
         Tau0List  = Tau0List  + [Tau0Med]
         TantNList = TantNList + [TantN]
         #
