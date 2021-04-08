@@ -45,19 +45,19 @@ for spw_index in range(spwNum):
         try:
             FG = np.load(FGprefix + '-SPW' + `spwList[spw_index]` + '.FG.npy'); FG = np.min(FG, axis=0)
             TS = np.load(FGprefix + '-SPW' + `spwList[spw_index]` + '.TS.npy')
-            BP_ant, XY_BP, XYD, Gain = BPtable(msfile, spwList[spw_index], BPscan, blMap, blInv, FG, TS)
+            BP_ant, XY_BP, XYD, Gain, XYsnr = BPtable(msfile, spwList[spw_index], BPscan, blMap, blInv, FG, TS)
         except:
-            BP_ant, XY_BP, XYD, Gain = BPtable(msfile, spwList[spw_index], BPscan, blMap, blInv)
+            BP_ant, XY_BP, XYD, Gain, XYsnr = BPtable(msfile, spwList[spw_index], BPscan, blMap, blInv)
         #
     else:
-        BP_ant, XY_BP, XYD, Gain = BPtable(msfile, spwList[spw_index], BPscan, blMap, blInv, bunchNum)
+        BP_ant, XY_BP, XYD, Gain, XYsnr = BPtable(msfile, spwList[spw_index], BPscan, blMap, blInv, bunchNum)
     #
     BPList = BPList + [BP_ant]
     XYList = XYList + [XY_BP]
     XYdelayList = XYdelayList + [XYD]
     chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index])
-    BW = chNum* abs(np.median(chWid))    # Bandwidth
-    print 'SPW%2d: [%s] XY delay = %f [ns]' % (spwList[spw_index], SideBand[int(np.sign(np.median(chWid))+1)/2], 0.5* XYD / (BW * 1.0e-9))
+    BW = chNum* np.median(chWid)    # Bandwidth
+    print 'SPW%2d: [%s] XY delay = %+f [ns] : SNR = %f' % (spwList[spw_index], SideBand[int(np.sign(np.median(chWid))+1)/2], 0.5* XYD / (BW * 1.0e-9), XYsnr)
 #
 BP_ant = np.array(BPList).transpose(1,0,2,3)
 XYspec = np.array(XYList)

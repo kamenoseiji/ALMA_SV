@@ -1253,7 +1253,7 @@ def delay_search( spec ):
 	for i in range(5):
 		trial_amp[i] = abs(np.mean(delay_cal(spec, delay + trial_delay[i])))
 	fit = np.polyfit(trial_delay, trial_amp, 2)
-	return delay - fit[1]/(2.0*fit[0]), fit[2] - fit[1]**2/(4*fit[0])	# return delay and amp
+	return fit[1]/(2.0*fit[0]) - delay, 0.5*(fit[2] - fit[1]**2/(4*fit[0]))/np.median(corrAbs)	# return residual delay [sample] and SNR
 #
 def blGain( blSpec ):				# Average in spectral channels
 	return np.mean(blSpec, 0)
@@ -1320,7 +1320,7 @@ def delayCalSpec2( Xspec, chRange, sigma ):  # chRange = [startCH:stopCH] specif
 	return delay_ant, delay_err, delayCalXspec
 #
 def BPtable(msfile, spw, BPScan, blMap, blInv, bunchNum=1, FG=np.array([]), TS=np.array([])): 
-    XYamp = 0.0
+    XYsnr = 0.0
     blNum = len(blMap); antNum = Bl2Ant(blNum)[0]
     #timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan, -1, False)    # Xspec[pol, ch, bl, time]
     timeStamp, Pspec, Xspec = GetVisAllBL(msfile, spw, BPScan, -1, True)    # Xspec[pol, ch, bl, time]
@@ -1367,7 +1367,7 @@ def BPtable(msfile, spw, BPScan, blMap, blInv, bunchNum=1, FG=np.array([]), TS=n
         BPCaledXspec = XPspec.transpose(2, 0, 1) /(BP_ant[ant0][:,polYindex]* BP_ant[ant1][:,polXindex].conjugate())
         del XPspec
         BPCaledXYSpec = np.mean(BPCaledXspec[:,1], axis=0) +  np.mean(BPCaledXspec[:,2], axis=0).conjugate()
-        XYdelay, XYamp = delay_search( BPCaledXYSpec[chRange] )
+        XYdelay, XYsnr = delay_search( BPCaledXYSpec[chRange] )
         XYdelay = (float(chNum) / float(len(chRange)))* XYdelay
         BPCaledXYSpec = BPCaledXYSpec / abs(BPCaledXYSpec)
     elif polNum == 2:
@@ -1419,7 +1419,7 @@ def BPtable(msfile, spw, BPScan, blMap, blInv, bunchNum=1, FG=np.array([]), TS=n
         BPCaledXYSpec = np.ones(chNum, dtype=complex)
         XYdelay = 0.0   # No XY correlations
     #
-    return BP_ant, BPCaledXYSpec, XYdelay, Gain
+    return BP_ant, BPCaledXYSpec, XYdelay, Gain, XYsnr
 #
 def bpCal(spec, BP0, BP1):      # spec[blNum, chNum, timeNum]
     blnum, chNum, timeNum = len(spec), len(spec[0]), len(spec[0,0])
