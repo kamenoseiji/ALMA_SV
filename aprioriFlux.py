@@ -131,7 +131,7 @@ else :
 BPList = []
 print '---Generating antenna-based bandpass table'
 for spw_index in spwList:
-    BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPScan, blMap, blInv)
+    BP_ant, XY_BP, XYdelay, Gain, XYsnr = BPtable(msfile, spw_index, BPScan, blMap, blInv)
     BPList = BPList + [BP_ant]
 #
 if PLOTBP:

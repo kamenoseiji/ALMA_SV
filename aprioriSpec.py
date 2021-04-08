@@ -132,7 +132,7 @@ else :
 BPList = []
 print '---Generating antenna-based bandpass table'
 for spw_index in range(spwNum):
-    BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spwList[spw_index], BPScan, blMap, blInv)
+    BP_ant, XY_BP, XYdelay, Gain, XYsnr = BPtable(msfile, spwList[spw_index], BPScan, blMap, blInv)
     exp_Tau = np.exp(-Tau0spec[spw_index] / np.sin(BPEL))
     atmCorrect = 1.0 / exp_Tau
     TsysBPScan = atmCorrect* (Trxspec[spw_index][Trx2antMap] + Tcmb*exp_Tau + tempAtm* (1.0 - exp_Tau)) # [antMap, pol, ch]

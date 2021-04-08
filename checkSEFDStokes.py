@@ -118,7 +118,7 @@ print '---Generating antenna-based bandpass table'
 BPList = []
 secZ = 1.0 / np.mean(np.sin(BPEL))
 for spw_index in range(spwNum):
-    BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spwList[spw_index], BPScan, blMap, blInv)     # BP_ant[antMap, pol, ch]
+    BP_ant, XY_BP, XYdelay, Gain, XYsnr = BPtable(msfile, spwList[spw_index], BPScan, blMap, blInv)     # BP_ant[antMap, pol, ch]
     BP_ant[:,1] *= XY_BP
     #exp_Tau = np.exp(-Tau0spec[spw_index] / np.sin(BPEL))
     zenithTau = Tau0spec[spw_index] + Tau0Coef[spw_index][0] + Tau0Coef[spw_index][1]*secZ

@@ -157,7 +157,7 @@ if 'BPprefix' in locals():      # Load Bandpass table
 else:
     print '---Generating antenna-based bandpass table'
     for spw_index in spwList:
-        BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPScan, blMap, blInv)
+        BP_ant, XY_BP, XYdelay, Gain, XYxnr = BPtable(msfile, spw_index, BPScan, blMap, blInv)
         BP_ant[:,1] *= XY_BP
         BPList = BPList + [BP_ant]
     #

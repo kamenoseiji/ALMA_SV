@@ -59,7 +59,7 @@ AeNominal = 0.6* 0.25* np.pi* antDia**2      # Nominal Collecting Area
 print '---Generating antenna-based bandpass table'
 BPList = []
 for spw_index in spw:
-    BP_ant, XY_BP, XYdelay, Gain = BPtable(msfile, spw_index, BPScan, blMap, blInv)
+    BP_ant, XY_BP, XYdelay, Gain, XYsnr = BPtable(msfile, spw_index, BPScan, blMap, blInv)
     BP_ant[:,1] *= XY_BP
     BPList = BPList + [BP_ant]
 #
