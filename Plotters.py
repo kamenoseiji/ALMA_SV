@@ -221,7 +221,7 @@ def plotAC(prefix, antList, spwList, freqList, AC):
     return
 #
 #-------- Plot Bandpass
-def plotBP(pp, prefix, antList, spwList, BPscan, BPList, bunchNum=1, plotMax=1.2, plotMarker=[]):
+def plotBP(pp, prefix, antList, spwList, BPscan, BPList, bunchNum=1, plotMax=1.2, plotMarker=[[]]):
     msfile = prefix + '.ms'
     antNum, spwNum = len(antList), len(spwList)
     figAnt = plt.figure(figsize = (11, 8))
@@ -246,7 +246,7 @@ def plotBP(pp, prefix, antList, spwList, BPscan, BPList, bunchNum=1, plotMax=1.2
                 AmpPL.plot(Freq, abs(plotBP), ls='steps-mid', label = 'Pol=' + PolList[pol_index])
                 PhsPL.plot( Freq, np.angle(plotBP), '.', label = 'Pol=' + PolList[pol_index])
             #
-            for spurIndex in range(len(plotMarker)):
+            for spurIndex in range(len(plotMarker[spw_index])):
                 AmpPL.vlines(x=1.0e-9 * plotMarker[spw_index][spurIndex], ymin=0.0, ymax=1.25*plotMax, color='gray') 
             if spw_index == 0: AmpPL.set_title(antList[ant_index])
             AmpPL.axis([np.min(Freq), np.max(Freq), 0.0, 1.25*plotMax])
