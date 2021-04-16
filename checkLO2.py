@@ -4,13 +4,12 @@ from scipy import stats
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ptick
 from matplotlib.backends.backend_pdf import PdfPages
-SCR_DIR = '/home/skameno/ALMA_SV/'
 wd = './'
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'ASDM_XML.py')
 BPPLOT   = True
 #prefix = 'uid___A002_Xe20b32_X6931'
-prefix = 'uid___A002_Xe37224_Xb141'
+#prefix = 'uid___A002_Xe37224_Xb141'
 msfile = prefix + '.ms'
 polName = ['X', 'Y']
 spurLog = open(prefix + '-LO2Spur.log', 'w')
@@ -96,12 +95,12 @@ else:
         for spurRF in spurRFLists[spw_index]:
             spurCH = np.where( abs(Freq - spurRF) < abs(np.median(chWid)))[0].tolist()
             spurBL = range(min(spurCH) - 16, min(spurCH) - 2) + range(max(spurCH) + 2, min(spurCH) + 16)
-            for ant_index in UseAnt:
+            for ant_index in range(UseAntNum):
                 for pol_index in range(2):
                     BPmean, BPsigma = np.mean(abs(BPList[spw_index][ant_index, pol_index][spurBL])), np.std(abs(BPList[spw_index][ant_index, pol_index][spurBL]))
                     SNR =  abs(abs(BPList[spw_index][ant_index, pol_index][spurCH]) - BPmean) / (BPsigma + 1.0e-8)
                     if max(SNR) > 3.0:
-                        text_sd = 'Spur %s SPW=%d POL-%s %.3f GHz (SNR = %.1f)' % (antList[ant_index], spwList[spw_index], polName[pol_index], 1.0e-9* spurRF, max(SNR))
+                        text_sd = 'Spur %s SPW=%d POL-%s %.3f GHz (SNR = %.1f)' % (antList[UseAnt[ant_index]], spwList[spw_index], polName[pol_index], 1.0e-9* spurRF, max(SNR))
                         spurLog.write(text_sd + '\n'); print text_sd
                     #
                 #

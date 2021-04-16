@@ -2,6 +2,16 @@
 #
 import xml.etree.ElementTree as ET
 
+def CheckCorr( ASDM ):
+    Corr_XML = ASDM + '/CorrelatorMode.xml'
+    tree = ET.parse(Corr_XML)
+    root = tree.getroot()
+    for row in root.findall('row'):
+        #---- Check by Correlat name
+        for CorrID in row.findall('correlatorName'): CorrName = CorrID.text
+    #
+    return CorrName
+#
 def BBLOfreq( ASDM ):
     #-------- BB-SPWID connection
     SPW_XML = ASDM + '/' + 'SpectralWindow.xml'
