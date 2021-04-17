@@ -15,6 +15,17 @@ polName = ['X', 'Y']
 spurLog = open(prefix + '-LO2Spur.log', 'w')
 #-------- Get LO1 and LO2 frequencies
 LO1, LO2List = BBLOfreq(prefix)
+BBNum = len(LO2List)
+SpuriousRFLists = []
+#-------- Predicted RF frequencies of spurious signals
+for BBIndex1 in range(BBNum):
+    SpuriousRFList = []
+    for BBIndex2 in list(set(range(BBNum)) - set([BBIndex1])):
+        SpuriousRFList = SpuriousRFList + [ LO1 + LO2List[BBIndex1] - abs(LO2List[BBIndex2] - LO2List[BBIndex1]) ] # for USB
+        SpuriousRFList = SpuriousRFList + [ LO1 - LO2List[BBIndex1] + abs(LO2List[BBIndex2] - LO2List[BBIndex1]) ] # for LSB
+    #
+    SpuriousRFLists = SpuriousRFLists + [SpuriousRFList]
+#
 #-------- Check Bandpass SPWs and scans
 msmd.open(msfile)
 BPScanList = msmd.scansforintent("CALIBRATE_BANDPASS*").tolist()
@@ -23,6 +34,14 @@ if 'spwFlag' in locals():
     flagIndex = indexList(np.array(spwFlag), np.array(BPspwList))
     for index in flagIndex: del BPspwList[index]
 #
+spwNum = len(BPspwList)
+#-------- Check BB for SPW
+BPspwNameList = msmd.namesforspws(BPspwList)
+BBspwList = range(spwNum)
+for spw_index in range(spwNum):
+    BBspwList[spw_index] = int([BBname for BBname in BPspwNameList[spw_index].split('#') if 'BB_' in BBname][0].split('_')[1]) - 1
+#
+#-------- Check antenna List
 antList = GetAntName(msfile)
 antNum = len(antList)
 antDia = np.ones(antNum)
@@ -31,25 +50,14 @@ pPol = [0,1]
 polNum = msmd.ncorrforpol(msmd.polidfordatadesc(BPspwList[0]))
 if polNum == 4: pPol = [0, 3]
 msmd.close()
-spwNum = len(BPspwList)
-#-------- Predicted RF frequencies of spurious signals
-SpuriousRFLists = []
-for spwIndex1 in range(spwNum):
-    SpuriousRFList = []
-    for spwIndex2 in list(set(range(spwNum)) - set([spwIndex1])):
-        SpuriousRFList = SpuriousRFList + [ LO1 + LO2List[spwIndex1] - abs(LO2List[spwIndex2] - LO2List[spwIndex1]) ] # for USB
-        SpuriousRFList = SpuriousRFList + [ LO1 - LO2List[spwIndex1] + abs(LO2List[spwIndex2] - LO2List[spwIndex1]) ] # for LSB
-    #
-    SpuriousRFLists = SpuriousRFLists + [SpuriousRFList]
-#
 #-------- Check frequency range of each SPW
-spurSPWList = []
-spurRFLists = []
+spurSPWList, spurRFLists = [], []
 for spwIndex in range(spwNum):
+    BB_index = BBspwList[spwIndex]
     chNum, chWid, freq = GetChNum(msfile, BPspwList[spwIndex])
     spurFlag = False
     spurRFList = []
-    for SpurRF in SpuriousRFLists[spwIndex]:
+    for SpurRF in SpuriousRFLists[BB_index]:
         if SpurRF > min(freq) and SpurRF < max(freq):
             spurFlag = True
             spurRFList = spurRFList + [SpurRF]

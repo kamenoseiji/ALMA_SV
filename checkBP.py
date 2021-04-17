@@ -59,23 +59,22 @@ for spw_index in range(spwNum):
     BW = chNum* np.median(chWid)    # Bandwidth
     print 'SPW%2d: [%s] XY delay = %+f [ns] : SNR = %f' % (spwList[spw_index], SideBand[int(np.sign(np.median(chWid))+1)/2], 0.5* XYD / (BW * 1.0e-9), XYsnr)
 #
-BP_ant = np.array(BPList).transpose(1,0,2,3)
-XYspec = np.array(XYList)
-XYdelay = np.array(XYdelayList)
-ppolNum = BP_ant.shape[2]
+ppolNum = BPList[0].shape[1]
 PolList = ['X', 'Y']
 #
 #-------- Save CalTables
 np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '.Ant.npy', antList[antMap]) 
 for spw_index in range(spwNum):
-    np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SC' + `BPscan` + '-SPW' + `spwList[spw_index]` + '-BPant.npy', BP_ant[:,spw_index]) 
-    np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SC' + `BPscan` + '-SPW' + `spwList[spw_index]` + '-XYspec.npy', XYspec[spw_index]) 
-    np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SC' + `BPscan` + '-SPW' + `spwList[spw_index]` + '-XYdelay.npy', XYdelay[spw_index]) 
+    np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SC' + `BPscan` + '-SPW' + `spwList[spw_index]` + '-BPant.npy', BPList[spw_index]) 
+    np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SC' + `BPscan` + '-SPW' + `spwList[spw_index]` + '-XYspec.npy', XYList[spw_index]) 
+    np.save(prefix + '-REF' + antList[UseAnt[refantID]] + '-SC' + `BPscan` + '-SPW' + `spwList[spw_index]` + '-XYdelay.npy', XYdelayList[spw_index]) 
 #
 #-------- Plots
 if BPPLOT:
-    pp = PdfPages('XYP_' + prefix + '_REF' + antList[UseAnt[refantID]] + '_Scan' + `BPscan` + '.pdf')
-    plotXYP(pp, prefix, spwList, XYspec, bunchNum) 
+    if ppolNum == 4:
+        pp = PdfPages('XYP_' + prefix + '_REF' + antList[UseAnt[refantID]] + '_Scan' + `BPscan` + '.pdf')
+        plotXYP(pp, prefix, spwList, XYList, bunchNum) 
+    #
     pp = PdfPages('BP_' + prefix + '_REF' + antList[UseAnt[refantID]] + '_Scan' + `BPscan` + '.pdf')
     if 'spurRFLists' in locals():
         plotBP(pp, prefix, antList[antMap], spwList, BPscan, BPList, bunchNum, 1.2, spurRFLists) 
