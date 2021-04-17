@@ -102,7 +102,7 @@ else:
         chNum, chWid, Freq = GetChNum(msfile, spwList[spw_index])
         for spurRF in spurRFLists[spw_index]:
             spurCH = np.where( abs(Freq - spurRF) < abs(np.median(chWid)))[0].tolist()
-            spurBL = range(min(spurCH) - 16, min(spurCH) - 2) + range(max(spurCH) + 2, min(spurCH) + 16)
+            spurBL = range(max(spurCH + [17]) - 17, max(spurCH + [3]) - 3) + range(min(spurCH + [chNum-3]) + 3, min(spurCH + [chNum-16]) + 16)
             for ant_index in range(UseAntNum):
                 for pol_index in range(2):
                     BPmean, BPsigma = np.mean(abs(BPList[spw_index][ant_index, pol_index][spurBL])), np.std(abs(BPList[spw_index][ant_index, pol_index][spurBL]))
