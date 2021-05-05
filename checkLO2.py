@@ -55,6 +55,7 @@ spurSPWList, spurRFLists = [], []
 for spwIndex in range(spwNum):
     BB_index = BBspwList[spwIndex]
     chNum, chWid, freq = GetChNum(msfile, BPspwList[spwIndex])
+    np.save(prefix + '-SPW' + `BPspwList[spwIndex]` + '-Freq.npy', freq)
     spurFlag = False
     spurRFList = []
     for SpurRF in SpuriousRFLists[BB_index]:
@@ -70,6 +71,7 @@ for spwIndex in range(spwNum):
         spurRFLists = spurRFLists + [list(set(spurRFList))]
     #
 #-------- check usable antennas
+'''
 if 'antFlag' not in locals(): antFlag = []
 if len(spurSPWList) == 0:
     print 'No LO2 leakages'
@@ -116,4 +118,5 @@ else:
         #
     #
 #
+'''
 spurLog.close()

@@ -85,7 +85,7 @@ def plotTau0E(prefix, atmTime, spwList, Tau0, Tau0Excess, scanFlag):
 def plotTsys(prefix, antList, spwList, freqList, atmTime, TrxList, TskyList):
     pp = PdfPages('TSYS_' + prefix + '.pdf')
     #-------- Plots for Tsys spectra
-    antNum, spwNum, scanNum  = len(antList), len(spwList), len(atmTime)
+    antNum, spwNum, scanNum, polNum  = len(antList), len(spwList), len(atmTime), TrxList[0].shape[0]
     PolList = ['X', 'Y']
     #-------- Prepare Plots
     figAnt = plt.figure(figsize = (8, 11))
@@ -107,7 +107,7 @@ def plotTsys(prefix, antList, spwList, freqList, atmTime, TrxList, TskyList):
                 currentPL = figAnt.add_subplot(scanNum, spwNum, spwNum* scan_index + spw_index + 1 )
                 TsysPL = TsysPL + [currentPL]
                 timeLabel = qa.time('%fs' % (atmTime[scan_index]), form='fits')[0]
-                for pol_index in range(2):
+                for pol_index in range(polNum):
                     plotTrx  = TrxList[spw_index][pol_index, chRange, ant_index, scan_index]
                     plotTsys = TskyList[spw_index][chRange, ant_index, scan_index] + plotTrx
                     currentPL.plot( freqList[spw_index][chRange], plotTsys, ls='steps-mid', label = 'Tsys Pol '+ PolList[pol_index])

@@ -45,6 +45,7 @@ def scanAtmSpec(msfile, useAnt, scanList, spwList, timeOFF=0, timeON=0, timeAMB=
             chNum = Pspec.shape[1]
             pPol = [0,1]
             if Pspec.shape[0] == 4: pPol = [0,3]
+            if Pspec.shape[0] == 1: pPol = [0]
             for scan_index in range(scanNum):
                 scanID = scanList[scan_index]
                 scanTimeRec = scanTimeList[scan_index]
@@ -81,7 +82,7 @@ def scanAtmSpec(msfile, useAnt, scanList, spwList, timeOFF=0, timeON=0, timeAMB=
 #
 #-------- Log Trx
 def LogTrx(antList, spwList, freqList, scanList, timeRef, Trx, TantN, logFile):
-    antNum, spwNum, scanNum = len(antList), len(spwList), Trx[0].shape[3]
+    antNum, spwNum, scanNum, polNum = len(antList), len(spwList), Trx[0].shape[3], Trx[0].shape[0]
     for scan_index in range(scanNum):
         text_sd =  'Scan %d : %s' % (scanList[scan_index], qa.time('%fs' % (timeRef[scan_index]), form='fits')[0]); logFile.write(text_sd + '\n'); print text_sd
         text_sd = 'Trx  : '
@@ -94,7 +95,7 @@ def LogTrx(antList, spwList, freqList, scanList, timeRef, Trx, TantN, logFile):
         for ant_index in range(antNum):
             text_sd =  antList[ant_index] + ' : '
             for spw_index in range(spwNum):
-                for pol_index in range(2):
+                for pol_index in range(polNum):
                     text_sd = text_sd + '%7.1f K ' % (np.median(Trx[spw_index], axis=1)[pol_index, ant_index, scan_index])
                 text_sd = text_sd + '|'
             logFile.write(text_sd + '\n'); print text_sd
@@ -118,15 +119,15 @@ def LogTrx(antList, spwList, freqList, scanList, timeRef, Trx, TantN, logFile):
 #-------- Trx and Tsky
 def TrxTskySpec(useAnt, tempAmb, tempHot, spwList, scanList, ambSpec, hotSpec, offSpec):
     TrxList, TskyList = [], []
-    useAntNum, spwNum, scanNum =  len(useAnt), len(spwList), len(scanList)
-    scanFlag = np.ones([spwNum, 2, useAntNum, scanNum]) 
+    useAntNum, spwNum, scanNum, polNum =  len(useAnt), len(spwList), len(scanList), ambSpec[0].shape[0]
+    scanFlag = np.ones([spwNum, polNum, useAntNum, scanNum]) 
     for spw_index in range(len(spwList)):
         chNum = ambSpec[spw_index* scanNum].shape[1]
         chRange = range(int(0.05*chNum), int(0.95*chNum)); chOut = sort(list(set(range(chNum)) - set(chRange))).tolist()
         #chRange = range(int(0.02*chNum), int(0.99*chNum)); chOut = sort(list(set(range(chNum)) - set(chRange))).tolist()
-        TrxSpec = -np.ones([2, chNum, useAntNum, scanNum])
-        TskySpec = -np.ones([2, chNum, useAntNum, scanNum])
-        for pol_index in range(2):
+        TrxSpec = -np.ones([polNum, chNum, useAntNum, scanNum])
+        TskySpec = -np.ones([polNum, chNum, useAntNum, scanNum])
+        for pol_index in range(polNum):
             for ant_index in range(useAntNum):
                 for scan_index in range(scanNum):
                     index = (ant_index* spwNum + spw_index)* scanNum + scan_index
