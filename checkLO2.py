@@ -14,8 +14,12 @@ msfile = prefix + '.ms'
 polName = ['X', 'Y']
 spurLog = open(prefix + '-LO2Spur.log', 'w')
 #-------- Get LO1 and LO2 frequencies
-LO1, LO2List = BBLOfreq(prefix)
+LO1, LO2List, SBsign = BBLOfreq(prefix)
 BBNum = len(LO2List)
+text_sd = 'LO1 %.6f GHz' % (LO1* 1.0e-9); spurLog.write(text_sd + '\n')
+for BB_index in range(BBNum):
+    text_sd = 'BB %d %+d %.6f GHz' % (BB_index, SBsign[BB_index], LO2List[BB_index]* 1.0e-9); spurLog.write(text_sd + '\n')
+#
 SpuriousRFLists = []
 #-------- Predicted RF frequencies of spurious signals
 for BBIndex1 in range(BBNum):
@@ -62,7 +66,7 @@ for spwIndex in range(spwNum):
         if SpurRF > min(freq) and SpurRF < max(freq):
             spurFlag = True
             spurRFList = spurRFList + [SpurRF]
-            text_sd = 'SPW %d : BW=%.1f - %.1f : LO2@ %.3f GHz' % (BPspwList[spwIndex], min(freq)*1.0e-9, max(freq)*1.0e-9, SpurRF*1.0e-9)
+            text_sd = 'SPW %d : BB %d : BW=%.1f - %.1f : LO2@ %.3f GHz' % (BPspwList[spwIndex], BB_index, min(freq)*1.0e-9, max(freq)*1.0e-9, SpurRF*1.0e-9)
             spurLog.write(text_sd + '\n'); print text_sd
         #
     #

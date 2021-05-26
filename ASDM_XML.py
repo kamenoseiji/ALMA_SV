@@ -40,6 +40,7 @@ def BBLOfreq( ASDM ):
     tree = ET.parse(RB_XML)
     root = tree.getroot()
     LO2  = np.zeros(spwNum)
+    sideBandSign = [1]* len(UniqBBList)
     for row in root.findall('row'):
         #-------- Avoid WVR and SQLD
         for sideBand in row.findall('receiverSideband'): SBname = sideBand.text
@@ -53,9 +54,12 @@ def BBLOfreq( ASDM ):
                     freqList = freq.text.split()
                     LO1 = float(freqList[2])
                     LO2[BB_index] = float(freqList[3])
+                    for sideBand in row.findall('sidebandLO'):
+                        if sideBand.text.split()[2] == 'LSB': sideBandSign[BB_index] = -1
+                    #
                 #
             #
         #
     #
-    return LO1, LO2.tolist()
+    return LO1, LO2.tolist(), sideBandSign
 #
