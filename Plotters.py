@@ -41,7 +41,7 @@ def plotTauFit(prefix, antList, spwList, secZ, tempAmb, Tau0, TantN, TskyList, s
         chAvgTantN= np.median(TantN[spw_index], axis=1)
         chAvgTau0 = np.median(Tau0[spw_index])
         plotMax = 1.2 * np.max(chAvgTsky)
-        TskyPL = figTauFit.add_subplot(2, spwNum/2, spw_index + 1 )
+        TskyPL = figTauFit.add_subplot(1, spwNum, spw_index + 1 )
         TskyPL.axis([1.0, 2.5, 0.0, plotMax])
         for ant_index in range(antNum):
             rgb = lineCmap(float(ant_index) / antNum )
@@ -73,7 +73,7 @@ def plotTau0E(prefix, atmTime, spwList, Tau0, Tau0Excess, scanFlag):
         Tau0E = np.median(Tau0[spw_index]) + Tau0Excess[spw_index]
         SP = tauSMTH( atmTime-atmTime[0], Tau0E )
         Tau0ESpl = scipy.interpolate.splev(mjdSpl-atmTime[0], SP)
-        TauEPL = figTauE.add_subplot(2, spwNum/2, spw_index + 1 )
+        TauEPL = figTauE.add_subplot(1, spwNum, spw_index + 1 )
         TauEPL.plot( DTSpl, Tau0ESpl, '-')
         TauEPL.scatter( DT, Tau0E, s=10.0* scanFlag[spw_index])
         TauEPL.tick_params(axis='x', labelsize=6)
