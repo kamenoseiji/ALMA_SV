@@ -210,16 +210,16 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
     #
     #-------- Case3: Suffcient SecZ coverage
     for spw_index in range(spwNum):
-        param = [0.05] # Initial parameter [Tau0]
+        param = [0.0, 0.05] # Initial parameter [TantN, Tau0]
         chNum = TskyList[spw_index].shape[0]
-        Tau0, TantN = param[0]* np.ones([useAntNum, chNum]), np.zeros([useAntNum, chNum])
+        Tau0, TantN = param[1]* np.ones([useAntNum, chNum]), np.zeros([useAntNum, chNum])
         #-------- Fit for Tau0 (without TantN)
         for ant_index in range(useAntNum):
             scanWeight = scanFlag[spw_index, 0, ant_index] * scanFlag[spw_index, 1, ant_index]
             if len(np.where(scanWeight > 0)[0]) > 6:    # at least 6 points to fit
                 for ch_index in range(chNum):
-                    fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, TskyList[spw_index][ch_index, ant_index], scanWeight))
-                    Tau0[ant_index, ch_index]  = fit[0][0]
+                    fit = scipy.optimize.leastsq(residTskyTransfer, param, args=(tempAtm, secZ, TskyList[spw_index][ch_index, ant_index], scanWeight))
+                    Tau0[ant_index, ch_index]  = fit[0][1]
                 #
             #
         #
