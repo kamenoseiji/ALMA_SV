@@ -206,7 +206,7 @@ for sso_index in range(SSONum):
     scan_index = indexList(np.array(SSOscanID), np.array(onsourceScans))[sso_index]
     interval, timeStamp = GetTimerecord(msfile, 0, 0, spwList[0], SSOscanID[sso_index]); timeNum = len(timeStamp)
     AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, refantID, AZ, EL)
-    if (not BLCORR) and np.max(ElScan) < 35.0/180.0*pi : continue    # Too low Elevation
+    if (not BLCORR) and np.max(ElScan) < 30.0/180.0*pi : continue    # Too low Elevation
     SAantMap, SAblMap, SAblInv = subArrayIndex(uvFlag[sso_index], refantID) # in Canonical ordering
     if len(SAantMap) < 4: continue #  Too few antennas
     print 'Subarray : ',; print antList[SAantMap]
