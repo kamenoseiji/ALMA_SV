@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as ptick
 import matplotlib.cm as cm
 from matplotlib.backends.backend_pdf import PdfPages
+Tcmb = 2.725
 #
 #-------- Set Color Map
 lineCmap = plt.get_cmap('Set1')
@@ -28,7 +29,7 @@ def plotTauSpec(prefix, spwList, freqList, Tau0spec):
     return
 #
 #-------- Plot Tau fit
-def plotTauFit(prefix, antList, spwList, secZ, tempAmb, Tau0, TantN, TskyList, scanFlag):
+def plotTauFit(prefix, antList, spwList, secZ, tempAtm, Tau0, TantN, TskyList, scanFlag):
     antNum = len(antList)
     spwNum = len(spwList)
     airmass = np.arange( 1.0, 1.25*np.max(secZ), 0.01)
@@ -37,18 +38,17 @@ def plotTauFit(prefix, antList, spwList, secZ, tempAmb, Tau0, TantN, TskyList, s
     figTauFit.text(0.45, 0.05, 'Airmass')
     figTauFit.text(0.03, 0.45, 'Sky Temperature [K]', rotation=90)
     for spw_index in range(spwNum):
-        chAvgTsky = np.median(TskyList[spw_index], axis=0)  # chAvgTsky[ant, scan]
-        chAvgTantN= np.median(TantN[spw_index], axis=1)
+        chAvgTsky = np.median(TskyList[spw_index].transpose(2, 1, 0) - TantN[spw_index], axis=2).T  # chAvgTsky[ant, scan]
         chAvgTau0 = np.median(Tau0[spw_index])
         plotMax = 1.2 * np.max(chAvgTsky)
         TskyPL = figTauFit.add_subplot(1, spwNum, spw_index + 1 )
         TskyPL.axis([1.0, 2.5, 0.0, plotMax])
         for ant_index in range(antNum):
             rgb = lineCmap(float(ant_index) / antNum )
-            TskyPL.plot( airmass, 2.713* np.exp(-chAvgTau0* airmass) + tempAmb[ant_index]* (1.0 - np.exp(-chAvgTau0* airmass)) + chAvgTantN[ant_index], '-', color=rgb, alpha=0.5)
             plotTsky = chAvgTsky[ant_index]
             TskyPL.scatter( secZ, plotTsky, s=10.0* scanFlag[spw_index, ant_index], color=rgb, label = antList[ant_index])
         #
+        TskyPL.plot( airmass, Tcmb* np.exp(-chAvgTau0* airmass) + tempAtm* (1.0 - np.exp(-chAvgTau0* airmass)), '-', color=rgb, alpha=0.5)
         text_sd = 'Tau(zenith)=%6.4f' % (chAvgTau0)
         TskyPL.text(1.01, 0.95* plotMax, text_sd, fontsize='9')
         TskyPL.set_title('SPW ' + `spwList[spw_index]`)

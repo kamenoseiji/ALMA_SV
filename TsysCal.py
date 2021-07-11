@@ -169,6 +169,7 @@ def tauSMTH( timeSample, TauE ):
     return smthTau
 #
 #-------- Zenith opacity fitting
+#Tau0, Tau0Excess, Tau0Coef, TantN = tau0SpecFit(tempAtm, atmsecZ, useAnt, atmspwLists[band_index], TskyList, scanFlag)
 def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
     Tau0List, TantNList, Tau0Coef = [], [], []
     scanNum, useAntNum, spwNum = len(secZ), len(useAnt), len(spwList)
@@ -219,17 +220,18 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
             if len(np.where(scanWeight > 0)[0]) > 6:    # at least 6 points to fit
                 for ch_index in range(chNum):
                     fit = scipy.optimize.leastsq(residTskyTransfer, param, args=(tempAtm, secZ, TskyList[spw_index][ch_index, ant_index], scanWeight))
+                    TantN[ant_index, ch_index] = fit[0][0]
                     Tau0[ant_index, ch_index]  = fit[0][1]
                 #
             #
         #
         Tau0Med = np.median(Tau0, axis=0)   # Tau0 is independent on antenna
         #-------- Fit for TantN (fixed Tau0)
-        param = [0.0]
         for ant_index in range(useAntNum):
             scanWeight = scanFlag[spw_index, 0, ant_index] * scanFlag[spw_index, 1, ant_index]
             if len(np.where(scanWeight > 0)[0]) > 1:
                 for ch_index in range(chNum):
+                    param = Tau0[ant_index, ch_index] 
                     fit = scipy.optimize.leastsq(residTskyTransfer2, param, args=(tempAtm, Tau0Med[ch_index], secZ, TskyList[spw_index][ch_index, ant_index], scanWeight / (np.var(TskyList[spw_index][ch_index], axis=0) + 1e-3) ))
                     TantN[ant_index, ch_index]  = fit[0][0]
                 #
@@ -240,7 +242,7 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
         scanWeight = np.sum(scanFlag[spw_index], axis=(0,1))
         for ch_index in range(chNum):
             param = [Tau0Med[ch_index]]
-            fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, TskyResid[:,ch_index], scanWeight / (np.var(TskyList[spw_index][ch_index], axis=0) + 1e-3)))
+            fit = scipy.optimize.leastsq(residTskyTransfer0, param, args=(tempAtm, secZ, TskyResid[:,ch_index], scanWeight / (np.var(TskyList[spw_index][ch_index], axis=0) + 1e-2)))
             Tau0Med[ch_index]  = fit[0][0]
         #
         Tau0Excess[spw_index] = residTskyTransfer0([np.median(Tau0Med)], tempAtm, secZ, np.median(TskyResid, axis=1), scanWeight ) / (tempAtm - Tcmb)* np.exp(-np.median(Tau0Med)* secZ) / secZ / (scanWeight + 1e-3)
@@ -388,7 +390,7 @@ for band_index in range(NumBands):
     if not 'PLOTFMT' in locals():   PLOTFMT = 'pdf'
     if PLOTTAU:
         plotTauSpec(prefix + '_' + UniqBands[band_index], atmspwLists[band_index], freqList, Tau0) 
-        plotTauFit(prefix + '_' + UniqBands[band_index], antList[useAnt], atmspwLists[band_index], atmsecZ, tempAmb, Tau0, TantN, TskyList, np.min(scanFlag, axis=1)) 
+        plotTauFit(prefix + '_' + UniqBands[band_index], antList[useAnt], atmspwLists[band_index], atmsecZ, tempAtm, Tau0, TantN, TskyList, np.min(scanFlag, axis=1)) 
         if len(atmscanLists[band_index]) > 5: plotTau0E(prefix + '_' + UniqBands[band_index], atmTimeRef, atmspwLists[band_index], Tau0, Tau0Excess, np.min(scanFlag, axis=(1,2))) 
     if PLOTTSYS: plotTsys(prefix + '_' + UniqBands[band_index], antList[useAnt], atmspwLists[band_index], freqList, atmTimeRef, TrxList, TskyList)
 #

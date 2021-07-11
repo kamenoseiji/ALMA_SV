@@ -151,7 +151,6 @@ QCpUS = (StokesEQ[1]* np.cos(2.0* PA) + StokesEQ[2]* np.sin(2.0* PA)) / StokesEQ
 exTauSP = tauSMTH(atmTimeRef, Tau0E)
 ##-------- Equalize aperture efficiency
 for spw_index in range(spwNum):
-    #exp_Tau = np.exp(-(Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) ) / np.mean(np.sin(ElScan)))
     secZ = 1.0 / np.mean(np.sin(ElScan))
     zenithTau = Tau0spec[spw_index] + scipy.interpolate.splev(np.median(timeStamp), exTauSP) + Tau0Coef[spw_index][0] + Tau0Coef[spw_index][1]*secZ
     exp_Tau = np.exp(-zenithTau * secZ )
