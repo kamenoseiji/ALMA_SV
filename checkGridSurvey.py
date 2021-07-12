@@ -105,7 +105,7 @@ for band_index in range(NumBands):
             QCpUS = StokesDic[sourceName][1]*CS + StokesDic[sourceName][2]*SN   # Qcos + Usin
             UCmQS = StokesDic[sourceName][2]*CS - StokesDic[sourceName][1]*SN   # Ucos - Qsin
             if QUMODEL:
-                BPquality = BPquality + [1000.0* abs(UCmQS)* np.sin(OnEL[scan_index]) ] # / np.sqrt(StokesDic[sourceName][0])]
+                BPquality = BPquality + [1000.0* (StokesDic[sourceName][0] - 1.0)* abs(UCmQS)* np.sin(OnEL[scan_index]) ] # / np.sqrt(StokesDic[sourceName][0])]
             else:
                 BPquality = BPquality + [1000.0* abs(UCmQS)* dPA* np.sin(OnEL[scan_index] - 0.5*ELshadow) / np.sqrt(StokesDic[sourceName][0])]
             #
