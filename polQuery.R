@@ -1,6 +1,6 @@
 Arguments <- commandArgs(trailingOnly = T)
 #Arguments <- c('-D2014/01/13/18:04:06', '-F97.500000', 'J2056-4714')
-timeWindow <- 120	# Days
+timeWindow <- 90	# Days
 #-------- Function to return residuals in RM fit
 residEVPA <- function(x, y, w){	# Optimization function for RM fit
 	return(function(para){
@@ -34,7 +34,7 @@ FLDF$timeDiff <- as.numeric(difftime(FLDF$Date, refDate, units='days'))
 IatRef <- QatRef <- UatRef <- numeric(0)
 for(sourceName in srcList){
 	srcDF <- FLDF[((FLDF$Src == sourceName) & (abs(FLDF$timeDiff) < timeWindow)),]
-	if(nrow(srcDF) < 4){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
+	if(nrow(srcDF) < 6){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
 	if(min(abs(srcDF$timeDiff)) > timeWindow){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
 	freqList <- as.numeric(unique(srcDF$Freq))
     for( freq in freqList ){
