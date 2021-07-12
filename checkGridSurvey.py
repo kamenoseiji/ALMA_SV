@@ -60,6 +60,7 @@ for band_index in range(NumBands):
     msmd.open(msfile)
     timeSum = 0
     bandName = UniqBands[band_index]; bandID = int(UniqBands[band_index][3:5])
+    if Tau0Max[band_index] < 0.01: print 'Failed in Trx/Tsys measurements...'; os.system('touch ' + prefix + '-' + UniqBands[band_index] + '-Flux.log'); continue
     if Tau0Max[band_index] > TauLimit[bandID]: print 'Too high optical depth...'; os.system('touch ' + prefix + '-' + UniqBands[band_index] + '-Flux.log'); continue
     ONScan = np.array(bpscanLists[band_index])[indexList( ONScans, np.array(bpscanLists[band_index]))]
     ATMScan= np.array(atmscanLists[band_index])[indexList( ONScans, np.array(atmscanLists[band_index]))]
