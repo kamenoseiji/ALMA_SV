@@ -10,6 +10,7 @@ antList, timeStamp, Gain = np.load(antFile), np.load(timeFile), np.load(GainFile
 for mjdSec in timeStamp.tolist(): DT.append(datetime.datetime.strptime(qa.time('%fs' % (mjdSec), form='fits', prec=9)[0], '%Y-%m-%dT%H:%M:%S.%f'))
 #-------- Plots
 pp = PdfPages('GA_' + GainFile + '.pdf')
+#pp = PdfPages('DP_' + GainFile + '.pdf')
 antNum = len(antList)
 #-------- Prepare Plots
 figAmp, figPhs = plt.figure(figsize = (8, 11)), plt.figure(figsize = (8, 11))
@@ -31,6 +32,7 @@ for ant_index in range(antNum):
     #for pol_index in range(2): AmpPL.plot( timeStamp, abs(Gain[ant_index, pol_index]), ls='steps-mid')
     for pol_index in range(2): AmpPL.plot( DT, abs(Gain[ant_index, pol_index]), '.')
     for pol_index in range(2): PhsPL.plot( DT, np.angle(Gain[ant_index, pol_index])*180.0/pi, '.')
+    #PhsPL.plot( DT, np.angle(Gain[ant_index, 1]* Gain[ant_index, 0].conjugate())*180.0/pi, '.')
     ampMed = np.median(abs(Gain[ant_index]), axis=1)
     AmpPL.yaxis.set_major_formatter(ptick.ScalarFormatter(useMathText=True))
     AmpPL.yaxis.offsetText.set_fontsize(3)

@@ -48,7 +48,7 @@ for band_index in range(NumBands):
 #
 msmd.close()
 #-------- Check source list
-print '---Checking source list'
+print('---Checking source list')
 sourceList, posList = GetSourceList(msfile); sourceList = sourceRename(sourceList); numSource = len(sourceList)
 SSOList   = indexList( np.array(SSOCatalog), np.array(sourceList))
 msmd.open(msfile)
@@ -60,8 +60,8 @@ for band_index in range(NumBands):
     msmd.open(msfile)
     timeSum = 0
     bandName = UniqBands[band_index]; bandID = int(UniqBands[band_index][3:5])
-    if Tau0Max[band_index] < 0.01: print 'Failed in Trx/Tsys measurements...'; os.system('touch ' + prefix + '-' + UniqBands[band_index] + '-Flux.log'); continue
-    if Tau0Max[band_index] > TauLimit[bandID]: print 'Too high optical depth...'; os.system('touch ' + prefix + '-' + UniqBands[band_index] + '-Flux.log'); continue
+    if Tau0Max[band_index] < 0.01: print('Failed in Trx/Tsys measurements...'); os.system('touch ' + prefix + '-' + UniqBands[band_index] + '-Flux.log'); continue
+    if Tau0Max[band_index] > TauLimit[bandID]: print('Too high optical depth...'); os.system('touch ' + prefix + '-' + UniqBands[band_index] + '-Flux.log'); continue
     ONScan = np.array(bpscanLists[band_index])[indexList( ONScans, np.array(bpscanLists[band_index]))]
     ATMScan= np.array(atmscanLists[band_index])[indexList( ONScans, np.array(atmscanLists[band_index]))]
     onsourceScans, atmScans = ONScan.tolist(), ATMScan.tolist()
@@ -78,7 +78,7 @@ for band_index in range(NumBands):
         os.system('rm -rf CalQU.data')
         text_sd = R_DIR + 'Rscript %spolQuery.R -D%s -F%f' % (SCR_DIR, qa.time('%fs' % (azelTime[0]), form='ymd')[0], BANDFQ[bandID])
         for source in sourceList: text_sd = text_sd + ' ' + source
-        print text_sd
+        print(text_sd)
         os.system(text_sd)
         fp = open('CalQU.data')
         lines = fp.readlines()
@@ -116,7 +116,7 @@ for band_index in range(NumBands):
             EQquality = EQquality + [-1]
         #
         if SunAngle < SunAngleThresh: BPquality[scan_index], EQquality[scan_index] = -1, -1
-        print 'Scan%02d : %10s AZ=%6.1f EL=%4.1f SA=%5.1f PA=%6.1f dPA=%5.2f pRes=%5.2f BPquality=%7.4f EQquality=%6.0f' % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0*OnAZ[scan_index]/np.pi, 180.0*OnEL[scan_index]/np.pi, SunAngle, 180.0*OnPA[scan_index]/np.pi, 180.0*dPA/np.pi, UCmQS, BPquality[scan_index], EQquality[scan_index]) 
+        print('Scan%02d : %10s AZ=%6.1f EL=%4.1f SA=%5.1f PA=%6.1f dPA=%5.2f pRes=%5.2f BPquality=%7.4f EQquality=%6.0f') % (onsourceScans[scan_index], sourceList[sourceIDscan[scan_index]], 180.0*OnAZ[scan_index]/np.pi, 180.0*OnEL[scan_index]/np.pi, SunAngle, 180.0*OnPA[scan_index]/np.pi, 180.0*dPA/np.pi, UCmQS, BPquality[scan_index], EQquality[scan_index]) 
         if sourceIDscan[scan_index] in SSOList: FLscore[scan_index] = np.exp(np.log(math.sin(OnEL[scan_index])-0.34))* SSOscore[bandID-1][SSOCatalog.index(sourceList[sourceIDscan[scan_index]])]
     #
     #-------- Select Bandpass Calibrator
@@ -142,8 +142,8 @@ for band_index in range(NumBands):
         #
     #
     EQScan = onsourceScans[EQscanIndex]; EQcal = sourceList[sourceIDscan[EQscanIndex]]; timeLabelEQ = qa.time('%fs' % (refTime[EQscanIndex]), form='ymd')[0]
-    BPcalText = 'Use %s [Scan%d EL=%4.1f deg] %s as Bandpass Calibrator' % (BPcal, BPScan, 180.0* OnEL[onsourceScans.index(BPScan)]/np.pi, timeLabelBP); print BPcalText
-    EQcalText = 'Use %s [Scan%d EL=%4.1f deg] %s as Gain Equalizer' % (EQcal, EQScan, 180.0* OnEL[onsourceScans.index(EQScan)]/np.pi, timeLabelEQ); print EQcalText
+    BPcalText = 'Use %s [Scan%d EL=%4.1f deg] %s as Bandpass Calibrator' % (BPcal, BPScan, 180.0* OnEL[onsourceScans.index(BPScan)]/np.pi, timeLabelBP); print(BPcalText)
+    EQcalText = 'Use %s [Scan%d EL=%4.1f deg] %s as Gain Equalizer' % (EQcal, EQScan, 180.0* OnEL[onsourceScans.index(EQScan)]/np.pi, timeLabelEQ); print(EQcalText)
     #-------- Check Baseline Limit
     if 'uvLimit' in locals(): antFlag = angFlagBL(msfile, uvLimit, bpspwLists[band_index][0], BPScan, antFlag)
     #-------- SSO in observed source list
@@ -163,16 +163,16 @@ for band_index in range(NumBands):
             try:
                 execfile(SCR_DIR + 'aprioriStokes.py')
             except:
-                print '  --A priori flux calibration falied.'
+                print('  --A priori flux calibration falied.')
         else:
             try:
                 execfile(SCR_DIR + 'checkSEFDStokes.py')
             except:
-                print '  --SSO-based flux calibration falied. Switch to a priori (SEFD) calibration.'
+                print('  --SSO-based flux calibration falied. Switch to a priori (SEFD) calibration.')
                 try:
                     execfile(SCR_DIR + 'aprioriStokes.py')
                 except:
-                    print '  --A priori flux calibration falied.'
+                    print('  --A priori flux calibration falied.')
             #
         #
     #
@@ -182,7 +182,7 @@ for band_index in range(NumBands):
             try:
                 execfile(SCR_DIR + 'checkSEFD.py')
             except:
-                print  ' --SSO-based flux calibration falied. Switch to a priori (SEFD) calibration.'
+                print(' --SSO-based flux calibration falied. Switch to a priori (SEFD) calibration.')
                 execfile(SCR_DIR + 'aprioriFlux.py')
         else:
             execfile(SCR_DIR + 'aprioriFlux.py')
