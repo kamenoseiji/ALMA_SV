@@ -35,10 +35,10 @@ IatRef <- QatRef <- UatRef <- numeric(0)
 for(sourceName in srcList){
 	srcDF <- FLDF[((FLDF$Src == sourceName) & (abs(FLDF$timeDiff) < timeWindow)),]
 	if(nrow(srcDF) < 6){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
-	if(min(abs(srcDF$timeDiff)) > timeWindow){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
+	# if(min(abs(srcDF$timeDiff)) > timeWindow){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
 	freqList <- as.numeric(unique(srcDF$Freq))
     for( freq in freqList ){
-        if( nrow(srcDF[srcDF$Freq == freq,]) < 3 ){ srcDF <- srcDF[srcDF$Freq != freq,]}
+        if( nrow(srcDF[srcDF$Freq == freq,]) < 2 ){ srcDF <- srcDF[srcDF$Freq != freq,]}
     }
 	freqList <- as.numeric(unique(srcDF$Freq))
     freqNum <- length(freqList)
