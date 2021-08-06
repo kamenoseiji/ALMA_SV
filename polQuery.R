@@ -43,6 +43,7 @@ for(sourceName in srcList){
 	freqList <- as.numeric(unique(srcDF$Freq))
     freqNum <- length(freqList)
 	if(freqNum < 2){ srcList <- srcList[-which(srcList %in% sourceName)]; next }
+	if(diff(range(freqList)) < 100.0){ srcList <- srcList[-which(srcList %in% sourceName)]; next }  # frequenc range should be > 100 GHz
 	freqList <- freqList[order(freqList)]
 	estI <- errI <- estQ <- errQ <- estU <- errU <- numeric(freqNum)
 	#-------- For each frequency
