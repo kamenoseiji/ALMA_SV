@@ -91,7 +91,9 @@ def LogTrx(antList, spwList, freqList, scanList, timeRef, Trx, TantN, logFile):
         text_sd = ' Pol : '
         for spw_index in range(spwNum): text_sd = text_sd + '     X        Y     |'
         logFile.write(text_sd + '\n'); print text_sd
-        text_sd =  ' ----:---------------------+--------------------+--------------------+--------------------+'; logFile.write(text_sd + '\n'); print text_sd
+        text_sd =  ' ----:-'
+        for spw_index in range(spwNum): text_sd = text_sd + '--------------------+'
+        logFile.write(text_sd + '\n'); print text_sd
         for ant_index in range(antNum):
             text_sd =  antList[ant_index] + ' : '
             for spw_index in range(spwNum):
@@ -101,11 +103,31 @@ def LogTrx(antList, spwList, freqList, scanList, timeRef, Trx, TantN, logFile):
             logFile.write(text_sd + '\n'); print text_sd
         #
     #
+    #-------- Log mean and SD in Trx
+    text_sd = 'mean : '
+    for spw_index in range(spwNum): text_sd = text_sd + '                 SPW%03d  %6.1f GHz |' % (spwList[spw_index], freqList[spw_index])
+    logFile.write(text_sd + '\n'); print text_sd
+    text_sd = ' Pol : '
+    for spw_index in range(spwNum): text_sd = text_sd + ' X mean (   sd)    Y mean (   sd)   |'
+    logFile.write(text_sd + '\n'); print text_sd
+    text_sd =  '-----:-'
+    for spw_index in range(spwNum): text_sd = text_sd + '------------------------------------+'
+    logFile.write(text_sd + '\n'); print text_sd
+    for ant_index in range(antNum):
+        text_sd =  antList[ant_index] + ' : '
+        for spw_index in range(spwNum):
+            for pol_index in range(polNum):
+                text_sd = text_sd + '%7.1f (%5.1f) K ' % (np.median(Trx[spw_index], axis=(1,3))[pol_index, ant_index], np.std(np.median(Trx[spw_index], axis=1)[pol_index, ant_index]) )
+            text_sd = text_sd + '|'
+        logFile.write(text_sd + '\n'); print text_sd
+    #
     #-------- Log TantN
     text_sd = 'TantN: '
     for spw_index in range(spwNum): text_sd = text_sd + ' SPW%03d   |' % (spwList[spw_index])
     logFile.write(text_sd + '\n'); print text_sd
-    text_sd =  ' ----:-----------+----------+----------+----------+'; logFile.write(text_sd + '\n'); print text_sd
+    text_sd =  ' ----:-'
+    for spw_index in range(spwNum): text_sd = text_sd + '----------+'
+    logFile.write(text_sd + '\n'); print text_sd
     for ant_index in range(antNum):
         text_sd =  antList[ant_index] + ' : '
         for spw_index in range(spwNum):
@@ -113,7 +135,9 @@ def LogTrx(antList, spwList, freqList, scanList, timeRef, Trx, TantN, logFile):
             text_sd = text_sd + '|'
         logFile.write(text_sd + '\n'); print text_sd
     #
-    text_sd =  ' ----:-----------+----------+----------+----------+'; logFile.write(text_sd + '\n'); print text_sd
+    text_sd =  ' ----:-'
+    for spw_index in range(spwNum): text_sd = text_sd + '----------+'
+    logFile.write(text_sd + '\n'); print text_sd
     return
 #
 #-------- Trx and Tsky
