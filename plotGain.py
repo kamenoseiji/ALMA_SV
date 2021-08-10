@@ -30,8 +30,8 @@ for ant_index in range(antNum):
     #PhsPL = figAnt.add_subplot( antNum, 1, ant_index + 1 )
     #plotX, plotY = Gain[ant_index, 0], Gain[ant_index, 0]
     #for pol_index in range(2): AmpPL.plot( timeStamp, abs(Gain[ant_index, pol_index]), ls='steps-mid')
-    for pol_index in range(2): AmpPL.plot( DT, abs(Gain[ant_index, pol_index]), '.')
-    for pol_index in range(2): PhsPL.plot( DT, np.angle(Gain[ant_index, pol_index])*180.0/pi, '.')
+    for pol_index in range(polNum): AmpPL.plot( DT, abs(Gain[ant_index, pol_index]), '.')
+    for pol_index in range(polNum): PhsPL.plot( DT, np.angle(Gain[ant_index, pol_index])*180.0/pi, '.')
     #PhsPL.plot( DT, np.angle(Gain[ant_index, 1]* Gain[ant_index, 0].conjugate())*180.0/pi, '.')
     ampMed = np.median(abs(Gain[ant_index]), axis=1)
     AmpPL.yaxis.set_major_formatter(ptick.ScalarFormatter(useMathText=True))
@@ -45,7 +45,8 @@ for ant_index in range(antNum):
     #
     #AmpPL.legend(loc = 'lower left', prop={'size' :7}, numpoints = 1)
     #PhsPL.legend(loc = 'best', prop={'size' :7}, numpoints = 1)
-    text_sd = '%s : Gain(median) = (%.2f%% %.2f%%)' % (antList[ant_index], 100.0* ampMed[0], 100.0* ampMed[1])
+    if polNum == 2: text_sd = '%s : Gain(median) = (%.2f%% %.2f%%)' % (antList[ant_index], 100.0* ampMed[0], 100.0* ampMed[1])
+    else: text_sd = '%s : Gain(median) = (%.2f%%)' % (antList[ant_index], 100.0* ampMed[0])
     AmpPL.text( 0.05, 1.02, text_sd, transform=AmpPL.transAxes, fontsize=5)
     PhsPL.text( 0.05, 1.02, antList[ant_index], transform=PhsPL.transAxes, fontsize=5)
 #

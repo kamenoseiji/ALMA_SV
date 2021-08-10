@@ -74,8 +74,10 @@ for scan in scanList:
         tempGain, tempErr = gainComplexErr(chAvgVis[0, :, time_index]); GainAP0 = GainAP0 + [tempGain]; tempSNR = abs(tempGain) / tempErr
         SNRList = SNRList + [tempSNR]; gainFlag[np.where(tempSNR  < SNR_THRESH)[0]] = 0.0
         #------
-        tempGain, tempErr = gainComplexErr(chAvgVis[1, :, time_index]); GainAP1 = GainAP1 + [tempGain]; tempSNR = abs(tempGain) / tempErr
-        SNRList = SNRList + [tempSNR]; gainFlag[np.where(tempSNR  < SNR_THRESH)[0]] = 0.0
+        if polNum == 2:
+            tempGain, tempErr = gainComplexErr(chAvgVis[1, :, time_index]); GainAP1 = GainAP1 + [tempGain]; tempSNR = abs(tempGain) / tempErr
+            SNRList = SNRList + [tempSNR]; gainFlag[np.where(tempSNR  < SNR_THRESH)[0]] = 0.0
+        #
         flagList = flagList + [gainFlag]
     #
     timeList.extend(timeStamp.tolist())
@@ -84,8 +86,11 @@ for scan in scanList:
 msmd.done(); msmd.close()
 timeNum = len(timeList)
 antFG  = np.array(flagList).T                          # [ant, time]
-antSNR = np.array(SNRList).reshape(timeNum, 2, UseAntNum).transpose(2,1,0)  # [ant, pol, time]
-Gain = np.array([GainAP0, GainAP1]).transpose(2,0,1)    # [ant, pol, time]
+antSNR = np.array(SNRList).reshape(timeNum, polNum, UseAntNum).transpose(2,1,0)  # [ant, pol, time]
+if polNum == 2:
+    Gain = np.array([GainAP0, GainAP1]).transpose(2,0,1)    # [ant, pol, time]
+else:
+    Gain = np.array([GainAP0]).transpose(2,0,1)    # [ant, pol, time]
 np.save(prefix + '.Ant.npy', antList[antMap]) 
 np.save(prefix + '.Field.npy', np.array(fieldList))
 np.save(prefix + '-SPW' + `spw` + '.TS.npy', np.array(timeList)) 

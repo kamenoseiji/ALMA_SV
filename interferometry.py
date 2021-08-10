@@ -2068,7 +2068,8 @@ def ParaPolBL(Xspec, blInv):
     Neg, Pos = (0.0 + np.array(blInv)), (1.0 - np.array(blInv))
     Tspec = Xspec.copy()
     Tspec[0]   = (Xspec[0].transpose(0,2,1)* Pos + Xspec[0].conjugate().transpose(0,2,1)* Neg).transpose(0,2,1) # XX
-    Tspec[1]   = (Xspec[1].transpose(0,2,1)* Pos + Xspec[1].conjugate().transpose(0,2,1)* Neg).transpose(0,2,1) # XY
+    if Tspec.shape[0] == 2:
+        Tspec[1]   = (Xspec[1].transpose(0,2,1)* Pos + Xspec[1].conjugate().transpose(0,2,1)* Neg).transpose(0,2,1) # YY
     return Tspec
 #
 #-------- CrossPol Visibility
