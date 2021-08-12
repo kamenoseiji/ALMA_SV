@@ -262,11 +262,11 @@ figFL.text(0.03, 0.45, 'Stokes visibility amplitude [Jy]', rotation=90)
 AmpCalChAvg = np.zeros([spwNum, 4, UseBlNum, timeSum], dtype=complex)
 timePointer = 0
 for scan_index in range(scanNum):
-    scanFlag, DcalFlag = True, True
+    scanUseFlag, DcalFlag = True, True
     sourceName = sourceList[sourceIDscan[scan_index]]
     scanDic[sourceName] = scanDic[sourceName] + [scan_index, 1]
     SunAngle = SunAngleSourceList[sourceIDscan[scan_index]]
-    if SunAngle < SunAngleTsysLimit: scanFlag = False
+    if SunAngle < SunAngleTsysLimit: scanUseFlag = False
     if scan_index > 0:
         for PL in AList: figFL.delaxes(PL)
         for PL in IList: figFL.delaxes(PL)
@@ -377,8 +377,8 @@ for scan_index in range(scanNum):
             resid = StokesVis[pol_index] - ScanSlope[scan_index, spw_index, pol_index]* uvDist[SAblMap] - solution[0]; ErrFlux[scan_index, spw_index, pol_index] = np.sqrt(weight.dot(resid**2)/np.sum(weight))
         #
         #-------- Check SNR of Stokes I
-        #if np.max(ErrFlux[scan_index, spw_index]) > 0.2: DcalFlag = False; scanFlag = False
-        if ScanFlux[scan_index, spw_index, 0] < 3.0* ErrFlux[scan_index, spw_index, 0]: DcalFlag = False; scanFlag = False
+        #if np.max(ErrFlux[scan_index, spw_index]) > 0.2: DcalFlag = False; scanUseFlag = False
+        if ScanFlux[scan_index, spw_index, 0] < 3.0* ErrFlux[scan_index, spw_index, 0]: DcalFlag = False; scanUseFlag = False
         if DcalFlag :
             AmpCalChAvg[spw_index][:,:,timePointer:timePointer+timeNum] = np.mean(AmpCalVis, axis=2).transpose(1,0,2)
         else:
@@ -426,7 +426,7 @@ for scan_index in range(scanNum):
         waveLength = 299.792458/meanFreq    # wavelength in mm
         text_ingest = '%10s, NE, NE, NE, NE, %.2fE+09, %6.3f, %6.4f, %6.3f, %6.4f, %5.1f, %5.1f, NE, NE, %s, %s, %s\n' % (sourceName, meanFreq, pflux[0], np.sqrt(0.0004*pflux[0]**2 + pfluxerr[0]**2), np.sqrt(pflux[1]**2 + pflux[2]**2)/pflux[0], np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/pflux[0], np.arctan2(pflux[2],pflux[1])*90.0/pi, np.sqrt(pfluxerr[1]**2 + pfluxerr[2]**2)/np.sqrt(pflux[1]**2 + pflux[2]**2)*90.0/pi, timeLabel.replace('/','-'), fluxCalText, prefix)
     #
-    if scanFlag:
+    if scanUseFlag:
         logfile.write(text_src + ' ' + timeLabel + '\n'); print text_src + ' ' + timeLabel
         text_sd = ' SPW  Frequency     I                 Q                 U                 V                %Pol     EVPA '; logfile.write(text_sd + '\n'); print text_sd
         text_sd = ' --------------------------------------------------------------------------------------------------------'; logfile.write(text_sd + '\n'); print text_sd

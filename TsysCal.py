@@ -380,7 +380,7 @@ for band_index in range(NumBands):
     AtmEL = np.ones([useAntNum, atmscanNum])
     for ant_index in range(useAntNum):
         azelTime_index = np.where( AntID == useAnt[ant_index] )[0].tolist()
-        if len(azelTime_index) == 0: azelTime_index = np.where( AntID == 0 )[0].tolist()
+        if len(azelTime_index) == 0: azelTime_index = np.where( AntID == useAnt[ant_index + 1] )[0].tolist()
         for scan_index in range(atmscanNum): AtmEL[ant_index, scan_index] = EL[azelTime_index[argmin(abs(azelTime[azelTime_index] - atmTimeRef[scan_index]))]]
     #
     atmsecZ  = 1.0 / np.sin( np.median(AtmEL, axis=0) )

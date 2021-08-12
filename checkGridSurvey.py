@@ -95,7 +95,10 @@ for band_index in range(NumBands):
         SunAngle = SunAngleSourceList[sourceID]
         interval, timeStamp = GetTimerecord(msfile, 0, 0, bpspwLists[band_index][0], onsourceScans[scan_index])
         timeSum += len(timeStamp)
-        AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, 0, AZ, EL)
+        try:
+            AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, 0, AZ, EL)
+        except:
+            AzScan, ElScan = AzElMatch(timeStamp, azelTime, AntID, 1, AZ, EL)
         PA = AzEl2PA(AzScan, ElScan) + BandPA[band_index]; dPA = np.std(np.sin(PA)) #dPA = abs(np.sin(max(PA) - min(PA)))
         OnAZ.append(np.median(AzScan)); OnEL.append(np.median(ElScan)); OnPA.append(np.median(PA))
         refTime = refTime + [np.median(timeStamp)]
@@ -187,10 +190,10 @@ for band_index in range(NumBands):
         else:
             execfile(SCR_DIR + 'aprioriFlux.py')
     #
-#
+#---- end of band loop
 del msfile, UniqBands, useAnt, atmspwLists, atmSPWs
 if 'spwFlag' in locals(): del spwFlag
-if 'antFlag' in locals(): del antFlag
-if 'flagAnt' in locals(): del flagAnt
 if 'BPScans' in locals(): del BPScans
 if 'EQScans' in locals(): del EQScans
+if 'antFlag' in locals(): del antFlag
+if 'flagAnt' in locals(): del flagAnt
