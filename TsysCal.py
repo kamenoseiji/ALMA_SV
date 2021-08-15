@@ -208,7 +208,7 @@ def tau0SpecFit(tempAtm, secZ, useAnt, spwList, TskyList, scanFlag):
         return Tau0List, Tau0Excess, Tau0Coef, TantNList
     #    
     #-------- Case2: Multiple atmCal scans, but insuffcient SecZ coverage
-    if (np.max(secZ) - np.min(secZ)) < 0.5:
+    if np.std(secZ) < 0.7:
         for spw_index in range(spwNum):
             scanWeight = np.sum(scanFlag[spw_index], axis=(0,1))
             chNum = TskyList[spw_index].shape[0]

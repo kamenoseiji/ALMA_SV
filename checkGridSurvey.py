@@ -161,7 +161,7 @@ for band_index in range(NumBands):
     if polNum == 4:
         pPol, cPol = [0,3], [1,2];  ppolNum, cpolNum = len(pPol), len(cPol)
         #execfile(SCR_DIR + 'checkSEFDStokes.py')
-        #execfile(SCR_DIR + 'aprioriStokes.py')
+        execfile(SCR_DIR + 'aprioriStokes.py')
         if Apriori:
             try:
                 execfile(SCR_DIR + 'aprioriStokes.py')
