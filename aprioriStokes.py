@@ -324,6 +324,13 @@ for scan_index in range(scanNum):
     else:
         GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
     #
+    if np.count_nonzero(np.isnan(GainP)) > 0:
+        print('Error in phase-cal solution')
+        ErrFlux[scan_index,:,:] = 1.0
+        DcalFlag = False; scanUseFlag = False
+        scanDic[sourceName][1] *= 0
+        continue
+    #
     pCalVis = (BPCaledXspec.transpose(0,2,1,3,4) / (GainP[polYindex][:,SAant0]* GainP[polXindex][:,SAant1].conjugate()))[:,chRange]
     #-------- XY phase spectra
     for spw_index in range(spwNum):
