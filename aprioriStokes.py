@@ -332,6 +332,7 @@ for scan_index in range(scanNum):
         continue
     #
     pCalVis = (BPCaledXspec.transpose(0,2,1,3,4) / (GainP[polYindex][:,SAant0]* GainP[polXindex][:,SAant1].conjugate()))[:,chRange]
+	print 'Phase RMS = %f deg' % (np.std(np.angle(pCalVis)))
     #-------- XY phase spectra
     for spw_index in range(spwNum):
         delayFact = (chNum + 0.0)/len(chRange)
