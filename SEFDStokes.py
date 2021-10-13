@@ -170,7 +170,24 @@ for scan_index in range(scanNum):
     chAvgVis = np.mean(BPCaledXspec[:, :, chRange], axis=(0,2))
     if SSO_flag: chAvgVis =(np.mean(BPCaledXspec[:,:, chRange], axis=(0,2)).transpose(0,2,1) / SSOmodelVis[SSO_ID, spw_index, SAblMap]).transpose(0,2,1)
     GainP = np.array([np.apply_along_axis(clphase_solve, 0, chAvgVis[0]), np.apply_along_axis(clphase_solve, 0, chAvgVis[3])])
+    if np.count_nonzero(np.isnan(GainP)) > 0:
+        print('Error in phase-cal solution')
+        ErrFlux[scan_index,:,:] = 1.0
+        DcalFlag = False; scanUseFlag = False
+        scanDic[sourceName][1] *= 0
+        continue
+    #
     pCalVis = (BPCaledXspec.transpose(0,2,1,3,4) / (GainP[polYindex][:,ant0[0:SAblNum]]* GainP[polXindex][:,ant1[0:SAblNum]].conjugate()))[:,chRange]
+    phaseFlagCount = 0
+    for spw_index in range(spwNum):
+        if np.std(np.angle(np.mean( pCalVis[spw_index][:,(0,3)], axis=(0,1,3)))) > 1.2: phaseFlagCount += 1  # phase rms > 1 rad
+        # print 'Phase RMS = %f : Ecc=%d' % (np.std(np.angle( np.mean( pCalVis[spw_index][:,(0,3)], axis=(0,1,3)))), phaseFlagCount)
+    #
+    if phaseFlagCount > 2:
+        ErrFlux[scan_index,:,:] = 1.0
+        DcalFlag = False; scanUseFlag = False
+        scanDic[sourceName][1] *= 0
+    #
     #-------- XY phase spectra
     for spw_index in range(spwNum):
         delayFact = (chNum + 0.0)/len(chRange)

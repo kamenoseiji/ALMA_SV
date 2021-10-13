@@ -334,14 +334,13 @@ for scan_index in range(scanNum):
     pCalVis = (BPCaledXspec.transpose(0,2,1,3,4) / (GainP[polYindex][:,SAant0]* GainP[polXindex][:,SAant1].conjugate()))[:,chRange]
     phaseFlagCount = 0
     for spw_index in range(spwNum):
-        if np.std(np.angle( np.mean( pCalVis[spw_index][:,(0,3)], axis=(0,1,3)))) > 1.0: phaseFlagCount ++;	# phase rms > 1 rad
-        print 'Phase RMS = %f deg' % (RADDEG* np.std(np.angle( np.mean( pCalVis[spw_index][:,(0,3)], axis=(0,1,3)))))
+        if np.std(np.angle(np.mean( pCalVis[spw_index][:,(0,3)], axis=(0,1,3)))) > 1.2: phaseFlagCount += 1  # phase rms > 1 rad
+        # print 'Phase RMS = %f : Ecc=%d' % (np.std(np.angle( np.mean( pCalVis[spw_index][:,(0,3)], axis=(0,1,3)))), phaseFlagCount)
     #
     if phaseFlagCount > 2: 
         ErrFlux[scan_index,:,:] = 1.0
         DcalFlag = False; scanUseFlag = False
         scanDic[sourceName][1] *= 0
-        continue
     #
     #-------- XY phase spectra
     for spw_index in range(spwNum):
