@@ -3,43 +3,27 @@ import analysisUtils as au
 execfile(SCR_DIR + 'interferometry.py')
 execfile(SCR_DIR + 'Grid.py')
 msfile = wd + prefix + '.ms'
-execfile(SCR_DIR + 'TsysCal.py')
-class END(Exception):
-    pass
-#
-#-------- Get Bandpass SPWs
-def GetBPcalSPWs(msfile):
-    msmd.open(msfile)
-    bpSPWs  = msmd.spwsforintent("CALIBRATE_BANDPASS*").tolist(); bpSPWs.sort()
-    if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_POLARIZATION*").tolist(); bpSPWs.sort()
-    if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_FLUX*").tolist(); bpSPWs.sort()
-    if len(bpSPWs) == 0: bpSPWs  = msmd.spwsforintent("CALIBRATE_DELAY*").tolist(); bpSPWs.sort()
-    msmd.close()
-    return bpSPWs
-#
 #-------- Check Antenna List
 antList = GetAntName(msfile)
 antNum = len(antList)
 blNum = antNum* (antNum - 1) / 2
 #-------- Check SPWs of atmCal
-print '---Checking spectral windows with atmCal for ' + prefix
-atmSPWs = GetAtmSPWs(msfile)
-bpSPWs  = GetBPcalSPWs(msfile)
+print '---Checking spectral windows for ' + prefix
+bpSPWs = GetBPcalSPWs(msfile)
 msmd.open(msfile)
-atmspwNames, bpspwNames = msmd.namesforspws(atmSPWs), msmd.namesforspws(bpSPWs)
-bpSPWs = np.array(bpSPWs)[indexList(np.array(atmspwNames), np.array(bpspwNames))].tolist(); bpspwNames = msmd.namesforspws(bpSPWs)
-atmBandNames, atmPattern = [], r'RB_..'
-for spwName in atmspwNames : atmBandNames = atmBandNames + re.findall(atmPattern, spwName)
-UniqBands = unique(atmBandNames).tolist(); NumBands = len(UniqBands)
-atmspwLists, bpspwLists, atmscanLists, bpscanLists, BandPA = [], [], [], [], []
+bpspwNames = msmd.namesforspws(bpSPWs)
+bandNames = []
+bandNamePattern = r'RB_..'
+for spwName in bpspwNames :
+    bandNames = bandNames + re.findall(bandNamePattern, spwName)
+UniqBands = unique(bandNames).tolist(); NumBands = len(UniqBands)
+bpspwLists, bpscanLists, BandPA = [], [], []
 for band_index in range(NumBands):
     BandPA = BandPA + [(BANDPA[int(UniqBands[band_index][3:5])] + 90.0)*pi/180.0]
-    atmspwLists = atmspwLists + [np.array(atmSPWs)[indexList(np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()]
-    bpspwLists  = bpspwLists  + [np.array(bpSPWs)[indexList( np.array([UniqBands[band_index]]), np.array(atmBandNames))].tolist()]
-    atmscanLists= atmscanLists+ [msmd.scansforspw(atmspwLists[band_index][0]).tolist()]
+    bpspwLists  = bpspwLists  + [np.array(bpSPWs)[indexList( np.array([UniqBands[band_index]]), np.array(bandNames))].tolist()]
     bpscanLists = bpscanLists + [msmd.scansforspw(bpspwLists[band_index][0]).tolist()]
     print ' ',
-    print UniqBands[band_index] + ': atmSPW=' + `atmspwLists[band_index]` + ' bpSPW=' + `bpspwLists[band_index]`
+    print UniqBands[band_index] + ': bpSPW=' + `bpspwLists[band_index]`
 #
 #-------- Check source list
 print '---Checking source list'
@@ -53,9 +37,8 @@ for band_index in range(NumBands):
     msmd.open(msfile)
     bandName = UniqBands[band_index]; bandID = int(UniqBands[band_index][3:5])
     ONScan = np.array(bpscanLists[band_index])[indexList( ONScans, np.array(bpscanLists[band_index]))]
-    ATMScan= np.array(atmscanLists[band_index])[indexList( ONScans, np.array(atmscanLists[band_index]))]
-    onsourceScans, atmScans = ONScan.tolist(), ATMScan.tolist()
-    scanNum, atmscanNum = len(onsourceScans), len(atmScans)
+    onsourceScans = ONScan.tolist()
+    scanNum = len(onsourceScans)
     SSOScanIndex = []
     StokesDic = dict(zip(sourceList, [[]]*numSource))   # Stokes parameters for each source
     #-------- Check AZEL
@@ -132,7 +115,6 @@ for band_index in range(NumBands):
     BandSSOList = list( set(SSOList) & set(sourceIDscan) )
     if len(BandSSOList) == 0: Apriori = True
     #-------- Polarization setup
-    atmspw = atmspwLists[band_index]; spwNum = len(atmspw)
     scnspw = bpspwLists[band_index]; scnspwNum = len(scnspw)
     polNum = msmd.ncorrforpol(msmd.polidfordatadesc(scnspw[0]))
     PolList = ['X', 'Y']
