@@ -178,13 +178,14 @@ def TrxTskySpec(useAnt, tempAmb, tempHot, spwList, scanList, ambSpec, hotSpec, o
 #-------- Smooth time-variable Tau
 def tauSMTH( timeSample, TauE ):
     if len(timeSample) > 5:
-        SplineWeight = np.ones(len(timeSample) + 4)
-        flagIndex = (np.where(abs(TauE - np.median(TauE))/np.std(TauE) > 3.0)[0] + 2).tolist()
-        SplineWeight[flagIndex] = 0.01
-        tempTime = np.append([timeSample[0]-500.0, timeSample[0]-300.0], np.append(timeSample, [timeSample[-1]+300.0, timeSample[-1]+500.0]))
-        tempTauE = np.append([TauE[0], TauE[0]], np.append(TauE, [TauE[-1], TauE[-1]]))
-        #smthTau = scipy.interpolate.splrep(tempTime, tempTauE, k=3, w=SplineWeight, t=tempTime[range(2, len(tempTime)-2, 3)] - 60.0 )
-        smthTau = scipy.interpolate.splrep(tempTime, tempTauE, k=3, w=SplineWeight, t=tempTime[range(1, len(tempTime), 2)] - 60.0 )
+        timeInterval = np.median(np.diff(timeSample))
+        sdTauE = np.std(TauE)
+        tempTime = np.append([timeSample[0] - 2.0* timeInterval, timeSample[0] - timeInterval], np.append(timeSample, [timeSample[-1] + timeInterval,  timeSample[-1] + 2.0* timeInterval]))
+        tempTauE = np.append([np.median(TauE), np.median(TauE)], np.append(TauE, [np.median(TauE), np.median(TauE)]))
+        SplineWeight = 1.0 / (abs(tempTauE - np.median(TauE)) + 0.01* sdTauE)
+        flagIndex = (np.where(abs(TauE - np.median(TauE))/sdTauE > 1.0)[0]).tolist()
+        SplineWeight[flagIndex] *= 0.01
+        smthTau = scipy.interpolate.splrep(tempTime, tempTauE, k=3, w=SplineWeight, s=0.2* sdTauE, t=tempTime[range(1, len(tempTime), 3)] - 0.5* timeInterval )
     else:
         tempTime = np.arange(np.min(timeSample) - 3600.0,  np.max(timeSample) + 3600.0, 300.0)
         tempTauE = np.repeat(np.median(TauE), len(tempTime))
